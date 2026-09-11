@@ -40,5 +40,5 @@ All responses: `{"ok": true, "data": ...}` or `{"ok": false, "error": {"code", "
 
 Send `Authorization: Bearer <token>` on every call except login.
 
-## Tests
+## Tests 
 Tagged `ff`; Odoo.sh runs them on every build. Locally: `odoo-bin -d test -i ff_mobile_api --test-tags ff --stop-after-init`.
