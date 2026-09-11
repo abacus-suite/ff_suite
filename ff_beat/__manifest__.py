@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Routes (Beats / Patches)',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.1.1',
     'category': 'Human Resources/Field Force',
     'summary': 'Route types per department (beat, patch...), routes by district, assigned routes, daily plans',
     'author': 'Field Force Suite',
