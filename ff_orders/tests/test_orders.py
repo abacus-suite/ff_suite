@@ -11,6 +11,7 @@ class TestFieldOrders(TransactionCase):
         cls.employee = cls.env['hr.employee'].create({'name': 'Order Officer', 'tz': 'UTC'})
         cls.client = cls.env['res.partner'].create({
             'name': 'Order Client', 'ff_is_client': True, 'partner_latitude': 10.0, 'partner_longitude': 76.0,
+            'ff_category_id': cls.env.ref('ff_clients.contact_category_customer').id,
         })
         cls.product = cls.env['product.product'].create({
             'name': 'Lychee Rose', 'list_price': 100.0, 'sale_ok': True, 'ff_sku_code': 'LR',
@@ -35,6 +36,11 @@ class TestFieldOrders(TransactionCase):
         with self.assertRaises(UserError):
             self.Order.ff_create_from_app(self.employee, self.client,
                                           {'lines': [{'product_id': self.hidden.id, 'qty': 1}]})
+        self.client.ff_category_id = self.env.ref('ff_clients.contact_category_lead')  # leads: no orders
+        with self.assertRaises(UserError):
+            self.Order.ff_create_from_app(self.employee, self.client,
+                                          {'lines': [{'product_id': self.product.id, 'qty': 1}]})
+        self.client.ff_category_id = self.env.ref('ff_clients.contact_category_customer')
         self.client.ff_approval_state = 'pending'
         with self.assertRaises(UserError):
             self.Order.ff_create_from_app(self.employee, self.client,

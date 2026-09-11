@@ -1,14 +1,18 @@
 from odoo import api, fields, models
+from odoo.exceptions import ValidationError
 
 
 class FfBeatPlan(models.Model):
     _name = 'ff.beat.plan'
-    _description = 'Daily Beat Plan'
+    _description = 'Daily Route Plan'
     _order = 'date desc, employee_id'
 
     employee_id = fields.Many2one('hr.employee', required=True, index=True, ondelete='cascade')
     team_id = fields.Many2one(related='employee_id.ff_team_id', store=True)
-    beat_id = fields.Many2one('ff.beat', required=True, ondelete='restrict')
+    department_id = fields.Many2one(related='employee_id.department_id', store=True)
+    beat_id = fields.Many2one('ff.beat', string='Route', required=True, ondelete='restrict')
+    route_type_id = fields.Many2one(related='beat_id.route_type_id', store=True)
+    district_id = fields.Many2one(related='beat_id.district_id', store=True)
     date = fields.Date(required=True, index=True, default=fields.Date.context_today)
     visit_ids = fields.One2many('ff.visit', 'beat_plan_id', string='Visits')
 
@@ -29,12 +33,21 @@ class FfBeatPlan(models.Model):
         ('missed', 'Missed'),
     ], compute='_compute_status')
 
-    _employee_date_uniq = models.Constraint('UNIQUE(employee_id, date)', 'An employee has one beat plan per day.')
+    _employee_date_uniq = models.Constraint('UNIQUE(employee_id, date)', 'An employee has one route plan per day.')
+
+    @api.constrains('employee_id', 'beat_id')
+    def _check_assigned_route(self):
+        for plan in self:
+            routes = plan.employee_id.sudo().ff_route_ids
+            if routes and plan.beat_id not in routes:
+                raise ValidationError(self.env._(
+                    '%(route)s is not assigned to %(employee)s. Add it to the employee\'s Assigned Routes first.',
+                    route=plan.beat_id.display_name, employee=plan.employee_id.name))
 
     @api.depends('employee_id', 'beat_id', 'date')
     def _compute_display_name(self):
         for plan in self:
-            plan.display_name = '%s - %s (%s)' % (plan.employee_id.name or '', plan.beat_id.name or '', plan.date or '')
+            plan.display_name = '%s - %s (%s)' % (plan.employee_id.name or '', plan.beat_id.display_name or '', plan.date or '')
 
     @api.depends('beat_id.line_ids.partner_id', 'visit_ids.state', 'visit_ids.partner_id')
     def _compute_stats(self):

@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_allowance_claim_view_list" model="ir.ui.view">
+        <field name="name">ff.allowance.claim.list</field>
+        <field name="model">ff.allowance.claim</field>
+        <field name="arch" type="xml">
+            <list create="0" decoration-info="state == 'submitted'" decoration-muted="state == 'rejected'">
+                <field name="date"/>
+                <field name="employee_id"/>
+                <field name="department_id" optional="show"/>
+                <field name="basis" optional="show"/>
+                <field name="visit_count" optional="show"/>
+                <field name="distance_km" sum="Total km"/>
+                <field name="rate_per_km" optional="hide"/>
+                <field name="amount" sum="Total"/>
+                <field name="estimated" optional="hide"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'submitted'"
+                       decoration-success="state == 'approved'"
+                       decoration-danger="state == 'rejected'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_allowance_claim_view_form" model="ir.ui.view">
+        <field name="name">ff.allowance.claim.form</field>
+        <field name="model">ff.allowance.claim</field>
+        <field name="arch" type="xml">
+            <form create="0">
+                <header>
+                    <button name="action_recompute" type="object" string="Recalculate" invisible="state != 'draft'"/>
+                    <button name="action_submit" type="object" string="Submit" class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_approve" type="object" string="Approve" class="btn-primary"
+                            invisible="state not in ('draft', 'submitted')" groups="ff_base.group_ff_manager"/>
+                    <button name="action_reject" type="object" string="Reject"
+                            invisible="state not in ('draft', 'submitted')" groups="ff_base.group_ff_manager"/>
+                    <button name="action_reset_draft" type="object" string="Reset to Draft"
+                            invisible="state != 'rejected'" groups="ff_base.group_ff_manager"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,approved"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="employee_id"/>
+                            <field name="date"/>
+                            <field name="policy_id"/>
+                            <field name="basis"/>
+                            <field name="vehicle_type"/>
+                        </group>
+                        <group>
+                            <field name="visit_count"/>
+                            <field name="distance_km"/>
+                            <field name="rate_per_km" invisible="basis == 'fixed'"/>
+                            <field name="amount"/>
+                            <field name="estimated" invisible="not estimated"/>
+                            <field name="approver_id" invisible="not approver_id"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <field name="line_ids">
+                        <list>
+                            <field name="name"/>
+                            <field name="distance_km" sum="km"/>
+                            <field name="estimated"/>
+                        </list>
+                    </field>
+                    <field name="note" placeholder="Remarks..."/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_allowance_claim_view_pivot" model="ir.ui.view">
+        <field name="name">ff.allowance.claim.pivot</field>
+        <field name="model">ff.allowance.claim</field>
+        <field name="arch" type="xml">
+            <pivot string="Travel Allowance">
+                <field name="employee_id" type="row"/>
+                <field name="date" interval="month" type="col"/>
+                <field name="distance_km" type="measure"/>
+                <field name="amount" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="ff_allowance_claim_view_search" model="ir.ui.view">
+        <field name="name">ff.allowance.claim.search</field>
+        <field name="model">ff.allowance.claim</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="department_id"/>
+                <filter name="to_approve" string="To Approve" domain="[('state', 'in', ('draft', 'submitted'))]"/>
+                <filter name="approved" string="Approved" domain="[('state', '=', 'approved')]"/>
+                <filter name="estimated" string="Estimated Legs" domain="[('estimated', '=', True)]"/>
+                <filter name="this_month" string="This Month"
+                        domain="[('date', '&gt;=', context_today().strftime('%Y-%m-01'))]"/>
+                <filter name="date" string="Date" date="date"/>
+                <group>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_department" string="Department" context="{'group_by': 'department_id'}"/>
+                    <filter name="group_month" string="Month" context="{'group_by': 'date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_allowance_claim_action" model="ir.actions.act_window">
+        <field name="name">Travel Allowances</field>
+        <field name="res_model">ff.allowance.claim</field>
+        <field name="view_mode">list,form,pivot</field>
+        <field name="context">{'search_default_this_month': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No allowances yet</p>
+            <p>Daily allowances are calculated automatically from attendance, visits and GPS using each employee's policy.</p>
+        </field>
+    </record>
+</odoo>

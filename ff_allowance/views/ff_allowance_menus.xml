@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ff_allowance" name="Allowances" parent="ff_base.menu_ff_root"
+              action="ff_allowance_claim_action" sequence="35"/>
+    <menuitem id="menu_ff_allowance_policies" name="Allowance Policies" parent="ff_base.menu_ff_config"
+              action="ff_allowance_policy_action" sequence="60"/>
+</odoo>

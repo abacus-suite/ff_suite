@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_ff_beat" name="Beats" parent="ff_base.menu_ff_root" sequence="28"/>
-    <menuitem id="menu_ff_beat_plans" name="Beat Plans" parent="menu_ff_beat"
+    <menuitem id="menu_ff_beat" name="Routes" parent="ff_base.menu_ff_root" sequence="28"/>
+    <menuitem id="menu_ff_beat_plans" name="Route Plans" parent="menu_ff_beat"
               action="ff_beat_plan_action" sequence="10"/>
-    <menuitem id="menu_ff_beats" name="Beats" parent="menu_ff_beat"
+    <menuitem id="menu_ff_beats" name="Routes" parent="menu_ff_beat"
               action="ff_beat_action" sequence="20"/>
-    <menuitem id="menu_ff_beat_assign" name="Assign Beats" parent="menu_ff_beat"
-              action="ff_beat_assign_wizard_action" sequence="30"/>
+    <menuitem id="menu_ff_beat_assign" name="Plan Routes" parent="menu_ff_beat"
+              action="ff_beat_assign_wizard_action" sequence="30" groups="ff_base.group_ff_manager"/>
+
+    <menuitem id="menu_ff_route_types" name="Route Types" parent="ff_base.menu_ff_config"
+              action="ff_route_type_action" sequence="50"/>
+    <menuitem id="menu_ff_route_distances" name="Route Distances" parent="ff_base.menu_ff_config"
+              action="ff_route_distance_action" sequence="55"/>
 </odoo>

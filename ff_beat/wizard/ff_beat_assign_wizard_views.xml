@@ -9,6 +9,7 @@
                     <group>
                         <field name="beat_id"/>
                         <field name="employee_ids" widget="many2many_tags"/>
+                        <field name="assign_route"/>
                     </group>
                     <group>
                         <field name="date_from"/>
@@ -18,7 +19,7 @@
                     </group>
                 </group>
                 <footer>
-                    <button name="action_assign" type="object" string="Assign" class="btn-primary"/>
+                    <button name="action_assign" type="object" string="Create Plans" class="btn-primary"/>
                     <button special="cancel" string="Cancel"/>
                 </footer>
             </form>
@@ -26,7 +27,7 @@
     </record>
 
     <record id="ff_beat_assign_wizard_action" model="ir.actions.act_window">
-        <field name="name">Assign Beat</field>
+        <field name="name">Plan Routes</field>
         <field name="res_model">ff.beat.assign.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>

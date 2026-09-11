@@ -5,11 +5,16 @@
         <field name="model">ff.beat</field>
         <field name="arch" type="xml">
             <list>
+                <field name="route_type_id" widget="badge"/>
                 <field name="name"/>
                 <field name="code" optional="show"/>
-                <field name="team_id"/>
+                <field name="district_id"/>
+                <field name="state_id" optional="show"/>
+                <field name="team_id" optional="show"/>
                 <field name="client_count"/>
-                <field name="planned_km"/>
+                <field name="planned_km" optional="show"/>
+                <field name="allowance_km" optional="hide"/>
+                <field name="employee_ids" widget="many2many_tags" optional="show"/>
             </list>
         </field>
     </record>
@@ -20,20 +25,26 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <button name="%(ff_beat_assign_wizard_action)d" type="action" string="Assign to Employees"
+                    <button name="%(ff_beat_assign_wizard_action)d" type="action" string="Plan for Employees"
                             class="btn-primary" context="{'default_beat_id': id}"/>
                 </header>
                 <sheet>
                     <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
                     <div class="oe_title">
+                        <label for="name"/>
                         <h1><field name="name" placeholder="e.g. Cherthala - Muhamma"/></h1>
                     </div>
                     <group>
-                        <group>
+                        <group string="Route">
+                            <field name="route_type_id" required="1"/>
                             <field name="code"/>
                             <field name="team_id"/>
+                            <field name="allowance_km"/>
                         </group>
-                        <group>
+                        <group string="Location">
+                            <field name="country_id"/>
+                            <field name="state_id"/>
+                            <field name="district_id"/>
                             <field name="client_count"/>
                             <field name="planned_km"/>
                             <field name="active" invisible="1"/>
@@ -45,8 +56,18 @@
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
                                     <field name="partner_id"/>
+                                    <field name="partner_category_id"/>
                                     <field name="partner_city"/>
                                     <field name="partner_phone"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Assigned Employees" name="employees">
+                            <field name="employee_ids">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="department_id"/>
+                                    <field name="ff_team_id"/>
                                 </list>
                             </field>
                         </page>
@@ -63,18 +84,29 @@
         <field name="arch" type="xml">
             <search>
                 <field name="name"/>
+                <field name="route_type_id"/>
+                <field name="district_id"/>
+                <field name="state_id"/>
                 <field name="team_id"/>
+                <field name="employee_ids"/>
                 <field name="line_ids" string="Client" filter_domain="[('line_ids.partner_id', 'ilike', self)]"/>
                 <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
                 <group>
+                    <filter name="group_type" string="Route Type" context="{'group_by': 'route_type_id'}"/>
+                    <filter name="group_state" string="State" context="{'group_by': 'state_id'}"/>
+                    <filter name="group_district" string="City / District" context="{'group_by': 'district_id'}"/>
                     <filter name="group_team" string="Team" context="{'group_by': 'team_id'}"/>
                 </group>
+                <searchpanel>
+                    <field name="route_type_id" icon="fa-road" enable_counters="1"/>
+                    <field name="state_id" icon="fa-map" enable_counters="1"/>
+                </searchpanel>
             </search>
         </field>
     </record>
 
     <record id="ff_beat_action" model="ir.actions.act_window">
-        <field name="name">Beats</field>
+        <field name="name">Routes</field>
         <field name="res_model">ff.beat</field>
         <field name="view_mode">list,form</field>
     </record>

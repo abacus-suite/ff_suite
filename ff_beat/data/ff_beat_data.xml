@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="route_type_beat" model="ff.route.type">
+        <field name="name">Beat</field>
+        <field name="sequence">10</field>
+    </record>
+    <record id="route_type_patch" model="ff.route.type">
+        <field name="name">Patch</field>
+        <field name="sequence">20</field>
+    </record>
+</odoo>

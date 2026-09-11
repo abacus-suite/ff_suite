@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_ff_clients" name="Clients" parent="ff_base.menu_ff_root" sequence="30"/>
-    <menuitem id="menu_ff_client_list" name="Clients" parent="menu_ff_clients"
-              action="ff_client_action" sequence="10"/>
+    <menuitem id="menu_ff_clients" name="Contacts" parent="ff_base.menu_ff_root" sequence="30"/>
+    <menuitem id="menu_ff_client_list" name="Contacts" parent="menu_ff_clients"
+              action="ff_client_server_action" sequence="10"/>
     <menuitem id="menu_ff_client_pending" name="To Approve" parent="menu_ff_clients"
-              action="ff_client_pending_action" sequence="20"/>
+              action="ff_client_pending_action" sequence="20" groups="ff_base.group_ff_manager"/>
+
+    <menuitem id="menu_ff_contact_categories" name="Contact Categories" parent="ff_base.menu_ff_config"
+              action="ff_contact_category_action" sequence="40"/>
+    <menuitem id="menu_ff_districts" name="Cities / Districts" parent="ff_base.menu_ff_config"
+              action="ff_district_action" sequence="45"/>
 </odoo>

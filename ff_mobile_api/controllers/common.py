@@ -107,6 +107,7 @@ def employee_profile(employee):
             'manager': ref(employee.parent_id),
             'tracking_enabled': employee.ff_tracking_enabled,
             'timezone': employee.tz or 'UTC',
+            'route_label': employee._ff_route_label(),
         },
         'roles': {
             'scope': scope,

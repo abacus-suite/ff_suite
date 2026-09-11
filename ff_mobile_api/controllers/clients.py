@@ -3,7 +3,7 @@ import math
 from odoo import http
 from odoo.http import request
 
-from .common import ApiError, api_route, body, ok
+from .common import ApiError, api_route, body, ok, ref
 from .field_data import client_data, visit_data
 
 MAX_LIMIT = 200
@@ -13,6 +13,13 @@ DEFAULT_RADIUS_KM = 25.0
 def to_float(value):
     try:
         return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def to_int(value):
+    try:
+        return int(value)
     except (TypeError, ValueError):
         return None
 
@@ -30,15 +37,31 @@ def visible_client(employee, partner_id):
     return partner
 
 
+def category_for(employee, category_id):
+    """Contact category chosen in the app, restricted to the employee's department."""
+    allowed = request.env['ff.contact.category'].ff_for_employee(employee)
+    if category_id:
+        category = allowed.filtered(lambda c: c.id == to_int(category_id))
+        if not category:
+            raise ApiError('You do not have access to this contact category.', 403, 'forbidden')
+        return category
+    if len(allowed) == 1:
+        return allowed
+    raise ApiError('category_id is required: choose a contact category.')
+
+
 class FieldForceClientsApi(http.Controller):
 
     @api_route('/api/v1/clients', methods=('GET',))
-    def clients(self, employee, q=None, lat=None, lng=None, radius_km=None, limit=None, offset=None, **kw):
+    def clients(self, employee, q=None, category_id=None, lat=None, lng=None, radius_km=None,
+                limit=None, offset=None, **kw):
         Partner = request.env['res.partner'].sudo()
         domain = client_domain(employee)
         if q:
             domain += ['|', '|', '|', ('name', 'ilike', q), ('ff_client_code', 'ilike', q),
                        ('phone', 'ilike', q), ('city', 'ilike', q)]
+        if category_id:
+            domain.append(('ff_category_id', '=', to_int(category_id)))
         try:
             limit = min(int(limit or 50), MAX_LIMIT)
             offset = max(int(offset or 0), 0)
@@ -69,6 +92,7 @@ class FieldForceClientsApi(http.Controller):
         data.update(
             sites=[client_data(s) for s in sites],
             recent_visits=[visit_data(v) for v in visits],
+            allow_orders=bool(partner.ff_category_id.allow_orders),
         )
         return ok(data)
 
@@ -88,8 +112,32 @@ class FieldForceClientsApi(http.Controller):
             'comment': data.get('note') or False,
             'partner_latitude': to_float(data.get('lat')) or 0.0,
             'partner_longitude': to_float(data.get('lng')) or 0.0,
+            'ff_category_id': category_for(employee, data.get('category_id')).id,
+            'ff_district_id': to_int(data.get('district_id')) or False,
         }
         if data.get('parent_id'):
             vals.update(parent_id=visible_client(employee, int(data['parent_id'])).id, type='other')
         partner = request.env['res.partner'].ff_create_from_app(employee, vals)
         return ok(client_data(partner), status=201)
+
+    @api_route('/api/v1/contact-categories', methods=('GET',))
+    def contact_categories(self, employee, **kw):
+        categories = request.env['ff.contact.category'].ff_for_employee(employee)
+        return ok([{
+            'id': c.id,
+            'name': c.name,
+            'type': c.category_type,
+            'allow_orders': c.allow_orders,
+            'requires_approval': c.requires_approval,
+        } for c in categories])
+
+    @api_route('/api/v1/districts', methods=('GET',))
+    def districts(self, employee, state_id=None, q=None, **kw):
+        domain = []
+        if state_id:
+            domain.append(('state_id', '=', to_int(state_id)))
+        if q:
+            domain.append(('name', 'ilike', q))
+        districts = request.env['ff.district'].sudo().search(domain, limit=200)
+        return ok([{'id': d.id, 'name': d.name, 'state': ref(d.state_id), 'country': ref(d.country_id)}
+                   for d in districts])

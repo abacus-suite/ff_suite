@@ -33,6 +33,8 @@ class SaleOrder(models.Model):
                 return existing
         if partner.ff_approval_state != 'approved':
             raise UserError(self.env._('Orders can only be taken for approved clients.'))
+        if partner.ff_category_id and not partner.ff_category_id.allow_orders:
+            raise UserError(self.env._('Orders are not allowed for "%s" contacts.', partner.ff_category_id.name))
 
         Product = self.env['product.product'].sudo()
         line_vals = []

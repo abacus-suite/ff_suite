@@ -10,11 +10,14 @@ class TestVisits(TransactionCase):
         super().setUpClass()
         cls.env['ir.config_parameter'].sudo().set_param('ff_base.geofence_radius', '150')
         cls.employee = cls.env['hr.employee'].create({'name': 'Visit Officer', 'tz': 'UTC'})
+        category = cls.env.ref('ff_clients.contact_category_customer')
         cls.shop = cls.env['res.partner'].create({
-            'name': 'Anand Stores', 'ff_is_client': True,
+            'name': 'Anand Stores', 'ff_is_client': True, 'ff_category_id': category.id,
             'partner_latitude': 10.0, 'partner_longitude': 76.0,
         })
-        cls.new_shop = cls.env['res.partner'].create({'name': 'New Shop', 'ff_is_client': True})
+        cls.new_shop = cls.env['res.partner'].create({
+            'name': 'New Shop', 'ff_is_client': True, 'ff_category_id': category.id,
+        })
         cls.Visit = cls.env['ff.visit']
 
     def test_check_in_inside_and_outside(self):

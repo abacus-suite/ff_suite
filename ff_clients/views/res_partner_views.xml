@@ -6,20 +6,23 @@
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
-                <page string="Field Force" name="ff_client" groups="ff_base.group_ff_manager">
-                    <div class="mb-2" invisible="ff_approval_state != 'pending'">
-                        <button name="action_ff_approve" type="object" string="Approve Client" class="btn-primary me-2"/>
+                <page string="Field Force" name="ff_client" groups="ff_base.group_ff_officer">
+                    <div class="mb-2" invisible="ff_approval_state != 'pending'" groups="ff_base.group_ff_manager">
+                        <button name="action_ff_approve" type="object" string="Approve Contact" class="btn-primary me-2"/>
                         <button name="action_ff_reject" type="object" string="Reject"/>
                     </div>
                     <group>
-                        <group string="Client">
+                        <group string="Field Contact">
                             <field name="ff_is_client"/>
+                            <field name="ff_category_id" required="ff_is_client"/>
+                            <field name="ff_category_type"/>
                             <field name="ff_client_code"/>
                             <field name="ff_approval_state"/>
                             <field name="ff_created_by_employee_id"/>
                             <field name="ff_team_ids" widget="many2many_tags"/>
                         </group>
                         <group string="Location">
+                            <field name="ff_district_id"/>
                             <field name="partner_latitude"/>
                             <field name="partner_longitude"/>
                             <field name="ff_geofence_radius"/>
@@ -39,10 +42,12 @@
             <list decoration-info="ff_approval_state == 'pending'" decoration-muted="ff_approval_state == 'rejected'">
                 <field name="ff_client_code" optional="show"/>
                 <field name="name"/>
+                <field name="ff_category_id" widget="badge"/>
                 <field name="parent_id" string="Site of" optional="hide"/>
                 <field name="phone" optional="show"/>
-                <field name="city" optional="show"/>
-                <field name="ff_team_ids" widget="many2many_tags" optional="show"/>
+                <field name="ff_district_id" optional="show"/>
+                <field name="state_id" optional="hide"/>
+                <field name="ff_team_ids" widget="many2many_tags" optional="hide"/>
                 <field name="partner_latitude" optional="hide"/>
                 <field name="partner_longitude" optional="hide"/>
                 <field name="ff_created_by_employee_id" optional="hide"/>
@@ -61,6 +66,8 @@
         <field name="arch" type="xml">
             <search>
                 <field name="name" filter_domain="['|', '|', ('name', 'ilike', self), ('ff_client_code', 'ilike', self), ('phone', 'ilike', self)]"/>
+                <field name="ff_category_id"/>
+                <field name="ff_district_id"/>
                 <field name="city"/>
                 <field name="ff_team_ids"/>
                 <filter name="pending" string="To Approve" domain="[('ff_approval_state', '=', 'pending')]"/>
@@ -68,15 +75,20 @@
                         domain="[('partner_latitude', '=', 0), ('partner_longitude', '=', 0)]"/>
                 <filter name="from_app" string="Added from App" domain="[('ff_created_by_employee_id', '!=', False)]"/>
                 <group>
-                    <filter name="group_city" string="City" context="{'group_by': 'city'}"/>
+                    <filter name="group_category" string="Category" context="{'group_by': 'ff_category_id'}"/>
+                    <filter name="group_district" string="City / District" context="{'group_by': 'ff_district_id'}"/>
                     <filter name="group_state" string="Approval" context="{'group_by': 'ff_approval_state'}"/>
                 </group>
+                <searchpanel>
+                    <field name="ff_category_id" icon="fa-tags" enable_counters="1"/>
+                    <field name="ff_category_type" icon="fa-filter" select="multi" enable_counters="1"/>
+                </searchpanel>
             </search>
         </field>
     </record>
 
     <record id="ff_client_action" model="ir.actions.act_window">
-        <field name="name">Clients</field>
+        <field name="name">Contacts</field>
         <field name="res_model">res.partner</field>
         <field name="view_mode">list,kanban,form</field>
         <field name="domain">[('ff_is_client', '=', True)]</field>
@@ -86,8 +98,15 @@
             (0, 0, {'view_mode': 'list', 'view_id': ref('res_partner_view_list_ff')})]"/>
     </record>
 
+    <record id="ff_client_server_action" model="ir.actions.server">
+        <field name="name">Contacts</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="state">code</field>
+        <field name="code">action = model.ff_action_open_clients()</field>
+    </record>
+
     <record id="ff_client_pending_action" model="ir.actions.act_window">
-        <field name="name">Clients to Approve</field>
+        <field name="name">Contacts to Approve</field>
         <field name="res_model">res.partner</field>
         <field name="view_mode">list,form</field>
         <field name="domain">[('ff_is_client', '=', True), ('ff_approval_state', '=', 'pending')]</field>

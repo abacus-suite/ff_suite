@@ -21,6 +21,9 @@ def client_data(partner, lat=None, lng=None):
         'lng': partner.partner_longitude if located else None,
         'geofence_radius': partner._ff_radius(),
         'approval_state': partner.ff_approval_state,
+        'category': ref(partner.ff_category_id),
+        'category_type': partner.ff_category_type or None,
+        'district': ref(partner.ff_district_id),
         'parent': ref(partner.parent_id),
         'last_visit_at': to_iso(partner.ff_last_visit_at),
         'distance_m': int(haversine_m(lat, lng, partner.partner_latitude, partner.partner_longitude))
@@ -57,6 +60,7 @@ def plan_data(plan):
         'id': plan.id,
         'date': plan.date.isoformat(),
         'beat': ref(plan.beat_id),
+        'route_type': plan.beat_id.route_type_id.name or None,
         'planned_count': plan.planned_count,
         'completed_count': plan.completed_count,
         'adhoc_count': plan.adhoc_count,
