@@ -20,3 +20,7 @@ class ResConfigSettings(models.TransientModel):
         string='Allow Mock Locations', config_parameter='ff_base.allow_mock')
     ff_selfie_required = fields.Boolean(
         string='Selfie Required on Punch', config_parameter='ff_base.selfie_required')
+    ff_geofence_radius = fields.Integer(
+        string='Client Geofence (m)', config_parameter='ff_base.geofence_radius', default=150)
+    ff_visit_block_outside = fields.Boolean(
+        string='Block Check-in Outside Geofence', config_parameter='ff_base.visit_block_outside')

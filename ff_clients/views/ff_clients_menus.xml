@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ff_clients" name="Clients" parent="ff_base.menu_ff_root" sequence="30"/>
+    <menuitem id="menu_ff_client_list" name="Clients" parent="menu_ff_clients"
+              action="ff_client_action" sequence="10"/>
+    <menuitem id="menu_ff_client_pending" name="To Approve" parent="menu_ff_clients"
+              action="ff_client_pending_action" sequence="20"/>
+</odoo>

@@ -15,6 +15,8 @@ PARAM_DEFAULTS = {
     'max_accuracy': 100,         # metres; worse pings are ignored for distance
     'allow_mock': False,
     'selfie_required': False,    # set to True by module data
+    'geofence_radius': 150,      # metres around a client counted as "at client"
+    'visit_block_outside': False,  # refuse visit check-in outside the geofence
 }
 
 

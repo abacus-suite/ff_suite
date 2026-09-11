@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ff_beat" name="Beats" parent="ff_base.menu_ff_root" sequence="28"/>
+    <menuitem id="menu_ff_beat_plans" name="Beat Plans" parent="menu_ff_beat"
+              action="ff_beat_plan_action" sequence="10"/>
+    <menuitem id="menu_ff_beats" name="Beats" parent="menu_ff_beat"
+              action="ff_beat_action" sequence="20"/>
+    <menuitem id="menu_ff_beat_assign" name="Assign Beats" parent="menu_ff_beat"
+              action="ff_beat_assign_wizard_action" sequence="30"/>
+</odoo>

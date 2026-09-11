@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ff_visits" name="Visits" parent="ff_base.menu_ff_root"
+              action="ff_visit_action" sequence="25"/>
+</odoo>

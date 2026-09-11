@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_partner_view_form_ff_visits" model="ir.ui.view">
+        <field name="name">res.partner.form.ff_visits</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="ff_clients.res_partner_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='ff_created_by_employee_id']" position="after">
+                <field name="ff_last_visit_at"/>
+                <label for="ff_visit_count"/>
+                <div>
+                    <button name="action_ff_view_visits" type="object" class="btn-link p-0">
+                        <field name="ff_visit_count" class="oe_inline"/> visits
+                    </button>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>

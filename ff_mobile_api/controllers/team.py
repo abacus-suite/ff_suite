@@ -5,6 +5,7 @@ from odoo.http import request
 from odoo.addons.ff_base.tools import to_iso
 
 from .common import ApiError, api_route, attendance_data, ok, ref, regularisation_data
+from .field_data import client_data, plan_data, visit_data
 
 MAX_TIMELINE_POINTS = 1500
 
@@ -29,11 +30,14 @@ class FieldForceTeamApi(http.Controller):
         team = _team(employee)
         statuses = {s.employee_id.id: s for s in request.env['ff.employee.status'].sudo().search(
             [('employee_id', 'in', team.ids)])}
+        ongoing = {v.employee_id.id: v for v in request.env['ff.visit'].sudo().search(
+            [('employee_id', 'in', team.ids), ('state', '=', 'ongoing')])}
         members, summary = [], {'total': len(team), 'punched_in': 0, 'inactive': 0,
-                                'no_signal': 0, 'low_battery': 0, 'gps_off': 0}
+                                'no_signal': 0, 'low_battery': 0, 'gps_off': 0, 'at_client': 0}
         for member in team.sorted('name'):
             status = statuses.get(member.id)
             punched_in = bool(status and status.punched_in)
+            visit = ongoing.get(member.id)
             row = {
                 'employee': ref(member),
                 'code': member.ff_employee_code or None,
@@ -48,6 +52,7 @@ class FieldForceTeamApi(http.Controller):
                 'gps_on': bool(status.gps_on) if status else None,
                 'is_inactive': bool(status and status.is_inactive),
                 'is_signal_lost': bool(status and status.is_signal_lost),
+                'at_client': ref(visit.partner_id) if visit else None,
             }
             members.append(row)
             if punched_in:
@@ -56,6 +61,7 @@ class FieldForceTeamApi(http.Controller):
                 summary['no_signal'] += row['is_signal_lost']
                 summary['low_battery'] += row['is_low_battery']
                 summary['gps_off'] += row['gps_on'] is False
+            summary['at_client'] += bool(visit)
         return ok({'summary': summary, 'members': members, 'server_time': to_iso(fields.Datetime.now())})
 
     @api_route('/api/v1/team/<int:employee_id>/timeline', methods=('GET',), manager=True)
@@ -76,12 +82,19 @@ class FieldForceTeamApi(http.Controller):
         attendances = request.env['hr.attendance'].sudo().search([
             ('employee_id', '=', target.id), ('check_in', '>=', start), ('check_in', '<', end),
         ], order='check_in asc')
+        visits = request.env['ff.visit'].sudo().search([
+            ('employee_id', '=', target.id), ('check_in_at', '>=', start), ('check_in_at', '<', end),
+        ], order='check_in_at asc')
+        plan = request.env['ff.beat.plan'].sudo().search(
+            [('employee_id', '=', target.id), ('date', '=', day)], limit=1)
         track = request.env['ff.daily.track']._ff_compute(target, day)
         return ok({
             'employee': ref(target),
             'date': day.isoformat(),
             'distance_km': track.distance_km if track else 0.0,
             'attendance': [attendance_data(a) for a in attendances],
+            'visits': [visit_data(v) for v in visits],
+            'plan': plan_data(plan),
             'points': [{
                 'ts': to_iso(p.ts), 'lat': p.latitude, 'lng': p.longitude,
                 'accuracy': p.accuracy, 'battery': p.battery, 'source': p.source, 'mock': p.is_mock,
@@ -90,11 +103,18 @@ class FieldForceTeamApi(http.Controller):
 
     @api_route('/api/v1/approvals', methods=('GET',), manager=True)
     def approvals(self, employee, **kw):
+        team = _team(employee)
         regularisations = request.env['ff.regularisation'].sudo().search([
-            ('employee_id', 'in', _team(employee).ids), ('state', '=', 'submitted'),
+            ('employee_id', 'in', team.ids), ('state', '=', 'submitted'),
+        ])
+        clients = request.env['res.partner'].sudo().search([
+            ('ff_is_client', '=', True), ('ff_approval_state', '=', 'pending'),
+            ('ff_created_by_employee_id', 'in', team.ids),
         ])
         return ok({
             'regularisation': [regularisation_data(r) for r in regularisations],
+            'clients': [dict(client_data(c), added_by=ref(c.ff_created_by_employee_id),
+                             added_at=to_iso(c.create_date)) for c in clients],
         })
 
     @api_route('/api/v1/approvals/regularisation/<int:record_id>/<string:decision>',
@@ -110,3 +130,19 @@ class FieldForceTeamApi(http.Controller):
         else:
             raise ApiError('decision must be "approve" or "reject".')
         return ok(regularisation_data(record))
+
+    @api_route('/api/v1/approvals/client/<int:partner_id>/<string:decision>',
+               methods=('POST',), manager=True)
+    def decide_client(self, employee, partner_id, decision, **kw):
+        partner = request.env['res.partner'].sudo().browse(partner_id).exists()
+        if (not partner or partner.ff_approval_state != 'pending'
+                or partner.ff_created_by_employee_id not in _team(employee)):
+            raise ApiError('Client request not found.', 404, 'not_found')
+        client = partner.with_user(request.env.user).sudo(False)
+        if decision == 'approve':
+            client.action_ff_approve()
+        elif decision == 'reject':
+            client.action_ff_reject()
+        else:
+            raise ApiError('decision must be "approve" or "reject".')
+        return ok(client_data(partner))

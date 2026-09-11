@@ -36,6 +36,14 @@
                             <field name="ff_allow_mock"/>
                         </setting>
                     </block>
+                    <block title="Client Visits" name="ff_visit_settings">
+                        <setting string="Client geofence" help="Default radius (metres) around a client inside which a visit counts as on-site. Can be overridden per client.">
+                            <field name="ff_geofence_radius"/>
+                        </setting>
+                        <setting help="Refuse visit check-in when the officer is outside the client's geofence (otherwise the visit is only flagged).">
+                            <field name="ff_visit_block_outside"/>
+                        </setting>
+                    </block>
                 </app>
             </xpath>
         </field>
