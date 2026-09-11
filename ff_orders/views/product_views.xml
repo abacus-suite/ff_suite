@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="product_template_form_view_ff" model="ir.ui.view">
+        <field name="name">product.template.form.ff_orders</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Field Force" name="ff_orders">
+                    <group>
+                        <group>
+                            <field name="ff_sku_code"/>
+                            <field name="ff_show_in_app"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="product_template_view_list_ff" model="ir.ui.view">
+        <field name="name">product.template.list.ff_orders</field>
+        <field name="model">product.template</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="ff_sku_code"/>
+                <field name="name"/>
+                <field name="default_code" optional="show"/>
+                <field name="categ_id"/>
+                <field name="list_price"/>
+                <field name="ff_show_in_app" widget="boolean_toggle"/>
+                <field name="sale_ok" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_product_action" model="ir.actions.act_window">
+        <field name="name">Field Products</field>
+        <field name="res_model">product.template</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('sale_ok', '=', True)]</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('product_template_view_list_ff')})]"/>
+    </record>
+</odoo>

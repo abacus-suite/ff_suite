@@ -1,0 +1,72 @@
+from odoo import api, fields, models
+from odoo.exceptions import UserError
+
+
+def _num(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+class SaleOrder(models.Model):
+    _inherit = 'sale.order'
+
+    ff_source = fields.Selection([('backoffice', 'Back Office'), ('app', 'Field App')], string='Order Source',
+                                 default='backoffice', index=True, copy=False)
+    ff_employee_id = fields.Many2one('hr.employee', string='Field Employee', index=True, copy=False)
+    ff_visit_id = fields.Many2one('ff.visit', string='Field Visit', copy=False)
+    ff_latitude = fields.Float(string='Order Latitude', digits=(10, 7), copy=False)
+    ff_longitude = fields.Float(string='Order Longitude', digits=(10, 7), copy=False)
+    ff_client_uuid = fields.Char(index=True, copy=False)
+
+    _ff_client_uuid_uniq = models.Constraint('UNIQUE(ff_client_uuid)', 'This field order was already received.')
+
+    @api.model
+    def ff_create_from_app(self, employee, partner, data):
+        """Create a quotation from the field app. Idempotent on ``uuid``."""
+        Order = self.sudo()
+        uuid = data.get('uuid') or False
+        if uuid:
+            existing = Order.search([('ff_client_uuid', '=', uuid)], limit=1)
+            if existing:
+                return existing
+        if partner.ff_approval_state != 'approved':
+            raise UserError(self.env._('Orders can only be taken for approved clients.'))
+
+        Product = self.env['product.product'].sudo()
+        line_vals = []
+        for line in data.get('lines') or []:
+            product_id, qty = line.get('product_id'), _num(line.get('qty'))
+            if not qty or qty <= 0:
+                continue
+            product = Product.browse(int(product_id)).exists() if str(product_id).isdigit() else Product
+            if not product or not product.sale_ok or not product.product_tmpl_id.ff_show_in_app:
+                raise UserError(self.env._('Product %s is not available for field orders.', product_id))
+            vals = {'product_id': product.id, 'product_uom_qty': qty}
+            discount = _num(line.get('discount'))
+            if discount:
+                vals['discount'] = max(0.0, min(discount, 100.0))
+            line_vals.append((0, 0, vals))
+        if not line_vals:
+            raise UserError(self.env._('Add at least one product to the order.'))
+
+        visit = self.env['ff.visit'].sudo().search([
+            ('employee_id', '=', employee.id), ('partner_id', '=', partner.id), ('state', '=', 'ongoing'),
+        ], limit=1)
+        order = Order.create({
+            'partner_id': partner.id,
+            'user_id': employee.user_id.id or False,
+            'company_id': employee.company_id.id,
+            'order_line': line_vals,
+            'note': (data.get('note') or '').strip() or False,
+            'ff_source': 'app',
+            'ff_employee_id': employee.id,
+            'ff_visit_id': visit.id or False,
+            'ff_latitude': _num(data.get('lat')) or 0.0,
+            'ff_longitude': _num(data.get('lng')) or 0.0,
+            'ff_client_uuid': uuid,
+        })
+        if visit and not visit.outcome:
+            visit.outcome = 'order'
+        return order

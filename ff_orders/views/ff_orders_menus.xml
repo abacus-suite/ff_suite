@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ff_orders" name="Orders" parent="ff_base.menu_ff_root" sequence="32"
+              groups="sales_team.group_sale_salesman"/>
+    <menuitem id="menu_ff_order_list" name="Field Orders" parent="menu_ff_orders"
+              action="ff_order_action" sequence="10"/>
+    <menuitem id="menu_ff_products" name="Products" parent="menu_ff_orders"
+              action="ff_product_action" sequence="20"/>
+</odoo>

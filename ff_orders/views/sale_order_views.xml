@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="sale_order_view_form_ff" model="ir.ui.view">
+        <field name="name">sale.order.form.ff_orders</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Field Force" name="ff_orders" invisible="ff_source != 'app'">
+                    <group>
+                        <group>
+                            <field name="ff_source"/>
+                            <field name="ff_employee_id"/>
+                            <field name="ff_visit_id"/>
+                        </group>
+                        <group>
+                            <field name="ff_latitude"/>
+                            <field name="ff_longitude"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="sale_order_view_list_ff" model="ir.ui.view">
+        <field name="name">sale.order.list.ff_orders</field>
+        <field name="model">sale.order</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list create="0">
+                <field name="name"/>
+                <field name="date_order"/>
+                <field name="ff_employee_id"/>
+                <field name="partner_id"/>
+                <field name="amount_untaxed" sum="Untaxed"/>
+                <field name="amount_total" sum="Total"/>
+                <field name="state" widget="badge"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="sale_order_view_search_ff" model="ir.ui.view">
+        <field name="name">sale.order.search.ff_orders</field>
+        <field name="model">sale.order</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="ff_employee_id"/>
+                <filter name="today" string="Today"
+                        domain="[('date_order', '&gt;=', (context_today() - relativedelta(days=1)).strftime('%Y-%m-%d'))]"/>
+                <filter name="date_order" string="Order Date" date="date_order"/>
+                <filter name="to_confirm" string="To Confirm" domain="[('state', 'in', ('draft', 'sent'))]"/>
+                <group>
+                    <filter name="group_employee" string="Field Employee" context="{'group_by': 'ff_employee_id'}"/>
+                    <filter name="group_partner" string="Client" context="{'group_by': 'partner_id'}"/>
+                    <filter name="group_day" string="Day" context="{'group_by': 'date_order:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_order_action" model="ir.actions.act_window">
+        <field name="name">Field Orders</field>
+        <field name="res_model">sale.order</field>
+        <field name="view_mode">list,form,pivot,graph</field>
+        <field name="domain">[('ff_source', '=', 'app')]</field>
+        <field name="search_view_id" ref="sale_order_view_search_ff"/>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('sale_order_view_list_ff')})]"/>
+    </record>
+</odoo>
