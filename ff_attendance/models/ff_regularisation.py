@@ -85,6 +85,27 @@ class FfRegularisation(models.Model):
             rec.write({'state': 'rejected', 'approver_id': self.env.uid, 'decided_at': fields.Datetime.now()})
             rec.sudo().activity_ids.unlink()
 
+    def _ff_decide_as(self, employee, approve):
+        """Approve or reject from the mobile app on behalf of ``employee``."""
+        self.ensure_one()
+        rec = self.sudo()
+        if not employee._ff_is_manager_of(rec.employee_id):
+            raise AccessError(self.env._('This request is outside your data access.'))
+        if rec.state != 'submitted':
+            raise UserError(self.env._('Only submitted requests can be decided.'))
+        if approve:
+            rec._ff_apply()
+        rec.write({
+            'state': 'approved' if approve else 'rejected',
+            'approver_id': employee.user_id.id or False,
+            'decided_at': fields.Datetime.now(),
+        })
+        rec.message_post(body=self.env._('%(decision)s in the mobile app by %(name)s.',
+                                         decision=self.env._('Approved') if approve else self.env._('Rejected'),
+                                         name=employee.name))
+        rec.activity_ids.unlink()
+        return rec
+
     def action_reset_draft(self):
         self.filtered(lambda r: r.state == 'rejected').write({'state': 'draft'})
 

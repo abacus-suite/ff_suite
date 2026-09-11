@@ -1,16 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="rule_ff_regularisation_officer" model="ir.rule">
-        <field name="name">Regularisation: own</field>
+    <!-- Dynamic rules: visible employees follow the user's "Data Access" scope. -->
+    <record id="rule_ff_regularisation_scope" model="ir.rule">
+        <field name="name">Regularisation: data access scope</field>
         <field name="model_id" ref="model_ff_regularisation"/>
-        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
         <field name="groups" eval="[(4, ref('ff_base.group_ff_officer'))]"/>
-    </record>
-    <record id="rule_ff_regularisation_manager" model="ir.rule">
-        <field name="name">Regularisation: team hierarchy</field>
-        <field name="model_id" ref="model_ff_regularisation"/>
-        <field name="domain_force">[('employee_id', 'child_of', user.employee_ids.ids)]</field>
-        <field name="groups" eval="[(4, ref('ff_base.group_ff_manager'))]"/>
     </record>
     <record id="rule_ff_regularisation_admin" model="ir.rule">
         <field name="name">Regularisation: all</field>
@@ -19,10 +14,10 @@
         <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
     </record>
 
-    <record id="rule_hr_attendance_ff_manager" model="ir.rule">
-        <field name="name">Attendance: field team hierarchy</field>
+    <record id="rule_hr_attendance_ff_scope" model="ir.rule">
+        <field name="name">Attendance: field data access scope</field>
         <field name="model_id" ref="hr_attendance.model_hr_attendance"/>
-        <field name="domain_force">[('employee_id', 'child_of', user.employee_ids.ids)]</field>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
         <field name="groups" eval="[(4, ref('ff_base.group_ff_manager'))]"/>
     </record>
     <record id="rule_hr_attendance_ff_admin" model="ir.rule">

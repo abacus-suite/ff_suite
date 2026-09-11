@@ -2,7 +2,11 @@
 
 Every response is JSON: ``{"ok": true, "data": ...}`` or
 ``{"ok": false, "error": {"code": ..., "message": ...}}``.
-Authenticated routes expect ``Authorization: Bearer <token>``.
+
+Authentication uses the employee's own app login (not an Odoo user):
+``POST /api/v1/auth/login`` returns a session token, sent afterwards as
+``Authorization: Bearer <token>``. What an employee may see is decided by
+the "Data Access" scope on their employee record.
 """
 import functools
 import logging
@@ -37,28 +41,29 @@ def fail(code, message, status):
     return request.make_json_response({'ok': False, 'error': {'code': code, 'message': message}}, status=status)
 
 
+def bearer_token():
+    header = request.httprequest.headers.get('Authorization', '')
+    return header[7:].strip() if header[:7].lower() == 'bearer ' else None
+
+
 def current_employee(manager=False):
-    user = request.env.user
-    if not user or user._is_public():
-        raise ApiError('Authentication required.', 401, 'unauthorized')
-    if not user.has_group('ff_base.group_ff_officer'):
-        raise ApiError('This user has no Field Force access.', 403, 'forbidden')
-    if manager and not user.has_group('ff_base.group_ff_manager'):
+    token = request.env['ff.app.token'].sudo().ff_resolve(bearer_token())
+    if not token:
+        raise ApiError('Your session has expired. Please log in again.', 401, 'unauthorized')
+    employee = token.employee_id.sudo()
+    if manager and employee.ff_access_scope == 'own':
         raise ApiError('Manager access required.', 403, 'forbidden')
-    employee = user.employee_id
-    if not employee:
-        raise ApiError('No employee is linked to this user.', 403, 'no_employee')
-    return employee.sudo()
+    return employee
 
 
-def api_route(route, methods=('GET',), auth='bearer', manager=False):
-    """Declare a JSON API route; authenticated routes get ``employee`` kwarg."""
+def api_route(route, methods=('GET',), public=False, manager=False):
+    """Declare a JSON API route; authenticated routes get an ``employee`` kwarg."""
     def decorator(func):
-        @http.route(route, type='http', auth=auth, methods=list(methods), csrf=False, save_session=False)
+        @http.route(route, type='http', auth='public', methods=list(methods), csrf=False, save_session=False)
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             try:
-                if auth == 'bearer':
+                if not public:
                     kwargs['employee'] = current_employee(manager=manager)
                 return func(self, *args, **kwargs)
             except ApiError as e:
@@ -85,9 +90,10 @@ def ref(record):
     return {'id': record.id, 'name': record.display_name} if record else None
 
 
-def employee_profile(employee, user):
+def employee_profile(employee):
     settings = get_settings(request.env)
     shift = employee.ff_shift_id
+    scope = employee.ff_access_scope
     return {
         'employee': {
             'id': employee.id,
@@ -103,8 +109,9 @@ def employee_profile(employee, user):
             'timezone': employee.tz or 'UTC',
         },
         'roles': {
-            'is_manager': user.has_group('ff_base.group_ff_manager'),
-            'is_admin': user.has_group('ff_base.group_ff_admin'),
+            'scope': scope,
+            'is_manager': scope != 'own',
+            'is_admin': scope == 'all',
         },
         'shift': {
             'id': shift.id,

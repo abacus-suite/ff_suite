@@ -80,7 +80,9 @@ class TestFieldAttendance(TransactionCase):
     def test_regularisation_approval(self):
         manager_user = new_test_user(self.env, login='ff_test_manager',
                                      groups='base.group_user,ff_base.group_ff_manager')
-        manager = self.env['hr.employee'].create({'name': 'Area Manager', 'user_id': manager_user.id})
+        manager = self.env['hr.employee'].create({
+            'name': 'Area Manager', 'user_id': manager_user.id, 'ff_access_scope': 'hierarchy',
+        })
         self.employee.parent_id = manager
         officer_user = new_test_user(self.env, login='ff_test_officer',
                                      groups='base.group_user,ff_base.group_ff_officer')

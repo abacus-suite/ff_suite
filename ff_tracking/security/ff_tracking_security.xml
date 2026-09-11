@@ -1,17 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Location pings -->
-    <record id="rule_ff_ping_officer" model="ir.rule">
-        <field name="name">Pings: own</field>
+    <!-- Dynamic rules: visible employees follow the user's "Data Access" scope. -->
+    <record id="rule_ff_ping_scope" model="ir.rule">
+        <field name="name">Pings: data access scope</field>
         <field name="model_id" ref="model_ff_location_ping"/>
-        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
         <field name="groups" eval="[(4, ref('ff_base.group_ff_officer'))]"/>
-    </record>
-    <record id="rule_ff_ping_manager" model="ir.rule">
-        <field name="name">Pings: team hierarchy</field>
-        <field name="model_id" ref="model_ff_location_ping"/>
-        <field name="domain_force">[('employee_id', 'child_of', user.employee_ids.ids)]</field>
-        <field name="groups" eval="[(4, ref('ff_base.group_ff_manager'))]"/>
     </record>
     <record id="rule_ff_ping_admin" model="ir.rule">
         <field name="name">Pings: all</field>
@@ -20,18 +14,11 @@
         <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
     </record>
 
-    <!-- Live status -->
-    <record id="rule_ff_status_officer" model="ir.rule">
-        <field name="name">Live status: own</field>
+    <record id="rule_ff_status_scope" model="ir.rule">
+        <field name="name">Live status: data access scope</field>
         <field name="model_id" ref="model_ff_employee_status"/>
-        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
         <field name="groups" eval="[(4, ref('ff_base.group_ff_officer'))]"/>
-    </record>
-    <record id="rule_ff_status_manager" model="ir.rule">
-        <field name="name">Live status: team hierarchy</field>
-        <field name="model_id" ref="model_ff_employee_status"/>
-        <field name="domain_force">[('employee_id', 'child_of', user.employee_ids.ids)]</field>
-        <field name="groups" eval="[(4, ref('ff_base.group_ff_manager'))]"/>
     </record>
     <record id="rule_ff_status_admin" model="ir.rule">
         <field name="name">Live status: all</field>
@@ -40,18 +27,11 @@
         <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
     </record>
 
-    <!-- Daily travel -->
-    <record id="rule_ff_track_officer" model="ir.rule">
-        <field name="name">Daily travel: own</field>
+    <record id="rule_ff_track_scope" model="ir.rule">
+        <field name="name">Daily travel: data access scope</field>
         <field name="model_id" ref="model_ff_daily_track"/>
-        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
         <field name="groups" eval="[(4, ref('ff_base.group_ff_officer'))]"/>
-    </record>
-    <record id="rule_ff_track_manager" model="ir.rule">
-        <field name="name">Daily travel: team hierarchy</field>
-        <field name="model_id" ref="model_ff_daily_track"/>
-        <field name="domain_force">[('employee_id', 'child_of', user.employee_ids.ids)]</field>
-        <field name="groups" eval="[(4, ref('ff_base.group_ff_manager'))]"/>
     </record>
     <record id="rule_ff_track_admin" model="ir.rule">
         <field name="name">Daily travel: all</field>
@@ -60,18 +40,11 @@
         <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
     </record>
 
-    <!-- Compliance -->
-    <record id="rule_ff_compliance_officer" model="ir.rule">
-        <field name="name">Compliance: own</field>
+    <record id="rule_ff_compliance_scope" model="ir.rule">
+        <field name="name">Compliance: data access scope</field>
         <field name="model_id" ref="model_ff_compliance_log"/>
-        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
         <field name="groups" eval="[(4, ref('ff_base.group_ff_officer'))]"/>
-    </record>
-    <record id="rule_ff_compliance_manager" model="ir.rule">
-        <field name="name">Compliance: team hierarchy</field>
-        <field name="model_id" ref="model_ff_compliance_log"/>
-        <field name="domain_force">[('employee_id', 'child_of', user.employee_ids.ids)]</field>
-        <field name="groups" eval="[(4, ref('ff_base.group_ff_manager'))]"/>
     </record>
     <record id="rule_ff_compliance_admin" model="ir.rule">
         <field name="name">Compliance: all</field>

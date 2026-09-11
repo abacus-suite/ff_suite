@@ -18,7 +18,7 @@ def to_float(value):
 
 
 def client_domain(employee):
-    if request.env.user.has_group('ff_base.group_ff_admin'):
+    if employee.ff_access_scope == 'all':
         return [('ff_is_client', '=', True), ('ff_approval_state', '!=', 'rejected')]
     return request.env['res.partner']._ff_visible_domain(employee)
 

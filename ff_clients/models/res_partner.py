@@ -41,7 +41,7 @@ class ResPartner(models.Model):
 
     @api.model
     def _ff_visible_domain(self, employee):
-        """Clients an officer may see: approved ones of their team (or of all
+        """Clients an employee may see: approved ones of their team (or of all
         teams) plus the ones they added themselves that await approval."""
         team = employee.ff_team_id
         return [
@@ -53,7 +53,8 @@ class ResPartner(models.Model):
 
     @api.model
     def ff_create_from_app(self, employee, vals):
-        auto_approve = employee.user_id.has_group('ff_base.group_ff_manager')
+        # Employees who supervise others add clients without approval.
+        auto_approve = employee.sudo().ff_access_scope != 'own'
         vals = dict(
             vals,
             ff_is_client=True,
@@ -70,23 +71,38 @@ class ResPartner(models.Model):
                                       summary=self.env._('Approve new field client'))
         return partner
 
+    def _ff_can_be_decided_by(self, approver):
+        self.ensure_one()
+        creator = self.ff_created_by_employee_id
+        if not approver:
+            return False
+        if creator:
+            return approver._ff_is_manager_of(creator)
+        return approver.sudo().ff_access_scope != 'own'
+
     def _ff_check_can_approve(self):
         user = self.env.user
         if user.has_group('ff_base.group_ff_admin'):
             return
-        approver = user.employee_id
         for partner in self:
-            creator = partner.ff_created_by_employee_id
-            if not approver or not user.has_group('ff_base.group_ff_manager') or (
-                    creator and not approver._ff_is_manager_of(creator)):
-                raise AccessError(self.env._('Only the field manager can approve this client.'))
+            if not user.has_group('ff_base.group_ff_manager') or not partner._ff_can_be_decided_by(user.employee_id):
+                raise AccessError(self.env._('This client is outside your data access.'))
+
+    def _ff_decide(self, approve):
+        self.sudo().write({'ff_approval_state': 'approved' if approve else 'rejected'})
+        self.sudo().activity_ids.unlink()
 
     def action_ff_approve(self):
         self._ff_check_can_approve()
-        self.sudo().write({'ff_approval_state': 'approved'})
-        self.sudo().activity_ids.unlink()
+        self._ff_decide(True)
 
     def action_ff_reject(self):
         self._ff_check_can_approve()
-        self.sudo().write({'ff_approval_state': 'rejected'})
-        self.sudo().activity_ids.unlink()
+        self._ff_decide(False)
+
+    def ff_app_decide(self, employee, approve):
+        """Approve or reject from the mobile app on behalf of ``employee``."""
+        self.ensure_one()
+        if self.ff_approval_state != 'pending' or not self._ff_can_be_decided_by(employee):
+            raise AccessError(self.env._('This client is outside your data access.'))
+        self._ff_decide(approve)

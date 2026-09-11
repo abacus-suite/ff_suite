@@ -13,10 +13,37 @@
                             <field name="ff_team_id"/>
                             <field name="ff_designation_id"/>
                         </group>
-                        <group name="ff_tracking" string="Mobile App">
+                        <group name="ff_tracking" string="Access">
+                            <field name="ff_access_scope" groups="ff_base.group_ff_admin"/>
                             <field name="ff_tracking_enabled"/>
                         </group>
                     </group>
+                    <group name="ff_app" string="Mobile App Login" groups="ff_base.group_ff_admin">
+                        <group>
+                            <field name="ff_app_access"/>
+                            <field name="ff_app_login"/>
+                            <field name="ff_app_password_set"/>
+                        </group>
+                        <group>
+                            <field name="ff_app_last_login"/>
+                            <field name="ff_app_locked_until" invisible="not ff_app_locked_until"/>
+                        </group>
+                    </group>
+                    <div class="mb-3" groups="ff_base.group_ff_admin">
+                        <button name="action_ff_set_app_password" type="object" string="Set App Password"
+                                class="btn-primary me-2"/>
+                        <button name="action_ff_revoke_sessions" type="object" string="Log Out All Devices"
+                                confirm="Log this employee out of the mobile app on every device?"
+                                invisible="not ff_app_token_ids"/>
+                    </div>
+                    <field name="ff_app_token_ids" readonly="1" groups="ff_base.group_ff_admin">
+                        <list>
+                            <field name="name"/>
+                            <field name="device_uid"/>
+                            <field name="last_used_at"/>
+                            <field name="expires_at"/>
+                        </list>
+                    </field>
                     <field name="ff_device_ids" readonly="1">
                         <list>
                             <field name="name"/>

@@ -1,4 +1,7 @@
-"""Manager endpoints: live team, timeline replay and approvals."""
+"""Manager endpoints: live team, timeline replay and approvals.
+
+"Team" = the employees inside the caller's Data Access scope (excluding self).
+"""
 from odoo import fields, http
 from odoo.http import request
 
@@ -11,8 +14,6 @@ MAX_TIMELINE_POINTS = 1500
 
 
 def _team(employee):
-    if request.env.user.has_group('ff_base.group_ff_admin'):
-        return request.env['hr.employee'].sudo().search([('id', '!=', employee.id), ('user_id', '!=', False)])
     return employee._ff_subordinates()
 
 
@@ -120,29 +121,21 @@ class FieldForceTeamApi(http.Controller):
     @api_route('/api/v1/approvals/regularisation/<int:record_id>/<string:decision>',
                methods=('POST',), manager=True)
     def decide_regularisation(self, employee, record_id, decision, **kw):
+        if decision not in ('approve', 'reject'):
+            raise ApiError('decision must be "approve" or "reject".')
         record = request.env['ff.regularisation'].sudo().browse(record_id).exists()
         if not record or record.employee_id not in _team(employee):
             raise ApiError('Request not found.', 404, 'not_found')
-        if decision == 'approve':
-            record.action_approve()
-        elif decision == 'reject':
-            record.action_reject()
-        else:
-            raise ApiError('decision must be "approve" or "reject".')
+        record._ff_decide_as(employee, decision == 'approve')
         return ok(regularisation_data(record))
 
     @api_route('/api/v1/approvals/client/<int:partner_id>/<string:decision>',
                methods=('POST',), manager=True)
     def decide_client(self, employee, partner_id, decision, **kw):
-        partner = request.env['res.partner'].sudo().browse(partner_id).exists()
-        if (not partner or partner.ff_approval_state != 'pending'
-                or partner.ff_created_by_employee_id not in _team(employee)):
-            raise ApiError('Client request not found.', 404, 'not_found')
-        client = partner.with_user(request.env.user).sudo(False)
-        if decision == 'approve':
-            client.action_ff_approve()
-        elif decision == 'reject':
-            client.action_ff_reject()
-        else:
+        if decision not in ('approve', 'reject'):
             raise ApiError('decision must be "approve" or "reject".')
+        partner = request.env['res.partner'].sudo().browse(partner_id).exists()
+        if not partner or partner.ff_approval_state != 'pending':
+            raise ApiError('Client request not found.', 404, 'not_found')
+        partner.ff_app_decide(employee, decision == 'approve')
         return ok(client_data(partner))

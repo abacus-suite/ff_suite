@@ -118,8 +118,7 @@ class FieldForceOrdersApi(http.Controller):
     def order(self, employee, order_id, **kw):
         order = request.env['sale.order'].sudo().browse(order_id).exists()
         allowed = order and (order.ff_employee_id == employee
-                             or (request.env.user.has_group('ff_base.group_ff_manager')
-                                 and order.ff_employee_id in employee._ff_subordinates()))
+                             or order.ff_employee_id in employee._ff_subordinates())
         if not allowed:
             raise ApiError('Order not found.', 404, 'not_found')
         return ok(order_data(order, with_lines=True))
