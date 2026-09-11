@@ -110,6 +110,8 @@ def employee_profile(employee):
             'tracking_enabled': employee.ff_tracking_enabled and app['features']['tracking'],
             'timezone': employee.tz or 'UTC',
             'route_label': employee._ff_route_label(),
+            'routes': [ref(route) for route in employee.ff_route_ids.sorted('name')],
+            'routes_per_day': employee.ff_routes_per_day,
         },
         'roles': {
             'scope': scope,
