@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="hr_employee_view_form_ff" model="ir.ui.view">
+        <field name="name">hr.employee.form.ff_base</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Field Force" name="ff_field_force" groups="ff_base.group_ff_manager">
+                    <group>
+                        <group name="ff_org" string="Organisation">
+                            <field name="ff_employee_code"/>
+                            <field name="ff_team_id"/>
+                            <field name="ff_designation_id"/>
+                        </group>
+                        <group name="ff_tracking" string="Mobile App">
+                            <field name="ff_tracking_enabled"/>
+                        </group>
+                    </group>
+                    <field name="ff_device_ids" readonly="1">
+                        <list>
+                            <field name="name"/>
+                            <field name="device_uid"/>
+                            <field name="app_version"/>
+                            <field name="last_seen"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="hr_employee_view_search_ff" model="ir.ui.view">
+        <field name="name">hr.employee.search.ff_base</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="ff_employee_code"/>
+                <field name="ff_team_id"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="ff_employee_action" model="ir.actions.act_window">
+        <field name="name">Field Staff</field>
+        <field name="res_model">hr.employee</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('ff_team_id', '!=', False)]</field>
+    </record>
+</odoo>

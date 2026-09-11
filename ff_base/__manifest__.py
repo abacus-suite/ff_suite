@@ -1,0 +1,22 @@
+{
+    'name': 'Field Force - Base',
+    'version': '19.0.1.0.0',
+    'category': 'Human Resources/Field Force',
+    'summary': 'Teams, designations, roles, devices and settings for field sales staff',
+    'author': 'Field Force Suite',
+    'depends': ['hr', 'mail', 'base_geolocalize'],
+    'data': [
+        'security/ff_base_security.xml',
+        'security/ir.model.access.csv',
+        'data/ff_base_data.xml',
+        'views/ff_team_views.xml',
+        'views/ff_designation_views.xml',
+        'views/ff_device_views.xml',
+        'views/hr_employee_views.xml',
+        'views/res_config_settings_views.xml',
+        'views/ff_menus.xml',
+    ],
+    'application': True,
+    'installable': True,
+    'license': 'LGPL-3',
+}

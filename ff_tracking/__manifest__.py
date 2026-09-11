@@ -1,0 +1,20 @@
+{
+    'name': 'Field Force - Location Tracking',
+    'version': '19.0.1.0.0',
+    'category': 'Human Resources/Field Force',
+    'summary': 'GPS pings, live status, daily distance and compliance of field staff',
+    'author': 'Field Force Suite',
+    'depends': ['ff_base'],
+    'data': [
+        'security/ff_tracking_security.xml',
+        'security/ir.model.access.csv',
+        'data/ff_tracking_cron.xml',
+        'views/ff_employee_status_views.xml',
+        'views/ff_location_ping_views.xml',
+        'views/ff_daily_track_views.xml',
+        'views/ff_compliance_log_views.xml',
+        'views/ff_tracking_menus.xml',
+    ],
+    'installable': True,
+    'license': 'LGPL-3',
+}

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ff_root" name="Field Force" sequence="45" groups="group_ff_manager"/>
+
+    <menuitem id="menu_ff_organisation" name="Organisation" parent="menu_ff_root" sequence="80"/>
+    <menuitem id="menu_ff_employees" name="Field Staff" parent="menu_ff_organisation"
+              action="ff_employee_action" sequence="10"/>
+    <menuitem id="menu_ff_teams" name="Teams" parent="menu_ff_organisation"
+              action="ff_team_action" sequence="20"/>
+
+    <menuitem id="menu_ff_config" name="Configuration" parent="menu_ff_root" sequence="100"
+              groups="group_ff_admin"/>
+    <menuitem id="menu_ff_settings" name="Settings" parent="menu_ff_config"
+              action="ff_settings_action" sequence="1"/>
+    <menuitem id="menu_ff_designations" name="Designations" parent="menu_ff_config"
+              action="ff_designation_action" sequence="20"/>
+    <menuitem id="menu_ff_devices" name="Devices" parent="menu_ff_config"
+              action="ff_device_action" sequence="30"/>
+</odoo>

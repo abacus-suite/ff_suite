@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ff_attendance" name="Attendance" parent="ff_base.menu_ff_root" sequence="20"/>
+    <menuitem id="menu_ff_attendance_list" name="Attendance" parent="menu_ff_attendance"
+              action="ff_attendance_action" sequence="10"/>
+    <menuitem id="menu_ff_regularisation" name="Regularisation Requests" parent="menu_ff_attendance"
+              action="ff_regularisation_action" sequence="20"/>
+
+    <menuitem id="menu_ff_shifts" name="Shifts" parent="ff_base.menu_ff_config"
+              action="ff_shift_action" sequence="10"/>
+</odoo>

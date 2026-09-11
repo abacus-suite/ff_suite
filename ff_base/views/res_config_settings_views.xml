@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_ff" model="ir.ui.view">
+        <field name="name">res.config.settings.form.ff_base</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority">95</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Field Force" string="Field Force" name="ff_base" groups="ff_base.group_ff_admin">
+                    <block title="Location Tracking" name="ff_tracking_settings">
+                        <setting string="Ping interval" help="Seconds between background GPS pings while punched in.">
+                            <field name="ff_ping_interval"/>
+                        </setting>
+                        <setting string="Distance filter" help="Metres the phone must move before a new ping is recorded.">
+                            <field name="ff_distance_filter"/>
+                        </setting>
+                        <setting string="Inactive alert" help="Minutes without movement before a punched-in employee is flagged inactive.">
+                            <field name="ff_idle_threshold"/>
+                        </setting>
+                        <setting string="Low battery alert" help="Battery percentage below which an employee is flagged.">
+                            <field name="ff_low_battery"/>
+                        </setting>
+                        <setting string="GPS accuracy limit" help="Pings less accurate than this (metres) are ignored when computing distance.">
+                            <field name="ff_max_accuracy"/>
+                        </setting>
+                        <setting string="Ping retention" help="Raw GPS pings older than this many days are deleted. Daily distance totals are kept.">
+                            <field name="ff_ping_retention_days"/>
+                        </setting>
+                    </block>
+                    <block title="Attendance &amp; Anti-fraud" name="ff_fraud_settings">
+                        <setting help="Require a selfie photo when punching in and out from the app.">
+                            <field name="ff_selfie_required"/>
+                        </setting>
+                        <setting help="Accept punches and pings from fake-GPS apps. Keep this off in production.">
+                            <field name="ff_allow_mock"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="ff_settings_action" model="ir.actions.act_window">
+        <field name="name">Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline</field>
+        <field name="context">{'module': 'ff_base', 'bin_size': False}</field>
+    </record>
+</odoo>

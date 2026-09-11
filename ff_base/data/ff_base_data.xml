@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="param_selfie_required" model="ir.config_parameter">
+        <field name="key">ff_base.selfie_required</field>
+        <field name="value">True</field>
+    </record>
+
+    <record id="designation_sales_officer" model="ff.designation">
+        <field name="name">Sales Officer</field>
+        <field name="level">1</field>
+    </record>
+    <record id="designation_area_sales_manager" model="ff.designation">
+        <field name="name">Area Sales Manager</field>
+        <field name="level">2</field>
+    </record>
+    <record id="designation_regional_sales_head" model="ff.designation">
+        <field name="name">Regional Sales Head</field>
+        <field name="level">3</field>
+    </record>
+</odoo>

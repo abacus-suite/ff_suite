@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_team_officer,ff.team officer,model_ff_team,group_ff_officer,1,0,0,0
+access_ff_team_admin,ff.team admin,model_ff_team,group_ff_admin,1,1,1,1
+access_ff_designation_officer,ff.designation officer,model_ff_designation,group_ff_officer,1,0,0,0
+access_ff_designation_admin,ff.designation admin,model_ff_designation,group_ff_admin,1,1,1,1
+access_ff_device_officer,ff.device officer,model_ff_device,group_ff_officer,1,1,1,0
+access_ff_device_admin,ff.device admin,model_ff_device,group_ff_admin,1,1,1,1

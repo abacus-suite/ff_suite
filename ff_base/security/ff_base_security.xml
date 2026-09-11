@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="group_ff_officer" model="res.groups">
+        <field name="name">Field Force: Officer</field>
+        <field name="comment">Field sales officer. Uses the mobile app and sees only own data.</field>
+    </record>
+
+    <record id="group_ff_manager" model="res.groups">
+        <field name="name">Field Force: Manager</field>
+        <field name="comment">Team lead / manager. Sees data of everyone below them in the reporting hierarchy.</field>
+        <field name="implied_ids" eval="[(4, ref('group_ff_officer'))]"/>
+    </record>
+
+    <record id="group_ff_admin" model="res.groups">
+        <field name="name">Field Force: Administrator</field>
+        <field name="comment">Full access to all field force data and configuration.</field>
+        <field name="implied_ids" eval="[(4, ref('group_ff_manager'))]"/>
+    </record>
+
+    <!-- Odoo administrators are Field Force administrators -->
+    <record id="base.group_system" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('group_ff_admin'))]"/>
+    </record>
+
+    <record id="rule_ff_device_officer" model="ir.rule">
+        <field name="name">Devices: own</field>
+        <field name="model_id" ref="model_ff_device"/>
+        <field name="domain_force">[('employee_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_ff_officer'))]"/>
+    </record>
+    <record id="rule_ff_device_manager" model="ir.rule">
+        <field name="name">Devices: team hierarchy</field>
+        <field name="model_id" ref="model_ff_device"/>
+        <field name="domain_force">[('employee_id', 'child_of', user.employee_ids.ids)]</field>
+        <field name="groups" eval="[(4, ref('group_ff_manager'))]"/>
+    </record>
+    <record id="rule_ff_device_admin" model="ir.rule">
+        <field name="name">Devices: all</field>
+        <field name="model_id" ref="model_ff_device"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('group_ff_admin'))]"/>
+    </record>
+</odoo>

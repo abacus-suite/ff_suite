@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_location_ping_view_list" model="ir.ui.view">
+        <field name="name">ff.location.ping.list</field>
+        <field name="model">ff.location.ping</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" decoration-danger="is_mock">
+                <field name="employee_id"/>
+                <field name="ts"/>
+                <field name="latitude"/>
+                <field name="longitude"/>
+                <field name="accuracy"/>
+                <field name="speed" optional="hide"/>
+                <field name="battery"/>
+                <field name="gps_on" optional="hide"/>
+                <field name="is_mock"/>
+                <field name="source"/>
+                <field name="received_at" optional="hide"/>
+                <field name="map_url" widget="url" string="Map" text="Open map"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_location_ping_view_search" model="ir.ui.view">
+        <field name="name">ff.location.ping.search</field>
+        <field name="model">ff.location.ping</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <filter name="today" string="Today"
+                        domain="[('ts', '&gt;=', (context_today() - relativedelta(days=1)).strftime('%Y-%m-%d'))]"/>
+                <filter name="mock" string="Mock Locations" domain="[('is_mock', '=', True)]"/>
+                <group>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_day" string="Day" context="{'group_by': 'ts:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_location_ping_action" model="ir.actions.act_window">
+        <field name="name">GPS Pings</field>
+        <field name="res_model">ff.location.ping</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'search_default_today': 1}</field>
+    </record>
+</odoo>

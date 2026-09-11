@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_daily_track_view_list" model="ir.ui.view">
+        <field name="name">ff.daily.track.list</field>
+        <field name="model">ff.daily.track</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0">
+                <field name="date"/>
+                <field name="employee_id"/>
+                <field name="team_id"/>
+                <field name="distance_km" sum="Total km"/>
+                <field name="ping_count"/>
+                <field name="first_ping_at"/>
+                <field name="last_ping_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_daily_track_view_pivot" model="ir.ui.view">
+        <field name="name">ff.daily.track.pivot</field>
+        <field name="model">ff.daily.track</field>
+        <field name="arch" type="xml">
+            <pivot string="Distance Travelled">
+                <field name="employee_id" type="row"/>
+                <field name="date" interval="day" type="col"/>
+                <field name="distance_km" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="ff_daily_track_view_graph" model="ir.ui.view">
+        <field name="name">ff.daily.track.graph</field>
+        <field name="model">ff.daily.track</field>
+        <field name="arch" type="xml">
+            <graph string="Distance Travelled" type="bar">
+                <field name="employee_id"/>
+                <field name="distance_km" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="ff_daily_track_view_search" model="ir.ui.view">
+        <field name="name">ff.daily.track.search</field>
+        <field name="model">ff.daily.track</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="team_id"/>
+                <filter name="this_month" string="This Month"
+                        domain="[('date', '&gt;=', context_today().strftime('%Y-%m-01'))]"/>
+                <filter name="date" string="Date" date="date"/>
+                <group>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_team" string="Team" context="{'group_by': 'team_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_daily_track_action" model="ir.actions.act_window">
+        <field name="name">Daily Distance</field>
+        <field name="res_model">ff.daily.track</field>
+        <field name="view_mode">list,pivot,graph</field>
+        <field name="context">{'search_default_this_month': 1}</field>
+    </record>
+</odoo>

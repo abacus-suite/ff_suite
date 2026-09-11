@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_compliance_log_view_list" model="ir.ui.view">
+        <field name="name">ff.compliance.log.list</field>
+        <field name="model">ff.compliance.log</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0"
+                  decoration-danger="event in ('gps_off', 'permission_revoked', 'mock_location', 'time_tampered')"
+                  decoration-success="event in ('gps_on', 'permission_granted', 'battery_saver_off')">
+                <field name="ts"/>
+                <field name="employee_id"/>
+                <field name="team_id"/>
+                <field name="event"/>
+                <field name="detail"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_compliance_log_view_search" model="ir.ui.view">
+        <field name="name">ff.compliance.log.search</field>
+        <field name="model">ff.compliance.log</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="event"/>
+                <filter name="violations" string="Violations"
+                        domain="[('event', 'in', ('gps_off', 'permission_revoked', 'mock_location', 'time_tampered', 'app_killed', 'battery_saver_on'))]"/>
+                <filter name="ts" string="Date" date="ts"/>
+                <group>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_event" string="Event" context="{'group_by': 'event'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_compliance_log_action" model="ir.actions.act_window">
+        <field name="name">Compliance</field>
+        <field name="res_model">ff.compliance.log</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'search_default_violations': 1}</field>
+    </record>
+</odoo>
