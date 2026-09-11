@@ -14,7 +14,7 @@ class TestAllowance(TransactionCase):
         })
         category = cls.env.ref('ff_clients.contact_category_customer')
         Partner = cls.env['res.partner']
-        vals = {'ff_is_client': True, 'ff_category_id': category.id}
+        vals = {'ff_is_client': True, 'ff_category_id': category.id, 'ff_employee_ids': [(6, 0, cls.employee.ids)]}
         cls.c1 = Partner.create(dict(vals, name='A', partner_latitude=10.0, partner_longitude=76.0))
         cls.c2 = Partner.create(dict(vals, name='B', partner_latitude=10.009, partner_longitude=76.0))
         beat_type = cls.env.ref('ff_beat.route_type_beat')

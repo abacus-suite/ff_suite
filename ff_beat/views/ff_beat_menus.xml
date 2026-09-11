@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <menuitem id="menu_ff_beat" name="Routes" parent="ff_base.menu_ff_root" sequence="28"/>
-    <menuitem id="menu_ff_beat_plans" name="Route Plans" parent="menu_ff_beat"
+    <menuitem id="menu_ff_route_plans_monthly" name="Monthly Plans" parent="menu_ff_beat"
+              action="ff_route_plan_action" sequence="5"/>
+    <menuitem id="menu_ff_beat_plans" name="Daily Plans" parent="menu_ff_beat"
               action="ff_beat_plan_action" sequence="10"/>
+    <menuitem id="menu_ff_planned_visits" name="Planned Visits" parent="menu_ff_beat"
+              action="ff_route_plan_customer_action" sequence="15"/>
     <menuitem id="menu_ff_beats" name="Routes" parent="menu_ff_beat"
               action="ff_beat_action" sequence="20"/>
+    <menuitem id="menu_ff_plan_templates" name="Plan Templates" parent="menu_ff_beat"
+              action="ff_route_plan_template_action" sequence="25" groups="ff_base.group_ff_manager"/>
     <menuitem id="menu_ff_beat_assign" name="Plan Routes" parent="menu_ff_beat"
               action="ff_beat_assign_wizard_action" sequence="30" groups="ff_base.group_ff_manager"/>
 

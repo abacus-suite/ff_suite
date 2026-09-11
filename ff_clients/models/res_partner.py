@@ -1,5 +1,6 @@
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, ValidationError
+from odoo.tools.safe_eval import safe_eval
 
 from odoo.addons.ff_base.tools import get_param
 
@@ -17,10 +18,12 @@ class ResPartner(models.Model):
                                   help='Visible to field staff in the mobile app.')
     ff_category_id = fields.Many2one('ff.contact.category', string='Contact Category', index=True, tracking=True)
     ff_category_type = fields.Selection(related='ff_category_id.category_type', store=True, string='Contact Type')
+    ff_employee_ids = fields.Many2many('hr.employee', 'ff_partner_employee_rel', 'partner_id', 'employee_id',
+                                       string='Field Employees',
+                                       help='Employees who work with this contact. Only they (and their managers) see it in the app.')
     ff_district_id = fields.Many2one('ff.district', string='City / District', index=True)
     ff_client_code = fields.Char(string='Client Code', index=True, copy=False)
-    ff_team_ids = fields.Many2many('ff.team', string='Visible to Teams',
-                                   help='Leave empty to show the contact to every team.')
+    ff_team_ids = fields.Many2many('ff.team', string='Teams', help='Informational grouping of the contact.')
     ff_geofence_radius = fields.Integer(string='Geofence Radius (m)',
                                         help='0 = use the default radius from Field Force settings.')
     ff_approval_state = fields.Selection(APPROVAL_STATES, string='Contact Approval',
@@ -29,11 +32,13 @@ class ResPartner(models.Model):
                                                 readonly=True, copy=False)
     ff_map_url = fields.Char(string='Map', compute='_compute_ff_map_url')
 
-    @api.constrains('ff_is_client', 'ff_category_id')
-    def _check_ff_category(self):
-        for partner in self:
-            if partner.ff_is_client and not partner.ff_category_id:
+    @api.constrains('ff_is_client', 'ff_category_id', 'ff_employee_ids')
+    def _check_ff_contact(self):
+        for partner in self.filtered('ff_is_client'):
+            if not partner.ff_category_id:
                 raise ValidationError(self.env._('Field contact "%s" needs a contact category.', partner.display_name))
+            if not partner.ff_employee_ids:
+                raise ValidationError(self.env._('Field contact "%s" needs at least one field employee.', partner.display_name))
 
     @api.onchange('ff_district_id')
     def _onchange_ff_district_id(self):
@@ -59,43 +64,50 @@ class ResPartner(models.Model):
 
     @api.model
     def _ff_visible_domain(self, employee):
-        """Contacts an employee may see: categories of their department, approved
-        (or their own pending ones), visible to their team."""
+        """Contacts an employee may see in the app: assigned to them (or to people
+        in their data access), in a category of their department, approved or
+        their own pending ones."""
         employee = employee.sudo()
         categories = self.env['ff.contact.category'].ff_for_employee(employee)
-        team = employee.ff_team_id
         return [
             ('ff_is_client', '=', True),
             ('ff_category_id', 'in', categories.ids),
+            ('ff_employee_ids', 'in', employee._ff_scope_employees().ids),
             '|', ('ff_approval_state', '=', 'approved'),
             '&', ('ff_approval_state', '=', 'pending'), ('ff_created_by_employee_id', '=', employee.id),
-            '|', ('ff_team_ids', '=', False), ('ff_team_ids', 'in', team.ids),
         ]
 
     @api.model
     def ff_action_open_clients(self):
-        """Clients menu: each user sees the categories of their own department."""
+        """Contacts menu: each user sees their department's categories and the
+        contacts assigned within their data access."""
         action = self.env['ir.actions.act_window']._for_xml_id('ff_clients.ff_client_action')
         user = self.env.user
+        employee = user.employee_id
+        if employee:
+            action['context'] = dict(safe_eval(action.get('context') or '{}'),
+                                     default_ff_employee_ids=[(6, 0, employee.ids)])
         if not user.has_group('ff_base.group_ff_admin'):
-            categories = self.env['ff.contact.category'].ff_for_employee(user.employee_id)
-            action['domain'] = [('ff_is_client', '=', True), ('ff_category_id', 'in', categories.ids)]
+            categories = self.env['ff.contact.category'].ff_for_employee(employee)
+            action['domain'] = [('ff_is_client', '=', True), ('ff_category_id', 'in', categories.ids),
+                                ('ff_employee_ids', 'in', user.ff_scope_employee_ids())]
         return action
 
     @api.model
     def ff_create_from_app(self, employee, vals):
         employee = employee.sudo()
+        vals = dict(vals)
+        extra_employee_ids = vals.pop('ff_extra_employee_ids', None) or []
         category = self.env['ff.contact.category'].sudo().browse(vals.get('ff_category_id')).exists()
         if not category or category not in self.env['ff.contact.category'].ff_for_employee(employee):
             raise ValidationError(self.env._('Choose a contact category you have access to.'))
         # Supervisors, and categories without approval, are approved immediately.
         auto_approve = employee.ff_access_scope != 'own' or not category.requires_approval
-        vals = dict(
-            vals,
+        vals.update(
             ff_is_client=True,
             ff_approval_state='approved' if auto_approve else 'pending',
             ff_created_by_employee_id=employee.id,
-            ff_team_ids=[(6, 0, employee.ff_team_id.ids)],
+            ff_employee_ids=[(6, 0, list({employee.id, *extra_employee_ids}))],
         )
         district = self.env['ff.district'].sudo().browse(vals.get('ff_district_id')).exists()
         if district:

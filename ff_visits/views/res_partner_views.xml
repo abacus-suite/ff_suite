@@ -6,13 +6,45 @@
         <field name="inherit_id" ref="ff_clients.res_partner_view_form_ff"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='ff_created_by_employee_id']" position="after">
+                <field name="ff_last_visit_label"/>
                 <field name="ff_last_visit_at"/>
+                <field name="ff_last_visit_employee_id"/>
                 <label for="ff_visit_count"/>
                 <div>
                     <button name="action_ff_view_visits" type="object" class="btn-link p-0">
                         <field name="ff_visit_count" class="oe_inline"/> visits
                     </button>
                 </div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="res_partner_view_list_ff_visits" model="ir.ui.view">
+        <field name="name">res.partner.list.ff_visits</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="ff_clients.res_partner_view_list_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='ff_approval_state']" position="before">
+                <field name="ff_last_visit_label" optional="show"/>
+                <field name="ff_last_visit_at" optional="hide"/>
+                <field name="ff_last_visit_employee_id" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="res_partner_view_search_ff_visits" model="ir.ui.view">
+        <field name="name">res.partner.search.ff_visits</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="ff_clients.res_partner_view_search_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='from_app']" position="after">
+                <separator/>
+                <filter name="not_visited_30" string="Not Visited in 30 Days"
+                        domain="['|', ('ff_last_visit_at', '=', False), ('ff_last_visit_at', '&lt;', (context_today() - relativedelta(days=30)).strftime('%Y-%m-%d'))]"/>
+                <filter name="never_visited" string="Never Visited" domain="[('ff_last_visit_at', '=', False)]"/>
+            </xpath>
+            <xpath expr="//filter[@name='group_category']" position="after">
+                <filter name="group_last_visitor" string="Last Visited By" context="{'group_by': 'ff_last_visit_employee_id'}"/>
             </xpath>
         </field>
     </record>

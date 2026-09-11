@@ -7,6 +7,15 @@ access_ff_beat_line_officer,ff.beat.line officer,model_ff_beat_line,ff_base.grou
 access_ff_beat_line_manager,ff.beat.line manager,model_ff_beat_line,ff_base.group_ff_manager,1,1,1,1
 access_ff_beat_plan_officer,ff.beat.plan officer,model_ff_beat_plan,ff_base.group_ff_officer,1,0,0,0
 access_ff_beat_plan_manager,ff.beat.plan manager,model_ff_beat_plan,ff_base.group_ff_manager,1,1,1,1
+access_ff_route_plan_officer,ff.route.plan officer,model_ff_route_plan,ff_base.group_ff_officer,1,0,0,0
+access_ff_route_plan_manager,ff.route.plan manager,model_ff_route_plan,ff_base.group_ff_manager,1,1,1,1
+access_ff_route_plan_customer_officer,ff.route.plan.customer officer,model_ff_route_plan_customer,ff_base.group_ff_officer,1,0,0,0
+access_ff_route_plan_customer_manager,ff.route.plan.customer manager,model_ff_route_plan_customer,ff_base.group_ff_manager,1,1,1,1
+access_ff_route_plan_template_officer,ff.route.plan.template officer,model_ff_route_plan_template,ff_base.group_ff_officer,1,0,0,0
+access_ff_route_plan_template_manager,ff.route.plan.template manager,model_ff_route_plan_template,ff_base.group_ff_manager,1,1,1,1
+access_ff_route_plan_template_line_officer,ff.route.plan.template.line officer,model_ff_route_plan_template_line,ff_base.group_ff_officer,1,0,0,0
+access_ff_route_plan_template_line_manager,ff.route.plan.template.line manager,model_ff_route_plan_template_line,ff_base.group_ff_manager,1,1,1,1
 access_ff_route_distance_officer,ff.route.distance officer,model_ff_route_distance,ff_base.group_ff_officer,1,0,0,0
 access_ff_route_distance_manager,ff.route.distance manager,model_ff_route_distance,ff_base.group_ff_manager,1,1,1,1
 access_ff_beat_assign_wizard_manager,ff.beat.assign.wizard manager,model_ff_beat_assign_wizard,ff_base.group_ff_manager,1,1,1,1
+access_ff_route_plan_apply_wizard_manager,ff.route.plan.apply.wizard manager,model_ff_route_plan_apply_wizard,ff_base.group_ff_manager,1,1,1,1

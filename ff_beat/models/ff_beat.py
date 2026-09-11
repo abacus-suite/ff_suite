@@ -62,6 +62,14 @@ class FfBeat(models.Model):
         for beat in self:
             beat.display_name = '%s: %s' % (beat.route_type_id.name, beat.name) if beat.route_type_id else beat.name
 
+    def action_sync_contact_employees(self):
+        """Assign every contact of the route to all employees of the route."""
+        for beat in self.sudo():
+            for partner in beat.line_ids.partner_id:
+                missing = beat.employee_ids - partner.ff_employee_ids
+                if missing:
+                    partner.ff_employee_ids = [(4, employee.id) for employee in missing]
+
 
 class FfBeatLine(models.Model):
     _name = 'ff.beat.line'
@@ -77,3 +85,13 @@ class FfBeatLine(models.Model):
     partner_phone = fields.Char(related='partner_id.phone', string='Phone')
 
     _beat_partner_uniq = models.Constraint('UNIQUE(beat_id, partner_id)', 'A client appears only once per route.')
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        lines = super().create(vals_list)
+        # A contact added to a route is assigned to the route's employees (removable later).
+        for line in lines.sudo():
+            missing = line.beat_id.employee_ids - line.partner_id.ff_employee_ids
+            if missing:
+                line.partner_id.ff_employee_ids = [(4, employee.id) for employee in missing]
+        return lines

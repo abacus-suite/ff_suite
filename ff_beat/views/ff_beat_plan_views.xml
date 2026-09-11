@@ -7,15 +7,18 @@
             <list decoration-success="status == 'done'" decoration-danger="status == 'missed'">
                 <field name="date"/>
                 <field name="employee_id"/>
+                <field name="plan_id" optional="hide"/>
                 <field name="team_id" optional="hide"/>
                 <field name="beat_id"/>
                 <field name="planned_count"/>
                 <field name="completed_count"/>
-                <field name="adhoc_count"/>
+                <field name="missed_count" optional="show"/>
+                <field name="cancelled_count" optional="hide"/>
+                <field name="adhoc_count" optional="show"/>
                 <field name="completion_pct" widget="progressbar"/>
-                <field name="planned_km" optional="show"/>
-                <field name="actual_km" optional="show"/>
-                <field name="deviation_km" optional="show"/>
+                <field name="planned_km" optional="hide"/>
+                <field name="actual_km" optional="hide"/>
+                <field name="deviation_km" optional="hide"/>
                 <field name="status" widget="badge"
                        decoration-success="status == 'done'"
                        decoration-info="status == 'in_progress'"
@@ -33,13 +36,17 @@
                     <group>
                         <group>
                             <field name="employee_id"/>
-                            <field name="beat_id"/>
+                            <field name="employee_route_ids" invisible="1"/>
+                            <field name="plan_id" readonly="1"/>
                             <field name="date"/>
+                            <field name="beat_id" domain="[('id', 'in', employee_route_ids)]" options="{'no_create': True}"/>
                             <field name="status"/>
                         </group>
                         <group>
                             <field name="planned_count"/>
                             <field name="completed_count"/>
+                            <field name="missed_count"/>
+                            <field name="cancelled_count"/>
                             <field name="adhoc_count"/>
                             <field name="completion_pct" widget="progressbar"/>
                             <field name="planned_km"/>
@@ -48,6 +55,25 @@
                         </group>
                     </group>
                     <notebook>
+                        <page string="Customers" name="customers">
+                            <field name="customer_line_ids">
+                                <list editable="bottom" decoration-muted="not selected"
+                                      decoration-success="status == 'visited'" decoration-danger="status == 'missed'">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="selected" widget="boolean_toggle"/>
+                                    <field name="partner_id"/>
+                                    <field name="partner_category_id" optional="show"/>
+                                    <field name="status" widget="badge"
+                                           decoration-success="status == 'visited'"
+                                           decoration-danger="status == 'missed'"
+                                           decoration-warning="status == 'cancelled'"
+                                           decoration-info="status == 'planned'"/>
+                                    <field name="visit_id" optional="show"/>
+                                    <field name="cancelled"/>
+                                    <field name="cancel_reason"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="Visits" name="visits">
                             <field name="visit_ids" readonly="1">
                                 <list>
@@ -56,7 +82,7 @@
                                     <field name="is_planned"/>
                                     <field name="duration_min"/>
                                     <field name="inside_geofence"/>
-                                    <field name="outcome"/>
+                                    <field name="outcome_id"/>
                                     <field name="state"/>
                                 </list>
                             </field>
@@ -71,7 +97,7 @@
         <field name="name">ff.beat.plan.calendar</field>
         <field name="model">ff.beat.plan</field>
         <field name="arch" type="xml">
-            <calendar string="Beat Plans" date_start="date" color="employee_id" mode="month" quick_create="0">
+            <calendar string="Route Plans" date_start="date" color="employee_id" mode="month" quick_create="0">
                 <field name="employee_id" filters="1"/>
                 <field name="beat_id"/>
                 <field name="completion_pct"/>
@@ -83,7 +109,7 @@
         <field name="name">ff.beat.plan.pivot</field>
         <field name="model">ff.beat.plan</field>
         <field name="arch" type="xml">
-            <pivot string="Beat Completion">
+            <pivot string="Route Completion">
                 <field name="employee_id" type="row"/>
                 <field name="date" interval="week" type="col"/>
                 <field name="planned_count" type="measure"/>
@@ -99,6 +125,7 @@
             <search>
                 <field name="employee_id"/>
                 <field name="beat_id"/>
+                <field name="plan_id"/>
                 <field name="team_id"/>
                 <filter name="today" string="Today" domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
                 <filter name="this_week" string="This Week"
@@ -107,7 +134,7 @@
                 <filter name="date" string="Date" date="date"/>
                 <group>
                     <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
-                    <filter name="group_beat" string="Beat" context="{'group_by': 'beat_id'}"/>
+                    <filter name="group_beat" string="Route" context="{'group_by': 'beat_id'}"/>
                     <filter name="group_date" string="Day" context="{'group_by': 'date:day'}"/>
                 </group>
             </search>
@@ -115,7 +142,7 @@
     </record>
 
     <record id="ff_beat_plan_action" model="ir.actions.act_window">
-        <field name="name">Beat Plans</field>
+        <field name="name">Daily Plans</field>
         <field name="res_model">ff.beat.plan</field>
         <field name="view_mode">list,calendar,pivot,form</field>
         <field name="context">{'search_default_this_week': 1}</field>

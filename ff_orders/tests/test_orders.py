@@ -12,6 +12,7 @@ class TestFieldOrders(TransactionCase):
         cls.client = cls.env['res.partner'].create({
             'name': 'Order Client', 'ff_is_client': True, 'partner_latitude': 10.0, 'partner_longitude': 76.0,
             'ff_category_id': cls.env.ref('ff_clients.contact_category_customer').id,
+            'ff_employee_ids': [(6, 0, cls.employee.ids)],
         })
         cls.product = cls.env['product.product'].create({
             'name': 'Lychee Rose', 'list_price': 100.0, 'sale_ok': True, 'ff_sku_code': 'LR',

@@ -117,6 +117,13 @@ class FieldForceClientsApi(http.Controller):
         }
         if data.get('parent_id'):
             vals.update(parent_id=visible_client(employee, int(data['parent_id'])).id, type='other')
+        if data.get('route_id'):
+            route = request.env['ff.beat'].sudo().browse(to_int(data['route_id']) or []).exists()
+            if not route or (employee.ff_route_ids and route not in employee.ff_route_ids):
+                raise ApiError('This route is not assigned to you.', 403, 'forbidden')
+            # The contact joins the route and is shared with everyone working it.
+            vals['ff_route_ids'] = [(4, route.id)]
+            vals['ff_extra_employee_ids'] = route.employee_ids.ids
         partner = request.env['res.partner'].ff_create_from_app(employee, vals)
         return ok(client_data(partner), status=201)
 

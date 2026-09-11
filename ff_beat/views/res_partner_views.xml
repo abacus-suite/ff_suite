@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_partner_view_form_ff_beat" model="ir.ui.view">
+        <field name="name">res.partner.form.ff_beat</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="ff_clients.res_partner_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='ff_employee_ids']" position="before">
+                <field name="ff_route_ids" widget="many2many_tags" options="{'no_create': True}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="res_partner_view_list_ff_beat" model="ir.ui.view">
+        <field name="name">res.partner.list.ff_beat</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="ff_clients.res_partner_view_list_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='ff_employee_ids']" position="after">
+                <field name="ff_route_ids" widget="many2many_tags" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

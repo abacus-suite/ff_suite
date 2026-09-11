@@ -26,6 +26,9 @@ def client_data(partner, lat=None, lng=None):
         'district': ref(partner.ff_district_id),
         'parent': ref(partner.parent_id),
         'last_visit_at': to_iso(partner.ff_last_visit_at),
+        'last_visit_by': ref(partner.ff_last_visit_employee_id),
+        'days_since_visit': partner.ff_days_since_visit if partner.ff_days_since_visit >= 0 else None,
+        'routes': [ref(route) for route in partner.ff_route_ids],
         'distance_m': int(haversine_m(lat, lng, partner.partner_latitude, partner.partner_longitude))
         if located and lat is not None and lng is not None else None,
     }
@@ -63,6 +66,9 @@ def plan_data(plan):
         'date': plan.date.isoformat(),
         'beat': ref(plan.beat_id),
         'route_type': plan.beat_id.route_type_id.name or None,
+        'month_plan': ref(plan.plan_id),
+        'missed_count': plan.missed_count,
+        'cancelled_count': plan.cancelled_count,
         'planned_count': plan.planned_count,
         'completed_count': plan.completed_count,
         'adhoc_count': plan.adhoc_count,

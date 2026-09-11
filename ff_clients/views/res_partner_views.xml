@@ -16,6 +16,8 @@
                             <field name="ff_is_client"/>
                             <field name="ff_category_id" required="ff_is_client"/>
                             <field name="ff_category_type"/>
+                            <field name="ff_employee_ids" widget="many2many_tags" required="ff_is_client"
+                                   options="{'no_create': True}"/>
                             <field name="ff_client_code"/>
                             <field name="ff_approval_state"/>
                             <field name="ff_created_by_employee_id"/>
@@ -43,6 +45,7 @@
                 <field name="ff_client_code" optional="show"/>
                 <field name="name"/>
                 <field name="ff_category_id" widget="badge"/>
+                <field name="ff_employee_ids" widget="many2many_tags" optional="show"/>
                 <field name="parent_id" string="Site of" optional="hide"/>
                 <field name="phone" optional="show"/>
                 <field name="ff_district_id" optional="show"/>
@@ -68,8 +71,10 @@
                 <field name="name" filter_domain="['|', '|', ('name', 'ilike', self), ('ff_client_code', 'ilike', self), ('phone', 'ilike', self)]"/>
                 <field name="ff_category_id"/>
                 <field name="ff_district_id"/>
+                <field name="ff_employee_ids"/>
                 <field name="city"/>
                 <field name="ff_team_ids"/>
+                <filter name="my_contacts" string="My Contacts" domain="[('ff_employee_ids.user_id', '=', uid)]"/>
                 <filter name="pending" string="To Approve" domain="[('ff_approval_state', '=', 'pending')]"/>
                 <filter name="no_location" string="No GPS Location"
                         domain="[('partner_latitude', '=', 0), ('partner_longitude', '=', 0)]"/>

@@ -2,7 +2,7 @@ from odoo import fields, http
 from odoo.http import request
 
 from .clients import to_float, visible_client
-from .common import ApiError, api_route, body, ok
+from .common import ApiError, api_route, body, ok, ref
 from .field_data import client_data, plan_data, visit_data
 
 
@@ -53,33 +53,38 @@ class FieldForceVisitsApi(http.Controller):
 
     @api_route('/api/v1/beat/today', methods=('GET',))
     def beat_today(self, employee, date=None, lat=None, lng=None, **kw):
+        """The day's planned routes and customers (one or several routes)."""
         day = _day(employee, date)
         lat, lng = to_float(lat), to_float(lng)
         start, end = employee._ff_day_bounds(day)
-        plan = request.env['ff.beat.plan'].sudo().search(
-            [('employee_id', '=', employee.id), ('date', '=', day)], limit=1)
+        plans = request.env['ff.beat.plan'].sudo().search(
+            [('employee_id', '=', employee.id), ('date', '=', day)], order='id')
         visits = request.env['ff.visit'].sudo().search([
             ('employee_id', '=', employee.id), ('check_in_at', '>=', start), ('check_in_at', '<', end),
         ], order='check_in_at asc')
 
-        planned_partners = plan.beat_id.line_ids.sorted('sequence').partner_id
+        lines = plans.customer_line_ids.filtered('selected').sorted(lambda l: (l.day_id.id, l.sequence, l.id))
         rows = []
-        for sequence, partner in enumerate(planned_partners, start=1):
-            partner_visits = visits.filtered(lambda v, p=partner: v.partner_id == p)
-            status = 'pending'
+        for sequence, line in enumerate(lines, start=1):
+            partner_visits = visits.filtered(lambda v, p=line.partner_id: v.partner_id == p)
             if partner_visits.filtered(lambda v: v.state == 'ongoing'):
                 status = 'ongoing'
             elif partner_visits:
                 status = 'done'
-            row = client_data(partner, lat, lng)
-            row.update(sequence=sequence, visit_status=status,
+            else:
+                status = 'cancelled' if line.cancelled else 'pending'
+            row = client_data(line.partner_id, lat, lng)
+            row.update(sequence=sequence, visit_status=status, plan_status=line.status,
+                       route=ref(line.beat_id),
                        visit=visit_data(partner_visits[-1:]) if partner_visits else None)
             rows.append(row)
 
+        planned_partners = lines.partner_id
         ongoing = visits.filtered(lambda v: v.state == 'ongoing')[:1]
         return ok({
             'date': day.isoformat(),
-            'plan': plan_data(plan),
+            'plan': plan_data(plans[:1]),
+            'plans': [plan_data(p) for p in plans],
             'clients': rows,
             'adhoc_visits': [visit_data(v) for v in visits if v.partner_id not in planned_partners],
             'ongoing': visit_data(ongoing),

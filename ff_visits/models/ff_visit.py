@@ -127,7 +127,7 @@ class FfVisit(models.Model):
             vals.update(distance_m=0, inside_geofence=True, location_captured=True)
 
         visit = Visit.create(vals)
-        partner.ff_last_visit_at = visit.check_in_at
+        partner.write({'ff_last_visit_at': visit.check_in_at, 'ff_last_visit_employee_id': employee.id})
         self.env['ff.location.ping'].ff_ingest(employee, [{
             'lat': lat, 'lng': lng, 'accuracy': vals['check_in_accuracy'], 'mock': is_mock, 'source': 'visit',
         }])

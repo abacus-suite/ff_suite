@@ -13,10 +13,12 @@ class TestVisits(TransactionCase):
         category = cls.env.ref('ff_clients.contact_category_customer')
         cls.shop = cls.env['res.partner'].create({
             'name': 'Anand Stores', 'ff_is_client': True, 'ff_category_id': category.id,
+            'ff_employee_ids': [(6, 0, cls.employee.ids)],
             'partner_latitude': 10.0, 'partner_longitude': 76.0,
         })
         cls.new_shop = cls.env['res.partner'].create({
             'name': 'New Shop', 'ff_is_client': True, 'ff_category_id': category.id,
+            'ff_employee_ids': [(6, 0, cls.employee.ids)],
         })
         cls.Visit = cls.env['ff.visit']
 

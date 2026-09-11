@@ -27,6 +27,8 @@
                 <header>
                     <button name="%(ff_beat_assign_wizard_action)d" type="action" string="Plan for Employees"
                             class="btn-primary" context="{'default_beat_id': id}"/>
+                    <button name="action_sync_contact_employees" type="object" string="Assign Contacts to Employees"
+                            confirm="Assign every contact of this route to all employees of the route?"/>
                 </header>
                 <sheet>
                     <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>

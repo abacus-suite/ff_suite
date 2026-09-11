@@ -7,6 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//group[@name='ff_org']" position="inside">
                 <field name="ff_route_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                <field name="ff_routes_per_day"/>
             </xpath>
         </field>
     </record>

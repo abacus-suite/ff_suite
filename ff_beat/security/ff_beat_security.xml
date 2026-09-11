@@ -1,14 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="rule_ff_beat_plan_scope" model="ir.rule">
-        <field name="name">Beat plans: data access scope</field>
+        <field name="name">Daily plans: data access scope</field>
         <field name="model_id" ref="model_ff_beat_plan"/>
         <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
         <field name="groups" eval="[(4, ref('ff_base.group_ff_officer'))]"/>
     </record>
     <record id="rule_ff_beat_plan_admin" model="ir.rule">
-        <field name="name">Beat plans: all</field>
+        <field name="name">Daily plans: all</field>
         <field name="model_id" ref="model_ff_beat_plan"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
+    </record>
+
+    <record id="rule_ff_route_plan_scope" model="ir.rule">
+        <field name="name">Monthly plans: data access scope</field>
+        <field name="model_id" ref="model_ff_route_plan"/>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_officer'))]"/>
+    </record>
+    <record id="rule_ff_route_plan_admin" model="ir.rule">
+        <field name="name">Monthly plans: all</field>
+        <field name="model_id" ref="model_ff_route_plan"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
+    </record>
+
+    <record id="rule_ff_route_plan_customer_scope" model="ir.rule">
+        <field name="name">Planned visits: data access scope</field>
+        <field name="model_id" ref="model_ff_route_plan_customer"/>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_officer'))]"/>
+    </record>
+    <record id="rule_ff_route_plan_customer_admin" model="ir.rule">
+        <field name="name">Planned visits: all</field>
+        <field name="model_id" ref="model_ff_route_plan_customer"/>
         <field name="domain_force">[(1, '=', 1)]</field>
         <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
     </record>

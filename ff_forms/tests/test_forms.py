@@ -13,6 +13,7 @@ class TestForms(TransactionCase):
         cls.outlet = cls.env.ref('ff_clients.contact_category_outlet')
         cls.shop = cls.env['res.partner'].create({
             'name': 'Audit Shop', 'ff_is_client': True, 'ff_category_id': cls.outlet.id,
+            'ff_employee_ids': [(6, 0, cls.employee.ids)],
             'partner_latitude': 10.0, 'partner_longitude': 76.0,
         })
         cls.form = cls.env['ff.form'].create({
@@ -66,7 +67,7 @@ class TestForms(TransactionCase):
 
     def test_form_applicability_by_category_and_department(self):
         customer = self.env['res.partner'].create({
-            'name': 'Customer', 'ff_is_client': True,
+            'name': 'Customer', 'ff_is_client': True, 'ff_employee_ids': [(6, 0, self.employee.ids)],
             'ff_category_id': self.env.ref('ff_clients.contact_category_customer').id,
         })
         Form = self.env['ff.form']

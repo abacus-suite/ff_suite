@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Monthly plans -->
+    <record id="ff_route_plan_view_list" model="ir.ui.view">
+        <field name="name">ff.route.plan.list</field>
+        <field name="model">ff.route.plan</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="month_label"/>
+                <field name="employee_id"/>
+                <field name="department_id" optional="show"/>
+                <field name="team_id" optional="hide"/>
+                <field name="planned_count" sum="Planned"/>
+                <field name="visited_count" sum="Visited"/>
+                <field name="missed_count" sum="Missed"/>
+                <field name="cancelled_count" sum="Cancelled"/>
+                <field name="completion_pct" widget="progressbar"/>
+                <field name="state" widget="badge" decoration-success="state == 'confirmed'" decoration-info="state == 'draft'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_route_plan_view_form" model="ir.ui.view">
+        <field name="name">ff.route.plan.form</field>
+        <field name="model">ff.route.plan</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_open_apply_template" type="object" string="Apply Template"
+                            class="btn-primary" invisible="state != 'draft' or not id"/>
+                    <button name="action_copy_previous_month" type="object" string="Copy Previous Month"
+                            invisible="state != 'draft' or not id"
+                            confirm="Add last month's routes to this month? Days already planned are kept."/>
+                    <button name="action_confirm" type="object" string="Confirm Plan" invisible="state != 'draft' or not id"/>
+                    <button name="action_reset_draft" type="object" string="Back to Draft" invisible="state != 'confirmed'"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1" placeholder="Employee - Month Plan"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="employee_id" readonly="id"/>
+                            <field name="month" readonly="id" help="Any date of the month"/>
+                            <field name="routes_per_day"/>
+                            <field name="employee_route_ids" widget="many2many_tags"/>
+                        </group>
+                        <group>
+                            <field name="planned_count"/>
+                            <field name="visited_count"/>
+                            <field name="missed_count"/>
+                            <field name="cancelled_count"/>
+                            <field name="completion_pct" widget="progressbar"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Planned Days" name="days">
+                            <field name="day_ids" readonly="state == 'confirmed'"
+                                   context="{'default_employee_id': employee_id, 'default_date': month}">
+                                <list>
+                                    <field name="date"/>
+                                    <field name="beat_id"/>
+                                    <field name="planned_count"/>
+                                    <field name="completed_count"/>
+                                    <field name="missed_count"/>
+                                    <field name="cancelled_count"/>
+                                    <field name="adhoc_count" optional="hide"/>
+                                    <field name="completion_pct" widget="progressbar"/>
+                                </list>
+                                <form>
+                                    <group>
+                                        <group>
+                                            <field name="employee_id" invisible="1"/>
+                                            <field name="employee_route_ids" invisible="1"/>
+                                            <field name="date"/>
+                                            <field name="beat_id" domain="[('id', 'in', employee_route_ids)]"
+                                                   options="{'no_create': True}"/>
+                                        </group>
+                                        <group>
+                                            <field name="planned_count"/>
+                                            <field name="completed_count"/>
+                                            <field name="missed_count"/>
+                                        </group>
+                                    </group>
+                                    <field name="customer_line_ids">
+                                        <list editable="bottom" decoration-muted="not selected"
+                                              decoration-success="status == 'visited'" decoration-danger="status == 'missed'">
+                                            <field name="sequence" widget="handle"/>
+                                            <field name="selected" widget="boolean_toggle"/>
+                                            <field name="partner_id"/>
+                                            <field name="partner_category_id" optional="show"/>
+                                            <field name="status" widget="badge"
+                                                   decoration-success="status == 'visited'"
+                                                   decoration-danger="status == 'missed'"
+                                                   decoration-warning="status == 'cancelled'"
+                                                   decoration-info="status == 'planned'"/>
+                                            <field name="visit_id" optional="hide"/>
+                                            <field name="cancelled" optional="show"/>
+                                            <field name="cancel_reason" optional="show"/>
+                                        </list>
+                                    </field>
+                                </form>
+                            </field>
+                        </page>
+                        <page string="Planned Visits" name="visits">
+                            <field name="customer_line_ids" readonly="1">
+                                <list decoration-success="status == 'visited'" decoration-danger="status == 'missed'"
+                                      decoration-muted="status == 'skipped'">
+                                    <field name="date"/>
+                                    <field name="beat_id"/>
+                                    <field name="partner_id"/>
+                                    <field name="status" widget="badge"
+                                           decoration-success="status == 'visited'"
+                                           decoration-danger="status == 'missed'"
+                                           decoration-warning="status == 'cancelled'"
+                                           decoration-info="status == 'planned'"/>
+                                    <field name="visit_id" optional="show"/>
+                                    <field name="cancel_reason" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Notes" name="notes">
+                            <field name="note" placeholder="Notes for this month's plan..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_route_plan_view_pivot" model="ir.ui.view">
+        <field name="name">ff.route.plan.pivot</field>
+        <field name="model">ff.route.plan</field>
+        <field name="arch" type="xml">
+            <pivot string="Plan Achievement">
+                <field name="employee_id" type="row"/>
+                <field name="month" interval="month" type="col"/>
+                <field name="planned_count" type="measure"/>
+                <field name="visited_count" type="measure"/>
+                <field name="missed_count" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="ff_route_plan_view_search" model="ir.ui.view">
+        <field name="name">ff.route.plan.search</field>
+        <field name="model">ff.route.plan</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="department_id"/>
+                <field name="team_id"/>
+                <filter name="this_month" string="This Month"
+                        domain="[('month', '=', context_today().strftime('%Y-%m-01'))]"/>
+                <filter name="this_year" string="This Year"
+                        domain="[('month', '&gt;=', context_today().strftime('%Y-01-01'))]"/>
+                <filter name="month" string="Month" date="month"/>
+                <separator/>
+                <filter name="draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                <filter name="confirmed" string="Confirmed" domain="[('state', '=', 'confirmed')]"/>
+                <group>
+                    <filter name="group_year" string="Year" context="{'group_by': 'month:year'}"/>
+                    <filter name="group_month" string="Month" context="{'group_by': 'month:month'}"/>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_department" string="Department" context="{'group_by': 'department_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_route_plan_action" model="ir.actions.act_window">
+        <field name="name">Monthly Route Plans</field>
+        <field name="res_model">ff.route.plan</field>
+        <field name="view_mode">list,form,pivot</field>
+        <field name="context">{'search_default_this_year': 1, 'search_default_group_year': 1, 'search_default_group_month': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Plan the month for your field staff</p>
+            <p>Pick an employee and month, add days with their allowed routes, untick customers you don't need
+               - or apply a template / copy last month in one click.</p>
+        </field>
+    </record>
+
+    <!-- Planned customer visits (analysis) -->
+    <record id="ff_route_plan_customer_view_list" model="ir.ui.view">
+        <field name="name">ff.route.plan.customer.list</field>
+        <field name="model">ff.route.plan.customer</field>
+        <field name="arch" type="xml">
+            <list create="0" editable="bottom" decoration-success="status == 'visited'"
+                  decoration-danger="status == 'missed'" decoration-muted="status == 'skipped'">
+                <field name="date" readonly="1"/>
+                <field name="employee_id" readonly="1"/>
+                <field name="beat_id" readonly="1"/>
+                <field name="partner_id" readonly="1"/>
+                <field name="status" widget="badge"
+                       decoration-success="status == 'visited'"
+                       decoration-danger="status == 'missed'"
+                       decoration-warning="status == 'cancelled'"
+                       decoration-info="status == 'planned'"/>
+                <field name="visit_id" optional="show"/>
+                <field name="cancelled"/>
+                <field name="cancel_reason"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_route_plan_customer_view_pivot" model="ir.ui.view">
+        <field name="name">ff.route.plan.customer.pivot</field>
+        <field name="model">ff.route.plan.customer</field>
+        <field name="arch" type="xml">
+            <pivot string="Planned Visits">
+                <field name="employee_id" type="row"/>
+                <field name="status" type="col"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="ff_route_plan_customer_view_graph" model="ir.ui.view">
+        <field name="name">ff.route.plan.customer.graph</field>
+        <field name="model">ff.route.plan.customer</field>
+        <field name="arch" type="xml">
+            <graph string="Planned Visits" type="bar" stacked="1">
+                <field name="employee_id"/>
+                <field name="status"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="ff_route_plan_customer_view_search" model="ir.ui.view">
+        <field name="name">ff.route.plan.customer.search</field>
+        <field name="model">ff.route.plan.customer</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="partner_id"/>
+                <field name="beat_id"/>
+                <filter name="planned" string="Planned" domain="[('status', '=', 'planned')]"/>
+                <filter name="visited" string="Visited" domain="[('status', '=', 'visited')]"/>
+                <filter name="missed" string="Missed" domain="[('status', '=', 'missed')]"/>
+                <filter name="cancelled" string="Cancelled" domain="[('status', '=', 'cancelled')]"/>
+                <separator/>
+                <filter name="today" string="Today" domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter name="this_month" string="This Month"
+                        domain="[('date', '&gt;=', context_today().strftime('%Y-%m-01'))]"/>
+                <filter name="date" string="Date" date="date"/>
+                <group>
+                    <filter name="group_status" string="Status" context="{'group_by': 'status'}"/>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_route" string="Route" context="{'group_by': 'beat_id'}"/>
+                    <filter name="group_date" string="Day" context="{'group_by': 'date:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_route_plan_customer_action" model="ir.actions.act_window">
+        <field name="name">Planned Visits</field>
+        <field name="res_model">ff.route.plan.customer</field>
+        <field name="view_mode">list,pivot,graph</field>
+        <field name="domain">[('status', '!=', 'skipped')]</field>
+        <field name="context">{'search_default_this_month': 1}</field>
+    </record>
+
+    <!-- Templates -->
+    <record id="ff_route_plan_template_view_list" model="ir.ui.view">
+        <field name="name">ff.route.plan.template.list</field>
+        <field name="model">ff.route.plan.template</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="employee_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_route_plan_template_view_form" model="ir.ui.view">
+        <field name="name">ff.route.plan.template.form</field>
+        <field name="model">ff.route.plan.template</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="%(ff_route_plan_apply_wizard_action)d" type="action" string="Apply"
+                            class="btn-primary" context="{'default_template_id': id}" invisible="not id"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="e.g. Kochi weekly pattern"/></h1>
+                    </div>
+                    <group>
+                        <field name="employee_id"/>
+                        <field name="company_id" groups="base.group_multi_company"/>
+                        <field name="active" invisible="1"/>
+                    </group>
+                    <field name="line_ids">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle"/>
+                            <field name="week"/>
+                            <field name="weekday"/>
+                            <field name="beat_id"/>
+                        </list>
+                    </field>
+                    <field name="note" placeholder="Notes..."/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_route_plan_template_action" model="ir.actions.act_window">
+        <field name="name">Plan Templates</field>
+        <field name="res_model">ff.route.plan.template</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Create a weekly route pattern</p>
+            <p>Example: Monday Route A, Tuesday Route B, 1st Saturday Route C. Apply it to a week or month for any employee.</p>
+        </field>
+    </record>
+</odoo>
