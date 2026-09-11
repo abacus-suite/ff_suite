@@ -7,13 +7,18 @@ class FfAppPasswordWizard(models.TransientModel):
     _description = 'Set Mobile App Password'
 
     employee_id = fields.Many2one('hr.employee', required=True, readonly=True)
-    login = fields.Char(string='App Login', required=True)
-    password = fields.Char(required=True)
-    confirm_password = fields.Char(required=True)
+    # Not required at model level: the clear-text values are wiped after saving.
+    login = fields.Char(string='App Login')
+    password = fields.Char()
+    confirm_password = fields.Char()
     logout_devices = fields.Boolean(string='Log Out Existing Devices', default=True)
 
     def action_apply(self):
         self.ensure_one()
+        if not (self.login or '').strip():
+            raise ValidationError(self.env._('Enter an app login.'))
+        if not self.password:
+            raise ValidationError(self.env._('Enter a password.'))
         if self.password != self.confirm_password:
             raise ValidationError(self.env._('The passwords do not match.'))
         employee = self.employee_id.sudo()
