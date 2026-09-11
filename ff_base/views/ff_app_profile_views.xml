@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_app_profile_view_list" model="ir.ui.view">
+        <field name="name">ff.app.profile.list</field>
+        <field name="model">ff.app.profile</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="department_ids" widget="many2many_tags"/>
+                <field name="feature_attendance" optional="show"/>
+                <field name="feature_tracking" optional="show"/>
+                <field name="feature_routes" optional="show"/>
+                <field name="feature_visits" optional="show"/>
+                <field name="feature_orders" optional="show"/>
+                <field name="feature_forms" optional="show"/>
+                <field name="feature_allowance" optional="show"/>
+                <field name="label_client" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_app_profile_view_form" model="ir.ui.view">
+        <field name="name">ff.app.profile.form</field>
+        <field name="model">ff.app.profile</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="e.g. Sales team, Medical reps"/></h1>
+                    </div>
+                    <group>
+                        <field name="department_ids" widget="many2many_tags" placeholder="Empty = default for everyone else"/>
+                    </group>
+                    <group>
+                        <group string="Features shown in the app">
+                            <field name="feature_attendance" widget="boolean_toggle"/>
+                            <field name="feature_tracking" widget="boolean_toggle"/>
+                            <field name="feature_routes" widget="boolean_toggle"/>
+                            <field name="feature_visits" widget="boolean_toggle"/>
+                            <field name="feature_orders" widget="boolean_toggle"/>
+                            <field name="feature_forms" widget="boolean_toggle"/>
+                            <field name="feature_allowance" widget="boolean_toggle"/>
+                        </group>
+                        <group string="Words used in the app">
+                            <field name="label_client"/>
+                            <field name="label_visit"/>
+                            <field name="label_order"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_app_profile_action" model="ir.actions.act_window">
+        <field name="name">App Profiles</field>
+        <field name="res_model">ff.app.profile</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_ff_app_profiles" name="App Profiles" parent="menu_ff_config"
+              action="ff_app_profile_action" sequence="5"/>
+</odoo>

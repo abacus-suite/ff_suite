@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_form_view_list" model="ir.ui.view">
+        <field name="name">ff.form.list</field>
+        <field name="model">ff.form</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="trigger"/>
+                <field name="frequency"/>
+                <field name="mandatory"/>
+                <field name="department_ids" widget="many2many_tags"/>
+                <field name="category_ids" widget="many2many_tags"/>
+                <field name="response_count"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_form_view_form" model="ir.ui.view">
+        <field name="name">ff.form.form</field>
+        <field name="model">ff.form</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_responses" type="object" class="oe_stat_button" icon="fa-list-alt">
+                            <field name="response_count" widget="statinfo" string="Responses"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="e.g. Store Audit, Doctor Profile, Stock Check"/></h1>
+                    </div>
+                    <group>
+                        <group string="When">
+                            <field name="trigger" widget="radio"/>
+                            <field name="frequency"/>
+                            <field name="mandatory"/>
+                        </group>
+                        <group string="Who">
+                            <field name="department_ids" widget="many2many_tags" placeholder="Empty = every department"/>
+                            <field name="category_ids" widget="many2many_tags" placeholder="Empty = every category"
+                                   invisible="trigger not in ('visit', 'contact')"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                    </group>
+                    <field name="description" placeholder="Instructions shown to field staff..."/>
+                    <notebook>
+                        <page string="Questions" name="questions">
+                            <field name="field_ids">
+                                <list>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="field_type"/>
+                                    <field name="required"/>
+                                    <field name="visible_if_field_id" optional="show"/>
+                                    <field name="visible_if_value" optional="show"/>
+                                    <field name="key" optional="hide"/>
+                                </list>
+                                <form>
+                                    <group>
+                                        <group>
+                                            <field name="name"/>
+                                            <field name="field_type"/>
+                                            <field name="required"/>
+                                            <field name="help_text"/>
+                                            <field name="key" readonly="id"/>
+                                        </group>
+                                        <group>
+                                            <field name="options" placeholder="One choice per line"
+                                                   invisible="field_type not in ('select', 'multiselect')"
+                                                   required="field_type in ('select', 'multiselect')"/>
+                                            <field name="min_value" invisible="field_type not in ('number', 'decimal')"/>
+                                            <field name="max_value" invisible="field_type not in ('number', 'decimal')"/>
+                                        </group>
+                                    </group>
+                                    <group string="Conditional (optional)">
+                                        <field name="visible_if_field_id" domain="[('form_id', '=', parent.id)]"
+                                               options="{'no_create': True}"/>
+                                        <field name="visible_if_value" invisible="not visible_if_field_id"/>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_form_action" model="ir.actions.act_window">
+        <field name="name">Forms</field>
+        <field name="res_model">ff.form</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Build your first field form</p>
+            <p>Store audits, stock checks, doctor profiles, feedback... no coding needed.</p>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_form_officer,ff.form officer,model_ff_form,ff_base.group_ff_officer,1,0,0,0
+access_ff_form_admin,ff.form admin,model_ff_form,ff_base.group_ff_admin,1,1,1,1
+access_ff_form_field_officer,ff.form.field officer,model_ff_form_field,ff_base.group_ff_officer,1,0,0,0
+access_ff_form_field_admin,ff.form.field admin,model_ff_form_field,ff_base.group_ff_admin,1,1,1,1
+access_ff_form_response_officer,ff.form.response officer,model_ff_form_response,ff_base.group_ff_officer,1,0,0,0
+access_ff_form_response_admin,ff.form.response admin,model_ff_form_response,ff_base.group_ff_admin,1,1,1,1
+access_ff_form_response_line_officer,ff.form.response.line officer,model_ff_form_response_line,ff_base.group_ff_officer,1,0,0,0
+access_ff_form_response_line_admin,ff.form.response.line admin,model_ff_form_response_line,ff_base.group_ff_admin,1,1,1,1

@@ -84,3 +84,20 @@ class FieldForceVisitsApi(http.Controller):
             'adhoc_visits': [visit_data(v) for v in visits if v.partner_id not in planned_partners],
             'ongoing': visit_data(ongoing),
         })
+
+    @api_route('/api/v1/visit-outcomes', methods=('GET',))
+    def visit_outcomes(self, employee, partner_id=None, **kw):
+        try:
+            partner = visible_client(employee, int(partner_id))
+        except (TypeError, ValueError):
+            raise ApiError('partner_id is required.')
+        outcomes = request.env['ff.visit.outcome'].ff_for(employee, partner)
+        return ok([{
+            'id': o.id,
+            'name': o.name,
+            'code': o.code or None,
+            'productive': o.productive,
+            'is_order': o.is_order,
+            'requires_note': o.requires_note,
+            'requires_photo': o.requires_photo,
+        } for o in outcomes])

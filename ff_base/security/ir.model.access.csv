@@ -5,5 +5,7 @@ access_ff_designation_officer,ff.designation officer,model_ff_designation,group_
 access_ff_designation_admin,ff.designation admin,model_ff_designation,group_ff_admin,1,1,1,1
 access_ff_device_officer,ff.device officer,model_ff_device,group_ff_officer,1,1,1,0
 access_ff_device_admin,ff.device admin,model_ff_device,group_ff_admin,1,1,1,1
+access_ff_app_profile_user,ff.app.profile user,model_ff_app_profile,base.group_user,1,0,0,0
+access_ff_app_profile_admin,ff.app.profile admin,model_ff_app_profile,group_ff_admin,1,1,1,1
 access_ff_app_token_admin,ff.app.token admin,model_ff_app_token,group_ff_admin,1,1,1,1
 access_ff_app_password_wizard_admin,ff.app.password.wizard admin,model_ff_app_password_wizard,group_ff_admin,1,1,1,1

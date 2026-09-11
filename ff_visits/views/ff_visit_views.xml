@@ -12,7 +12,8 @@
                 <field name="duration_min" sum="Total"/>
                 <field name="distance_m" optional="show"/>
                 <field name="inside_geofence" optional="show"/>
-                <field name="outcome" optional="show"/>
+                <field name="outcome_id" optional="show"/>
+                <field name="productive" optional="hide"/>
                 <field name="photo_count" optional="show"/>
                 <field name="state" widget="badge" decoration-info="state == 'ongoing'" decoration-success="state == 'done'"/>
             </list>
@@ -37,7 +38,8 @@
                             <field name="check_in_at" readonly="1"/>
                             <field name="check_out_at" readonly="1"/>
                             <field name="duration_min"/>
-                            <field name="outcome"/>
+                            <field name="outcome_id"/>
+                            <field name="productive"/>
                         </group>
                         <group>
                             <field name="inside_geofence" readonly="1"/>
@@ -94,7 +96,8 @@
                 <group>
                     <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
                     <filter name="group_client" string="Client" context="{'group_by': 'partner_id'}"/>
-                    <filter name="group_outcome" string="Outcome" context="{'group_by': 'outcome'}"/>
+                    <filter name="group_outcome" string="Outcome" context="{'group_by': 'outcome_id'}"/>
+                    <filter name="group_productive" string="Productive" context="{'group_by': 'productive'}"/>
                     <filter name="group_day" string="Day" context="{'group_by': 'check_in_at:day'}"/>
                 </group>
             </search>

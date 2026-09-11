@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_form_response_view_list" model="ir.ui.view">
+        <field name="name">ff.form.response.list</field>
+        <field name="model">ff.form.response</field>
+        <field name="arch" type="xml">
+            <list create="0">
+                <field name="submitted_at"/>
+                <field name="form_id"/>
+                <field name="employee_id"/>
+                <field name="partner_id"/>
+                <field name="department_id" optional="hide"/>
+                <field name="visit_id" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_form_response_view_form" model="ir.ui.view">
+        <field name="name">ff.form.response.form</field>
+        <field name="model">ff.form.response</field>
+        <field name="arch" type="xml">
+            <form create="0" edit="0">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="form_id"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="employee_id"/>
+                            <field name="partner_id"/>
+                            <field name="visit_id"/>
+                        </group>
+                        <group>
+                            <field name="submitted_at"/>
+                            <field name="latitude"/>
+                            <field name="longitude"/>
+                        </group>
+                    </group>
+                    <field name="line_ids">
+                        <list>
+                            <field name="field_label"/>
+                            <field name="value_text"/>
+                        </list>
+                    </field>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_form_response_view_search" model="ir.ui.view">
+        <field name="name">ff.form.response.search</field>
+        <field name="model">ff.form.response</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="form_id"/>
+                <field name="employee_id"/>
+                <field name="partner_id"/>
+                <filter name="submitted_at" string="Date" date="submitted_at"/>
+                <group>
+                    <filter name="group_form" string="Form" context="{'group_by': 'form_id'}"/>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_day" string="Day" context="{'group_by': 'submitted_at:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_form_response_action" model="ir.actions.act_window">
+        <field name="name">Form Responses</field>
+        <field name="res_model">ff.form.response</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="ff_form_response_line_view_list" model="ir.ui.view">
+        <field name="name">ff.form.response.line.list</field>
+        <field name="model">ff.form.response.line</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0">
+                <field name="submitted_at"/>
+                <field name="form_id"/>
+                <field name="employee_id"/>
+                <field name="partner_id"/>
+                <field name="field_label"/>
+                <field name="value_text"/>
+                <field name="value_number" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_form_response_line_view_pivot" model="ir.ui.view">
+        <field name="name">ff.form.response.line.pivot</field>
+        <field name="model">ff.form.response.line</field>
+        <field name="arch" type="xml">
+            <pivot string="Answer Analysis">
+                <field name="field_id" type="row"/>
+                <field name="value_text" type="row"/>
+                <field name="value_number" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="ff_form_response_line_view_graph" model="ir.ui.view">
+        <field name="name">ff.form.response.line.graph</field>
+        <field name="model">ff.form.response.line</field>
+        <field name="arch" type="xml">
+            <graph string="Answer Analysis" type="pie">
+                <field name="value_text"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="ff_form_response_line_view_search" model="ir.ui.view">
+        <field name="name">ff.form.response.line.search</field>
+        <field name="model">ff.form.response.line</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="form_id"/>
+                <field name="field_id"/>
+                <field name="employee_id"/>
+                <field name="partner_id"/>
+                <field name="value_text"/>
+                <filter name="submitted_at" string="Date" date="submitted_at"/>
+                <group>
+                    <filter name="group_form" string="Form" context="{'group_by': 'form_id'}"/>
+                    <filter name="group_question" string="Question" context="{'group_by': 'field_id'}"/>
+                    <filter name="group_answer" string="Answer" context="{'group_by': 'value_text'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_form_response_line_action" model="ir.actions.act_window">
+        <field name="name">Answer Analysis</field>
+        <field name="res_model">ff.form.response.line</field>
+        <field name="view_mode">pivot,graph,list</field>
+    </record>
+</odoo>

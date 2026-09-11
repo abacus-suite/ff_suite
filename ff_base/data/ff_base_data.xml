@@ -5,6 +5,11 @@
         <field name="value">True</field>
     </record>
 
+    <record id="app_profile_default" model="ff.app.profile">
+        <field name="name">Default</field>
+        <field name="sequence">100</field>
+    </record>
+
     <record id="designation_sales_officer" model="ff.designation">
         <field name="name">Sales Officer</field>
         <field name="level">1</field>

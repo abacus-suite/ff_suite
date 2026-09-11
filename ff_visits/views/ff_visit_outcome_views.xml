@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_visit_outcome_view_list" model="ir.ui.view">
+        <field name="name">ff.visit.outcome.list</field>
+        <field name="model">ff.visit.outcome</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code" optional="hide"/>
+                <field name="department_ids" widget="many2many_tags" placeholder="All departments"/>
+                <field name="category_ids" widget="many2many_tags" placeholder="All categories"/>
+                <field name="productive"/>
+                <field name="is_order"/>
+                <field name="requires_note"/>
+                <field name="requires_photo"/>
+                <field name="active" widget="boolean_toggle" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_visit_outcome_action" model="ir.actions.act_window">
+        <field name="name">Visit Outcomes</field>
+        <field name="res_model">ff.visit.outcome</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <menuitem id="menu_ff_visit_outcomes" name="Visit Outcomes" parent="ff_base.menu_ff_config"
+              action="ff_visit_outcome_action" sequence="42"/>
+</odoo>

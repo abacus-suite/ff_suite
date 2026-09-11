@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Base',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'category': 'Human Resources/Field Force',
     'summary': 'Teams, designations, data access scopes, app logins, devices and settings for field staff',
     'author': 'Field Force Suite',
@@ -18,6 +18,7 @@
         'views/hr_employee_views.xml',
         'views/res_config_settings_views.xml',
         'views/ff_menus.xml',
+        'views/ff_app_profile_views.xml',
     ],
     'application': True,
     'installable': True,

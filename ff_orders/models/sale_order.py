@@ -69,6 +69,7 @@ class SaleOrder(models.Model):
             'ff_longitude': _num(data.get('lng')) or 0.0,
             'ff_client_uuid': uuid,
         })
-        if visit and not visit.outcome:
-            visit.outcome = 'order'
+        if visit and not visit.outcome_id:
+            order_outcome = self.env['ff.visit.outcome'].ff_for(employee, partner).filtered('is_order')[:1]
+            visit.write({'outcome': 'order', 'outcome_id': order_outcome.id or False})
         return order

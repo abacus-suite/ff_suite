@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ff_forms" name="Forms" parent="ff_base.menu_ff_root" sequence="33"/>
+    <menuitem id="menu_ff_form_responses" name="Responses" parent="menu_ff_forms"
+              action="ff_form_response_action" sequence="10"/>
+    <menuitem id="menu_ff_form_answers" name="Answer Analysis" parent="menu_ff_forms"
+              action="ff_form_response_line_action" sequence="20"/>
+    <menuitem id="menu_ff_form_builder" name="Form Builder" parent="menu_ff_forms"
+              action="ff_form_action" sequence="30" groups="ff_base.group_ff_admin"/>
+</odoo>

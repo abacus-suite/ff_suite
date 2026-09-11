@@ -50,3 +50,16 @@ class TestVisits(TransactionCase):
     def test_mock_blocked(self):
         with self.assertRaises(UserError):
             self.Visit.ff_check_in(self.employee, self.shop, {'lat': 10.0, 'lng': 76.0, 'mock': True})
+
+    def test_outcome_rules(self):
+        other = self.env.ref('ff_visits.visit_outcome_other')  # note required
+        closed = self.env.ref('ff_visits.visit_outcome_closed')  # photo required, not productive
+        visit = self.Visit.ff_check_in(self.employee, self.shop, {'lat': 10.0, 'lng': 76.0})
+        with self.assertRaises(UserError):
+            visit.ff_check_out({'outcome_id': other.id})
+        with self.assertRaises(UserError):
+            visit.ff_check_out({'outcome': 'closed'})  # legacy code still validated
+        visit.ff_check_out({'outcome_id': closed.id, 'photos': ['iVBORw0KGgo=']})
+        self.assertEqual(visit.outcome_id, closed)
+        self.assertEqual(visit.outcome, 'closed')
+        self.assertFalse(visit.productive)

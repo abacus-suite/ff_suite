@@ -94,7 +94,9 @@ def employee_profile(employee):
     settings = get_settings(request.env)
     shift = employee.ff_shift_id
     scope = employee.ff_access_scope
+    app = request.env['ff.app.profile'].ff_for_employee(employee).ff_payload()
     return {
+        'app': app,
         'employee': {
             'id': employee.id,
             'name': employee.name,
@@ -105,7 +107,7 @@ def employee_profile(employee):
             'team': ref(employee.ff_team_id),
             'designation': ref(employee.ff_designation_id),
             'manager': ref(employee.parent_id),
-            'tracking_enabled': employee.ff_tracking_enabled,
+            'tracking_enabled': employee.ff_tracking_enabled and app['features']['tracking'],
             'timezone': employee.tz or 'UTC',
             'route_label': employee._ff_route_label(),
         },

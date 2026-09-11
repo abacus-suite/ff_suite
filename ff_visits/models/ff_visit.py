@@ -51,7 +51,9 @@ class FfVisit(models.Model):
     distance_m = fields.Integer(string='Distance from Client (m)')
     inside_geofence = fields.Boolean(string='At Client Location', default=True)
     location_captured = fields.Boolean(help='The client had no GPS location; it was saved from this check-in.')
-    outcome = fields.Selection(OUTCOMES)
+    outcome = fields.Selection(OUTCOMES, string='Outcome Code')
+    outcome_id = fields.Many2one('ff.visit.outcome', string='Outcome', index=True)
+    productive = fields.Boolean(related='outcome_id.productive', store=True)
     note = fields.Text()
     photo_count = fields.Integer(compute='_compute_photo_count')
     client_uuid = fields.Char(index=True, copy=False)
@@ -137,16 +139,23 @@ class FfVisit(models.Model):
         if visit.state == 'done':
             return visit
         lat, lng = _num(data.get('lat')), _num(data.get('lng'))
-        outcome = data.get('outcome')
+        note = (data.get('note') or '').strip() or False
+        photos = [p for p in (data.get('photos') or []) if isinstance(p, str) and p][:MAX_PHOTOS]
+        outcome = self._ff_resolve_outcome(visit, data)
+        if outcome.requires_note and not note:
+            raise UserError(self.env._('Add a note for "%s".', outcome.name))
+        if outcome.requires_photo and not photos and not visit.photo_count:
+            raise UserError(self.env._('Add a photo for "%s".', outcome.name))
+        code = outcome.code if outcome else data.get('outcome')
         visit.write({
             'state': 'done',
             'check_out_at': fields.Datetime.now(),
             'check_out_lat': lat or 0.0,
             'check_out_lng': lng or 0.0,
-            'outcome': outcome if outcome in dict(OUTCOMES) else 'other',
-            'note': (data.get('note') or '').strip() or False,
+            'outcome_id': outcome.id or False,
+            'outcome': code if code in dict(OUTCOMES) else 'other',
+            'note': note,
         })
-        photos = [p for p in (data.get('photos') or []) if isinstance(p, str) and p][:MAX_PHOTOS]
         if photos:
             self.env['ir.attachment'].sudo().create([{
                 'name': 'visit_%s_%s.jpg' % (visit.id, index + 1),
@@ -158,6 +167,18 @@ class FfVisit(models.Model):
         if lat is not None and lng is not None:
             self.env['ff.location.ping'].ff_ingest(visit.employee_id, [{'lat': lat, 'lng': lng, 'source': 'visit'}])
         return visit
+
+    def _ff_resolve_outcome(self, visit, data):
+        """Outcome chosen in the app: by id, or by legacy code. Empty if none."""
+        allowed = self.env['ff.visit.outcome'].ff_for(visit.employee_id, visit.partner_id)
+        outcome_id = data.get('outcome_id')
+        if outcome_id:
+            outcome = allowed.filtered(lambda o: str(o.id) == str(outcome_id))
+            if not outcome:
+                raise UserError(self.env._('This outcome is not available for this visit.'))
+            return outcome
+        code = data.get('outcome')
+        return allowed.filtered(lambda o: code and o.code == code)[:1]
 
     @api.model
     def _cron_auto_close(self):
