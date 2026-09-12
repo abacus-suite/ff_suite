@@ -177,7 +177,7 @@
                                             <tr>
                                                 <th>Employee</th>
                                                 <th>Attendance</th>
-                                                <th>Last seen</th>
+                                                <th>Last location</th>
                                                 <th class="text-end">Battery</th>
                                             </tr>
                                         </thead>
@@ -211,12 +211,20 @@
                                                         At <t t-esc="person.at_client"/>
                                                     </div>
                                                 </td>
-                                                <td class="small text-muted">
-                                                    <t t-if="person.lat or person.lng">
-                                                        <t t-esc="person.lat.toFixed(4)"/>, <t t-esc="person.lng.toFixed(4)"/>
-                                                        <div><t t-esc="ago(person.last_ping_at)"/></div>
+                                                <td class="small text-muted ff_address">
+                                                    <t t-if="person.address">
+                                                        <div class="text-body" t-esc="person.address"/>
+                                                    </t>
+                                                    <t t-elif="person.lat or person.lng">
+                                                        <div class="text-body">
+                                                            <t t-esc="person.lat.toFixed(5)"/>, <t t-esc="person.lng.toFixed(5)"/>
+                                                        </div>
                                                     </t>
                                                     <t t-else="">No location yet</t>
+                                                    <div t-if="person.lat or person.lng">
+                                                        <t t-esc="ago(person.last_ping_at)"/>
+                                                        <t t-if="person.accuracy"> · &#177;<t t-esc="person.accuracy"/> m</t>
+                                                    </div>
                                                 </td>
                                                 <td class="text-end small"
                                                     t-att-class="person.battery and person.battery &lt; 20 ? 'text-danger' : 'text-muted'">

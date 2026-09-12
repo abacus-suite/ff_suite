@@ -102,3 +102,38 @@ class TestMapUsage(TransactionCase):
     def test_a_bad_count_is_ignored(self):
         self.assertFalse(self.Usage.ff_record('tiles', 0, employee=self.employee))
         self.assertFalse(self.Usage.ff_record('nonsense', 5, employee=self.employee))
+
+
+@tagged('post_install', '-at_install', 'ff')
+class TestGeocodeCache(TransactionCase):
+    """The address cache decides when Google is worth paying for."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.employee = cls.env['hr.employee'].create({'name': 'Roaming Officer'})
+        cls.status = cls.env['ff.employee.status']._ff_get(cls.employee)
+
+    def test_a_fix_without_an_address_needs_one(self):
+        self.status.write({'latitude': 10.0, 'longitude': 76.0})
+        self.assertIn(self.status, self.status._ff_needs_address())
+
+    def test_standing_still_reuses_the_cached_address(self):
+        self.status.write({
+            'latitude': 10.0, 'longitude': 76.0,
+            'address': 'MG Road, Kozhikode', 'address_latitude': 10.0, 'address_longitude': 76.0,
+        })
+        self.assertFalse(self.status._ff_needs_address())
+
+    def test_moving_away_asks_again(self):
+        self.status.write({
+            'address': 'MG Road, Kozhikode', 'address_latitude': 10.0, 'address_longitude': 76.0,
+            'latitude': 10.02, 'longitude': 76.0,  # roughly 2 km away
+        })
+        self.assertIn(self.status, self.status._ff_needs_address())
+
+    def test_without_a_key_nothing_is_looked_up(self):
+        self.env['ir.config_parameter'].sudo().set_param('ff_base.google_maps_key', '')
+        self.status.write({'latitude': 10.0, 'longitude': 76.0})
+        self.status.ff_resolve_addresses()
+        self.assertFalse(self.status.address)

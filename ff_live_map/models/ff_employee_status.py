@@ -30,10 +30,9 @@ class FfEmployeeStatus(models.Model):
     def ff_live_map(self, with_clients=False):
         """Positions of everybody the user may watch, plus optional customer pins."""
         employees = self._ff_map_employees()
-        statuses = {
-            status.employee_id.id: status
-            for status in self.sudo().search([('employee_id', 'in', employees.ids)])
-        }
+        rows = self.sudo().search([('employee_id', 'in', employees.ids)])
+        rows.ff_resolve_addresses()
+        statuses = {status.employee_id.id: status for status in rows}
         visits = {
             visit.employee_id.id: visit
             for visit in self.env['ff.visit'].sudo().search(
@@ -63,6 +62,7 @@ class FfEmployeeStatus(models.Model):
             'lat': status.latitude if located else False,
             'lng': status.longitude if located else False,
             'accuracy': round(status.accuracy or 0.0) if status else 0,
+            'address': (status.address or '') if status else '',
             'punched_in': bool(status and status.punched_in),
             'punched_in_at': to_iso(status.punched_in_at) if status else False,
             'last_ping_at': to_iso(status.last_ping_at) if status else False,

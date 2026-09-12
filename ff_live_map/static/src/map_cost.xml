@@ -105,6 +105,36 @@
                     </div>
                 </div>
 
+                <div class="row g-3 mt-0">
+                    <div class="col-md-4">
+                        <div class="ff_cost_card h-100">
+                            <div class="d-flex">
+                                <span class="fw-bold">Address lookups</span>
+                                <span class="ms-auto text-muted small">
+                                    <t t-esc="number(state.summary.geocode.used)"/> /
+                                    <t t-esc="number(state.summary.geocode.free)"/> free
+                                </span>
+                            </div>
+                            <div class="progress my-2" style="height: 8px;">
+                                <div class="progress-bar" t-att-class="barColor(state.summary.geocode.percent)"
+                                     t-attf-style="width: {{state.summary.geocode.percent}}%"/>
+                            </div>
+                            <div class="small text-muted">
+                                <t t-if="state.summary.geocode.billable">
+                                    <t t-esc="number(state.summary.geocode.billable)"/> billable ·
+                                    <span class="fw-bold" t-esc="money(state.summary.geocode.cost)"/>
+                                </t>
+                                <t t-else="">
+                                    <t t-esc="number(state.summary.geocode.free_left)"/> free lookups left · no charge
+                                </t>
+                            </div>
+                            <button class="btn btn-link btn-sm p-0 mt-1" t-on-click="() => this.openDetail('geocode')">
+                                See the lookups
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="ff_cost_card mt-3">
                     <div class="fw-bold mb-2">Who used what</div>
                     <table class="table table-sm mb-0">
@@ -113,6 +143,7 @@
                                 <th>Employee</th>
                                 <th class="text-end">App tiles</th>
                                 <th class="text-end">Odoo map loads</th>
+                                <th class="text-end">Address lookups</th>
                                 <th class="text-end">Total requests</th>
                             </tr>
                         </thead>
@@ -121,10 +152,11 @@
                                 <td t-esc="row.name"/>
                                 <td class="text-end" t-esc="number(row.tiles)"/>
                                 <td class="text-end" t-esc="number(row.web_map)"/>
-                                <td class="text-end fw-bold" t-esc="number(row.tiles + row.web_map)"/>
+                                <td class="text-end" t-esc="number(row.geocode)"/>
+                                <td class="text-end fw-bold" t-esc="number(row.tiles + row.web_map + row.geocode)"/>
                             </tr>
                             <tr t-if="!state.summary.by_employee.length">
-                                <td colspan="4" class="text-muted">Nothing used this month.</td>
+                                <td colspan="5" class="text-muted">Nothing used this month.</td>
                             </tr>
                         </tbody>
                     </table>

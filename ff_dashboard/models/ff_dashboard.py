@@ -112,7 +112,10 @@ class FfDashboard(models.AbstractModel):
     def _people(self, employees):
         """The attendance list: who punched in, when, and where they were last seen."""
         Status = self.env['ff.employee.status'].sudo()
-        statuses = {s.employee_id.id: s for s in Status.search([('employee_id', 'in', employees.ids)])}
+        rows = Status.search([('employee_id', 'in', employees.ids)])
+        if hasattr(rows, 'ff_resolve_addresses'):
+            rows.ff_resolve_addresses()
+        statuses = {row.employee_id.id: row for row in rows}
         visits = {
             visit.employee_id.id: visit
             for visit in self.env['ff.visit'].sudo().search(
@@ -133,6 +136,8 @@ class FfDashboard(models.AbstractModel):
                 'last_ping_at': to_iso(status.last_ping_at) if status else False,
                 'lat': status.latitude if status else 0.0,
                 'lng': status.longitude if status else 0.0,
+                'address': (status.address or '') if status and 'address' in status._fields else '',
+                'accuracy': round(status.accuracy or 0.0) if status else 0,
                 'battery': status.battery if status else 0,
                 'at_client': visit.partner_id.display_name if visit else '',
             })

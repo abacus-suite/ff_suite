@@ -12,6 +12,7 @@ KINDS = [
     ('web_map', 'Odoo Map Load'),
     ('tiles', 'App Map Tiles'),
     ('session', 'App Tile Session'),
+    ('geocode', 'Address Lookup'),
 ]
 
 # What Google gives away each month, and what it charges after that (per 1000).
@@ -19,8 +20,10 @@ KINDS = [
 DEFAULTS = {
     'map_free_loads': 10000,
     'map_free_tiles': 100000,
+    'map_free_geocode': 10000,
     'map_price_loads': 620.0,   # per 1000 map loads beyond the free tier
     'map_price_tiles': 53.0,    # per 1000 tiles beyond the free tier
+    'map_price_geocode': 440.0,  # per 1000 address lookups beyond the free tier
     'map_budget': 0.0,          # 0 = no budget set
 }
 
@@ -93,7 +96,7 @@ class FfMapUsage(models.Model):
             row = rows.setdefault(employee.id or 0, {
                 'id': employee.id or 0,
                 'name': employee.display_name or 'Odoo users',
-                'tiles': 0, 'web_map': 0, 'session': 0,
+                'tiles': 0, 'web_map': 0, 'session': 0, 'geocode': 0,
             })
             row[kind] = total
         ordered = sorted(rows.values(), key=lambda row: -(row['tiles'] + row['web_map']))
@@ -127,14 +130,16 @@ class FfMapUsage(models.Model):
 
         loads = line('web_map', map_setting(self.env, 'map_free_loads'), map_setting(self.env, 'map_price_loads'))
         tiles = line('tiles', map_setting(self.env, 'map_free_tiles'), map_setting(self.env, 'map_price_tiles'))
+        geocode = line('geocode', map_setting(self.env, 'map_free_geocode'), map_setting(self.env, 'map_price_geocode'))
         budget = map_setting(self.env, 'map_budget')
-        cost = round(loads['cost'] + tiles['cost'], 2)
+        cost = round(loads['cost'] + tiles['cost'] + geocode['cost'], 2)
         return {
             'month': first.strftime('%Y-%m'),
             'month_label': first.strftime('%B %Y'),
             'currency': self.env.company.currency_id.symbol or self.env.company.currency_id.name,
             'web_map': loads,
             'tiles': tiles,
+            'geocode': geocode,
             'sessions': used.get('session', 0),
             'cost': cost,
             'budget': budget,

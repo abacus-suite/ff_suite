@@ -19,6 +19,10 @@
                             <label for="ff_map_free_tiles" class="col-lg-5 o_light_label"/>
                             <field name="ff_map_free_tiles"/>
                         </div>
+                        <div class="row">
+                            <label for="ff_map_free_geocode" class="col-lg-5 o_light_label"/>
+                            <field name="ff_map_free_geocode"/>
+                        </div>
                     </div>
                 </setting>
                 <setting string="Google price after the free tier" help="Cost per 1000 requests in your currency, used only to estimate the bill.">
@@ -30,6 +34,10 @@
                         <div class="row">
                             <label for="ff_map_price_tiles" class="col-lg-5 o_light_label"/>
                             <field name="ff_map_price_tiles"/>
+                        </div>
+                        <div class="row">
+                            <label for="ff_map_price_geocode" class="col-lg-5 o_light_label"/>
+                            <field name="ff_map_price_geocode"/>
                         </div>
                     </div>
                 </setting>
