@@ -17,6 +17,10 @@ PARAM_DEFAULTS = {
     'selfie_required': False,    # set to True by module data
     'geofence_radius': 150,      # metres around a client counted as "at client"
     'visit_block_outside': False,  # refuse visit check-in outside the geofence
+    'visit_lock': False,           # app blocks leaving a visit before check-out (data sets True)
+    'visit_steps': False,          # guided step-by-step visits
+    'stock_count': False,          # stock count step and history
+    'payment_collection': False,   # collect money at the customer
 }
 
 

@@ -1,0 +1,10 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_visit_step_user,ff.visit.step user,model_ff_visit_step,base.group_user,1,0,0,0
+access_ff_visit_step_admin,ff.visit.step admin,model_ff_visit_step,ff_base.group_ff_admin,1,1,1,1
+access_ff_visit_step_record_officer,ff.visit.step.record officer,model_ff_visit_step_record,ff_base.group_ff_officer,1,0,0,0
+access_ff_visit_step_record_admin,ff.visit.step.record admin,model_ff_visit_step_record,ff_base.group_ff_admin,1,1,1,1
+access_ff_stock_count_officer,ff.stock.count officer,model_ff_stock_count,ff_base.group_ff_officer,1,0,0,0
+access_ff_stock_count_manager,ff.stock.count manager,model_ff_stock_count,ff_base.group_ff_manager,1,1,0,0
+access_ff_stock_count_admin,ff.stock.count admin,model_ff_stock_count,ff_base.group_ff_admin,1,1,1,1
+access_ff_stock_count_line_officer,ff.stock.count.line officer,model_ff_stock_count_line,ff_base.group_ff_officer,1,0,0,0
+access_ff_stock_count_line_admin,ff.stock.count.line admin,model_ff_stock_count_line,ff_base.group_ff_admin,1,1,1,1

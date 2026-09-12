@@ -132,6 +132,10 @@ def employee_profile(employee):
             'low_battery': settings['low_battery'],
             'selfie_required': settings['selfie_required'],
             'allow_mock': settings['allow_mock'],
+            'visit_lock': settings['visit_lock'],
+            'visit_steps': settings['visit_steps'],
+            'stock_count': settings['stock_count'],
+            'payment_collection': settings['payment_collection'],
         },
     }
 

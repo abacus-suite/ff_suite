@@ -36,6 +36,20 @@
                             <field name="ff_allow_mock"/>
                         </setting>
                     </block>
+                    <block title="Field Features" name="ff_feature_settings">
+                        <setting help="Field staff cannot leave a visit in the app before checking out.">
+                            <field name="ff_visit_lock"/>
+                        </setting>
+                        <setting help="Guided steps during a visit: notes, photo, forms, stock count, order, payment.">
+                            <field name="ff_visit_steps"/>
+                        </setting>
+                        <setting help="Count stock at the customer; each count keeps the previous count for comparison.">
+                            <field name="ff_stock_count"/>
+                        </setting>
+                        <setting help="Collect payments at the customer and deposit them to the office.">
+                            <field name="ff_payment_collection"/>
+                        </setting>
+                    </block>
                     <block title="Client Visits" name="ff_visit_settings">
                         <setting string="Client geofence" help="Default radius (metres) around a client inside which a visit counts as on-site. Can be overridden per client.">
                             <field name="ff_geofence_radius"/>

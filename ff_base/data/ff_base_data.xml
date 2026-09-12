@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo noupdate="1">
+    <record id="param_visit_lock" model="ir.config_parameter">
+        <field name="key">ff_base.visit_lock</field>
+        <field name="value">True</field>
+    </record>
+
     <record id="param_selfie_required" model="ir.config_parameter">
         <field name="key">ff_base.selfie_required</field>
         <field name="value">True</field>

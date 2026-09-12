@@ -24,3 +24,15 @@ class ResConfigSettings(models.TransientModel):
         string='Client Geofence (m)', config_parameter='ff_base.geofence_radius', default=150)
     ff_visit_block_outside = fields.Boolean(
         string='Block Check-in Outside Geofence', config_parameter='ff_base.visit_block_outside')
+    ff_visit_lock = fields.Boolean(
+        string='Lock the Visit Until Check-out', config_parameter='ff_base.visit_lock',
+        help='In the app, field staff cannot leave the visit screen before checking out.')
+    ff_visit_steps = fields.Boolean(
+        string='Guided Visit Steps', config_parameter='ff_base.visit_steps',
+        help='Show configured steps (notes, photo, stock count, order...) during a visit.')
+    ff_stock_count = fields.Boolean(
+        string='Stock Count', config_parameter='ff_base.stock_count',
+        help='Count stock at the customer and compare it with the previous count.')
+    ff_payment_collection = fields.Boolean(
+        string='Payment Collection', config_parameter='ff_base.payment_collection',
+        help='Collect money at the customer and deposit it to the office.')
