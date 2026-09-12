@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="ff_live_map.MapCost">
+        <div class="o_action_manager ff_map_cost p-3 overflow-auto">
+            <t t-if="state.summary">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <h4 class="mb-0">Google Maps cost</h4>
+                    <div class="btn-group btn-group-sm ms-2">
+                        <button class="btn btn-outline-secondary" t-on-click="() => this.shiftMonth(-1)">
+                            <i class="fa fa-chevron-left"/>
+                        </button>
+                        <span class="btn btn-light disabled" t-esc="state.summary.month_label"/>
+                        <button class="btn btn-outline-secondary" t-on-click="() => this.shiftMonth(1)">
+                            <i class="fa fa-chevron-right"/>
+                        </button>
+                    </div>
+                    <button class="btn btn-sm btn-light ms-auto" t-on-click="openSettings">
+                        <i class="fa fa-cog me-1"/>Prices &amp; budget
+                    </button>
+                    <button class="btn btn-sm btn-primary" t-on-click="() => this.openDetail(false)">
+                        Detailed requests
+                    </button>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="ff_cost_card h-100">
+                            <div class="text-muted small">Estimated cost this month</div>
+                            <div class="ff_cost_big"
+                                 t-att-class="state.summary.over_budget ? 'text-danger' : (state.summary.cost ? 'text-warning' : 'text-success')"
+                                 t-esc="money(state.summary.cost)"/>
+                            <div t-if="state.summary.budget" class="small">
+                                <t t-if="state.summary.over_budget">
+                                    <span class="text-danger">
+                                        Over the <t t-esc="money(state.summary.budget)"/> budget by
+                                        <t t-esc="money(-state.summary.budget_left)"/>
+                                    </span>
+                                </t>
+                                <t t-else="">
+                                    <span class="text-muted">
+                                        <t t-esc="money(state.summary.budget_left)"/> left of the
+                                        <t t-esc="money(state.summary.budget)"/> budget
+                                    </span>
+                                </t>
+                            </div>
+                            <div t-else="" class="small text-muted">No budget set</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="ff_cost_card h-100">
+                            <div class="d-flex">
+                                <span class="fw-bold">App map tiles</span>
+                                <span class="ms-auto text-muted small">
+                                    <t t-esc="number(state.summary.tiles.used)"/> /
+                                    <t t-esc="number(state.summary.tiles.free)"/> free
+                                </span>
+                            </div>
+                            <div class="progress my-2" style="height: 8px;">
+                                <div class="progress-bar" t-att-class="barColor(state.summary.tiles.percent)"
+                                     t-attf-style="width: {{state.summary.tiles.percent}}%"/>
+                            </div>
+                            <div class="small text-muted">
+                                <t t-if="state.summary.tiles.billable">
+                                    <t t-esc="number(state.summary.tiles.billable)"/> billable ·
+                                    <span class="fw-bold" t-esc="money(state.summary.tiles.cost)"/>
+                                </t>
+                                <t t-else="">
+                                    <t t-esc="number(state.summary.tiles.free_left)"/> free tiles left · no charge
+                                </t>
+                            </div>
+                            <button class="btn btn-link btn-sm p-0 mt-1" t-on-click="() => this.openDetail('tiles')">
+                                See who used them
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="ff_cost_card h-100">
+                            <div class="d-flex">
+                                <span class="fw-bold">Odoo map loads</span>
+                                <span class="ms-auto text-muted small">
+                                    <t t-esc="number(state.summary.web_map.used)"/> /
+                                    <t t-esc="number(state.summary.web_map.free)"/> free
+                                </span>
+                            </div>
+                            <div class="progress my-2" style="height: 8px;">
+                                <div class="progress-bar" t-att-class="barColor(state.summary.web_map.percent)"
+                                     t-attf-style="width: {{state.summary.web_map.percent}}%"/>
+                            </div>
+                            <div class="small text-muted">
+                                <t t-if="state.summary.web_map.billable">
+                                    <t t-esc="number(state.summary.web_map.billable)"/> billable ·
+                                    <span class="fw-bold" t-esc="money(state.summary.web_map.cost)"/>
+                                </t>
+                                <t t-else="">
+                                    <t t-esc="number(state.summary.web_map.free_left)"/> free loads left · no charge
+                                </t>
+                            </div>
+                            <button class="btn btn-link btn-sm p-0 mt-1" t-on-click="() => this.openDetail('web_map')">
+                                See who opened the map
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ff_cost_card mt-3">
+                    <div class="fw-bold mb-2">Who used what</div>
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th class="text-end">App tiles</th>
+                                <th class="text-end">Odoo map loads</th>
+                                <th class="text-end">Total requests</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="state.summary.by_employee" t-as="row" t-key="row.id">
+                                <td t-esc="row.name"/>
+                                <td class="text-end" t-esc="number(row.tiles)"/>
+                                <td class="text-end" t-esc="number(row.web_map)"/>
+                                <td class="text-end fw-bold" t-esc="number(row.tiles + row.web_map)"/>
+                            </tr>
+                            <tr t-if="!state.summary.by_employee.length">
+                                <td colspan="4" class="text-muted">Nothing used this month.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p class="text-muted small mt-3 mb-0">
+                    These are the requests Odoo and the app made with your key, priced with the rates in
+                    Settings. Google's invoice is the final word - keep a budget alert in Cloud Console too.
+                </p>
+            </t>
+            <t t-else="">
+                <div class="text-muted">Loading…</div>
+            </t>
+        </div>
+    </t>
+
+</templates>

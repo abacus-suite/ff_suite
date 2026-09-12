@@ -91,6 +91,14 @@ class TestMapUsage(TransactionCase):
         self.assertFalse(summary['over_budget'])
         self.assertEqual(summary['budget_left'], 1940.8)
 
+    def test_usage_is_broken_down_by_employee(self):
+        other = self.env['hr.employee'].create({'name': 'Second User'})
+        self.Usage.ff_record('tiles', 300, employee=self.employee)
+        self.Usage.ff_record('tiles', 80, employee=other)
+        rows = self.Usage.ff_usage_by_employee()
+        self.assertEqual([row['name'] for row in rows[:2]], ['Tile User', 'Second User'])
+        self.assertEqual(rows[0]['tiles'], 300)
+
     def test_a_bad_count_is_ignored(self):
         self.assertFalse(self.Usage.ff_record('tiles', 0, employee=self.employee))
         self.assertFalse(self.Usage.ff_record('nonsense', 5, employee=self.employee))

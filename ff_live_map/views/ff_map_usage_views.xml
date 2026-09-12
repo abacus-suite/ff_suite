@@ -71,6 +71,13 @@
         </field>
     </record>
 
-    <menuitem id="menu_ff_map_usage" name="Map Usage" parent="ff_tracking.menu_ff_tracking"
+    <record id="ff_map_cost_action" model="ir.actions.client">
+        <field name="name">Map Cost</field>
+        <field name="tag">ff_map_cost</field>
+    </record>
+
+    <menuitem id="menu_ff_map_cost" name="Map Cost" parent="ff_tracking.menu_ff_tracking"
+              action="ff_map_cost_action" sequence="6"/>
+    <menuitem id="menu_ff_map_usage" name="Map Requests" parent="ff_tracking.menu_ff_tracking"
               action="ff_map_usage_action" sequence="7"/>
 </odoo>

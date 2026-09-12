@@ -375,17 +375,7 @@ export class FieldForceLiveMap extends Component {
     }
 
     openUsage() {
-        this.action.doAction({
-            type: "ir.actions.act_window",
-            name: "Map Usage",
-            res_model: "ff.map.usage",
-            views: [
-                [false, "graph"],
-                [false, "pivot"],
-                [false, "list"],
-            ],
-            context: { search_default_this_month: 1, search_default_group_kind: 1 },
-        });
+        this.action.doAction({ type: "ir.actions.client", tag: "ff_map_cost", name: "Map Cost" });
     }
 
     openSettings() {

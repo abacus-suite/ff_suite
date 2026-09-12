@@ -46,7 +46,7 @@ class FfMapUsage(models.Model):
     kind = fields.Selection(KINDS, required=True, index=True)
     user_id = fields.Many2one('res.users', string='Odoo User', index=True, ondelete='set null')
     employee_id = fields.Many2one('hr.employee', string='Field Employee', index=True, ondelete='set null')
-    count = fields.Integer(default=0)
+    count = fields.Integer(string='Requests', default=0)
     company_id = fields.Many2one('res.company', default=lambda self: self.env.company)
 
     _one_row_per_day = models.Constraint(
@@ -83,11 +83,32 @@ class FfMapUsage(models.Model):
         return self.ff_usage_summary()
 
     @api.model
-    def ff_usage_summary(self, month=None):
-        """This month's usage, what is left of the free allowance and the cost."""
+    def ff_usage_by_employee(self, month=None):
+        """Who used how much this month, biggest first."""
+        first, last = self._ff_month_bounds(month)
+        groups = self.sudo()._read_group(
+            [('date', '>=', first), ('date', '<', last)], ['employee_id', 'kind'], ['count:sum'])
+        rows = {}
+        for employee, kind, total in groups:
+            row = rows.setdefault(employee.id or 0, {
+                'id': employee.id or 0,
+                'name': employee.display_name or 'Odoo users',
+                'tiles': 0, 'web_map': 0, 'session': 0,
+            })
+            row[kind] = total
+        ordered = sorted(rows.values(), key=lambda row: -(row['tiles'] + row['web_map']))
+        return ordered
+
+    @api.model
+    def _ff_month_bounds(self, month=None):
         first = fields.Date.to_date(month) if month else fields.Date.context_today(self)
         first = first.replace(day=1)
-        last = date(first.year + (first.month // 12), (first.month % 12) + 1, 1)
+        return first, date(first.year + (first.month // 12), (first.month % 12) + 1, 1)
+
+    @api.model
+    def ff_usage_summary(self, month=None):
+        """This month's usage, what is left of the free allowance and the cost."""
+        first, last = self._ff_month_bounds(month)
         groups = self.sudo()._read_group(
             [('date', '>=', first), ('date', '<', last)], ['kind'], ['count:sum'])
         used = {kind: total for kind, total in groups}
@@ -119,4 +140,5 @@ class FfMapUsage(models.Model):
             'budget': budget,
             'budget_left': round(budget - cost, 2) if budget else 0.0,
             'over_budget': bool(budget) and cost > budget,
+            'by_employee': self.ff_usage_by_employee(month),
         }
