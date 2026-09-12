@@ -23,7 +23,10 @@ def product_data(product):
         'name': product.display_name,
         'sku': product.product_tmpl_id.ff_sku_code or None,
         'default_code': product.default_code or None,
-        'price': product.lst_price,
+        'price': product.product_tmpl_id.ff_ptr or product.lst_price,
+        'mrp': product.product_tmpl_id.ff_mrp or None,
+        'ptr': product.product_tmpl_id.ff_ptr or None,
+        'pts': product.product_tmpl_id.ff_pts or None,
         'uom': product.uom_id.name,
         'category': ref(product.categ_id),
         'has_image': bool(product.image_128),
@@ -103,6 +106,12 @@ class FieldForceOrdersApi(http.Controller):
         except (TypeError, ValueError):
             raise ApiError('partner_id is required.')
         partner = visible_client(employee, partner_id)
+        # Companies that sell through distributors collect demand instead of
+        # quoting the outlet; the app posts the same body either way.
+        flow = request.env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct'
+        if flow == 'demand' and 'ff.demand' in request.env:
+            demand = request.env['ff.demand'].ff_create_from_app(employee, partner, data)
+            return ok(demand.ff_app_payload(), status=201)
         order = request.env['sale.order'].ff_create_from_app(employee, partner, data)
         return ok(order_data(order, with_lines=True), status=201)
 

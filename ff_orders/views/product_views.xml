@@ -8,9 +8,16 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Field Force" name="ff_orders">
                     <group>
-                        <group>
+                        <group string="Field App">
                             <field name="ff_sku_code"/>
                             <field name="ff_show_in_app"/>
+                        </group>
+                        <group string="Trade Prices">
+                            <field name="ff_mrp"/>
+                            <field name="ff_ptr"/>
+                            <field name="ff_pts"/>
+                            <field name="ff_retail_margin" widget="percentage"/>
+                            <field name="ff_stockist_margin" widget="percentage"/>
                         </group>
                     </group>
                 </page>
@@ -28,7 +35,11 @@
                 <field name="name"/>
                 <field name="default_code" optional="show"/>
                 <field name="categ_id"/>
-                <field name="list_price"/>
+                <field name="list_price" optional="hide"/>
+                <field name="ff_mrp"/>
+                <field name="ff_ptr"/>
+                <field name="ff_pts"/>
+                <field name="ff_retail_margin" widget="percentage" optional="show"/>
                 <field name="ff_show_in_app" widget="boolean_toggle"/>
                 <field name="sale_ok" optional="hide"/>
             </list>

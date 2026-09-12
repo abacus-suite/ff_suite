@@ -137,6 +137,7 @@ def employee_profile(employee):
             'stock_count': settings['stock_count'],
             'payment_collection': settings['payment_collection'],
             'google_maps_key': google_maps_key(request.env),
+            'order_flow': request.env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct',
         },
     }
 

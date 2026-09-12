@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_demand_quotation_view_form" model="ir.ui.view">
+        <field name="name">ff.demand.quotation.form</field>
+        <field name="model">ff.demand.quotation</field>
+        <field name="arch" type="xml">
+            <form string="Create Distributor Quotation">
+                <div class="alert alert-info" role="status">
+                    <field name="outlet_count" class="oe_inline"/> outlets ·
+                    <field name="distributor_count" class="oe_inline"/> distributors.
+                    Same product across outlets is merged into one line, priced at PTS.
+                </div>
+                <div class="alert alert-warning" role="alert" invisible="missing_distributor == 0">
+                    <field name="missing_distributor" class="oe_inline"/> demands have no distributor.
+                    Choose one below, or set it on the outlet or the route.
+                </div>
+                <group>
+                    <field name="demand_ids" widget="many2many_tags" readonly="1"/>
+                    <field name="distributor_id"
+                           placeholder="Leave empty for one quotation per distributor"/>
+                    <field name="confirm_orders"/>
+                </group>
+                <field name="line_ids">
+                    <list editable="bottom" create="0">
+                        <field name="distributor_id" readonly="1"/>
+                        <field name="product_id" readonly="1"/>
+                        <field name="outlets" readonly="1"/>
+                        <field name="quantity"/>
+                        <field name="price_unit"/>
+                        <field name="subtotal" sum="Total"/>
+                        <field name="currency_id" column_invisible="1"/>
+                    </list>
+                </field>
+                <footer>
+                    <button name="action_create" type="object" string="Create Quotations" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_demand_quotation_action" model="ir.actions.act_window">
+        <field name="name">Create Distributor Quotation</field>
+        <field name="res_model">ff.demand.quotation</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="model_ff_demand"/>
+        <field name="binding_view_types">list,form</field>
+    </record>
+</odoo>

@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Mobile API',
-    'version': '19.0.1.4.0',
+    'version': '19.0.1.5.0',
     'category': 'Human Resources/Field Force',
     'summary': 'REST API (/api/v1) for the Aixolo mobile app',
     'author': 'Field Force Suite',
