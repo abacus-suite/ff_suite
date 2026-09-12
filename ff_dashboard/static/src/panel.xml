@@ -883,15 +883,19 @@
 
                 <!-- Hierarchy -->
                 <t t-else="">
-                    <div class="ff_org mt-3" t-if="state.org">
-                        <t t-foreach="state.org.roots" t-as="root" t-key="root.id">
-                            <t t-call="ff_dashboard.OrgNode">
-                                <t t-set="node" t-value="root"/>
-                                <t t-set="depth" t-value="0"/>
-                            </t>
-                        </t>
-                        <div t-if="!state.org.roots.length" class="ff_card text-muted">
-                            No employees to show yet.
+                    <div class="ff_chart_wrap" t-if="state.org">
+                        <div class="ff_chart">
+                            <ul class="ff_tree">
+                                <t t-foreach="state.org.roots" t-as="root" t-key="root.id">
+                                    <t t-call="ff_dashboard.OrgNode">
+                                        <t t-set="node" t-value="root"/>
+                                        <t t-set="depth" t-value="0"/>
+                                    </t>
+                                </t>
+                            </ul>
+                            <div t-if="!state.org.roots.length" class="ff_card text-muted">
+                                No employees to show yet.
+                            </div>
                         </div>
                     </div>
                     <div t-else="" class="ff_skeleton mt-3" style="height: 320px;"/>
@@ -900,49 +904,44 @@
         </div>
     </t>
 
-    <!-- One person in the organisation, with everybody under them -->
+    <!-- One person in the chart, with everybody under them on the branch below -->
     <t t-name="ff_dashboard.OrgNode">
-        <div class="ff_org_node" t-if="matchesOrg(node)">
-            <div class="ff_org_card" t-attf-style="--depth-color: {{['#1a56db', '#14d3c0', '#7c5cfc', '#f59e0b', '#16a34a'][depth % 5]}}">
-                <img class="ff_org_avatar" t-att-src="node.avatar" alt=""/>
-                <div class="min-width-0 flex-grow-1">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="fw-bold text-truncate" t-esc="node.name"/>
-                        <span class="ff_org_dot" t-if="node.punched_in" title="Punched in"/>
-                    </div>
-                    <div class="small text-muted text-truncate">
-                        <t t-if="node.job"><t t-esc="node.job"/></t>
-                        <t t-if="node.code"> · <t t-esc="node.code"/></t>
-                    </div>
-                    <div class="mt-1 d-flex gap-1 flex-wrap">
-                        <span class="ff_org_badge" t-if="node.team" t-esc="node.team"/>
-                        <span class="ff_org_badge ff_org_badge_soft" t-if="node.department" t-esc="node.department"/>
-                        <span class="ff_org_badge ff_org_badge_soft" t-if="node.reports">
-                            <t t-esc="node.reports"/> reporting
-                        </span>
-                    </div>
+        <li t-if="matchesOrg(node)" t-att-class="isCollapsed(node) ? 'ff_closed' : ''">
+            <div class="ff_org_card"
+                 t-attf-style="--depth-color: {{['#1a56db', '#14d3c0', '#7c5cfc', '#f59e0b', '#16a34a'][depth % 5]}}"
+                 t-on-click="() => this.openEmployee(node)">
+                <div class="ff_org_top">
+                    <img class="ff_org_avatar" t-att-src="node.avatar" alt=""/>
+                    <span class="ff_org_dot" t-if="node.punched_in" title="Punched in"/>
                 </div>
-                <div class="d-flex align-items-center gap-1">
-                    <button class="ff_icon_btn ff_org_btn" title="Open employee"
-                            t-on-click.stop="() => this.openEmployee(node)">
-                        <i class="fa fa-external-link"/>
-                    </button>
-                    <button class="ff_icon_btn ff_org_btn" t-if="node.children.length"
-                            t-on-click.stop="() => this.toggleNode(node)">
+                <div class="ff_org_name text-truncate" t-esc="node.name"/>
+                <div class="ff_org_job text-truncate">
+                    <t t-if="node.job"><t t-esc="node.job"/></t>
+                    <t t-else="">&#160;</t>
+                </div>
+                <div class="ff_org_chips">
+                    <span class="ff_org_badge" t-if="node.team" t-esc="node.team"/>
+                    <span class="ff_org_badge ff_org_badge_soft" t-if="node.department" t-esc="node.department"/>
+                </div>
+                <div class="ff_org_foot" t-if="node.children.length">
+                    <span class="ff_org_members">
+                        <i class="fa fa-users me-1"/><t t-esc="node.reports"/> under
+                    </span>
+                    <button class="ff_org_toggle" t-on-click.stop="() => this.toggleNode(node)">
                         <i class="fa" t-att-class="isCollapsed(node) ? 'fa-chevron-down' : 'fa-chevron-up'"/>
                     </button>
                 </div>
             </div>
 
-            <div class="ff_org_children" t-if="node.children.length and !isCollapsed(node)">
+            <ul t-if="node.children.length and !isCollapsed(node)">
                 <t t-foreach="node.children" t-as="child" t-key="child.id">
                     <t t-call="ff_dashboard.OrgNode">
                         <t t-set="node" t-value="child"/>
                         <t t-set="depth" t-value="depth + 1"/>
                     </t>
                 </t>
-            </div>
-        </div>
+            </ul>
+        </li>
     </t>
 
 </templates>
