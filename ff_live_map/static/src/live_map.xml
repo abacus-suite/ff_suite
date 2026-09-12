@@ -122,8 +122,10 @@
                                 <div class="small text-muted mt-1">
                                     <i class="fa fa-map-marker me-1"/>
                                     <t t-if="person.at_client">At <t t-esc="person.at_client"/></t>
-                                    <t t-elif="person.lat"><t t-esc="stateLabel(person.state)"/> · seen <t t-esc="lastSeen(person)"/></t>
+                                    <t t-elif="person.address"><t t-esc="person.address"/></t>
+                                    <t t-elif="person.lat"><t t-esc="stateLabel(person.state)"/></t>
                                     <t t-else="">No location sent yet</t>
+                                    <t t-if="person.lat"> · seen <t t-esc="lastSeen(person)"/></t>
                                 </div>
                             </div>
                         </div>
@@ -132,6 +134,9 @@
 
                 <div class="flex-grow-1 position-relative">
                     <div class="ff_live_map_canvas" t-ref="map" t-if="state.hasKey"/>
+                    <div class="ff_live_map_error" t-if="state.hasKey and state.mapError">
+                        <i class="fa fa-exclamation-triangle me-1"/><t t-esc="state.mapError"/>
+                    </div>
                     <div t-else="" class="d-flex flex-column align-items-center justify-content-center h-100 text-center p-4">
                         <i class="fa fa-map-o fa-3x text-muted mb-3"/>
                         <h5>No Google Maps key yet</h5>

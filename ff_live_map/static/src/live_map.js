@@ -46,6 +46,7 @@ export class FieldForceLiveMap extends Component {
             search: "",
             selectedId: null,
             hasKey: false,
+            mapError: "",
             loading: true,
             updatedAt: "",
             usage: null,
@@ -143,10 +144,16 @@ export class FieldForceLiveMap extends Component {
         }
     }
 
+    /** Build the map once. Concurrent callers wait on the same promise. */
     async ensureMap(key) {
         if (this.map) {
             return;
         }
+        this.mapPromise = this.mapPromise || this.buildMap(key);
+        await this.mapPromise;
+    }
+
+    async buildMap(key) {
         if (!window.google || !window.google.maps) {
             try {
                 await loadJS(
@@ -157,10 +164,9 @@ export class FieldForceLiveMap extends Component {
                 return;
             }
         }
-        // With the async loader the script only installs a bootstrap: the classes
-        // themselves arrive when their library is imported. An older loader already
-        // has them, and a second import of the same library can reject harmlessly,
-        // so only complain when the class really is missing afterwards.
+        // The async loader only installs a bootstrap; the classes arrive with
+        // the library import. Both are awaited here, inside the single promise,
+        // so a refresh landing mid-load cannot mistake "still loading" for "failed".
         const maps = window.google.maps;
         if (typeof maps.Map !== "function" && typeof maps.importLibrary === "function") {
             try {
@@ -181,6 +187,8 @@ export class FieldForceLiveMap extends Component {
             return;
         }
         if (!this.mapRef.el) {
+            // Not in the DOM yet: let the next call build it.
+            this.mapPromise = null;
             return;
         }
         // One Google "map load" is billed here, so count it here too.
@@ -197,8 +205,9 @@ export class FieldForceLiveMap extends Component {
     }
 
     mapsFailed(message) {
+        this.mapPromise = null;
+        this.state.mapError = message;
         this.notification.add(message, { type: "danger" });
-        this.state.hasKey = false;
     }
 
     markerIcon(person) {
