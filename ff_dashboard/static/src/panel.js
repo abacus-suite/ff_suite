@@ -58,6 +58,14 @@ export class AixoloPanel extends Component {
             gps: "all",
             showClients: false,
             openId: null,
+            liveView: "live",
+            timeline: null,
+            timelineEmployees: [],
+            timelineEmployeeId: null,
+            timelineDate: null,
+            timelineLoading: false,
+            playing: false,
+            playIndex: 0,
             tab: "visits",
             day: null,
             dayLoading: false,
@@ -71,7 +79,10 @@ export class AixoloPanel extends Component {
 
         onWillStart(() => this.load());
         this.timer = setInterval(() => this.load(), REFRESH_MS);
-        onWillUnmount(() => clearInterval(this.timer));
+        onWillUnmount(() => {
+            clearInterval(this.timer);
+            clearInterval(this.playTimer);
+        });
     }
 
     async load() {
@@ -438,6 +449,273 @@ export class AixoloPanel extends Component {
             offset += circumference * share;
             return slice;
         });
+    }
+
+
+    // -- Timeline ---------------------------------------------------------
+    async openLiveView(view) {
+        this.state.liveView = view;
+        if (view === "timeline") {
+            if (!this.state.timelineEmployees.length) {
+                this.state.timelineEmployees = await this.orm.call(
+                    "ff.dashboard",
+                    "ff_timeline_employees",
+                    []
+                );
+            }
+            if (!this.state.timelineEmployeeId && this.state.timelineEmployees.length) {
+                const open = this.state.openId;
+                const known = this.state.timelineEmployees.find((row) => row.id === open);
+                this.state.timelineEmployeeId = known ? known.id : this.state.timelineEmployees[0].id;
+            }
+            if (!this.state.timelineDate) {
+                this.state.timelineDate = this.today();
+            }
+            await this.loadTimeline();
+        } else {
+            this.stopPlay();
+            this.liveMap = null;   // the canvas is swapped; build it again
+            this.markers.clear();
+            this.clientMarkers.clear();
+            await this.loadLive();
+        }
+    }
+
+    today() {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+            now.getDate()
+        ).padStart(2, "0")}`;
+    }
+
+    onTimelineEmployee(ev) {
+        this.state.timelineEmployeeId = parseInt(ev.target.value, 10);
+    }
+
+    onTimelineDate(ev) {
+        this.state.timelineDate = ev.target.value;
+    }
+
+    async shiftDay(days) {
+        const current = new Date(`${this.state.timelineDate}T00:00:00`);
+        current.setDate(current.getDate() + days);
+        if (current > new Date()) {
+            return;
+        }
+        this.state.timelineDate = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(
+            2,
+            "0"
+        )}-${String(current.getDate()).padStart(2, "0")}`;
+        await this.loadTimeline();
+    }
+
+    async loadTimeline() {
+        if (!this.state.timelineEmployeeId) {
+            return;
+        }
+        this.stopPlay();
+        this.state.timelineLoading = true;
+        this.state.timeline = await this.orm.call("ff.dashboard", "ff_employee_timeline", [
+            this.state.timelineEmployeeId,
+            this.state.timelineDate,
+        ]);
+        this.state.timelineLoading = false;
+        this.timelineFitted = false;
+        await this.drawTimeline();
+    }
+
+    async drawTimeline() {
+        const live = this.state.live;
+        const key = live ? live.google_maps_key : "";
+        if (!key || !this.state.timeline) {
+            return;
+        }
+        if (!this.google) {
+            try {
+                this.google = await loadGoogleMaps(key);
+            } catch (error) {
+                this.state.liveError = `Google Maps could not be loaded: ${error.message || error}`;
+                return;
+            }
+        }
+        if (!this.mapRef.el) {
+            return;
+        }
+        if (!this.liveMap) {
+            this.state.usage = await this.orm.call("ff.map.usage", "ff_record_web_map", []);
+            this.liveMap = new this.google.Map(this.mapRef.el, {
+                center: { lat: 20.5937, lng: 78.9629 },
+                zoom: 5,
+                mapTypeControl: true,
+                streetViewControl: false,
+                clickableIcons: false,
+            });
+            this.liveInfo = new this.google.InfoWindow();
+        }
+        this.paintTimeline();
+    }
+
+    paintTimeline() {
+        const timeline = this.state.timeline;
+        const path = (timeline.path || []).map((point) => ({ lat: point.lat, lng: point.lng }));
+
+        // The travelled line, casing under colour, the way navigation apps draw it.
+        for (const line of this.lines || []) {
+            line.setMap(null);
+        }
+        this.lines = [];
+        if (path.length > 1) {
+            this.lines.push(
+                new window.google.maps.Polyline({
+                    map: this.liveMap,
+                    path,
+                    strokeColor: "#FFFFFF",
+                    strokeOpacity: 0.9,
+                    strokeWeight: 9,
+                }),
+                new window.google.maps.Polyline({
+                    map: this.liveMap,
+                    path,
+                    strokeColor: "#16A34A",
+                    strokeOpacity: 1,
+                    strokeWeight: 5,
+                })
+            );
+        }
+
+        // Numbered stops.
+        for (const marker of this.markers.values()) {
+            marker.setMap(null);
+        }
+        this.markers.clear();
+        const bounds = new this.google.core.LatLngBounds();
+        let number = 0;
+        for (const event of timeline.events) {
+            if (!event.lat || !event.lng) {
+                continue;
+            }
+            number++;
+            const marker = new this.google.Marker({
+                map: this.liveMap,
+                position: { lat: event.lat, lng: event.lng },
+                title: event.title,
+                label: { text: String(number), color: "#fff", fontSize: "12px", fontWeight: "700" },
+                icon: pinIcon(this.eventColor(event.kind), this.google.core),
+            });
+            marker.addListener("click", () => {
+                this.liveInfo.setContent(
+                    `<strong>${event.title}</strong><div class="text-muted">${this.clock(event.at)}</div>`
+                );
+                this.liveInfo.open({ map: this.liveMap, anchor: marker });
+            });
+            this.markers.set(`e${number}`, marker);
+            bounds.extend({ lat: event.lat, lng: event.lng });
+        }
+        for (const point of path) {
+            bounds.extend(point);
+        }
+        if ((number || path.length) && !this.timelineFitted) {
+            this.timelineFitted = true;
+            this.liveMap.fitBounds(bounds, 60);
+        }
+    }
+
+    eventColor(kind) {
+        return (
+            {
+                punch_in: "#16A34A",
+                punch_out: "#DC2626",
+                visit: "#1A56DB",
+                order: "#14D3C0",
+                form: "#1E90FF",
+                expense: "#F59E0B",
+                collection: "#7C5CFC",
+                travel: "#94A3B8",
+            }[kind] || "#94A3B8"
+        );
+    }
+
+    eventIcon(kind) {
+        return (
+            {
+                punch_in: "fa-sign-in",
+                punch_out: "fa-sign-out",
+                visit: "fa-map-marker",
+                order: "fa-shopping-cart",
+                form: "fa-file-text-o",
+                expense: "fa-credit-card",
+                collection: "fa-money",
+                travel: "fa-motorcycle",
+            }[kind] || "fa-circle"
+        );
+    }
+
+    // -- play the day back -------------------------------------------------
+    togglePlay() {
+        if (this.state.playing) {
+            this.stopPlay();
+            return;
+        }
+        const path = this.state.timeline ? this.state.timeline.path : [];
+        if (path.length < 2) {
+            return;
+        }
+        this.state.playing = true;
+        if (this.state.playIndex >= path.length - 1) {
+            this.state.playIndex = 0;
+        }
+        if (!this.playMarker) {
+            this.playMarker = new this.google.Marker({
+                map: this.liveMap,
+                zIndex: 99,
+                icon: {
+                    path: this.google.core.SymbolPath.FORWARD_CLOSED_ARROW,
+                    scale: 5,
+                    fillColor: "#1A56DB",
+                    fillOpacity: 1,
+                    strokeColor: "#FFFFFF",
+                    strokeWeight: 2,
+                },
+            });
+        }
+        this.playMarker.setMap(this.liveMap);
+        this.playTimer = setInterval(() => this.stepPlay(), 120);
+    }
+
+    stepPlay() {
+        const path = this.state.timeline.path;
+        const index = this.state.playIndex;
+        if (index >= path.length - 1) {
+            this.stopPlay();
+            return;
+        }
+        const point = path[index];
+        const next = path[index + 1];
+        this.playMarker.setPosition({ lat: point.lat, lng: point.lng });
+        // Point the arrow the way the journey goes.
+        const heading =
+            (Math.atan2(next.lng - point.lng, next.lat - point.lat) * 180) / Math.PI;
+        const icon = this.playMarker.getIcon();
+        this.playMarker.setIcon({ ...icon, rotation: heading });
+        this.liveMap.panTo({ lat: point.lat, lng: point.lng });
+        this.state.playIndex = index + 1;
+    }
+
+    stopPlay() {
+        clearInterval(this.playTimer);
+        this.playTimer = null;
+        this.state.playing = false;
+    }
+
+    get playPercent() {
+        const path = this.state.timeline ? this.state.timeline.path : [];
+        return path.length > 1 ? Math.round((this.state.playIndex / (path.length - 1)) * 100) : 0;
+    }
+
+    get playClock() {
+        const path = this.state.timeline ? this.state.timeline.path : [];
+        const point = path[Math.min(this.state.playIndex, path.length - 1)];
+        return point ? this.clock(point.at) : "";
     }
 
     // -- links into the rest of Odoo ---------------------------------------

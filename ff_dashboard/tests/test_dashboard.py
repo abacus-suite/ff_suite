@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from odoo import fields
 from odoo.tests import TransactionCase, tagged
 
@@ -76,3 +78,68 @@ class TestEmployeeDay(TransactionCase):
             'name': 'Own Scope Employee', 'user_id': officer.id, 'ff_access_scope': 'own'})
         day = self.Dashboard.with_user(officer).ff_employee_day(stranger.id)
         self.assertEqual(day['visits'], [])
+
+
+@tagged('post_install', '-at_install', 'ff')
+class TestTimeline(TransactionCase):
+    """The day replayed: punches, halts and the travel between them."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.Dashboard = cls.env['ff.dashboard']
+        cls.employee = cls.env['hr.employee'].create({'name': 'Timeline Officer', 'tz': 'UTC'})
+        cls.shop = cls.env['res.partner'].create({
+            'name': 'Timeline Shop', 'ff_is_client': True,
+            'ff_category_id': cls.env.ref('ff_clients.contact_category_customer').id,
+            'ff_employee_ids': [(6, 0, cls.employee.ids)],
+            'partner_latitude': 10.0, 'partner_longitude': 76.0,
+        })
+
+    def test_an_empty_day_answers_with_empty_lists(self):
+        data = self.Dashboard.ff_employee_timeline(self.employee.id)
+        self.assertEqual(data['events'], [])
+        self.assertEqual(data['path'], [])
+        self.assertEqual(data['summary']['visits'], 0)
+
+    def test_the_day_is_told_in_order(self):
+        now = fields.Datetime.now()
+        self.env['hr.attendance'].create({
+            'employee_id': self.employee.id,
+            'check_in': now - timedelta(hours=3),
+            'check_out': now,
+        })
+        self.env['ff.visit'].ff_check_in(self.employee, self.shop, {'lat': 10.0, 'lng': 76.0})
+        data = self.Dashboard.ff_employee_timeline(self.employee.id)
+        kinds = [event['kind'] for event in data['events']]
+        self.assertEqual(kinds[0], 'punch_in')
+        self.assertIn('visit', kinds)
+        self.assertIn('punch_out', kinds)
+        times = [event['at'] for event in data['events'] if event['kind'] != 'travel']
+        self.assertEqual(times, sorted(times), 'events must read in the order they happened')
+
+    def test_the_path_follows_the_pings(self):
+        now = fields.Datetime.now()
+        for index in range(5):
+            self.env['ff.location.ping'].sudo().create({
+                'employee_id': self.employee.id,
+                'ts': now - timedelta(minutes=50 - index * 10),
+                'latitude': 10.0 + index * 0.01,
+                'longitude': 76.0,
+                'accuracy': 10,
+            })
+        data = self.Dashboard.ff_employee_timeline(self.employee.id)
+        self.assertEqual(len(data['path']), 5)
+        self.assertGreater(data['summary']['distance_km'], 0)
+
+    def test_somebody_outside_my_scope_gives_nothing(self):
+        stranger = self.env['hr.employee'].create({'name': 'Stranger'})
+        officer = self.env['res.users'].create({
+            'name': 'Scoped', 'login': 'ff_timeline_scope',
+            'groups_id': [(6, 0, [self.env.ref('ff_base.group_ff_officer').id,
+                                  self.env.ref('base.group_user').id])],
+        })
+        self.env['hr.employee'].create({
+            'name': 'Scoped Employee', 'user_id': officer.id, 'ff_access_scope': 'own'})
+        data = self.Dashboard.with_user(officer).ff_employee_timeline(stranger.id)
+        self.assertEqual(data['events'], [])

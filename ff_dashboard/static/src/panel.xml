@@ -440,6 +440,18 @@
                         </div>
                     </div>
 
+                    <div class="ff_seg">
+                        <button class="ff_seg_btn" t-att-class="state.liveView === 'live' ? 'ff_seg_btn_active' : ''"
+                                t-on-click="() => this.openLiveView('live')">
+                            <i class="fa fa-location-arrow me-1"/>Live
+                        </button>
+                        <button class="ff_seg_btn" t-att-class="state.liveView === 'timeline' ? 'ff_seg_btn_active' : ''"
+                                t-on-click="() => this.openLiveView('timeline')">
+                            <i class="fa fa-clock-o me-1"/>Timeline
+                        </button>
+                    </div>
+
+                    <t t-if="state.liveView === 'live'">
                     <div class="ff_panel_search_wrap">
                         <i class="fa fa-search"/>
                         <input type="text" class="form-control form-control-sm ff_panel_search"
@@ -476,6 +488,31 @@
                                t-att-checked="state.showClients" t-on-change="toggleClients"/>
                         <label class="form-check-label small" for="ff_live_clients">Show customers</label>
                     </div>
+                    </t>
+
+                    <t t-if="state.liveView === 'timeline'">
+                        <select class="form-select form-select-sm ff_mini_select ff_employee_select"
+                                t-on-change="onTimelineEmployee">
+                            <option t-foreach="state.timelineEmployees" t-as="row" t-key="row.id"
+                                    t-att-value="row.id" t-att-selected="row.id === state.timelineEmployeeId">
+                                <t t-esc="row.name"/><t t-if="row.code"> (<t t-esc="row.code"/>)</t>
+                            </option>
+                        </select>
+                        <button class="ff_icon_btn" title="Previous day" t-on-click="() => this.shiftDay(-1)">
+                            <i class="fa fa-chevron-left"/>
+                        </button>
+                        <input type="date" class="form-control form-control-sm ff_mini_select"
+                               t-att-value="state.timelineDate" t-on-change="onTimelineDate"/>
+                        <button class="ff_icon_btn" title="Next day" t-on-click="() => this.shiftDay(1)">
+                            <i class="fa fa-chevron-right"/>
+                        </button>
+                        <button class="ff_btn_primary" t-on-click="() => this.loadTimeline()">Apply</button>
+                        <button class="ff_btn_primary" t-on-click="togglePlay"
+                                t-att-disabled="!state.timeline or state.timeline.path.length &lt; 2">
+                            <i class="fa" t-att-class="state.playing ? 'fa-pause' : 'fa-play'"/>
+                            <span class="ms-1"><t t-esc="state.playing ? 'Pause' : 'Play'"/></span>
+                        </button>
+                    </t>
 
                     <div class="ms-auto d-flex align-items-center gap-2">
                         <small class="text-muted" t-if="state.updatedAt">Updated <t t-esc="state.updatedAt"/></small>
@@ -486,7 +523,7 @@
                 </div>
 
                 <div class="d-flex flex-grow-1 overflow-hidden">
-                    <div class="ff_live_list">
+                    <div class="ff_live_list" t-if="state.liveView === 'live'">
                         <t t-if="!state.live">
                             <div class="ff_skeleton m-2" style="height: 160px;"/>
                             <div class="ff_skeleton m-2" style="height: 160px;"/>
@@ -614,8 +651,95 @@
                         </t>
                     </div>
 
+
+                    <!-- The day, told in order -->
+                    <div class="ff_live_list ff_timeline_list" t-if="state.liveView === 'timeline'">
+                        <t t-if="state.timelineLoading">
+                            <div class="ff_skeleton m-2" style="height: 90px;"/>
+                            <div class="ff_skeleton m-2" style="height: 200px;"/>
+                        </t>
+                        <t t-elif="state.timeline">
+                            <div class="ff_tl_summary">
+                                <div>
+                                    <div class="ff_tl_sum_label">Punch in</div>
+                                    <div class="ff_tl_sum_value" t-esc="clock(state.timeline.summary.punch_in) || '-'"/>
+                                </div>
+                                <div>
+                                    <div class="ff_tl_sum_label">Punch out</div>
+                                    <div class="ff_tl_sum_value" t-esc="clock(state.timeline.summary.punch_out) || '-'"/>
+                                </div>
+                                <div>
+                                    <div class="ff_tl_sum_label">Hours</div>
+                                    <div class="ff_tl_sum_value"><t t-esc="state.timeline.summary.hours"/></div>
+                                </div>
+                                <div>
+                                    <div class="ff_tl_sum_label">Distance</div>
+                                    <div class="ff_tl_sum_value"><t t-esc="state.timeline.summary.distance_km"/> km</div>
+                                </div>
+                                <div>
+                                    <div class="ff_tl_sum_label">Visits</div>
+                                    <div class="ff_tl_sum_value"><t t-esc="state.timeline.summary.visits"/></div>
+                                </div>
+                            </div>
+
+                            <div class="ff_tl">
+                                <t t-set="stop" t-value="0"/>
+                                <t t-foreach="state.timeline.events" t-as="event" t-key="event_index">
+                                    <t t-if="event.kind === 'travel'">
+                                        <div class="ff_tl_travel">
+                                            <i class="fa fa-motorcycle me-2"/>
+                                            Travel: <span class="fw-bold"><t t-esc="event.distance_km"/> km</span>
+                                            <span class="text-muted ms-2">(<t t-esc="event.minutes"/> min)</span>
+                                        </div>
+                                    </t>
+                                    <t t-else="">
+                                        <div class="ff_tl_row">
+                                            <div class="ff_tl_time">
+                                                <div class="fw-bold" t-esc="clock(event.at)"/>
+                                                <div class="text-muted small" t-if="event.duration_min">
+                                                    <t t-esc="event.duration_min"/> min
+                                                </div>
+                                            </div>
+                                            <div class="ff_tl_mark">
+                                                <span class="ff_tl_bullet"
+                                                      t-attf-style="background: {{eventColor(event.kind)}}">
+                                                    <i class="fa" t-att-class="eventIcon(event.kind)"/>
+                                                </span>
+                                            </div>
+                                            <div class="ff_tl_body">
+                                                <div class="fw-bold" t-esc="event.title"/>
+                                                <div class="small text-muted" t-if="event.outcome" t-esc="event.outcome"/>
+                                                <div class="small text-muted" t-if="event.note" t-esc="event.note"/>
+                                                <div class="small fw-bold" t-if="event.amount" t-esc="money(event.amount)"/>
+                                                <div class="small text-danger" t-if="event.inside_geofence === false">
+                                                    Outside the customer geofence
+                                                </div>
+                                                <div class="ff_tl_photos" t-if="event.photos.length">
+                                                    <img t-foreach="event.photos" t-as="photo" t-key="photo"
+                                                         t-att-src="photo" alt=""/>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </t>
+                                <div t-if="!state.timeline.events.length" class="p-3 text-muted small">
+                                    Nothing recorded on this day.
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+
                     <div class="flex-grow-1 position-relative">
                         <div class="ff_live_canvas" t-ref="liveMap"/>
+                        <div class="ff_tl_player" t-if="state.liveView === 'timeline' and state.timeline and state.timeline.path.length > 1">
+                            <button class="ff_icon_btn" t-on-click="togglePlay">
+                                <i class="fa" t-att-class="state.playing ? 'fa-pause' : 'fa-play'"/>
+                            </button>
+                            <div class="ff_tl_track">
+                                <div class="ff_tl_track_fill" t-attf-style="width: {{playPercent}}%"/>
+                            </div>
+                            <span class="small text-muted"><t t-esc="playClock"/></span>
+                        </div>
                         <div class="ff_warn ff_live_warn" t-if="state.liveError">
                             <i class="fa fa-exclamation-triangle me-1"/><t t-esc="state.liveError"/>
                         </div>
