@@ -1008,12 +1008,19 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="ms-auto d-flex align-items-center gap-1">
-                                        <button class="ff_icon_btn" t-on-click="() => this.shiftMonth(-1)">
-                                            <i class="fa fa-chevron-left"/>
+                                    <div class="ms-auto d-flex align-items-center gap-2">
+                                        <button class="ff_chip_btn" t-on-click="() => this.shiftMonth(-1)">
+                                            <i class="fa fa-chevron-left me-1"/>Previous month
                                         </button>
-                                        <button class="ff_icon_btn" t-on-click="() => this.shiftMonth(1)">
-                                            <i class="fa fa-chevron-right"/>
+                                        <input type="month" class="form-control form-control-sm ff_mini_select"
+                                               t-att-value="state.calendar.month.slice(0, 7)"
+                                               t-on-change="pickMonth"/>
+                                        <button class="ff_chip_btn" t-on-click="() => this.shiftMonth(1)"
+                                                t-att-disabled="isCurrentMonth">
+                                            Next month<i class="fa fa-chevron-right ms-1"/>
+                                        </button>
+                                        <button class="ff_chip_btn" t-if="!isCurrentMonth" t-on-click="thisMonth">
+                                            <i class="fa fa-calendar-o me-1"/>This month
                                         </button>
                                     </div>
                                 </div>

@@ -549,11 +549,34 @@ export class AixoloPanel extends Component {
     async shiftMonth(delta) {
         const current = new Date(`${this.state.calendarMonth || this.state.calendar.month}T00:00:00`);
         current.setMonth(current.getMonth() + delta);
-        this.state.calendarMonth = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(
-            2,
-            "0"
-        )}-01`;
+        if (current > new Date()) {
+            return;  // a month that has not happened has nothing to show
+        }
+        this.state.calendarMonth = this.monthString(current);
         await this.loadCalendar();
+    }
+
+    /** Jump straight to a month from the picker. */
+    async pickMonth(ev) {
+        if (!ev.target.value) {
+            return;
+        }
+        this.state.calendarMonth = `${ev.target.value}-01`;
+        await this.loadCalendar();
+    }
+
+    async thisMonth() {
+        this.state.calendarMonth = this.monthString(new Date());
+        await this.loadCalendar();
+    }
+
+    monthString(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
+    }
+
+    get isCurrentMonth() {
+        const shown = this.state.calendar ? this.state.calendar.month.slice(0, 7) : "";
+        return shown === this.monthString(new Date()).slice(0, 7);
     }
 
     openDayDetail(cell) {
