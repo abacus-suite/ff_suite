@@ -21,4 +21,12 @@
         <field name="name">Other</field>
         <field name="sequence">90</field>
     </record>
+
+    <record id="seq_ff_expense_claim" model="ir.sequence">
+        <field name="name">Field Expense Claim</field>
+        <field name="code">ff.expense.claim</field>
+        <field name="prefix">EXP/%(year)s/</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+    </record>
 </odoo>

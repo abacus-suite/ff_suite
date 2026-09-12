@@ -24,7 +24,8 @@ def _straight_km(a, b, factor):
 class FfAllowanceClaim(models.Model):
     _name = 'ff.allowance.claim'
     _description = 'Daily Travel Allowance'
-    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'ff.numbered.mixin']
+    _ff_sequence_code = 'ff.allowance.claim'
     _order = 'date desc, employee_id'
 
     employee_id = fields.Many2one('hr.employee', required=True, index=True, ondelete='cascade')
@@ -208,6 +209,8 @@ class FfAllowanceClaim(models.Model):
                 raise UserError(self.env._('Only draft or submitted allowances can be decided.'))
             claim.write({'state': 'approved' if approve else 'rejected',
                          'approver_id': approver_user or False, 'decided_at': fields.Datetime.now()})
+            if approve:
+                claim._ff_assign_reference()
             claim.activity_ids.unlink()
 
     def action_approve(self):

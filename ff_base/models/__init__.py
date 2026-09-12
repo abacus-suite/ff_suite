@@ -6,3 +6,4 @@ from . import ff_app_profile
 from . import hr_employee
 from . import res_users
 from . import res_config_settings
+from . import ff_numbering

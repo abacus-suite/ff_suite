@@ -20,6 +20,7 @@ def claim_data(claim, with_legs=False):
         'rate_per_km': claim.rate_per_km,
         'amount': claim.amount,
         'currency': claim.currency_id.name,
+        'reference': claim.ff_reference or None,
         'state': claim.state,
         'estimated': claim.estimated,
         'visit_count': claim.visit_count,

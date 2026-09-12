@@ -21,6 +21,7 @@ def claim_data(claim):
         'contact': ref(claim.partner_id),
         'visit_id': claim.visit_id.id or None,
         'receipt_count': claim.receipt_count,
+        'reference': claim.ff_reference or None,
         'state': claim.state,
         'approver': ref(claim.approver_id),
         'decided_at': to_iso(claim.decided_at),

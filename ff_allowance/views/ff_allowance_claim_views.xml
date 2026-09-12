@@ -5,6 +5,7 @@
         <field name="model">ff.allowance.claim</field>
         <field name="arch" type="xml">
             <list create="0" decoration-info="state == 'submitted'" decoration-muted="state == 'rejected'">
+                <field name="ff_reference" optional="show"/>
                 <field name="date"/>
                 <field name="employee_id"/>
                 <field name="department_id" optional="show"/>
@@ -42,6 +43,7 @@
                 <sheet>
                     <group>
                         <group>
+                            <field name="ff_reference" invisible="not ff_reference"/>
                             <field name="employee_id"/>
                             <field name="date"/>
                             <field name="policy_id"/>

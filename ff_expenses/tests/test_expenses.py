@@ -58,3 +58,29 @@ class TestExpenses(TransactionCase):
         self.assertEqual(claim.state, 'approved')
         with self.assertRaises(UserError):  # already decided
             claim._ff_decide_as(self.manager, False)
+
+    def test_a_number_is_given_when_the_claim_is_approved(self):
+        claim = self.Claim.ff_create_from_app(self.employee, {
+            'category_id': self.category.id, 'amount': 120.0, 'note': 'Bus fare'})
+        self.assertFalse(claim.ff_reference, 'an unapproved claim is not a numbered document')
+        claim.action_submit()
+        claim._ff_set_decision(True, self.env.uid)
+        self.assertTrue(claim.ff_reference)
+        self.assertTrue(claim.ff_reference.startswith('EXP/'))
+
+    def test_a_rejected_claim_never_takes_a_number(self):
+        claim = self.Claim.ff_create_from_app(self.employee, {
+            'category_id': self.category.id, 'amount': 90.0})
+        claim.action_submit()
+        claim._ff_set_decision(False, self.env.uid)
+        self.assertFalse(claim.ff_reference)
+
+    def test_the_office_decides_the_format(self):
+        sequence = self.env['ir.sequence'].sudo().search([('code', '=', 'ff.expense.claim')], limit=1)
+        sequence.write({'prefix': 'CLAIM-', 'padding': 3})
+        claim = self.Claim.ff_create_from_app(self.employee, {
+            'category_id': self.category.id, 'amount': 60.0})
+        claim.action_submit()
+        claim._ff_set_decision(True, self.env.uid)
+        self.assertTrue(claim.ff_reference.startswith('CLAIM-'))
+        self.assertEqual(len(claim.ff_reference.split('CLAIM-')[1]), 3)

@@ -13,7 +13,8 @@ def _strip_data_url(image):
 class FfExpenseClaim(models.Model):
     _name = 'ff.expense.claim'
     _description = 'Field Expense Claim'
-    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'ff.numbered.mixin']
+    _ff_sequence_code = 'ff.expense.claim'
     _order = 'date desc, id desc'
 
     name = fields.Char(compute='_compute_name', store=True)
@@ -147,6 +148,8 @@ class FfExpenseClaim(models.Model):
                 raise UserError(self.env._('Only submitted claims can be decided.'))
             claim.write({'state': 'approved' if approve else 'rejected',
                          'approver_id': approver_user or False, 'decided_at': fields.Datetime.now()})
+            if approve:
+                claim._ff_assign_reference()
             claim.activity_ids.unlink()
 
     def action_approve(self):

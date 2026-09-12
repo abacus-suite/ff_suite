@@ -36,6 +36,32 @@
                             <field name="ff_allow_mock"/>
                         </setting>
                     </block>
+                    <block title="Document Numbers" name="ff_numbering_settings">
+                        <setting string="Expense claims" help="Format of the reference given when an expense claim is approved. %(year)s, %(month)s and %(day)s are filled in.">
+                            <div class="content-group">
+                                <div class="row">
+                                    <label for="ff_expense_prefix" class="col-lg-4 o_light_label"/>
+                                    <field name="ff_expense_prefix" placeholder="EXP/%(year)s/"/>
+                                </div>
+                                <div class="row">
+                                    <label for="ff_expense_padding" class="col-lg-4 o_light_label"/>
+                                    <field name="ff_expense_padding"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Travel allowance" help="Format of the reference given when a travel allowance is approved.">
+                            <div class="content-group">
+                                <div class="row">
+                                    <label for="ff_allowance_prefix" class="col-lg-4 o_light_label"/>
+                                    <field name="ff_allowance_prefix" placeholder="TA/%(year)s/"/>
+                                </div>
+                                <div class="row">
+                                    <label for="ff_allowance_padding" class="col-lg-4 o_light_label"/>
+                                    <field name="ff_allowance_padding"/>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
                     <block title="Maps" name="ff_map_settings">
                         <setting string="Google Maps API key" help="Enable Maps JavaScript API for the web map and Map Tiles API for the phone app, then paste the key here. Without a key both fall back to a free OpenStreetMap basemap.">
                             <field name="ff_google_maps_key" password="True" placeholder="AIza..."/>

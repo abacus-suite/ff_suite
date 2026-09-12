@@ -5,6 +5,7 @@
         <field name="model">ff.expense.claim</field>
         <field name="arch" type="xml">
             <list decoration-info="state == 'submitted'" decoration-muted="state == 'rejected'">
+                <field name="ff_reference" optional="show"/>
                 <field name="date"/>
                 <field name="employee_id"/>
                 <field name="department_id" optional="hide"/>
@@ -39,6 +40,7 @@
                 <sheet>
                     <group>
                         <group>
+                            <field name="ff_reference" invisible="not ff_reference"/>
                             <field name="employee_id" readonly="state != 'draft'"/>
                             <field name="date" readonly="state != 'draft'"/>
                             <field name="category_id" readonly="state != 'draft'"/>
