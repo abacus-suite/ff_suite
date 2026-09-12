@@ -157,27 +157,41 @@ export class FieldForceLiveMap extends Component {
         if (!window.google || !window.google.maps) {
             try {
                 await loadJS(
-                    `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=marker&loading=async&callback=Function.prototype`
+                    `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&loading=async&callback=Function.prototype`
                 );
             } catch {
                 this.mapsFailed("Google Maps could not be loaded. Check the API key and that the Maps JavaScript API is enabled.");
                 return;
             }
         }
-        // The async loader only installs a bootstrap; the classes arrive with
-        // the library import. Both are awaited here, inside the single promise,
-        // so a refresh landing mid-load cannot mistake "still loading" for "failed".
+        // The async loader hands the classes back from importLibrary; it does not
+        // promise to hang them on window.google.maps, so use what it returns.
         const maps = window.google.maps;
-        if (typeof maps.Map !== "function" && typeof maps.importLibrary === "function") {
-            try {
-                await maps.importLibrary("maps");
-                await maps.importLibrary("marker");
-            } catch (error) {
-                console.warn("Field Force live map: importLibrary failed", error);
-                this.lastMapError = error && error.message ? error.message : String(error);
+        try {
+            if (typeof maps.importLibrary === "function") {
+                const library = await maps.importLibrary("maps");
+                const markers = await maps.importLibrary("marker");
+                const core = await maps.importLibrary("core");
+                this.MapClass = library.Map || maps.Map;
+                this.InfoWindowClass = library.InfoWindow || maps.InfoWindow;
+                this.MarkerClass = markers.Marker || maps.Marker;
+                this.core = {
+                    Size: core.Size || maps.Size,
+                    Point: core.Point || maps.Point,
+                    LatLngBounds: core.LatLngBounds || maps.LatLngBounds,
+                    SymbolPath: core.SymbolPath || maps.SymbolPath,
+                };
+            } else {
+                this.MapClass = maps.Map;
+                this.InfoWindowClass = maps.InfoWindow;
+                this.MarkerClass = maps.Marker;
+                this.core = maps;
             }
+        } catch (error) {
+            console.warn("Field Force live map: importLibrary failed", error);
+            this.lastMapError = error && error.message ? error.message : String(error);
         }
-        if (typeof window.google.maps.Map !== "function") {
+        if (typeof this.MapClass !== "function") {
             this.mapsFailed(
                 "Google Maps did not hand over the map library. " +
                     (this.lastMapError ? `Google said: ${this.lastMapError}. ` : "") +
@@ -193,7 +207,7 @@ export class FieldForceLiveMap extends Component {
         }
         // One Google "map load" is billed here, so count it here too.
         this.state.usage = await this.orm.call("ff.map.usage", "ff_record_web_map", []);
-        this.map = new window.google.maps.Map(this.mapRef.el, {
+        this.map = new this.MapClass(this.mapRef.el, {
             center: { lat: 20.5937, lng: 78.9629 },
             zoom: 5,
             mapTypeControl: true,
@@ -201,7 +215,8 @@ export class FieldForceLiveMap extends Component {
             fullscreenControl: true,
             clickableIcons: false,
         });
-        this.infoWindow = new window.google.maps.InfoWindow();
+        this.infoWindow = new this.InfoWindowClass();
+        this.state.mapError = "";
     }
 
     mapsFailed(message) {
@@ -220,8 +235,8 @@ export class FieldForceLiveMap extends Component {
             </svg>`;
         return {
             url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg.trim()),
-            scaledSize: new window.google.maps.Size(34, 46),
-            anchor: new window.google.maps.Point(17, 46),
+            scaledSize: new this.core.Size(34, 46),
+            anchor: new this.core.Point(17, 46),
         };
     }
 
@@ -246,7 +261,7 @@ export class FieldForceLiveMap extends Component {
             return;
         }
         const visible = new Set();
-        const bounds = new window.google.maps.LatLngBounds();
+        const bounds = new this.core.LatLngBounds();
         let count = 0;
         for (const person of this.located) {
             visible.add(person.id);
@@ -256,7 +271,7 @@ export class FieldForceLiveMap extends Component {
                 marker.setPosition(position);
                 marker.setIcon(this.markerIcon(person));
             } else {
-                marker = new window.google.maps.Marker({
+                marker = new this.MarkerClass({
                     map: this.map,
                     position,
                     title: person.name,
@@ -303,13 +318,13 @@ export class FieldForceLiveMap extends Component {
             if (this.clientMarkers.has(client.id)) {
                 continue;
             }
-            const marker = new window.google.maps.Marker({
+            const marker = new this.MarkerClass({
                 map: this.map,
                 position: { lat: client.lat, lng: client.lng },
                 title: client.name,
                 zIndex: 1,
                 icon: {
-                    path: window.google.maps.SymbolPath.CIRCLE,
+                    path: this.core.SymbolPath.CIRCLE,
                     scale: 6,
                     fillColor: "#7C5CFC",
                     fillOpacity: 1,
