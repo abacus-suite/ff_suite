@@ -5,3 +5,4 @@ from . import team
 from . import clients
 from . import visits
 from . import orders
+from . import allowance

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="expense_category_food" model="ff.expense.category">
+        <field name="name">Food</field>
+        <field name="sequence">10</field>
+    </record>
+    <record id="expense_category_travel" model="ff.expense.category">
+        <field name="name">Travel (bus / train / taxi)</field>
+        <field name="sequence">20</field>
+    </record>
+    <record id="expense_category_stay" model="ff.expense.category">
+        <field name="name">Stay</field>
+        <field name="sequence">30</field>
+    </record>
+    <record id="expense_category_client" model="ff.expense.category">
+        <field name="name">Client entertainment</field>
+        <field name="sequence">40</field>
+        <field name="requires_client" eval="True"/>
+    </record>
+    <record id="expense_category_other" model="ff.expense.category">
+        <field name="name">Other</field>
+        <field name="sequence">90</field>
+    </record>
+</odoo>
