@@ -603,6 +603,21 @@ export class AixoloPanel extends Component {
         this.state.openDay = this.state.openDay && this.state.openDay.date === cell.date ? null : cell;
     }
 
+    /** A day shows a handful of boxes however big the team is. */
+    visibleBoxes(cell) {
+        return cell.boxes.slice(0, 16);
+    }
+
+    hiddenBoxes(cell) {
+        return Math.max(cell.boxes.length - 16, 0);
+    }
+
+    /** The people to name in the hover card, worst news first. */
+    popPeople(cell) {
+        const order = { absent: 0, late: 1, leave: 2, present: 3, future: 4 };
+        return [...cell.boxes].sort((a, b) => order[a.status] - order[b.status]).slice(0, 6);
+    }
+
     boxClass(status) {
         return {
             present: "ff_box_present",

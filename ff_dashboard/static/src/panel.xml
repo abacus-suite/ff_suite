@@ -1055,9 +1055,51 @@
                                                     </span>
                                                 </div>
                                                 <div class="ff_cal_boxes">
-                                                    <span t-foreach="cell.boxes" t-as="box" t-key="box.id"
-                                                          class="ff_cal_box" t-att-class="boxClass(box.status)"
-                                                          t-attf-title="{{box.name}}: {{box.status}}{{box.hours ? ' · ' + box.hours + ' h' : ''}}"/>
+                                                    <span t-foreach="visibleBoxes(cell)" t-as="box" t-key="box.id"
+                                                          class="ff_cal_box" t-att-class="boxClass(box.status)"/>
+                                                    <span class="ff_cal_more" t-if="hiddenBoxes(cell)">
+                                                        +<t t-esc="hiddenBoxes(cell)"/>
+                                                    </span>
+                                                </div>
+
+                                                <!-- The hover card: the day in words, and a way into it -->
+                                                <div class="ff_cal_pop" t-if="!cell.future">
+                                                    <div class="ff_cal_pop_head">
+                                                        <span class="fw-bold">
+                                                            <t t-esc="cell.weekday"/> <t t-esc="cell.date"/>
+                                                        </span>
+                                                        <span class="ff_chip ms-auto">
+                                                            <t t-esc="cell.present"/>/<t t-esc="cell.boxes.length"/>
+                                                        </span>
+                                                    </div>
+                                                    <div class="ff_cal_pop_counts">
+                                                        <span><span class="ff_cal_box ff_box_present"/>
+                                                            <t t-esc="cell.present - cell.late"/> present</span>
+                                                        <span><span class="ff_cal_box ff_box_late"/>
+                                                            <t t-esc="cell.late"/> late</span>
+                                                        <span><span class="ff_cal_box ff_box_absent"/>
+                                                            <t t-esc="cell.absent"/> absent</span>
+                                                        <span><span class="ff_cal_box ff_box_leave"/>
+                                                            <t t-esc="cell.leave"/> on leave</span>
+                                                    </div>
+                                                    <div class="ff_cal_pop_people">
+                                                        <div t-foreach="popPeople(cell)" t-as="box" t-key="box.id"
+                                                             class="ff_cal_pop_person">
+                                                            <span class="ff_cal_box" t-att-class="boxClass(box.status)"/>
+                                                            <span class="text-truncate" t-esc="box.name"/>
+                                                            <span class="ms-auto text-muted">
+                                                                <t t-if="box.at"><t t-esc="clock(box.at)"/></t>
+                                                                <t t-else="" t-esc="box.status"/>
+                                                            </span>
+                                                        </div>
+                                                        <div class="text-muted small" t-if="cell.boxes.length > 6">
+                                                            and <t t-esc="cell.boxes.length - 6"/> more
+                                                        </div>
+                                                    </div>
+                                                    <button class="ff_btn_primary w-100 mt-2"
+                                                            t-on-click.stop="() => this.drillAttendance([['check_in', '&gt;=', cell.date + ' 00:00:00'], ['check_in', '&lt;=', cell.date + ' 23:59:59']])">
+                                                        <i class="fa fa-external-link me-1"/>View attendance
+                                                    </button>
                                                 </div>
                                             </div>
                                         </t>

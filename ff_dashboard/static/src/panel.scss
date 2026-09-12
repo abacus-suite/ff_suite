@@ -1179,8 +1179,10 @@
         }
     }
 
+    // Every day is the same size, whether the team is four or four hundred.
     .ff_cal_cell {
-        min-height: 92px;
+        position: relative;
+        height: 92px;
         border: 1px solid var(--ff-line);
         border-radius: 12px;
         padding: 8px;
@@ -1191,6 +1193,7 @@
         &:hover {
             box-shadow: var(--ff-shadow);
             border-color: #cddcf8;
+            z-index: 30;
         }
     }
 
@@ -1238,7 +1241,89 @@
     .ff_cal_boxes {
         display: flex;
         flex-wrap: wrap;
+        align-content: flex-start;
         gap: 3px;
+        height: 44px;
+        overflow: hidden;
+    }
+
+    .ff_cal_more {
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--ff-muted);
+        background: #f1f4fa;
+        border-radius: 4px;
+        padding: 0 4px;
+        line-height: 11px;
+    }
+
+    // The hover card sits inside the cell, so moving onto it keeps it open.
+    .ff_cal_pop {
+        display: none;
+        position: absolute;
+        top: calc(100% + 6px);
+        left: -4px;
+        width: 17rem;
+        background: #fff;
+        border: 1px solid var(--ff-line);
+        border-radius: 14px;
+        box-shadow: 0 16px 34px rgba(15, 27, 61, 0.16);
+        padding: 12px;
+        z-index: 40;
+        cursor: default;
+    }
+
+    .ff_cal_cell:hover .ff_cal_pop {
+        display: block;
+    }
+
+    // Near the right edge it opens to the left instead of off the screen.
+    .ff_cal > div:nth-child(7n) .ff_cal_pop,
+    .ff_cal > div:nth-child(7n - 1) .ff_cal_pop {
+        left: auto;
+        right: -4px;
+    }
+
+    // The last rows open upwards.
+    .ff_cal > div:nth-last-child(-n + 7) .ff_cal_pop {
+        top: auto;
+        bottom: calc(100% + 6px);
+    }
+
+    .ff_cal_pop_head {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12.5px;
+        margin-bottom: 8px;
+    }
+
+    .ff_cal_pop_counts {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px 10px;
+        font-size: 11.5px;
+        color: var(--ff-ink);
+        margin-bottom: 8px;
+
+        span {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+    }
+
+    .ff_cal_pop_people {
+        border-top: 1px dashed var(--ff-line);
+        padding-top: 6px;
+    }
+
+    .ff_cal_pop_person {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11.5px;
+        padding: 2px 0;
     }
 
     .ff_cal_box {
