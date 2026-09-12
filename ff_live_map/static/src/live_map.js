@@ -158,15 +158,27 @@ export class FieldForceLiveMap extends Component {
             }
         }
         // With the async loader the script only installs a bootstrap: the classes
-        // themselves arrive when their library is imported.
-        try {
-            await window.google.maps.importLibrary("maps");
-            await window.google.maps.importLibrary("marker");
-        } catch {
-            this.mapsFailed("Google Maps loaded but refused the key. Check its API restrictions and that billing is on.");
+        // themselves arrive when their library is imported. An older loader already
+        // has them, and a second import of the same library can reject harmlessly,
+        // so only complain when the class really is missing afterwards.
+        const maps = window.google.maps;
+        if (typeof maps.Map !== "function" && typeof maps.importLibrary === "function") {
+            try {
+                await maps.importLibrary("maps");
+                await maps.importLibrary("marker");
+            } catch (error) {
+                console.warn("Field Force live map: importLibrary failed", error);
+            }
+        }
+        if (typeof window.google.maps.Map !== "function") {
+            this.mapsFailed(
+                "Google Maps loaded but did not hand over the map library. Open the browser console: " +
+                    "Google prints the reason there (usually billing is off, the Maps JavaScript API is " +
+                    "not enabled, or the key's referrer restriction excludes this domain)."
+            );
             return;
         }
-        if (!this.mapRef.el || typeof window.google.maps.Map !== "function") {
+        if (!this.mapRef.el) {
             return;
         }
         // One Google "map load" is billed here, so count it here too.
