@@ -38,10 +38,17 @@ class FfNumberSettings(models.TransientModel):
     the next document gets."""
     _inherit = 'res.config.settings'
 
-    ff_expense_prefix = fields.Char(string='Expense Number Format')
-    ff_expense_padding = fields.Integer(string='Expense Number Digits')
-    ff_allowance_prefix = fields.Char(string='Allowance Number Format')
-    ff_allowance_padding = fields.Integer(string='Allowance Number Digits')
+    PLACEHOLDER_HELP = (
+        "Text put in front of the number. Odoo fills in the date placeholders "
+        "%(year)s, %(month)s and %(day)s, so \"EXP/%(year)s/\" reads EXP/2026/00001."
+    )
+
+    ff_expense_prefix = fields.Char(string='Expense Number Format', help=PLACEHOLDER_HELP)
+    ff_expense_padding = fields.Integer(
+        string='Expense Number Digits', help='How many digits the running number has: 5 gives 00001.')
+    ff_allowance_prefix = fields.Char(string='Allowance Number Format', help=PLACEHOLDER_HELP)
+    ff_allowance_padding = fields.Integer(
+        string='Allowance Number Digits', help='How many digits the running number has: 5 gives 00001.')
 
     # code on the sequence -> (prefix field, padding field)
     FF_NUMBER_FIELDS = {

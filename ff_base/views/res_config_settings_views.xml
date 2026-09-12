@@ -37,11 +37,11 @@
                         </setting>
                     </block>
                     <block title="Document Numbers" name="ff_numbering_settings">
-                        <setting string="Expense claims" help="Format of the reference given when an expense claim is approved. %(year)s, %(month)s and %(day)s are filled in.">
+                        <setting string="Expense claims" help="Format of the reference given when an expense claim is approved. Year and month placeholders are filled in - see the field help.">
                             <div class="content-group">
                                 <div class="row">
                                     <label for="ff_expense_prefix" class="col-lg-4 o_light_label"/>
-                                    <field name="ff_expense_prefix" placeholder="EXP/%(year)s/"/>
+                                    <field name="ff_expense_prefix" placeholder="EXP/2026/"/>
                                 </div>
                                 <div class="row">
                                     <label for="ff_expense_padding" class="col-lg-4 o_light_label"/>
@@ -53,7 +53,7 @@
                             <div class="content-group">
                                 <div class="row">
                                     <label for="ff_allowance_prefix" class="col-lg-4 o_light_label"/>
-                                    <field name="ff_allowance_prefix" placeholder="TA/%(year)s/"/>
+                                    <field name="ff_allowance_prefix" placeholder="TA/2026/"/>
                                 </div>
                                 <div class="row">
                                     <label for="ff_allowance_padding" class="col-lg-4 o_light_label"/>
