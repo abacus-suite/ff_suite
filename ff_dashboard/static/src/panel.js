@@ -227,8 +227,9 @@ export class AixoloPanel extends Component {
         if (!this.google) {
             try {
                 this.google = await loadGoogleMaps(live.google_maps_key);
+                this.state.liveError = "";
             } catch (error) {
-                this.state.liveError = `Google Maps could not be loaded: ${error.message || error}`;
+                this.state.liveError = error.message || String(error);
                 return;
             }
         }
@@ -533,8 +534,9 @@ export class AixoloPanel extends Component {
         if (!this.google) {
             try {
                 this.google = await loadGoogleMaps(key);
+                this.state.liveError = "";
             } catch (error) {
-                this.state.liveError = `Google Maps could not be loaded: ${error.message || error}`;
+                this.state.liveError = error.message || String(error);
                 return;
             }
         }
@@ -566,14 +568,14 @@ export class AixoloPanel extends Component {
         this.lines = [];
         if (path.length > 1) {
             this.lines.push(
-                new window.google.maps.Polyline({
+                new this.google.Polyline({
                     map: this.liveMap,
                     path,
                     strokeColor: "#FFFFFF",
                     strokeOpacity: 0.9,
                     strokeWeight: 9,
                 }),
-                new window.google.maps.Polyline({
+                new this.google.Polyline({
                     map: this.liveMap,
                     path,
                     strokeColor: "#16A34A",

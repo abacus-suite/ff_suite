@@ -13,8 +13,16 @@ import { loadJS } from "@web/core/assets";
 let pending = null;
 
 export function loadGoogleMaps(key) {
-    pending = pending || build(key);
+    pending = pending || build(key).catch((error) => {
+        pending = null; // let the next attempt try again
+        throw error;
+    });
     return pending;
+}
+
+/** Forget the loaded classes, so a failed attempt can be retried. */
+export function resetGoogleMaps() {
+    pending = null;
 }
 
 async function build(key) {
@@ -23,32 +31,63 @@ async function build(key) {
             `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&loading=async&callback=Function.prototype`
         );
     }
-    const maps = window.google.maps;
-    if (typeof maps.importLibrary !== "function") {
-        // An older loader already has everything on the namespace.
-        return { Map: maps.Map, Marker: maps.Marker, InfoWindow: maps.InfoWindow, core: maps };
+    // The script tag can resolve a moment before the bootstrap has installed
+    // anything, so wait for one of the two shapes rather than assuming.
+    const maps = await waitFor(
+        () => window.google && window.google.maps,
+        (value) => typeof value.importLibrary === "function" || typeof value.Map === "function"
+    );
+
+    let classes;
+    if (typeof maps.importLibrary === "function") {
+        const [library, markers, core] = await Promise.all([
+            maps.importLibrary("maps"),
+            maps.importLibrary("marker"),
+            maps.importLibrary("core"),
+        ]);
+        classes = {
+            Map: library.Map || maps.Map,
+            InfoWindow: library.InfoWindow || maps.InfoWindow,
+            Marker: markers.Marker || maps.Marker,
+            Polyline: library.Polyline || maps.Polyline,
+            core: {
+                Size: core.Size || maps.Size,
+                Point: core.Point || maps.Point,
+                LatLngBounds: core.LatLngBounds || maps.LatLngBounds,
+                SymbolPath: core.SymbolPath || maps.SymbolPath,
+            },
+        };
+    } else {
+        classes = {
+            Map: maps.Map,
+            InfoWindow: maps.InfoWindow,
+            Marker: maps.Marker,
+            Polyline: maps.Polyline,
+            core: maps,
+        };
     }
-    const [library, markers, core] = await Promise.all([
-        maps.importLibrary("maps"),
-        maps.importLibrary("marker"),
-        maps.importLibrary("core"),
-    ]);
-    return {
-        Map: library.Map || maps.Map,
-        InfoWindow: library.InfoWindow || maps.InfoWindow,
-        Marker: markers.Marker || maps.Marker,
-        core: {
-            Size: core.Size || maps.Size,
-            Point: core.Point || maps.Point,
-            LatLngBounds: core.LatLngBounds || maps.LatLngBounds,
-            SymbolPath: core.SymbolPath || maps.SymbolPath,
-        },
-    };
+    if (typeof classes.Map !== "function") {
+        throw new Error(
+            "Google returned no map class. Check that billing is on, the Maps JavaScript API is " +
+                "enabled, and the key's restrictions allow this domain."
+        );
+    }
+    return classes;
 }
 
-/** Forget the loaded classes, so a failed attempt can be retried. */
-export function resetGoogleMaps() {
-    pending = null;
+/** Poll briefly for something the loader installs asynchronously. */
+async function waitFor(get, ready, timeout = 10000) {
+    const deadline = Date.now() + timeout;
+    for (;;) {
+        const value = get();
+        if (value && ready(value)) {
+            return value;
+        }
+        if (Date.now() > deadline) {
+            throw new Error("Google Maps did not finish loading in time.");
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    }
 }
 
 /** The teardrop pin used for people on every map. */

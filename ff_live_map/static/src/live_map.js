@@ -2,7 +2,7 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { loadJS } from "@web/core/assets";
+import { loadGoogleMaps, pinIcon } from "@ff_live_map/google";
 import { Component, onWillStart, onWillUnmount, useRef, useState, onMounted } from "@odoo/owl";
 
 const REFRESH_MS = 30000;
@@ -154,52 +154,17 @@ export class FieldForceLiveMap extends Component {
     }
 
     async buildMap(key) {
-        if (!window.google || !window.google.maps) {
-            try {
-                await loadJS(
-                    `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&loading=async&callback=Function.prototype`
-                );
-            } catch {
-                this.mapsFailed("Google Maps could not be loaded. Check the API key and that the Maps JavaScript API is enabled.");
-                return;
-            }
-        }
-        // The async loader hands the classes back from importLibrary; it does not
-        // promise to hang them on window.google.maps, so use what it returns.
-        const maps = window.google.maps;
+        let classes;
         try {
-            if (typeof maps.importLibrary === "function") {
-                const library = await maps.importLibrary("maps");
-                const markers = await maps.importLibrary("marker");
-                const core = await maps.importLibrary("core");
-                this.MapClass = library.Map || maps.Map;
-                this.InfoWindowClass = library.InfoWindow || maps.InfoWindow;
-                this.MarkerClass = markers.Marker || maps.Marker;
-                this.core = {
-                    Size: core.Size || maps.Size,
-                    Point: core.Point || maps.Point,
-                    LatLngBounds: core.LatLngBounds || maps.LatLngBounds,
-                    SymbolPath: core.SymbolPath || maps.SymbolPath,
-                };
-            } else {
-                this.MapClass = maps.Map;
-                this.InfoWindowClass = maps.InfoWindow;
-                this.MarkerClass = maps.Marker;
-                this.core = maps;
-            }
+            classes = await loadGoogleMaps(key);
         } catch (error) {
-            console.warn("Field Force live map: importLibrary failed", error);
-            this.lastMapError = error && error.message ? error.message : String(error);
-        }
-        if (typeof this.MapClass !== "function") {
-            this.mapsFailed(
-                "Google Maps did not hand over the map library. " +
-                    (this.lastMapError ? `Google said: ${this.lastMapError}. ` : "") +
-                    "Check that billing is on, the Maps JavaScript API is enabled, and the key's " +
-                    "restrictions allow this domain."
-            );
+            this.mapsFailed(error.message || String(error));
             return;
         }
+        this.MapClass = classes.Map;
+        this.InfoWindowClass = classes.InfoWindow;
+        this.MarkerClass = classes.Marker;
+        this.core = classes.core;
         if (!this.mapRef.el) {
             // Not in the DOM yet: let the next call build it.
             this.mapPromise = null;
@@ -227,18 +192,7 @@ export class FieldForceLiveMap extends Component {
     }
 
     markerIcon(person) {
-        const color = this.stateColor(person.state);
-        const svg = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="34" height="46" viewBox="0 0 34 46">
-              <path d="M17 45C17 45 32 27.5 32 16.5A15 15 0 1 0 2 16.5C2 27.5 17 45 17 45Z"
-                    fill="${color}" stroke="white" stroke-width="2.5"/>
-              <circle cx="17" cy="16" r="5.5" fill="white"/>
-            </svg>`;
-        return {
-            url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg.trim()),
-            scaledSize: new this.core.Size(34, 46),
-            anchor: new this.core.Point(17, 46),
-        };
+        return pinIcon(this.stateColor(person.state), this.core);
     }
 
     infoHtml(person) {
