@@ -295,3 +295,51 @@ class TestFiltersAndCalendar(TransactionCase):
         for cell in future:
             self.assertEqual(cell['absent'], 0)
             self.assertTrue(all(box['status'] == 'future' for box in cell['boxes']))
+
+
+@tagged('post_install', '-at_install', 'ff')
+class TestPeriodRange(TransactionCase):
+    """Named spans and custom dates, including months already gone."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.Dashboard = cls.env['ff.dashboard']
+
+    def test_the_named_spans_cover_what_they_say(self):
+        today = fields.Date.context_today(self.Dashboard)
+        self.assertEqual(self.Dashboard._ff_range('today'), (today, today))
+        self.assertEqual(self.Dashboard._ff_range('yesterday'),
+                         (today - timedelta(days=1), today - timedelta(days=1)))
+        start, end = self.Dashboard._ff_range('month')
+        self.assertEqual(start, today.replace(day=1))
+        self.assertEqual(end, today)
+
+    def test_last_month_is_the_whole_month_before(self):
+        today = fields.Date.context_today(self.Dashboard)
+        start, end = self.Dashboard._ff_range('last_month')
+        self.assertEqual(start.day, 1)
+        self.assertEqual((end + timedelta(days=1)).day, 1, 'it ends on the last day of that month')
+        self.assertLess(end, today.replace(day=1))
+
+    def test_custom_dates_are_taken_as_given(self):
+        start, end = self.Dashboard._ff_range('custom', {'date_from': '2026-04-01', 'date_to': '2026-04-30'})
+        self.assertEqual(start.isoformat(), '2026-04-01')
+        self.assertEqual(end.isoformat(), '2026-04-30')
+
+    def test_a_backwards_range_is_turned_around(self):
+        start, end = self.Dashboard._ff_range('custom', {'date_from': '2026-06-30', 'date_to': '2026-06-01'})
+        self.assertEqual(start.isoformat(), '2026-06-01')
+        self.assertEqual(end.isoformat(), '2026-06-30')
+
+    def test_a_past_range_reports_on_that_range(self):
+        report = self.Dashboard.ff_attendance_report(
+            'custom', {'date_from': '2026-01-01', 'date_to': '2026-01-31'})
+        self.assertEqual(report['start'], '2026-01-01')
+        self.assertEqual(report['end'], '2026-01-31')
+        self.assertEqual(report['days'], 31)
+        self.assertEqual(len(report['series']), 31, 'one bar per day of the chosen range')
+
+    def test_the_label_says_the_range(self):
+        label = self.Dashboard.ff_period_label('custom', {'date_from': '2026-02-01', 'date_to': '2026-02-28'})
+        self.assertIn('Feb', label)

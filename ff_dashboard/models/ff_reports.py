@@ -22,12 +22,13 @@ class FfDashboardReports(models.AbstractModel):
     def ff_attendance_report(self, period='month', filters=None):
         employees = self._ff_filtered_employees(filters)
         today = fields.Date.context_today(self)
-        start = self._period_start(today, period)
-        start_dt = self._ff_day_range(start)[0]
+        start, end = self._ff_range(period, filters)
+        start_dt, end_dt = self._ff_day_range(start)[0], self._ff_day_range(end)[1]
 
         attendances = self.env['hr.attendance'].sudo().search([
-            ('employee_id', 'in', employees.ids), ('check_in', '>=', start_dt)], order='check_in')
-        days = (today - start).days + 1
+            ('employee_id', 'in', employees.ids),
+            ('check_in', '>=', start_dt), ('check_in', '<', end_dt)], order='check_in')
+        days = (end - start).days + 1
         worked = sum(attendances.mapped('worked_hours'))
         late = attendances.filtered(lambda a: a.ff_late_minutes > 0) if attendances else attendances
 
@@ -47,7 +48,7 @@ class FfDashboardReports(models.AbstractModel):
                 'day': day.isoformat(),
                 'label': day.strftime('%d-%m'),
                 'present': len(row['present']),
-                'absent': max(len(employees) - len(row['present']), 0),
+                'absent': 0 if day > today else max(len(employees) - len(row['present']), 0),
                 'late': row['late'],
                 'hours': round(row['hours'] / (len(row['present']) or 1), 2),
             })
@@ -72,9 +73,11 @@ class FfDashboardReports(models.AbstractModel):
 
         return {
             'period': period,
+            'period_label': self.ff_period_label(period, filters),
             'days': days,
             'employee_ids': employees.ids,
             'start': start.isoformat(),
+            'end': end.isoformat(),
             'kpis': {
                 'headcount': len(employees),
                 'present_today': len({a.employee_id.id for a in attendances
@@ -97,12 +100,12 @@ class FfDashboardReports(models.AbstractModel):
             return None
         employees = self._ff_filtered_employees(filters)
         today = fields.Date.context_today(self)
-        start = self._period_start(today, period)
+        start, end = self._ff_range(period, filters)
         Leave = self.env['hr.leave'].sudo()
 
         leaves = Leave.search([
             ('employee_id', 'in', employees.ids),
-            ('date_from', '<=', fields.Datetime.to_datetime('%s 23:59:59' % (today + timedelta(days=60)))),
+            ('date_from', '<', self._ff_day_range(max(end, today + timedelta(days=60)))[1]),
             ('date_to', '>=', self._ff_day_range(start)[0]),
         ], order='date_from')
         off_today = leaves.filtered(
@@ -130,8 +133,10 @@ class FfDashboardReports(models.AbstractModel):
 
         return {
             'period': period,
+            'period_label': self.ff_period_label(period, filters),
             'employee_ids': employees.ids,
             'start': start.isoformat(),
+            'end': end.isoformat(),
             'kpis': {
                 'pending': len(leaves.filtered(lambda l: l.state in ('confirm', 'validate1'))),
                 'approved': len(leaves.filtered(lambda l: l.state == 'validate')),
@@ -154,10 +159,11 @@ class FfDashboardReports(models.AbstractModel):
         if 'ff.expense.claim' not in self.env:
             return None
         employees = self._ff_filtered_employees(filters)
-        today = fields.Date.context_today(self)
-        start = self._period_start(today, period)
+        start, end = self._ff_range(period, filters)
         Claim = self.env['ff.expense.claim'].sudo()
-        claims = Claim.search([('employee_id', 'in', employees.ids), ('date', '>=', start)], order='date desc')
+        claims = Claim.search([
+            ('employee_id', 'in', employees.ids),
+            ('date', '>=', start), ('date', '<=', end)], order='date desc')
 
         def bucket(state):
             selected = claims.filtered(lambda claim, s=state: claim.state == s)
@@ -180,8 +186,10 @@ class FfDashboardReports(models.AbstractModel):
 
         return {
             'period': period,
+            'period_label': self.ff_period_label(period, filters),
             'employee_ids': employees.ids,
             'start': start.isoformat(),
+            'end': end.isoformat(),
             'currency': self.env.company.currency_id.symbol or '',
             'kpis': {
                 'total': round(sum(claims.mapped('amount')), 2),
@@ -213,20 +221,21 @@ class FfDashboardReports(models.AbstractModel):
     @api.model
     def ff_order_report(self, period='month', filters=None):
         employees = self._ff_filtered_employees(filters)
-        today = fields.Date.context_today(self)
-        start = self._period_start(today, period)
+        start, end = self._ff_range(period, filters)
         start_dt = self._ff_day_range(start)[0]
+        end_dt = self._ff_day_range(end)[1]
         flow = self.env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct'
 
         if flow == 'demand' and 'ff.demand' in self.env:
-            return self._demand_report(employees, start, start_dt, period, flow)
-        return self._sale_report(employees, start, start_dt, period, flow)
+            return self._demand_report(employees, start, start_dt, end, end_dt, period, flow)
+        return self._sale_report(employees, start, start_dt, end, end_dt, period, flow)
 
-    def _sale_report(self, employees, start, start_dt, period, flow):
+    def _sale_report(self, employees, start, start_dt, end, end_dt, period, flow):
         orders = self.env['sale.order'].sudo().search([
-            ('ff_employee_id', 'in', employees.ids), ('date_order', '>=', start_dt)], order='date_order desc')
+            ('ff_employee_id', 'in', employees.ids),
+            ('date_order', '>=', start_dt), ('date_order', '<', end_dt)], order='date_order desc')
         total = sum(orders.mapped('amount_total'))
-        series = self._daily_series(start, orders, lambda order: fields.Date.to_date(order.date_order),
+        series = self._daily_series(start, end, orders, lambda order: fields.Date.to_date(order.date_order),
                                     lambda order: order.amount_total)
         return {
             'flow': flow,
@@ -256,11 +265,12 @@ class FfDashboardReports(models.AbstractModel):
             } for order in orders[:200]],
         }
 
-    def _demand_report(self, employees, start, start_dt, period, flow):
+    def _demand_report(self, employees, start, start_dt, end, end_dt, period, flow):
         demands = self.env['ff.demand'].sudo().search([
-            ('employee_id', 'in', employees.ids), ('date', '>=', start_dt)], order='date desc')
+            ('employee_id', 'in', employees.ids),
+            ('date', '>=', start_dt), ('date', '<', end_dt)], order='date desc')
         total = sum(demands.mapped('amount_total'))
-        series = self._daily_series(start, demands, lambda demand: fields.Date.to_date(demand.date),
+        series = self._daily_series(start, end, demands, lambda demand: fields.Date.to_date(demand.date),
                                     lambda demand: demand.amount_total)
         pending = demands.filtered(lambda demand: demand.state in ('submitted', 'partial'))
         return {
@@ -297,14 +307,13 @@ class FfDashboardReports(models.AbstractModel):
         }
 
     # -- little helpers the reports share --------------------------------
-    def _daily_series(self, start, records, day_of, amount_of):
-        today = fields.Date.context_today(self)
+    def _daily_series(self, start, end, records, day_of, amount_of):
         totals = {}
         for record in records:
             day = day_of(record)
             totals[day] = totals.get(day, 0.0) + amount_of(record)
         series = []
-        for index in range((today - start).days + 1):
+        for index in range((end - start).days + 1):
             day = start + timedelta(days=index)
             series.append({'day': day.isoformat(), 'label': day.strftime('%d-%m'),
                            'amount': round(totals.get(day, 0.0), 2)})

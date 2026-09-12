@@ -77,22 +77,22 @@ class FfDashboard(models.AbstractModel):
     # The whole payload
     # ------------------------------------------------------------------
     @api.model
-    def ff_dashboard_data(self, period='month'):
-        employees = self._ff_employees()
+    def ff_dashboard_data(self, period='month', filters=None):
+        employees = self._ff_filtered_employees(filters)
         today = fields.Date.context_today(self)
         yesterday = today - timedelta(days=1)
-        start = self._period_start(today, period)
+        start, end = self._ff_range(period, filters)
         return {
             'company': self.env.company.name,
             'currency': self.env.company.currency_id.symbol or self.env.company.currency_id.name,
             'today': today.isoformat(),
             'period': period,
-            'period_label': {'today': 'Today', 'week': 'This Week', 'month': 'This Month'}.get(period, 'This Month'),
+            'period_label': self.ff_period_label(period, filters),
             'realtime': self._realtime(employees),
             'teams': self._teamwise(employees),
             'people': self._people(employees),
             'counters': self._counters(employees, today, yesterday),
-            'working_hours': self._working_hours(employees, start, today),
+            'working_hours': self._working_hours(employees, start, end),
             'visits': self._visit_status(employees, start),
             'expenses': self._expenses(employees, start),
             'collections': self._collections(employees, start),
@@ -102,11 +102,51 @@ class FfDashboard(models.AbstractModel):
         }
 
     def _period_start(self, today, period):
+        return self._ff_range(period)[0]
+
+    @api.model
+    def _ff_range(self, period='month', filters=None):
+        """The two dates a report covers.
+
+        The named periods are the everyday ones; "custom" takes the dates the
+        filter bar carries, which is how last month, a quarter or any stretch of
+        days is asked for. A range that runs backwards is turned around rather
+        than returning nothing.
+        """
+        today = fields.Date.context_today(self)
+        filters = filters or {}
+        if period == 'custom' or filters.get('date_from') or filters.get('date_to'):
+            start = fields.Date.to_date(filters.get('date_from')) or today.replace(day=1)
+            end = fields.Date.to_date(filters.get('date_to')) or today
+            if end < start:
+                start, end = end, start
+            return start, end
         if period == 'today':
-            return today
+            return today, today
+        if period == 'yesterday':
+            return today - timedelta(days=1), today - timedelta(days=1)
         if period == 'week':
-            return today - timedelta(days=today.weekday())
-        return today.replace(day=1)
+            return today - timedelta(days=today.weekday()), today
+        if period == 'last_week':
+            monday = today - timedelta(days=today.weekday() + 7)
+            return monday, monday + timedelta(days=6)
+        if period == 'last_month':
+            first = today.replace(day=1)
+            last_month_end = first - timedelta(days=1)
+            return last_month_end.replace(day=1), last_month_end
+        if period == 'quarter':
+            first_month = 3 * ((today.month - 1) // 3) + 1
+            return today.replace(month=first_month, day=1), today
+        if period == 'year':
+            return today.replace(month=1, day=1), today
+        return today.replace(day=1), today
+
+    @api.model
+    def ff_period_label(self, period='month', filters=None):
+        start, end = self._ff_range(period, filters)
+        if start == end:
+            return start.strftime('%d %b %Y')
+        return '%s - %s' % (start.strftime('%d %b'), end.strftime('%d %b %Y'))
 
     # ------------------------------------------------------------------
     # Cards

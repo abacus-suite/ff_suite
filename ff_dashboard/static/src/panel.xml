@@ -914,25 +914,36 @@
                         <div>
                             <div class="ff_card_title" t-esc="sections.find((s) => s.key === state.section).label"/>
                             <div class="ff_card_sub">
-                                <t t-esc="state.data ? state.data.period_label : ''"/> · everybody in your view
+                                <t t-esc="state.report ? state.report.period_label : ''"/>
+                                <t t-if="state.report"> · <t t-esc="state.report.employee_ids.length"/> employees</t>
                             </div>
                         </div>
                     </div>
-                    <div class="ff_seg ms-auto">
-                        <button class="ff_seg_btn" t-att-class="state.period === 'today' ? 'ff_seg_btn_active' : ''"
-                                t-on-click="() => this.setPeriod('today')">Today</button>
-                        <button class="ff_seg_btn" t-att-class="state.period === 'week' ? 'ff_seg_btn_active' : ''"
-                                t-on-click="() => this.setPeriod('week')">This Week</button>
-                        <button class="ff_seg_btn" t-att-class="state.period === 'month' ? 'ff_seg_btn_active' : ''"
-                                t-on-click="() => this.setPeriod('month')">This Month</button>
-                    </div>
-                    <button class="ff_icon_btn" title="Refresh" t-on-click="() => this.refreshSection()">
+                    <button class="ff_icon_btn ms-auto" title="Refresh" t-on-click="() => this.refreshSection()">
                         <i class="fa fa-refresh"/>
                     </button>
                 </div>
 
                 <div class="ff_filter_bar" t-if="state.options">
-                    <span class="ff_filter_label"><i class="fa fa-filter me-1"/>Filter</span>
+                    <span class="ff_filter_label"><i class="fa fa-calendar me-1"/>Period</span>
+                    <select class="form-select form-select-sm ff_mini_select" t-on-change="choosePeriod">
+                        <option t-foreach="periodChoices" t-as="choice" t-key="choice.key"
+                                t-att-value="choice.key" t-att-selected="state.period === choice.key"
+                                t-esc="choice.label"/>
+                    </select>
+                    <t t-if="state.period === 'custom'">
+                        <input type="date" class="form-control form-control-sm ff_mini_select"
+                               t-att-value="state.filters.date_from"
+                               t-on-change="(ev) => this.setDate('date_from', ev)"/>
+                        <span class="small text-muted">to</span>
+                        <input type="date" class="form-control form-control-sm ff_mini_select"
+                               t-att-value="state.filters.date_to"
+                               t-on-change="(ev) => this.setDate('date_to', ev)"/>
+                    </t>
+                    <span class="ff_chip" t-if="state.report and state.report.period_label"
+                          t-esc="state.report.period_label"/>
+
+                    <span class="ff_filter_label ms-2"><i class="fa fa-filter me-1"/>Filter</span>
                     <select class="form-select form-select-sm ff_mini_select"
                             t-on-change="(ev) => this.setFilter('employee_id', ev)">
                         <option value="">All employees</option>

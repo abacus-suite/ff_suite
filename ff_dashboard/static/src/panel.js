@@ -81,7 +81,8 @@ export class AixoloPanel extends Component {
             report: null,
             reportLoading: false,
             options: null,
-            filters: { employee_id: null, department_id: null, team_id: null },
+            filters: { employee_id: null, department_id: null, team_id: null,
+                       date_from: null, date_to: null },
             calendar: null,
             calendarMonth: null,
             attendanceView: "summary",
@@ -113,7 +114,11 @@ export class AixoloPanel extends Component {
     }
 
     async load() {
-        this.state.data = await this.orm.call("ff.dashboard", "ff_dashboard_data", [this.state.period]);
+        await this.loadOptions();
+        this.state.data = await this.orm.call("ff.dashboard", "ff_dashboard_data", [
+            this.state.period,
+            this.activeFilters,
+        ]);
         this.state.loading = false;
         this.state.updatedAt = new Date().toLocaleTimeString();
         if (this.state.section === "live") {
@@ -485,8 +490,55 @@ export class AixoloPanel extends Component {
     }
 
     async clearFilters() {
-        this.state.filters = { employee_id: null, department_id: null, team_id: null };
+        this.state.filters = { employee_id: null, department_id: null, team_id: null,
+                               date_from: null, date_to: null };
+        this.state.period = "month";
         await this.refreshSection();
+    }
+
+    // -- the date range ----------------------------------------------------
+    /** The quick spans, beyond the three on the segmented control. */
+    get periodChoices() {
+        return [
+            { key: "today", label: "Today" },
+            { key: "yesterday", label: "Yesterday" },
+            { key: "week", label: "This week" },
+            { key: "last_week", label: "Last week" },
+            { key: "month", label: "This month" },
+            { key: "last_month", label: "Last month" },
+            { key: "quarter", label: "This quarter" },
+            { key: "year", label: "This year" },
+            { key: "custom", label: "Custom dates" },
+        ];
+    }
+
+    async choosePeriod(ev) {
+        const period = ev.target.value;
+        this.state.period = period;
+        if (period !== "custom") {
+            this.state.filters.date_from = null;
+            this.state.filters.date_to = null;
+        } else if (!this.state.filters.date_from) {
+            // Open the custom range on the month being shown.
+            const today = new Date();
+            this.state.filters.date_from = this.dateString(new Date(today.getFullYear(), today.getMonth(), 1));
+            this.state.filters.date_to = this.dateString(today);
+        }
+        await this.refreshSection();
+    }
+
+    async setDate(which, ev) {
+        this.state.filters[which] = ev.target.value || null;
+        this.state.period = "custom";
+        if (this.state.filters.date_from && this.state.filters.date_to) {
+            await this.refreshSection();
+        }
+    }
+
+    dateString(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+            date.getDate()
+        ).padStart(2, "0")}`;
     }
 
     async refreshSection() {
