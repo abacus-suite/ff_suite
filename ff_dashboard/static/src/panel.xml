@@ -29,7 +29,13 @@
             <!-- Content -->
             <div class="ff_panel_main flex-grow-1 overflow-auto">
                 <t t-if="state.loading">
-                    <div class="p-4 text-muted">Loading the panel…</div>
+                    <div class="ff_skeleton mb-3" style="height: 72px;"/>
+                    <div class="row g-3">
+                        <div class="col-xl-4 col-lg-6"><div class="ff_skeleton" style="height: 250px;"/></div>
+                        <div class="col-xl-4 col-lg-6"><div class="ff_skeleton" style="height: 250px;"/></div>
+                        <div class="col-xl-4"><div class="ff_skeleton" style="height: 250px;"/></div>
+                        <div class="col-12"><div class="ff_skeleton" style="height: 300px;"/></div>
+                    </div>
                 </t>
                 <t t-else="">
                     <div class="ff_panel_head d-flex align-items-center gap-2 flex-wrap">
@@ -39,18 +45,18 @@
                                 <t t-esc="state.data.company"/> · updated <t t-esc="state.updatedAt"/>
                             </small>
                         </div>
-                        <div class="btn-group btn-group-sm ms-auto">
-                            <button class="btn" t-att-class="state.period === 'today' ? 'btn-primary' : 'btn-outline-secondary'"
+                        <div class="ff_seg ms-auto">
+                            <button class="ff_seg_btn" t-att-class="state.period === 'today' ? 'ff_seg_btn_active' : ''"
                                     t-on-click="() => this.setPeriod('today')">Today</button>
-                            <button class="btn" t-att-class="state.period === 'week' ? 'btn-primary' : 'btn-outline-secondary'"
+                            <button class="ff_seg_btn" t-att-class="state.period === 'week' ? 'ff_seg_btn_active' : ''"
                                     t-on-click="() => this.setPeriod('week')">This Week</button>
-                            <button class="btn" t-att-class="state.period === 'month' ? 'btn-primary' : 'btn-outline-secondary'"
+                            <button class="ff_seg_btn" t-att-class="state.period === 'month' ? 'ff_seg_btn_active' : ''"
                                     t-on-click="() => this.setPeriod('month')">This Month</button>
                         </div>
-                        <button class="btn btn-sm btn-primary" t-on-click="openLiveMap">
+                        <button class="ff_btn_primary" t-on-click="openLiveMap">
                             <i class="fa fa-map-marker me-1"/>Live Map
                         </button>
-                        <button class="btn btn-sm btn-light" t-on-click="() => this.load()">
+                        <button class="ff_icon_btn" title="Refresh" t-on-click="() => this.load()">
                             <i class="fa fa-refresh"/>
                         </button>
                     </div>
@@ -59,7 +65,13 @@
                     <div class="row g-3 mt-0">
                         <div class="col-xl-4 col-lg-6">
                             <div class="ff_card h-100">
-                                <div class="ff_card_title">Real Time Status</div>
+                                <div class="ff_card_head">
+                                    <div class="ff_card_icon"><i class="fa fa-bolt"/></div>
+                                    <div>
+                                        <div class="ff_card_title">Real Time Status</div>
+                                        <div class="ff_card_sub">Who is on duty right now</div>
+                                    </div>
+                                </div>
                                 <div class="d-flex gap-4 mb-1">
                                     <div>
                                         <span class="ff_dot" style="background:#16A34A"/>
@@ -91,16 +103,26 @@
                         <div class="col-xl-4 col-lg-6">
                             <div class="d-flex flex-column gap-3 h-100">
                                 <div class="ff_card flex-grow-1">
-                                    <div class="ff_card_title">Punched In but Idle</div>
+                                    <div class="ff_card_head">
+                                    <div class="ff_card_icon"><i class="fa fa-hourglass-half"/></div>
+                                    <div>
+                                        <div class="ff_card_title">Punched In but Idle</div>
+                                    </div>
+                                </div>
                                     <div class="ff_big" t-att-class="state.data.realtime.inactive ? 'text-warning' : ''"
                                          t-esc="state.data.realtime.inactive"/>
-                                    <div class="small text-muted">
-                                        <t t-esc="state.data.realtime.no_signal"/> without signal ·
-                                        <t t-esc="state.data.realtime.low_battery"/> low battery
+                                    <div class="d-flex gap-2 mt-2 flex-wrap">
+                                        <span class="ff_chip"><t t-esc="state.data.realtime.no_signal"/> no signal</span>
+                                        <span class="ff_chip"><t t-esc="state.data.realtime.low_battery"/> low battery</span>
                                     </div>
                                 </div>
                                 <div class="ff_card flex-grow-1">
-                                    <div class="ff_card_title">At a Customer Now</div>
+                                    <div class="ff_card_head">
+                                    <div class="ff_card_icon"><i class="fa fa-handshake-o"/></div>
+                                    <div>
+                                        <div class="ff_card_title">At a Customer Now</div>
+                                    </div>
+                                </div>
                                     <div class="ff_big text-primary" t-esc="state.data.realtime.at_client"/>
                                     <div class="small text-muted">
                                         of <t t-esc="state.data.realtime.punched_in"/> punched in
@@ -111,7 +133,12 @@
 
                         <div class="col-xl-4">
                             <div class="ff_card h-100">
-                                <div class="ff_card_title">Teamwise Attendance</div>
+                                <div class="ff_card_head">
+                                    <div class="ff_card_icon"><i class="fa fa-users"/></div>
+                                    <div>
+                                        <div class="ff_card_title">Teamwise Attendance</div>
+                                    </div>
+                                </div>
                                 <div class="ff_scroll_220">
                                     <div class="d-flex align-items-center py-1 border-bottom"
                                          t-foreach="state.data.teams" t-as="team" t-key="team.id">
@@ -134,8 +161,12 @@
                         <div class="col-12">
                             <div class="ff_card">
                                 <div class="d-flex align-items-center mb-2">
-                                    <div class="ff_card_title mb-0">
-                                        Employees (<t t-esc="people.length"/>)
+                                    <div class="ff_card_head mb-0">
+                                        <div class="ff_card_icon"><i class="fa fa-id-badge"/></div>
+                                        <div>
+                                            <div class="ff_card_title">Employees</div>
+                                            <div class="ff_card_sub"><t t-esc="people.length"/> in your view</div>
+                                        </div>
                                     </div>
                                     <input type="text" class="form-control form-control-sm ms-auto ff_panel_search"
                                            placeholder="Search employee, code or team" t-on-input="onSearch"/>
@@ -169,11 +200,12 @@
                                                 </td>
                                                 <td>
                                                     <t t-if="person.punched_in">
-                                                        <span class="text-success fw-bold">Punched In</span>
-                                                        <t t-if="person.punched_at"> : <t t-esc="clock(person.punched_at)"/></t>
+                                                        <span class="ff_state_pill ff_state_in">Punched In</span>
+                                                        <span class="small text-muted ms-1" t-if="person.punched_at"
+                                                              t-esc="clock(person.punched_at)"/>
                                                     </t>
                                                     <t t-else="">
-                                                        <span class="text-danger fw-bold">Punched Out</span>
+                                                        <span class="ff_state_pill ff_state_out">Punched Out</span>
                                                     </t>
                                                     <div class="small text-muted" t-if="person.at_client">
                                                         At <t t-esc="person.at_client"/>
@@ -206,17 +238,22 @@
                     <div class="row g-3 mt-0">
                         <t t-foreach="counterCards" t-as="card" t-key="card.key">
                             <div class="col-xl-3 col-md-6">
-                                <div class="ff_card h-100">
-                                    <div class="ff_card_title" t-esc="card.label"/>
+                                <div class="ff_card ff_tile h-100" t-attf-style="--tile: {{card.color}}">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa" t-att-class="card.icon"/></div>
+                                        <div class="ff_card_title" t-esc="card.label"/>
+                                    </div>
                                     <div class="d-flex align-items-baseline gap-2">
                                         <span class="ff_big" t-esc="number(card.today)"/>
-                                        <span class="small fw-bold"
-                                              t-att-class="card.change >= 0 ? 'text-success' : 'text-danger'">
+                                        <span class="ff_trend"
+                                              t-att-class="card.change >= 0 ? 'ff_trend_up' : 'ff_trend_down'">
                                             <i class="fa" t-att-class="card.change >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'"/>
                                             <t t-esc="Math.abs(card.change)"/>%
                                         </span>
                                     </div>
-                                    <span class="ff_chip"><t t-esc="number(card.yesterday)"/> yesterday</span>
+                                    <div class="mt-2">
+                                        <span class="ff_chip"><t t-esc="number(card.yesterday)"/> yesterday</span>
+                                    </div>
                                 </div>
                             </div>
                         </t>
@@ -226,7 +263,12 @@
                     <div class="row g-3 mt-0">
                         <div class="col-xl-6">
                             <div class="ff_card h-100">
-                                <div class="ff_card_title">Daily Average Working Hours</div>
+                                <div class="ff_card_head">
+                                    <div class="ff_card_icon"><i class="fa fa-clock-o"/></div>
+                                    <div>
+                                        <div class="ff_card_title">Daily Average Working Hours</div>
+                                    </div>
+                                </div>
                                 <div class="ff_bars" t-if="hourBars.length">
                                     <div class="ff_bar_col" t-foreach="hourBars" t-as="bar" t-key="bar.day"
                                          t-attf-title="{{bar.label}}: {{bar.hours}} h">
@@ -240,7 +282,12 @@
 
                         <div class="col-xl-6">
                             <div class="ff_card h-100">
-                                <div class="ff_card_title">Visit Status Overview</div>
+                                <div class="ff_card_head">
+                                    <div class="ff_card_icon"><i class="fa fa-map-signs"/></div>
+                                    <div>
+                                        <div class="ff_card_title">Visit Status Overview</div>
+                                    </div>
+                                </div>
                                 <div class="d-flex flex-wrap gap-3 mb-2">
                                     <div><span class="ff_dot" style="background:#16A34A"/>
                                         <span class="fw-bold" t-esc="state.data.visits.done"/> done</div>
@@ -271,7 +318,12 @@
                     <div class="row g-3 mt-0 pb-3">
                         <div class="col-xl-6" t-if="state.data.expenses">
                             <div class="ff_card h-100">
-                                <div class="ff_card_title">Expense Overview</div>
+                                <div class="ff_card_head">
+                                    <div class="ff_card_icon"><i class="fa fa-credit-card"/></div>
+                                    <div>
+                                        <div class="ff_card_title">Expense Overview</div>
+                                    </div>
+                                </div>
                                 <div class="d-flex align-items-center gap-3">
                                     <svg viewBox="0 0 100 100" class="ff_pie">
                                         <circle cx="50" cy="50" r="42" fill="none" stroke="#EEF2FB" stroke-width="16"/>
@@ -307,7 +359,12 @@
 
                         <div class="col-xl-6" t-if="state.data.collections">
                             <div class="ff_card h-100">
-                                <div class="ff_card_title">Collections</div>
+                                <div class="ff_card_head">
+                                    <div class="ff_card_icon"><i class="fa fa-money"/></div>
+                                    <div>
+                                        <div class="ff_card_title">Collections</div>
+                                    </div>
+                                </div>
                                 <div class="ff_big" t-esc="money(state.data.collections.total)"/>
                                 <div class="small text-muted mb-2">
                                     <t t-esc="state.data.collections.count"/> collections in
@@ -333,7 +390,12 @@
 
                         <div class="col-xl-6" t-if="state.data.orders">
                             <div class="ff_card h-100">
-                                <div class="ff_card_title">Top Sellers</div>
+                                <div class="ff_card_head">
+                                    <div class="ff_card_icon"><i class="fa fa-trophy"/></div>
+                                    <div>
+                                        <div class="ff_card_title">Top Sellers</div>
+                                    </div>
+                                </div>
                                 <div class="ff_big" t-esc="money(state.data.orders.total)"/>
                                 <div class="small text-muted mb-2">
                                     <t t-esc="state.data.orders.count"/> orders in

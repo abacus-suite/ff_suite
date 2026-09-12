@@ -128,16 +128,16 @@ export class AixoloPanel extends Component {
     /** The four small counters, in the order the field cares about. */
     get counterCards() {
         const counters = this.state.data.counters;
-        const labels = {
-            visits: "Visits Today",
-            orders: "Orders Submitted",
-            new_clients: "New Customers",
-            forms: "Forms Filled",
-            photos: "Photos Uploaded",
+        const meta = {
+            visits: { label: "Visits Today", icon: "fa-map-marker", color: "#1a56db" },
+            orders: { label: "Orders Submitted", icon: "fa-shopping-cart", color: "#14d3c0" },
+            new_clients: { label: "New Customers", icon: "fa-user-plus", color: "#7c5cfc" },
+            forms: { label: "Forms Filled", icon: "fa-file-text-o", color: "#1e90ff" },
+            photos: { label: "Photos Uploaded", icon: "fa-camera", color: "#f59e0b" },
         };
-        return Object.keys(labels)
+        return Object.keys(meta)
             .filter((key) => counters[key])
-            .map((key) => ({ key, label: labels[key], ...counters[key] }));
+            .map((key) => ({ key, ...meta[key], ...counters[key] }));
     }
 
     get visitShare() {
