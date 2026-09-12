@@ -36,3 +36,7 @@ class ResConfigSettings(models.TransientModel):
     ff_payment_collection = fields.Boolean(
         string='Payment Collection', config_parameter='ff_base.payment_collection',
         help='Collect money at the customer and deposit it to the office.')
+    ff_google_maps_key = fields.Char(
+        string='Google Maps API Key', config_parameter='ff_base.google_maps_key',
+        help='Key from your Google Cloud project. Odoo uses it for the live map; the app receives '
+             'it at login and uses it for its maps. Leave empty to use the free OpenStreetMap basemap.')

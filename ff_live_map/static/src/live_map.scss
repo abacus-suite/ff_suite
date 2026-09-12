@@ -1,0 +1,48 @@
+.ff_live_map {
+    background: #fff;
+
+    .ff_live_map_search {
+        max-width: 22rem;
+    }
+
+    .ff_live_map_list {
+        width: 22rem;
+        min-width: 18rem;
+    }
+
+    .ff_live_map_row {
+        cursor: pointer;
+
+        &:hover {
+            background: #f4f7fe;
+        }
+    }
+
+    .ff_live_map_row_active {
+        background: #e8efff;
+    }
+
+    .ff_live_map_avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .ff_live_map_dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .ff_live_map_canvas {
+        position: absolute;
+        inset: 0;
+    }
+}
+
+.ff_live_map_info {
+    min-width: 12rem;
+    line-height: 1.4;
+}

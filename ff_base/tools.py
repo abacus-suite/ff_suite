@@ -37,6 +37,11 @@ def get_param(env, key):
         return default
 
 
+def google_maps_key(env):
+    """The Google Maps key set in Field Force settings, or '' when there is none."""
+    return env['ir.config_parameter'].sudo().get_param('ff_base.google_maps_key') or ''
+
+
 def get_settings(env):
     return {key: get_param(env, key) for key in PARAM_DEFAULTS}
 

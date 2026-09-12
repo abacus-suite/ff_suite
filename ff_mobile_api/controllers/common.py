@@ -15,7 +15,7 @@ from odoo import http
 from odoo.exceptions import AccessDenied, AccessError, UserError, ValidationError
 from odoo.http import request
 
-from odoo.addons.ff_base.tools import get_settings, to_iso
+from odoo.addons.ff_base.tools import get_settings, google_maps_key, to_iso
 
 _logger = logging.getLogger(__name__)
 
@@ -136,6 +136,7 @@ def employee_profile(employee):
             'visit_steps': settings['visit_steps'],
             'stock_count': settings['stock_count'],
             'payment_collection': settings['payment_collection'],
+            'google_maps_key': google_maps_key(request.env),
         },
     }
 

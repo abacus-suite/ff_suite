@@ -36,6 +36,11 @@
                             <field name="ff_allow_mock"/>
                         </setting>
                     </block>
+                    <block title="Maps" name="ff_map_settings">
+                        <setting string="Google Maps API key" help="Enable Maps JavaScript API for the web map and Map Tiles API for the phone app, then paste the key here. Without a key both fall back to a free OpenStreetMap basemap.">
+                            <field name="ff_google_maps_key" password="True" placeholder="AIza..."/>
+                        </setting>
+                    </block>
                     <block title="Field Features" name="ff_feature_settings">
                         <setting help="Field staff cannot leave a visit in the app before checking out.">
                             <field name="ff_visit_lock"/>

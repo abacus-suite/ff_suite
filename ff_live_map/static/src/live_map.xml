@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="ff_live_map.LiveMap">
+        <div class="o_action_manager ff_live_map d-flex flex-column h-100">
+            <div class="ff_live_map_bar d-flex align-items-center gap-2 p-2 border-bottom">
+                <span class="fw-bold">Live Map</span>
+                <input type="text" class="form-control form-control-sm ff_live_map_search"
+                       placeholder="Search employee, team or customer"
+                       t-on-input="onSearch"/>
+                <div class="btn-group btn-group-sm ms-auto" role="group">
+                    <button class="btn" t-att-class="state.filter === 'all' ? 'btn-primary' : 'btn-outline-secondary'"
+                            t-on-click="() => this.setFilter('all')">
+                        All <span t-esc="counts.all"/>
+                    </button>
+                    <button class="btn" t-att-class="state.filter === 'moving' ? 'btn-primary' : 'btn-outline-secondary'"
+                            t-on-click="() => this.setFilter('moving')">
+                        Moving <span t-esc="counts.moving"/>
+                    </button>
+                    <button class="btn" t-att-class="state.filter === 'at_client' ? 'btn-primary' : 'btn-outline-secondary'"
+                            t-on-click="() => this.setFilter('at_client')">
+                        At customer <span t-esc="counts.at_client"/>
+                    </button>
+                    <button class="btn" t-att-class="state.filter === 'inactive' ? 'btn-primary' : 'btn-outline-secondary'"
+                            t-on-click="() => this.setFilter('inactive')">
+                        Idle <span t-esc="counts.inactive"/>
+                    </button>
+                    <button class="btn" t-att-class="state.filter === 'no_signal' ? 'btn-primary' : 'btn-outline-secondary'"
+                            t-on-click="() => this.setFilter('no_signal')">
+                        No signal <span t-esc="counts.no_signal"/>
+                    </button>
+                    <button class="btn" t-att-class="state.filter === 'off' ? 'btn-primary' : 'btn-outline-secondary'"
+                            t-on-click="() => this.setFilter('off')">
+                        Off <span t-esc="counts.off"/>
+                    </button>
+                </div>
+                <small class="text-muted ms-2" t-if="state.updatedAt">Updated <t t-esc="state.updatedAt"/></small>
+                <button class="btn btn-sm btn-light" t-on-click="() => this.load()" title="Refresh now">
+                    <i class="fa fa-refresh"/>
+                </button>
+            </div>
+
+            <div class="d-flex flex-grow-1 overflow-hidden">
+                <div class="ff_live_map_list border-end overflow-auto">
+                    <t t-if="state.loading">
+                        <div class="p-3 text-muted">Loading…</div>
+                    </t>
+                    <t t-elif="!visiblePeople.length">
+                        <div class="p-3 text-muted">Nobody matches this filter.</div>
+                    </t>
+                    <t t-foreach="visiblePeople" t-as="person" t-key="person.id">
+                        <div class="ff_live_map_row d-flex align-items-center gap-2 p-2 border-bottom"
+                             t-att-class="state.selectedId === person.id ? 'ff_live_map_row_active' : ''"
+                             t-on-click="() => this.select(person)">
+                            <img class="ff_live_map_avatar" t-att-src="person.avatar" alt=""/>
+                            <div class="flex-grow-1 min-width-0">
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="ff_live_map_dot" t-attf-style="background: {{stateColor(person.state)}}"/>
+                                    <span class="fw-bold text-truncate" t-esc="person.name"/>
+                                </div>
+                                <div class="text-muted small text-truncate">
+                                    <t t-if="person.at_client">At <t t-esc="person.at_client"/></t>
+                                    <t t-else=""><t t-esc="stateLabel(person.state)"/></t>
+                                    · <t t-esc="lastSeen(person)"/>
+                                </div>
+                            </div>
+                            <div class="text-end small text-muted">
+                                <div t-if="person.battery"><i class="fa fa-battery-half"/> <t t-esc="person.battery"/>%</div>
+                                <button class="btn btn-link btn-sm p-0" t-on-click.stop="() => this.openTimeline(person)">
+                                    Pings
+                                </button>
+                            </div>
+                        </div>
+                    </t>
+                </div>
+
+                <div class="flex-grow-1 position-relative">
+                    <div class="ff_live_map_canvas" t-ref="map" t-if="state.hasKey"/>
+                    <div t-else="" class="d-flex flex-column align-items-center justify-content-center h-100 text-center p-4">
+                        <i class="fa fa-map-o fa-3x text-muted mb-3"/>
+                        <h5>No Google Maps key yet</h5>
+                        <p class="text-muted" style="max-width: 34rem;">
+                            Paste your key in Field Force settings (Maps section) after enabling the
+                            Maps JavaScript API for the web and the Map Tiles API for the phone app.
+                            The list on the left works without a key.
+                        </p>
+                        <button class="btn btn-primary" t-on-click="openSettings">Open Settings</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t>
+
+</templates>

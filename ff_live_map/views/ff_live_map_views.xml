@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_live_map_action" model="ir.actions.client">
+        <field name="name">Live Map</field>
+        <field name="tag">ff_live_map</field>
+    </record>
+
+    <menuitem id="menu_ff_live_map" name="Live Map" parent="ff_tracking.menu_ff_tracking"
+              action="ff_live_map_action" sequence="5"/>
+</odoo>
