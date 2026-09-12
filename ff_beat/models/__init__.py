@@ -2,6 +2,7 @@ from . import ff_route_type
 from . import ff_beat
 from . import ff_route_plan
 from . import ff_beat_plan
+from . import ff_beat_plan_app
 from . import ff_route_plan_customer
 from . import ff_route_plan_template
 from . import ff_route_distance

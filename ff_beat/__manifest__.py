@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Routes & Journey Plans',
-    'version': '19.0.1.2.1',
+    'version': '19.0.1.3.0',
     'category': 'Human Resources/Field Force',
     'summary': 'Route types per department, routes by district, monthly journey plans with per-customer '
                'planned visits, templates and automatic visited / missed tracking',

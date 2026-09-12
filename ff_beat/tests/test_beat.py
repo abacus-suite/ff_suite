@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from odoo import fields
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
 from odoo.tests import TransactionCase, tagged
 
 
@@ -125,3 +125,65 @@ class TestBeat(TransactionCase):
         self.beat.employee_ids = [(4, newcomer.id)]
         self.beat.action_sync_contact_employees()
         self.assertIn(newcomer, self.c1.ff_employee_ids)
+
+
+@tagged('post_install', '-at_install', 'ff')
+class TestPlanFromApp(TransactionCase):
+    """Planning a route day from the phone."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.employee = cls.env['hr.employee'].create({'name': 'App Planner', 'tz': 'UTC'})
+        category = cls.env.ref('ff_clients.contact_category_customer')
+        vals = {'ff_is_client': True, 'ff_category_id': category.id, 'ff_employee_ids': [(6, 0, cls.employee.ids)]}
+        Partner = cls.env['res.partner']
+        cls.p1 = Partner.create(dict(vals, name='P1'))
+        cls.p2 = Partner.create(dict(vals, name='P2'))
+        cls.p3 = Partner.create(dict(vals, name='P3'))
+        cls.route = cls.env['ff.beat'].create({
+            'name': 'App Route', 'route_type_id': cls.env.ref('ff_beat.route_type_beat').id,
+            'employee_ids': [(6, 0, cls.employee.ids)],
+            'line_ids': [(0, 0, {'partner_id': cls.p1.id, 'sequence': 1}),
+                         (0, 0, {'partner_id': cls.p2.id, 'sequence': 2}),
+                         (0, 0, {'partner_id': cls.p3.id, 'sequence': 3})],
+        })
+        cls.Day = cls.env['ff.beat.plan']
+        cls.tomorrow = fields.Date.context_today(cls.employee) + timedelta(days=1)
+
+    def test_customers_come_up_all_ticked(self):
+        _day, customers = self.Day.ff_app_route_customers(self.employee, self.route, self.tomorrow)
+        self.assertEqual([row['partner'] for row in customers], self.p1 | self.p2 | self.p3)
+        self.assertTrue(all(row['selected'] for row in customers))
+
+    def test_only_the_kept_customers_are_planned(self):
+        day = self.Day.ff_plan_from_app(self.employee, {
+            'date': self.tomorrow.isoformat(), 'beat_id': self.route.id,
+            'partner_ids': [self.p1.id, self.p3.id],
+        })
+        self.assertEqual(day.customer_line_ids.partner_id, self.p1 | self.p3)
+        self.assertTrue(day.plan_id, 'the day joins the monthly plan')
+        self.assertEqual(day.plan_id.month, self.tomorrow.replace(day=1))
+
+    def test_planning_the_same_day_again_updates_it(self):
+        self.Day.ff_plan_from_app(self.employee, {
+            'date': self.tomorrow.isoformat(), 'beat_id': self.route.id, 'partner_ids': [self.p1.id]})
+        day = self.Day.ff_plan_from_app(self.employee, {
+            'date': self.tomorrow.isoformat(), 'beat_id': self.route.id, 'partner_ids': [self.p2.id, self.p3.id]})
+        self.assertEqual(self.Day.search_count(
+            [('employee_id', '=', self.employee.id), ('date', '=', self.tomorrow)]), 1)
+        kept = day.customer_line_ids.filtered('selected').partner_id
+        self.assertEqual(kept, self.p2 | self.p3)
+
+    def test_a_past_day_cannot_be_planned(self):
+        yesterday = fields.Date.context_today(self.employee) - timedelta(days=1)
+        with self.assertRaises(UserError):
+            self.Day.ff_plan_from_app(self.employee, {
+                'date': yesterday.isoformat(), 'beat_id': self.route.id, 'partner_ids': [self.p1.id]})
+
+    def test_a_route_that_is_not_mine_is_refused(self):
+        other = self.env['ff.beat'].create({
+            'name': 'Not Mine', 'route_type_id': self.env.ref('ff_beat.route_type_beat').id})
+        with self.assertRaises(UserError):
+            self.Day.ff_plan_from_app(self.employee, {
+                'date': self.tomorrow.isoformat(), 'beat_id': other.id, 'partner_ids': [self.p1.id]})
