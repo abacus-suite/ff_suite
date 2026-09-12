@@ -1,4 +1,5 @@
 import base64
+from datetime import timedelta
 
 from odoo import fields, http
 from odoo.http import request
@@ -137,4 +138,49 @@ class FieldForceOrdersApi(http.Controller):
             'amount_total': sum(orders.mapped('amount_total')),
             'currency': orders[:1].currency_id.name or employee.company_id.currency_id.name,
             'server_time': to_iso(fields.Datetime.now()),
+        })
+
+    @api_route('/api/v1/orders/dashboard', methods=('GET',))
+    def dashboard(self, employee, period='today', **kw):
+        """Order totals, a 7-day bar series and the top moved products."""
+        today = employee._ff_today()
+        first = {
+            'week': today - timedelta(days=today.weekday()),
+            'month': today.replace(day=1),
+        }.get(period, today)
+        start, _unused_end = employee._ff_day_bounds(first)
+        _unused_start, end = employee._ff_day_bounds(today)
+        Order = request.env['sale.order'].sudo()
+        base_domain = [('ff_employee_id', '=', employee.id), ('ff_source', '=', 'app'), ('state', '!=', 'cancel')]
+        orders = Order.search(base_domain + [('date_order', '>=', start), ('date_order', '<', end)])
+
+        series = []
+        for offset in range(6, -1, -1):
+            day = today - timedelta(days=offset)
+            day_start, day_end = employee._ff_day_bounds(day)
+            day_orders = Order.search(base_domain + [('date_order', '>=', day_start), ('date_order', '<', day_end)])
+            series.append({
+                'date': day.isoformat(),
+                'label': day.strftime('%a'),
+                'count': len(day_orders),
+                'amount': sum(day_orders.mapped('amount_total')),
+            })
+
+        groups = request.env['sale.order.line'].sudo()._read_group(
+            [('order_id', 'in', orders.ids), ('product_id', '!=', False)],
+            ['product_id'], ['product_uom_qty:sum'])
+        top = sorted(groups, key=lambda g: g[1], reverse=True)[:5]
+        return ok({
+            'period': period if period in ('today', 'week', 'month') else 'today',
+            'count': len(orders),
+            'amount_untaxed': sum(orders.mapped('amount_untaxed')),
+            'amount_total': sum(orders.mapped('amount_total')),
+            'currency': orders[:1].currency_id.name or employee.company_id.currency_id.name,
+            'series': series,
+            'top_products': [{
+                'id': product.id,
+                'name': product.display_name,
+                'sku': product.product_tmpl_id.ff_sku_code or None,
+                'qty': quantity,
+            } for product, quantity in top],
         })
