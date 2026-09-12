@@ -143,3 +143,50 @@ class TestTimeline(TransactionCase):
             'name': 'Scoped Employee', 'user_id': officer.id, 'ff_access_scope': 'own'})
         data = self.Dashboard.with_user(officer).ff_employee_timeline(stranger.id)
         self.assertEqual(data['events'], [])
+
+
+@tagged('post_install', '-at_install', 'ff')
+class TestOrgTree(TransactionCase):
+    """The hierarchy view: people nested under their manager."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.Dashboard = cls.env['ff.dashboard']
+        cls.head = cls.env['hr.employee'].create({'name': 'Regional Head', 'job_title': 'RSM'})
+        cls.team = cls.env['ff.team'].create({'name': 'South Team'})
+        cls.manager = cls.env['hr.employee'].create({
+            'name': 'Area Manager', 'parent_id': cls.head.id, 'ff_team_id': cls.team.id})
+        cls.officer = cls.env['hr.employee'].create({
+            'name': 'Field Officer', 'parent_id': cls.manager.id, 'ff_team_id': cls.team.id})
+
+    def _find(self, nodes, name):
+        for node in nodes:
+            if node['name'] == name:
+                return node
+            found = self._find(node['children'], name)
+            if found:
+                return found
+        return None
+
+    def test_people_sit_under_their_manager(self):
+        tree = self.Dashboard.ff_org_tree()
+        head = self._find(tree['roots'], 'Regional Head')
+        self.assertTrue(head, 'the top of the chain is a root')
+        manager = self._find([head], 'Area Manager')
+        self.assertTrue(manager)
+        self.assertTrue(self._find([manager], 'Field Officer'))
+
+    def test_a_manager_counts_everybody_below_them(self):
+        tree = self.Dashboard.ff_org_tree()
+        head = self._find(tree['roots'], 'Regional Head')
+        self.assertEqual(head['reports'], 2, 'the whole branch counts, not just direct reports')
+        manager = self._find([head], 'Area Manager')
+        self.assertEqual(manager['reports'], 1)
+
+    def test_the_card_carries_what_the_chart_shows(self):
+        tree = self.Dashboard.ff_org_tree()
+        manager = self._find(tree['roots'], 'Area Manager') or self._find(
+            [self._find(tree['roots'], 'Regional Head')], 'Area Manager')
+        self.assertEqual(manager['team'], 'South Team')
+        self.assertIn('/web/image/hr.employee/', manager['avatar'])

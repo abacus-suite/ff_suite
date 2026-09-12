@@ -11,6 +11,7 @@ const REFRESH_MS = 60000;
 const SECTIONS = [
     { key: "dashboard", label: "Dashboard", icon: "fa-th-large" },
     { key: "live", label: "Live Location", icon: "fa-map-marker" },
+    { key: "people", label: "Employees", icon: "fa-users" },
 ];
 
 /** Colour and wording for what somebody is doing right now. */
@@ -59,6 +60,10 @@ export class AixoloPanel extends Component {
             showClients: false,
             openId: null,
             liveView: "live",
+            peopleView: "cards",
+            org: null,
+            orgSearch: "",
+            collapsedNodes: [],
             timeline: null,
             timelineEmployees: [],
             timelineEmployeeId: null,
@@ -103,6 +108,8 @@ export class AixoloPanel extends Component {
         this.state.section = key;
         if (key === "live") {
             await this.loadLive();
+        } else if (key === "people") {
+            await this.loadPeople();
         }
     }
 
@@ -452,6 +459,73 @@ export class AixoloPanel extends Component {
         });
     }
 
+
+
+    // -- Employees: cards and hierarchy ------------------------------------
+    async loadPeople() {
+        if (!this.state.live) {
+            this.state.live = await this.orm.call("ff.employee.status", "ff_live_map", [false]);
+        }
+        if (this.state.peopleView === "org" && !this.state.org) {
+            this.state.org = await this.orm.call("ff.dashboard", "ff_org_tree", []);
+        }
+    }
+
+    async setPeopleView(view) {
+        this.state.peopleView = view;
+        await this.loadPeople();
+    }
+
+    onOrgSearch(ev) {
+        this.state.orgSearch = ev.target.value;
+    }
+
+    /** Collapsing is remembered per person, so a big tree stays readable. */
+    toggleNode(node) {
+        const open = this.state.collapsedNodes;
+        const at = open.indexOf(node.id);
+        if (at === -1) {
+            open.push(node.id);
+        } else {
+            open.splice(at, 1);
+        }
+    }
+
+    isCollapsed(node) {
+        return this.state.collapsedNodes.includes(node.id);
+    }
+
+    expandAll() {
+        this.state.collapsedNodes = [];
+    }
+
+    collapseAll() {
+        const ids = [];
+        const walk = (nodes) => {
+            for (const node of nodes) {
+                if (node.children.length) {
+                    ids.push(node.id);
+                    walk(node.children);
+                }
+            }
+        };
+        walk(this.state.org ? this.state.org.roots : []);
+        this.state.collapsedNodes = ids;
+    }
+
+    /** A search hides the branches that do not match, without losing the shape. */
+    matchesOrg(node) {
+        const term = this.state.orgSearch.trim().toLowerCase();
+        if (!term) {
+            return true;
+        }
+        const hit =
+            (node.name || "").toLowerCase().includes(term) ||
+            (node.job || "").toLowerCase().includes(term) ||
+            (node.team || "").toLowerCase().includes(term) ||
+            (node.code || "").toLowerCase().includes(term);
+        return hit || node.children.some((child) => this.matchesOrg(child));
+    }
 
     // -- Timeline ---------------------------------------------------------
     async openLiveView(view) {

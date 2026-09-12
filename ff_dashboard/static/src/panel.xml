@@ -757,6 +757,191 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Employees: cards, or the organisation as a tree -->
+            <div class="ff_panel_main flex-grow-1 overflow-auto" t-if="state.section === 'people'">
+                <div class="ff_panel_head d-flex align-items-center gap-2 flex-wrap">
+                    <div class="ff_card_head mb-0">
+                        <div class="ff_card_icon"><i class="fa fa-users"/></div>
+                        <div>
+                            <div class="ff_card_title">Employees</div>
+                            <div class="ff_card_sub">
+                                <t t-if="state.peopleView === 'cards'">
+                                    <t t-esc="livePeople.length"/> of <t t-esc="liveCounts.all"/> shown
+                                </t>
+                                <t t-elif="state.org">
+                                    <t t-esc="state.org.total"/> people ·
+                                    <t t-esc="state.org.managers"/> managers ·
+                                    <t t-esc="state.org.teams"/> teams
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+
+                    <t t-if="state.peopleView === 'cards'">
+                        <div class="ff_panel_search_wrap">
+                            <i class="fa fa-search"/>
+                            <input type="text" class="form-control form-control-sm ff_panel_search"
+                                   placeholder="Search employee, team or place" t-on-input="onLiveSearch"/>
+                        </div>
+                        <select class="form-select form-select-sm ff_mini_select" t-on-change="setBattery">
+                            <option value="all">Battery: all</option>
+                            <option value="low">Below 20%</option>
+                            <option value="ok">20% and above</option>
+                        </select>
+                        <select class="form-select form-select-sm ff_mini_select" t-on-change="setGps">
+                            <option value="all">GPS: all</option>
+                            <option value="on">GPS on</option>
+                            <option value="off">GPS off</option>
+                        </select>
+                    </t>
+                    <t t-else="">
+                        <div class="ff_panel_search_wrap">
+                            <i class="fa fa-search"/>
+                            <input type="text" class="form-control form-control-sm ff_panel_search"
+                                   placeholder="Search employee, team or position" t-on-input="onOrgSearch"/>
+                        </div>
+                        <button class="ff_icon_btn" title="Expand all" t-on-click="expandAll">
+                            <i class="fa fa-plus-square-o"/>
+                        </button>
+                        <button class="ff_icon_btn" title="Collapse all" t-on-click="collapseAll">
+                            <i class="fa fa-minus-square-o"/>
+                        </button>
+                    </t>
+
+                    <div class="ff_seg ms-auto">
+                        <button class="ff_seg_btn" t-att-class="state.peopleView === 'cards' ? 'ff_seg_btn_active' : ''"
+                                t-on-click="() => this.setPeopleView('cards')">
+                            <i class="fa fa-th-large me-1"/>Card view
+                        </button>
+                        <button class="ff_seg_btn" t-att-class="state.peopleView === 'org' ? 'ff_seg_btn_active' : ''"
+                                t-on-click="() => this.setPeopleView('org')">
+                            <i class="fa fa-sitemap me-1"/>Hierarchy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Card view -->
+                <t t-if="state.peopleView === 'cards'">
+                    <div class="ff_people_grid">
+                        <t t-if="!state.live">
+                            <div class="ff_skeleton" style="height: 150px;"/>
+                            <div class="ff_skeleton" style="height: 150px;"/>
+                            <div class="ff_skeleton" style="height: 150px;"/>
+                        </t>
+                        <t t-foreach="livePeople" t-as="person" t-key="person.id">
+                            <div class="ff_live_card mb-0" t-attf-style="border-left-color: {{stateColor(person.state)}}"
+                                 t-on-click="() => this.openEmployee(person)">
+                                <div class="d-flex align-items-center gap-2">
+                                    <img class="ff_avatar" t-att-src="person.avatar" alt=""/>
+                                    <div class="flex-grow-1 min-width-0">
+                                        <div class="fw-bold text-truncate" t-esc="person.name"/>
+                                        <div class="small text-muted text-truncate">
+                                            <t t-if="person.code">(<t t-esc="person.code"/>)</t>
+                                        </div>
+                                        <div class="small text-muted text-truncate" t-if="person.phone"
+                                             t-esc="person.phone"/>
+                                    </div>
+                                    <div class="text-end small">
+                                        <div t-if="person.battery"
+                                             t-att-class="person.battery &lt; 20 ? 'text-danger fw-bold' : 'text-muted'">
+                                            <i class="fa" t-att-class="person.is_charging ? 'fa-bolt' : 'fa-battery-half'"/>
+                                            <t t-esc="person.battery"/>%
+                                        </div>
+                                        <i class="fa fa-map-marker"
+                                           t-att-style="'color: ' + (person.gps_on ? stateColor(person.state) : '#DC2626')"/>
+                                    </div>
+                                </div>
+                                <div class="ff_live_state mt-2" t-attf-style="background: {{stateColor(person.state)}}14">
+                                    <div class="d-flex align-items-center">
+                                        <span class="small fw-bold" t-att-style="'color: ' + stateColor(person.state)">
+                                            <t t-if="person.punched_in">
+                                                Punched IN<t t-if="person.punched_in_at"> : <t t-esc="clock(person.punched_in_at)"/></t>
+                                            </t>
+                                            <t t-else="">Punched OUT</t>
+                                        </span>
+                                        <button class="btn btn-sm btn-primary ms-auto py-0"
+                                                t-on-click.stop="() => this.openTimeline(person)">Timeline</button>
+                                    </div>
+                                    <div class="small text-muted mt-1">
+                                        <i class="fa fa-map-marker me-1"/>
+                                        <t t-if="person.at_client">At <t t-esc="person.at_client"/></t>
+                                        <t t-elif="person.address"><t t-esc="person.address"/></t>
+                                        <t t-elif="person.lat">
+                                            <t t-esc="person.lat.toFixed(5)"/>, <t t-esc="person.lng.toFixed(5)"/>
+                                        </t>
+                                        <t t-else="">No location sent yet</t>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+                    <div t-if="state.live and !livePeople.length" class="ff_card text-muted mt-3">
+                        Nobody matches these filters.
+                    </div>
+                </t>
+
+                <!-- Hierarchy -->
+                <t t-else="">
+                    <div class="ff_org mt-3" t-if="state.org">
+                        <t t-foreach="state.org.roots" t-as="root" t-key="root.id">
+                            <t t-call="ff_dashboard.OrgNode">
+                                <t t-set="node" t-value="root"/>
+                                <t t-set="depth" t-value="0"/>
+                            </t>
+                        </t>
+                        <div t-if="!state.org.roots.length" class="ff_card text-muted">
+                            No employees to show yet.
+                        </div>
+                    </div>
+                    <div t-else="" class="ff_skeleton mt-3" style="height: 320px;"/>
+                </t>
+            </div>
+        </div>
+    </t>
+
+    <!-- One person in the organisation, with everybody under them -->
+    <t t-name="ff_dashboard.OrgNode">
+        <div class="ff_org_node" t-if="matchesOrg(node)">
+            <div class="ff_org_card" t-attf-style="--depth-color: {{['#1a56db', '#14d3c0', '#7c5cfc', '#f59e0b', '#16a34a'][depth % 5]}}">
+                <img class="ff_org_avatar" t-att-src="node.avatar" alt=""/>
+                <div class="min-width-0 flex-grow-1">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-bold text-truncate" t-esc="node.name"/>
+                        <span class="ff_org_dot" t-if="node.punched_in" title="Punched in"/>
+                    </div>
+                    <div class="small text-muted text-truncate">
+                        <t t-if="node.job"><t t-esc="node.job"/></t>
+                        <t t-if="node.code"> · <t t-esc="node.code"/></t>
+                    </div>
+                    <div class="mt-1 d-flex gap-1 flex-wrap">
+                        <span class="ff_org_badge" t-if="node.team" t-esc="node.team"/>
+                        <span class="ff_org_badge ff_org_badge_soft" t-if="node.department" t-esc="node.department"/>
+                        <span class="ff_org_badge ff_org_badge_soft" t-if="node.reports">
+                            <t t-esc="node.reports"/> reporting
+                        </span>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <button class="ff_icon_btn ff_org_btn" title="Open employee"
+                            t-on-click.stop="() => this.openEmployee(node)">
+                        <i class="fa fa-external-link"/>
+                    </button>
+                    <button class="ff_icon_btn ff_org_btn" t-if="node.children.length"
+                            t-on-click.stop="() => this.toggleNode(node)">
+                        <i class="fa" t-att-class="isCollapsed(node) ? 'fa-chevron-down' : 'fa-chevron-up'"/>
+                    </button>
+                </div>
+            </div>
+
+            <div class="ff_org_children" t-if="node.children.length and !isCollapsed(node)">
+                <t t-foreach="node.children" t-as="child" t-key="child.id">
+                    <t t-call="ff_dashboard.OrgNode">
+                        <t t-set="node" t-value="child"/>
+                        <t t-set="depth" t-value="depth + 1"/>
+                    </t>
+                </t>
+            </div>
         </div>
     </t>
 

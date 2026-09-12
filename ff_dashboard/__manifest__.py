@@ -1,6 +1,6 @@
 {
     'name': 'Aixolo - Panel & Dashboard',
-    'version': '19.0.2.1.1',
+    'version': '19.0.2.2.0',
     'category': 'Human Resources/Field Force',
     'summary': 'The Aixolo panel: a sidebar workspace whose first screen is the realtime dashboard',
     'author': 'Field Force Suite',
