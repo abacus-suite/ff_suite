@@ -3,86 +3,128 @@
 
     <t t-name="ff_live_map.LiveMap">
         <div class="o_action_manager ff_live_map d-flex flex-column h-100">
-            <div class="ff_live_map_bar d-flex align-items-center gap-2 p-2 border-bottom">
-                <span class="fw-bold">Live Map</span>
-                <input type="text" class="form-control form-control-sm ff_live_map_search"
-                       placeholder="Search employee, team or customer"
-                       t-on-input="onSearch"/>
-                <div class="btn-group btn-group-sm ms-auto" role="group">
+            <div class="ff_live_map_bar d-flex align-items-center flex-wrap gap-2 p-2 border-bottom">
+                <span class="fw-bold me-1">Employees (<t t-esc="state.people.length"/>)</span>
+                <div class="ff_live_map_searchbox">
+                    <i class="fa fa-search"/>
+                    <input type="text" class="form-control form-control-sm"
+                           placeholder="Search employee, team or customer"
+                           t-on-input="onSearch"/>
+                </div>
+
+                <div class="btn-group btn-group-sm" role="group">
                     <button class="btn" t-att-class="state.filter === 'all' ? 'btn-primary' : 'btn-outline-secondary'"
                             t-on-click="() => this.setFilter('all')">
-                        All <span t-esc="counts.all"/>
+                        All <span class="badge text-bg-light" t-esc="counts.all"/>
                     </button>
-                    <button class="btn" t-att-class="state.filter === 'moving' ? 'btn-primary' : 'btn-outline-secondary'"
-                            t-on-click="() => this.setFilter('moving')">
-                        Moving <span t-esc="counts.moving"/>
+                    <button class="btn" t-att-class="state.filter === 'in' ? 'btn-success' : 'btn-outline-secondary'"
+                            t-on-click="() => this.setFilter('in')">
+                        Punched in <span class="badge text-bg-light" t-esc="counts.in"/>
+                    </button>
+                    <button class="btn" t-att-class="state.filter === 'off' ? 'btn-secondary' : 'btn-outline-secondary'"
+                            t-on-click="() => this.setFilter('off')">
+                        Punched out <span class="badge text-bg-light" t-esc="counts.off"/>
                     </button>
                     <button class="btn" t-att-class="state.filter === 'at_client' ? 'btn-primary' : 'btn-outline-secondary'"
                             t-on-click="() => this.setFilter('at_client')">
-                        At customer <span t-esc="counts.at_client"/>
+                        At customer <span class="badge text-bg-light" t-esc="counts.at_client"/>
                     </button>
-                    <button class="btn" t-att-class="state.filter === 'inactive' ? 'btn-primary' : 'btn-outline-secondary'"
+                    <button class="btn" t-att-class="state.filter === 'inactive' ? 'btn-warning' : 'btn-outline-secondary'"
                             t-on-click="() => this.setFilter('inactive')">
-                        Idle <span t-esc="counts.inactive"/>
+                        Idle <span class="badge text-bg-light" t-esc="counts.inactive"/>
                     </button>
-                    <button class="btn" t-att-class="state.filter === 'no_signal' ? 'btn-primary' : 'btn-outline-secondary'"
+                    <button class="btn" t-att-class="state.filter === 'no_signal' ? 'btn-danger' : 'btn-outline-secondary'"
                             t-on-click="() => this.setFilter('no_signal')">
-                        No signal <span t-esc="counts.no_signal"/>
-                    </button>
-                    <button class="btn" t-att-class="state.filter === 'off' ? 'btn-primary' : 'btn-outline-secondary'"
-                            t-on-click="() => this.setFilter('off')">
-                        Off <span t-esc="counts.off"/>
+                        No signal <span class="badge text-bg-light" t-esc="counts.no_signal"/>
                     </button>
                 </div>
-                <small class="text-muted ms-2" t-if="state.updatedAt">Updated <t t-esc="state.updatedAt"/></small>
-                <button class="btn btn-sm btn-light" t-on-click="() => this.load()" title="Refresh now">
-                    <i class="fa fa-refresh"/>
-                </button>
-                <t t-if="state.usage">
-                    <button class="btn btn-sm ff_live_map_usage"
-                            t-att-class="state.usage.over_budget ? 'btn-danger' : (state.usage.cost ? 'btn-warning' : 'btn-outline-secondary')"
-                            t-on-click="openUsage"
-                            t-attf-title="Google usage this month: {{state.usage.web_map.used}} map loads (free {{state.usage.web_map.free}}), {{state.usage.tiles.used}} app tiles (free {{state.usage.tiles.free}})">
-                        <i class="fa fa-tachometer me-1"/>
-                        <t t-if="state.usage.cost">
-                            <t t-esc="state.usage.currency"/><t t-esc="state.usage.cost"/> this month
-                        </t>
-                        <t t-else="">
-                            Free tier · <t t-esc="state.usage.tiles.percent"/>%
-                        </t>
+
+                <div class="form-check form-switch ms-1">
+                    <input class="form-check-input" type="checkbox" id="ff_show_clients"
+                           t-att-checked="state.showClients" t-on-change="toggleClients"/>
+                    <label class="form-check-label small" for="ff_show_clients">Show customers</label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="ff_show_labels"
+                           t-att-checked="state.showLabels" t-on-change="toggleLabels"/>
+                    <label class="form-check-label small" for="ff_show_labels">Names on map</label>
+                </div>
+
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    <t t-if="state.usage">
+                        <button class="btn btn-sm"
+                                t-att-class="state.usage.over_budget ? 'btn-danger' : (state.usage.cost ? 'btn-warning' : 'btn-outline-secondary')"
+                                t-on-click="openUsage"
+                                t-attf-title="Google usage this month: {{state.usage.web_map.used}} map loads (free {{state.usage.web_map.free}}), {{state.usage.tiles.used}} app tiles (free {{state.usage.tiles.free}})">
+                            <i class="fa fa-tachometer me-1"/>
+                            <t t-if="state.usage.cost">
+                                <t t-esc="state.usage.currency"/><t t-esc="state.usage.cost"/> this month
+                            </t>
+                            <t t-else="">Free tier</t>
+                        </button>
+                    </t>
+                    <small class="text-muted" t-if="state.updatedAt">Updated <t t-esc="state.updatedAt"/></small>
+                    <button class="btn btn-sm btn-light" t-on-click="() => this.load()" title="Refresh now">
+                        <i class="fa fa-refresh"/>
                     </button>
-                </t>
+                </div>
             </div>
 
             <div class="d-flex flex-grow-1 overflow-hidden">
-                <div class="ff_live_map_list border-end overflow-auto">
+                <div class="ff_live_map_list overflow-auto">
                     <t t-if="state.loading">
                         <div class="p-3 text-muted">Loading…</div>
+                    </t>
+                    <t t-elif="!state.people.length">
+                        <div class="p-3 text-muted">
+                            No employees to watch yet. Employees appear here as soon as they exist in
+                            your data access scope; their pins appear once the app sends a location.
+                        </div>
                     </t>
                     <t t-elif="!visiblePeople.length">
                         <div class="p-3 text-muted">Nobody matches this filter.</div>
                     </t>
                     <t t-foreach="visiblePeople" t-as="person" t-key="person.id">
-                        <div class="ff_live_map_row d-flex align-items-center gap-2 p-2 border-bottom"
-                             t-att-class="state.selectedId === person.id ? 'ff_live_map_row_active' : ''"
+                        <div class="ff_live_map_card"
+                             t-att-class="state.selectedId === person.id ? 'ff_live_map_card_active' : ''"
+                             t-attf-style="border-left-color: {{stateColor(person.state)}}"
                              t-on-click="() => this.select(person)">
-                            <img class="ff_live_map_avatar" t-att-src="person.avatar" alt=""/>
-                            <div class="flex-grow-1 min-width-0">
-                                <div class="d-flex align-items-center gap-1">
-                                    <span class="ff_live_map_dot" t-attf-style="background: {{stateColor(person.state)}}"/>
-                                    <span class="fw-bold text-truncate" t-esc="person.name"/>
+                            <div class="d-flex align-items-center gap-2">
+                                <img class="ff_live_map_avatar" t-att-src="person.avatar" alt=""/>
+                                <div class="flex-grow-1 min-width-0">
+                                    <div class="fw-bold text-truncate" t-esc="person.name"/>
+                                    <div class="small text-muted text-truncate">
+                                        <t t-if="person.code">(<t t-esc="person.code"/>)</t>
+                                        <t t-if="person.phone"> <t t-esc="person.phone"/></t>
+                                    </div>
                                 </div>
-                                <div class="text-muted small text-truncate">
-                                    <t t-if="person.at_client">At <t t-esc="person.at_client"/></t>
-                                    <t t-else=""><t t-esc="stateLabel(person.state)"/></t>
-                                    · <t t-esc="lastSeen(person)"/>
+                                <div class="text-end small">
+                                    <div t-if="person.battery" t-att-class="person.is_low_battery ? 'text-danger' : 'text-muted'">
+                                        <i class="fa" t-att-class="person.is_charging ? 'fa-bolt' : 'fa-battery-half'"/>
+                                        <t t-esc="person.battery"/>%
+                                    </div>
+                                    <i class="fa fa-map-marker" t-att-style="'color: ' + stateColor(person.state)"/>
                                 </div>
                             </div>
-                            <div class="text-end small text-muted">
-                                <div t-if="person.battery"><i class="fa fa-battery-half"/> <t t-esc="person.battery"/>%</div>
-                                <button class="btn btn-link btn-sm p-0" t-on-click.stop="() => this.openTimeline(person)">
-                                    Pings
-                                </button>
+
+                            <div class="ff_live_map_state mt-2 p-2 rounded"
+                                 t-attf-style="background: {{stateColor(person.state)}}14;">
+                                <div class="d-flex align-items-center">
+                                    <span class="small fw-bold" t-att-style="'color: ' + stateColor(person.state)">
+                                        <t t-if="person.punched_in">Punched in<t t-if="person.punched_in_at">: <t t-esc="clock(person.punched_in_at)"/></t></t>
+                                        <t t-else="">Not punched in</t>
+                                    </span>
+                                    <button class="btn btn-sm btn-primary ms-auto py-0"
+                                            t-on-click.stop="() => this.openTimeline(person)">
+                                        Timeline
+                                    </button>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    <i class="fa fa-map-marker me-1"/>
+                                    <t t-if="person.at_client">At <t t-esc="person.at_client"/></t>
+                                    <t t-elif="person.lat"><t t-esc="stateLabel(person.state)"/> · seen <t t-esc="lastSeen(person)"/></t>
+                                    <t t-else="">No location sent yet</t>
+                                </div>
                             </div>
                         </div>
                     </t>
@@ -99,6 +141,14 @@
                             The list on the left works without a key.
                         </p>
                         <button class="btn btn-primary" t-on-click="openSettings">Open Settings</button>
+                    </div>
+                    <div class="ff_live_map_legend" t-if="state.hasKey">
+                        <t t-foreach="legend" t-as="item" t-key="item.key">
+                            <span class="me-2">
+                                <span class="ff_live_map_dot" t-attf-style="background: {{item.color}}"/>
+                                <span t-esc="item.label"/>
+                            </span>
+                        </t>
                     </div>
                 </div>
             </div>

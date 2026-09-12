@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Live Map',
-    'version': '19.0.1.0.1',
+    'version': '19.0.1.1.0',
     'category': 'Human Resources/Field Force',
     'summary': 'See where every field employee is right now on a Google map inside Odoo',
     'author': 'Field Force Suite',

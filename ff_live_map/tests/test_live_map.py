@@ -39,6 +39,13 @@ class TestLiveMap(TransactionCase):
         rows = {row['id']: row for row in self.Status.ff_live_map()['people']}
         self.assertEqual(rows[self.officer.id]['state'], 'off')
 
+    def test_everybody_is_listed_even_without_a_status(self):
+        # An employee who never opened the app must still be on the list, as "off".
+        rows = {row['id']: row for row in self.Status.ff_live_map()['people']}
+        self.assertIn(self.officer.id, rows)
+        self.assertEqual(rows[self.officer.id]['state'], 'off')
+        self.assertFalse(rows[self.officer.id]['lat'])
+
     def test_a_position_that_was_never_sent_is_not_drawn(self):
         self.Status._ff_get(self.officer).write({'punched_in': True, 'last_ping_at': False})
         rows = {row['id']: row for row in self.Status.ff_live_map()['people']}

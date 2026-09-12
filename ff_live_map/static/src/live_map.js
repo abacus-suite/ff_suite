@@ -49,7 +49,11 @@ export class FieldForceLiveMap extends Component {
             loading: true,
             updatedAt: "",
             usage: null,
+            clients: [],
+            showClients: false,
+            showLabels: true,
         });
+        this.clientMarkers = new Map();
         this.markers = new Map();
         this.mapsKey = "";
         this.mounted = false;
@@ -78,7 +82,11 @@ export class FieldForceLiveMap extends Component {
     get visiblePeople() {
         const term = this.state.search.trim().toLowerCase();
         return this.state.people.filter((person) => {
-            const byState = this.state.filter === "all" || person.state === this.state.filter;
+            const filter = this.state.filter;
+            let byState = filter === "all" || person.state === filter;
+            if (filter === "in") {
+                byState = person.punched_in;
+            }
             const byTerm =
                 !term ||
                 (person.name || "").toLowerCase().includes(term) ||
@@ -93,7 +101,17 @@ export class FieldForceLiveMap extends Component {
         for (const key of Object.keys(STATES)) {
             counts[key] = this.state.people.filter((p) => p.state === key).length;
         }
+        counts.in = this.state.people.filter((p) => p.punched_in).length;
         return counts;
+    }
+
+    get legend() {
+        return Object.entries(STATES).map(([key, value]) => ({ key, ...value }));
+    }
+
+    /// "10:44 AM" from an ISO timestamp.
+    clock(iso) {
+        return iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
     }
 
     stateLabel(key) {
@@ -109,8 +127,9 @@ export class FieldForceLiveMap extends Component {
     }
 
     async load() {
-        const data = await this.orm.call("ff.employee.status", "ff_live_map", []);
+        const data = await this.orm.call("ff.employee.status", "ff_live_map", [this.state.showClients]);
         this.state.people = data.people;
+        this.state.clients = data.clients || [];
         this.mapsKey = data.google_maps_key;
         this.state.hasKey = Boolean(data.google_maps_key);
         this.state.loading = false;
@@ -219,13 +238,20 @@ export class FieldForceLiveMap extends Component {
                     position,
                     title: person.name,
                     icon: this.markerIcon(person),
+                    zIndex: 10,
                 });
                 marker.addListener("click", () => this.select(person));
                 this.markers.set(person.id, marker);
             }
+            marker.setLabel(
+                this.state.showLabels
+                    ? { text: person.name, className: "ff_live_map_label", color: "#0F1B3D", fontSize: "11px" }
+                    : null
+            );
             bounds.extend(position);
             count++;
         }
+        this.drawClients();
         for (const [id, marker] of this.markers) {
             if (!visible.has(id)) {
                 marker.setMap(null);
@@ -241,6 +267,57 @@ export class FieldForceLiveMap extends Component {
                 this.map.fitBounds(bounds, 60);
             }
         }
+    }
+
+    drawClients() {
+        if (!this.map) {
+            return;
+        }
+        const wanted = this.state.showClients ? this.state.clients : [];
+        const seen = new Set();
+        for (const client of wanted) {
+            seen.add(client.id);
+            if (this.clientMarkers.has(client.id)) {
+                continue;
+            }
+            const marker = new window.google.maps.Marker({
+                map: this.map,
+                position: { lat: client.lat, lng: client.lng },
+                title: client.name,
+                zIndex: 1,
+                icon: {
+                    path: window.google.maps.SymbolPath.CIRCLE,
+                    scale: 6,
+                    fillColor: "#7C5CFC",
+                    fillOpacity: 1,
+                    strokeColor: "#FFFFFF",
+                    strokeWeight: 2,
+                },
+            });
+            marker.addListener("click", () => {
+                this.infoWindow.setContent(
+                    `<div class="ff_live_map_info"><strong>${client.name}</strong><div class="text-muted">${client.category || "Customer"}</div></div>`
+                );
+                this.infoWindow.open({ map: this.map, anchor: marker });
+            });
+            this.clientMarkers.set(client.id, marker);
+        }
+        for (const [id, marker] of this.clientMarkers) {
+            if (!seen.has(id)) {
+                marker.setMap(null);
+                this.clientMarkers.delete(id);
+            }
+        }
+    }
+
+    async toggleClients(ev) {
+        this.state.showClients = ev.target.checked;
+        await this.load();
+    }
+
+    toggleLabels(ev) {
+        this.state.showLabels = ev.target.checked;
+        this.drawMarkers();
     }
 
     select(person) {
