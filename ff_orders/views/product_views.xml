@@ -16,8 +16,8 @@
                             <field name="ff_mrp"/>
                             <field name="ff_ptr"/>
                             <field name="ff_pts"/>
-                            <field name="ff_retail_margin" widget="percentage"/>
-                            <field name="ff_stockist_margin" widget="percentage"/>
+                            <field name="ff_retail_margin"/>
+                            <field name="ff_stockist_margin"/>
                         </group>
                     </group>
                 </page>
@@ -39,7 +39,8 @@
                 <field name="ff_mrp"/>
                 <field name="ff_ptr"/>
                 <field name="ff_pts"/>
-                <field name="ff_retail_margin" widget="percentage" optional="show"/>
+                <field name="ff_retail_margin" optional="show"/>
+                <field name="ff_stockist_margin" optional="show"/>
                 <field name="ff_show_in_app" widget="boolean_toggle"/>
                 <field name="sale_ok" optional="hide"/>
             </list>

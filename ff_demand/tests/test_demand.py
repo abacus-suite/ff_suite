@@ -34,8 +34,10 @@ class TestDemand(TransactionCase):
 
     def test_trade_prices_give_the_margins(self):
         template = self.product.product_tmpl_id
-        self.assertEqual(template.ff_retail_margin, 16.67)   # 100 -> 120
-        self.assertEqual(template.ff_stockist_margin, 15.0)  # 85 -> 100
+        # Margin on what the buyer paid: buy at 100, sell at 120 -> 20%.
+        self.assertEqual(template.ff_retail_margin, 20.0)
+        # Buy at 85, sell at 100 -> 17.65%.
+        self.assertEqual(template.ff_stockist_margin, 17.65)
         self.assertEqual(self.product.ff_field_price(), 100.0)
         self.assertEqual(self.product.ff_distributor_price(), 85.0)
 

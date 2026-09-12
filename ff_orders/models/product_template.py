@@ -22,10 +22,12 @@ class ProductTemplate(models.Model):
                              help='Price to stockist: what the distributor pays the company.')
     ff_ptr = fields.Monetary(string='PTR', currency_field='currency_id',
                              help='Price to retailer: what the outlet pays the distributor.')
-    ff_retail_margin = fields.Float(string='Retail Margin %', compute='_compute_ff_margins', store=True,
-                                    help='What the outlet earns between PTR and MRP.')
-    ff_stockist_margin = fields.Float(string='Stockist Margin %', compute='_compute_ff_margins', store=True,
-                                      help='What the distributor earns between PTS and PTR.')
+    ff_retail_margin = fields.Float(string='Retail Margin %', digits=(5, 2),
+                                    compute='_compute_ff_margins', store=True,
+                                    help='What the outlet earns on what it pays: (MRP - PTR) / PTR.')
+    ff_stockist_margin = fields.Float(string='Distributor Margin %', digits=(5, 2),
+                                      compute='_compute_ff_margins', store=True,
+                                      help='What the distributor earns on what it pays: (PTR - PTS) / PTS.')
 
     @api.depends('ff_mrp', 'ff_pts', 'ff_ptr')
     def _compute_ff_margins(self):
@@ -34,8 +36,14 @@ class ProductTemplate(models.Model):
             product.ff_stockist_margin = self._margin(product.ff_pts, product.ff_ptr)
 
     def _margin(self, cost, sale):
-        """Margin on the selling price, the way the trade quotes it."""
-        return round((sale - cost) / sale * 100.0, 2) if cost and sale else 0.0
+        """Markup on what the buyer paid - the way the trade quotes a margin.
+
+        A retailer buying at PTR 45 and selling at MRP 50 earns 11.11%, not the
+        10% that the same gap would be if measured against the selling price.
+        The number is a plain percentage, so it is shown without the percentage
+        widget, which would multiply it by a hundred again.
+        """
+        return round((sale - cost) / cost * 100.0, 2) if cost and sale else 0.0
 
 
 class ProductProduct(models.Model):
