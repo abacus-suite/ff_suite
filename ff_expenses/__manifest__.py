@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Expenses',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'category': 'Human Resources/Field Force',
     'summary': 'Field expense claims with receipt photos, expense types per department and manager approval',
     'author': 'Field Force Suite',

@@ -76,9 +76,15 @@ class FieldForceExpensesApi(http.Controller):
 
     @api_route('/api/v1/expenses/to-approve', methods=('GET',), manager=True)
     def to_approve(self, employee, **kw):
-        claims = request.env['ff.expense.claim'].sudo().search([
+        Claim = request.env['ff.expense.claim']
+        claims = Claim.sudo().search([
             ('employee_id', 'in', employee._ff_subordinates().ids), ('state', '=', 'submitted'),
         ])
+        # With an approval flow the queue is whatever waits on this person's
+        # step, which is not always one of their own subordinates.
+        if hasattr(Claim, 'ff_waiting_for') and employee.user_id:
+            mine = Claim.ff_waiting_for(employee.user_id)
+            claims = (claims.filtered(lambda claim: not claim.approval_line_ids) | mine)
         return ok([claim_data(c) for c in claims])
 
     @api_route('/api/v1/approvals/expense/<int:claim_id>/<string:decision>', methods=('POST',), manager=True)

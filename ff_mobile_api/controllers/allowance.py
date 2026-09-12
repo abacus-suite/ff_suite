@@ -83,9 +83,14 @@ class FieldForceAllowanceApi(http.Controller):
 
     @api_route('/api/v1/allowances/to-approve', methods=('GET',), manager=True)
     def to_approve(self, employee, **kw):
-        claims = request.env['ff.allowance.claim'].sudo().search([
+        Claim = request.env['ff.allowance.claim']
+        claims = Claim.sudo().search([
             ('employee_id', 'in', employee._ff_subordinates().ids), ('state', '=', 'submitted'),
         ], order='date desc')
+        # An approval flow decides the queue when one is configured.
+        if hasattr(Claim, 'ff_waiting_for') and employee.user_id:
+            mine = Claim.ff_waiting_for(employee.user_id)
+            claims = (claims.filtered(lambda claim: not claim.approval_line_ids) | mine)
         return ok([claim_data(c, with_legs=True) for c in claims])
 
     @api_route('/api/v1/approvals/allowance/<int:claim_id>/<string:decision>', methods=('POST',), manager=True)

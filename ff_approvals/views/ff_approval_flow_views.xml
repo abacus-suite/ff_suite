@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_approval_flow_view_list" model="ir.ui.view">
+        <field name="name">ff.approval.flow.list</field>
+        <field name="model">ff.approval.flow</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="document"/>
+                <field name="department_ids" widget="many2many_tags" optional="show"/>
+                <field name="team_ids" widget="many2many_tags" optional="hide"/>
+                <field name="employee_ids" widget="many2many_tags" optional="hide"/>
+                <field name="min_amount"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="step_count" string="Approvers"/>
+                <field name="active" widget="boolean_toggle" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_approval_flow_view_form" model="ir.ui.view">
+        <field name="name">ff.approval.flow.form</field>
+        <field name="model">ff.approval.flow</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="e.g. Expenses above 5,000"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="document"/>
+                            <field name="min_amount"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="department_ids" widget="many2many_tags"
+                                   placeholder="All departments"/>
+                            <field name="team_ids" widget="many2many_tags" placeholder="All teams"/>
+                            <field name="employee_ids" widget="many2many_tags" placeholder="Everybody"/>
+                        </group>
+                    </group>
+                    <separator string="Who signs, in order"/>
+                    <field name="step_ids">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle"/>
+                            <field name="name"/>
+                            <field name="approver_kind"/>
+                            <field name="user_id" invisible="approver_kind != 'user'"
+                                   required="approver_kind == 'user'"/>
+                            <field name="notify" widget="boolean_toggle"/>
+                        </list>
+                    </field>
+                    <div class="text-muted">
+                        The first step signs first. A step whose approver cannot be found - no
+                        reporting manager, say - is skipped rather than holding the document up.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_approval_flow_action" model="ir.actions.act_window">
+        <field name="name">Approval Flows</field>
+        <field name="res_model">ff.approval.flow</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Decide who signs what</p>
+            <p>Without a flow, a claim needs one approval from the reporting manager.
+               With one, it walks the steps you set - first approver, second approver - and
+               each is told in Odoo and in the app.</p>
+        </field>
+    </record>
+</odoo>

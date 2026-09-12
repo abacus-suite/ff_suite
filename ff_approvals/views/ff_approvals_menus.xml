@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ff_approval_flows" name="Approval Flows" parent="ff_base.menu_ff_config"
+              action="ff_approval_flow_action" sequence="80"/>
+    <menuitem id="menu_ff_notifications" name="App Notifications" parent="ff_base.menu_ff_config"
+              action="ff_notification_action" sequence="90"/>
+</odoo>
