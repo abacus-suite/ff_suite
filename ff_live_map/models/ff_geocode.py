@@ -48,12 +48,14 @@ class FfEmployeeStatusGeocode(models.Model):
         """Fill in missing addresses, within the batch limit. Returns self."""
         key = google_maps_key(self.env)
         if not key:
+            self._ff_note_problem('No Google Maps key is set in Field Force settings.')
             return self
         pending = self._ff_needs_address()[:BATCH]
         for status in pending:
             address = self._ff_reverse_geocode(status.latitude, status.longitude, key)
             if not address:
                 continue
+            self._ff_note_problem(False)
             status.sudo().write({
                 'address': address,
                 'address_at': fields.Datetime.now(),
@@ -68,15 +70,44 @@ class FfEmployeeStatusGeocode(models.Model):
             response = requests.get(GEOCODE_URL, timeout=TIMEOUT, params={
                 'latlng': '%s,%s' % (latitude, longitude),
                 'key': key,
-                'result_type': 'street_address|premise|route|sublocality|locality',
             })
             payload = response.json()
         except (requests.RequestException, ValueError) as error:
             _logger.warning('Field Force: reverse geocoding failed (%s)', error)
+            self._ff_note_problem('Google could not be reached: %s' % error)
             return False
         if payload.get('status') != 'OK' or not payload.get('results'):
-            if payload.get('status') not in ('ZERO_RESULTS', 'OK'):
-                _logger.warning('Field Force: Google geocoding said %s - %s',
-                                payload.get('status'), payload.get('error_message', ''))
+            problem = payload.get('status') or 'no answer'
+            if payload.get('error_message'):
+                problem = '%s - %s' % (problem, payload['error_message'])
+            if payload.get('status') != 'ZERO_RESULTS':
+                _logger.warning('Field Force: Google geocoding said %s', problem)
+                self._ff_note_problem(problem)
             return False
-        return payload['results'][0].get('formatted_address') or False
+        return self._ff_short_address(payload['results'][0])
+
+    def _ff_short_address(self, result):
+        """A readable place, not the postal essay Google returns.
+
+        Field managers recognise "Nallalam, Kozhikode": the neighbourhood and
+        the town. The full address is kept when those parts are missing.
+        """
+        wanted = ('sublocality', 'sublocality_level_1', 'neighborhood', 'locality',
+                  'administrative_area_level_3', 'administrative_area_level_2')
+        parts = []
+        for component in result.get('address_components', []):
+            for kind in component.get('types', []):
+                if kind in wanted and component['long_name'] not in parts:
+                    parts.append(component['long_name'])
+                    break
+            if len(parts) >= 3:
+                break
+        route = next((c['long_name'] for c in result.get('address_components', [])
+                      if 'route' in c.get('types', [])), '')
+        if route:
+            parts.insert(0, route)
+        return ', '.join(parts[:3]) or result.get('formatted_address') or False
+
+    def _ff_note_problem(self, message):
+        """Keep the last geocoding problem so the panel can show it."""
+        self.env['ir.config_parameter'].sudo().set_param('ff_base.geocode_problem', message or '')

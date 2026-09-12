@@ -67,6 +67,8 @@ class FfDashboard(models.AbstractModel):
             'expenses': self._expenses(employees, start),
             'collections': self._collections(employees, start),
             'orders': self._orders(employees, start),
+            'geocode_problem': self.env['ir.config_parameter'].sudo().get_param(
+                'ff_base.geocode_problem') or '',
         }
 
     def _period_start(self, today, period):

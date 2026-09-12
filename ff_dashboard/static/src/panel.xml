@@ -171,6 +171,11 @@
                                     <input type="text" class="form-control form-control-sm ms-auto ff_panel_search"
                                            placeholder="Search employee, code or team" t-on-input="onSearch"/>
                                 </div>
+                                <div t-if="state.data.geocode_problem" class="ff_warn mb-2">
+                                    <i class="fa fa-exclamation-triangle me-1"/>
+                                    Addresses are unavailable, so coordinates are shown.
+                                    Google said: <t t-esc="state.data.geocode_problem"/>
+                                </div>
                                 <div class="ff_scroll_320">
                                     <table class="table table-sm align-middle mb-0">
                                         <thead>

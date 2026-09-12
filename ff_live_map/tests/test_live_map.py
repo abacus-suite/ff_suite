@@ -132,6 +132,23 @@ class TestGeocodeCache(TransactionCase):
         })
         self.assertIn(self.status, self.status._ff_needs_address())
 
+    def test_the_address_reads_like_a_place_not_a_postal_essay(self):
+        result = {
+            'formatted_address': 'XVII/374, Nallalam - Kozhikode Rd, Nallalam, Kozhikode, Kerala 673027, India',
+            'address_components': [
+                {'long_name': 'Nallalam - Kozhikode Road', 'types': ['route']},
+                {'long_name': 'Nallalam', 'types': ['sublocality_level_1', 'sublocality', 'political']},
+                {'long_name': 'Kozhikode', 'types': ['locality', 'political']},
+                {'long_name': 'Kerala', 'types': ['administrative_area_level_1']},
+            ],
+        }
+        self.assertEqual(self.status._ff_short_address(result),
+                         'Nallalam - Kozhikode Road, Nallalam, Kozhikode')
+
+    def test_an_address_with_no_named_parts_falls_back_to_the_full_one(self):
+        result = {'formatted_address': '8PGR+5HF, Naranganam, Kerala', 'address_components': []}
+        self.assertEqual(self.status._ff_short_address(result), '8PGR+5HF, Naranganam, Kerala')
+
     def test_without_a_key_nothing_is_looked_up(self):
         self.env['ir.config_parameter'].sudo().set_param('ff_base.google_maps_key', '')
         self.status.write({'latitude': 10.0, 'longitude': 76.0})
