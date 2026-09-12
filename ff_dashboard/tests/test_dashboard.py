@@ -40,3 +40,39 @@ class TestDashboard(TransactionCase):
             data = self.Dashboard.ff_dashboard_data(period)
             self.assertEqual(data['period'], period)
             self.assertIsInstance(data['working_hours'], list)
+
+
+@tagged('post_install', '-at_install', 'ff')
+class TestEmployeeDay(TransactionCase):
+    """The tabs under a Live Location card."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.Dashboard = cls.env['ff.dashboard']
+        cls.employee = cls.env['hr.employee'].create({'name': 'Day Officer', 'tz': 'UTC'})
+        cls.shop = cls.env['res.partner'].create({
+            'name': 'Day Shop', 'ff_is_client': True,
+            'ff_category_id': cls.env.ref('ff_clients.contact_category_customer').id,
+            'ff_employee_ids': [(6, 0, cls.employee.ids)],
+            'partner_latitude': 10.0, 'partner_longitude': 76.0,
+        })
+
+    def test_a_visit_today_shows_under_the_card(self):
+        visit = self.env['ff.visit'].ff_check_in(self.employee, self.shop, {'lat': 10.0, 'lng': 76.0})
+        day = self.Dashboard.ff_employee_day(self.employee.id)
+        self.assertEqual(len(day['visits']), 1)
+        self.assertEqual(day['visits'][0]['client'], self.shop.display_name)
+        self.assertEqual(day['visits'][0]['state'], visit.state)
+
+    def test_somebody_outside_my_scope_shows_nothing(self):
+        stranger = self.env['hr.employee'].create({'name': 'Not Mine'})
+        officer = self.env['res.users'].create({
+            'name': 'Own Scope', 'login': 'ff_own_scope',
+            'groups_id': [(6, 0, [self.env.ref('ff_base.group_ff_officer').id,
+                                  self.env.ref('base.group_user').id])],
+        })
+        self.env['hr.employee'].create({
+            'name': 'Own Scope Employee', 'user_id': officer.id, 'ff_access_scope': 'own'})
+        day = self.Dashboard.with_user(officer).ff_employee_day(stranger.id)
+        self.assertEqual(day['visits'], [])

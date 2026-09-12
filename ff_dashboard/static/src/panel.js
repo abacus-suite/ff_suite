@@ -2,14 +2,25 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { Component, onWillStart, onWillUnmount, useState } from "@odoo/owl";
+import { Component, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
+import { loadGoogleMaps, pinIcon } from "@ff_live_map/google";
 
 const REFRESH_MS = 60000;
 
 /** The sidebar. More entries land here as each area of the panel is built. */
 const SECTIONS = [
     { key: "dashboard", label: "Dashboard", icon: "fa-th-large" },
+    { key: "live", label: "Live Location", icon: "fa-map-marker" },
 ];
+
+/** Colour and wording for what somebody is doing right now. */
+const STATES = {
+    moving: { label: "On the move", color: "#16A34A" },
+    at_client: { label: "At a customer", color: "#1A56DB" },
+    inactive: { label: "Not moving", color: "#F59E0B" },
+    no_signal: { label: "No signal", color: "#DC2626" },
+    off: { label: "Not punched in", color: "#94A3B8" },
+};
 
 function ago(iso) {
     if (!iso) {
@@ -34,8 +45,22 @@ export class AixoloPanel extends Component {
         this.orm = useService("orm");
         this.action = useService("action");
         this.sections = SECTIONS;
+        this.mapRef = useRef("liveMap");
+        this.markers = new Map();
+        this.clientMarkers = new Map();
         this.state = useState({
             section: "dashboard",
+            live: null,
+            liveError: "",
+            liveSearch: "",
+            liveFilter: "all",
+            battery: "all",
+            gps: "all",
+            showClients: false,
+            openId: null,
+            tab: "visits",
+            day: null,
+            dayLoading: false,
             period: "month",
             search: "",
             data: null,
@@ -53,6 +78,9 @@ export class AixoloPanel extends Component {
         this.state.data = await this.orm.call("ff.dashboard", "ff_dashboard_data", [this.state.period]);
         this.state.loading = false;
         this.state.updatedAt = new Date().toLocaleTimeString();
+        if (this.state.section === "live") {
+            await this.loadLive();
+        }
     }
 
     async setPeriod(period) {
@@ -60,8 +88,242 @@ export class AixoloPanel extends Component {
         await this.load();
     }
 
-    openSection(key) {
+    async openSection(key) {
         this.state.section = key;
+        if (key === "live") {
+            await this.loadLive();
+        }
+    }
+
+    // -- Live Location ----------------------------------------------------
+    async loadLive() {
+        this.state.live = await this.orm.call("ff.employee.status", "ff_live_map", [
+            this.state.showClients,
+        ]);
+        this.state.updatedAt = new Date().toLocaleTimeString();
+        await this.drawLive();
+    }
+
+    get livePeople() {
+        const live = this.state.live;
+        if (!live) {
+            return [];
+        }
+        const term = this.state.liveSearch.trim().toLowerCase();
+        return live.people.filter((person) => {
+            const filter = this.state.liveFilter;
+            let byState = filter === "all" || person.state === filter;
+            if (filter === "in") {
+                byState = person.punched_in;
+            }
+            const byBattery =
+                this.state.battery === "all" ||
+                (this.state.battery === "low" ? person.battery && person.battery < 20 : person.battery >= 20);
+            const byGps =
+                this.state.gps === "all" ||
+                (this.state.gps === "on" ? person.gps_on : !person.gps_on);
+            const byTerm =
+                !term ||
+                (person.name || "").toLowerCase().includes(term) ||
+                (person.code || "").toLowerCase().includes(term) ||
+                (person.team || "").toLowerCase().includes(term) ||
+                (person.address || "").toLowerCase().includes(term);
+            return byState && byBattery && byGps && byTerm;
+        });
+    }
+
+    get liveCounts() {
+        const people = this.state.live ? this.state.live.people : [];
+        const counts = { all: people.length, in: people.filter((p) => p.punched_in).length };
+        for (const key of Object.keys(STATES)) {
+            counts[key] = people.filter((p) => p.state === key).length;
+        }
+        return counts;
+    }
+
+    get legend() {
+        return Object.entries(STATES).map(([key, value]) => ({ key, ...value }));
+    }
+
+    stateLabel(key) {
+        return (STATES[key] || STATES.off).label;
+    }
+
+    stateColor(key) {
+        return (STATES[key] || STATES.off).color;
+    }
+
+    setLiveFilter(key) {
+        this.state.liveFilter = key;
+        this.drawLive();
+    }
+
+    onLiveSearch(ev) {
+        this.state.liveSearch = ev.target.value;
+        this.drawLive();
+    }
+
+    setBattery(ev) {
+        this.state.battery = ev.target.value;
+        this.drawLive();
+    }
+
+    setGps(ev) {
+        this.state.gps = ev.target.value;
+        this.drawLive();
+    }
+
+    async toggleClients(ev) {
+        this.state.showClients = ev.target.checked;
+        await this.loadLive();
+    }
+
+    /** Open a card: load that person's day for the tabs, and centre the map. */
+    async openPerson(person) {
+        if (this.state.openId === person.id) {
+            this.state.openId = null;
+            return;
+        }
+        this.state.openId = person.id;
+        this.state.tab = "visits";
+        this.state.dayLoading = true;
+        this.state.day = null;
+        this.centreOn(person);
+        this.state.day = await this.orm.call("ff.dashboard", "ff_employee_day", [person.id]);
+        this.state.dayLoading = false;
+    }
+
+    setTab(tab) {
+        this.state.tab = tab;
+    }
+
+    centreOn(person) {
+        const marker = this.markers.get(person.id);
+        if (!marker || !this.liveMap) {
+            return;
+        }
+        this.liveMap.panTo(marker.getPosition());
+        if (this.liveMap.getZoom() < 14) {
+            this.liveMap.setZoom(15);
+        }
+    }
+
+    async drawLive() {
+        const live = this.state.live;
+        if (!live || !live.google_maps_key) {
+            return;
+        }
+        if (!this.google) {
+            try {
+                this.google = await loadGoogleMaps(live.google_maps_key);
+            } catch (error) {
+                this.state.liveError = `Google Maps could not be loaded: ${error.message || error}`;
+                return;
+            }
+        }
+        if (!this.mapRef.el) {
+            return;  // the section is not on screen yet
+        }
+        if (!this.liveMap) {
+            this.state.usage = await this.orm.call("ff.map.usage", "ff_record_web_map", []);
+            this.liveMap = new this.google.Map(this.mapRef.el, {
+                center: { lat: 20.5937, lng: 78.9629 },
+                zoom: 5,
+                mapTypeControl: true,
+                streetViewControl: false,
+                clickableIcons: false,
+            });
+            this.liveInfo = new this.google.InfoWindow();
+            this.state.liveError = "";
+        }
+        this.paintMarkers();
+    }
+
+    paintMarkers() {
+        const shown = new Set();
+        const bounds = new this.google.core.LatLngBounds();
+        let count = 0;
+        for (const person of this.livePeople.filter((p) => p.lat && p.lng)) {
+            shown.add(person.id);
+            const position = { lat: person.lat, lng: person.lng };
+            let marker = this.markers.get(person.id);
+            if (marker) {
+                marker.setPosition(position);
+                marker.setIcon(pinIcon(this.stateColor(person.state), this.google.core));
+            } else {
+                marker = new this.google.Marker({
+                    map: this.liveMap,
+                    position,
+                    title: person.name,
+                    zIndex: 10,
+                    icon: pinIcon(this.stateColor(person.state), this.google.core),
+                });
+                marker.addListener("click", () => this.openPerson(person));
+                this.markers.set(person.id, marker);
+            }
+            marker.setLabel({
+                text: person.name,
+                className: "ff_map_label",
+                color: "#0F1B3D",
+                fontSize: "11px",
+            });
+            bounds.extend(position);
+            count++;
+        }
+        for (const [id, marker] of this.markers) {
+            if (!shown.has(id)) {
+                marker.setMap(null);
+                this.markers.delete(id);
+            }
+        }
+        this.paintClients();
+        if (count && !this.fitted) {
+            this.fitted = true;
+            if (count === 1) {
+                this.liveMap.setCenter(bounds.getCenter());
+                this.liveMap.setZoom(15);
+            } else {
+                this.liveMap.fitBounds(bounds, 60);
+            }
+        }
+    }
+
+    paintClients() {
+        const wanted = this.state.showClients && this.state.live ? this.state.live.clients : [];
+        const shown = new Set();
+        for (const client of wanted) {
+            shown.add(client.id);
+            if (this.clientMarkers.has(client.id)) {
+                continue;
+            }
+            const marker = new this.google.Marker({
+                map: this.liveMap,
+                position: { lat: client.lat, lng: client.lng },
+                title: client.name,
+                zIndex: 1,
+                icon: {
+                    path: this.google.core.SymbolPath.CIRCLE,
+                    scale: 6,
+                    fillColor: "#7C5CFC",
+                    fillOpacity: 1,
+                    strokeColor: "#FFFFFF",
+                    strokeWeight: 2,
+                },
+            });
+            marker.addListener("click", () => {
+                this.liveInfo.setContent(
+                    `<strong>${client.name}</strong><div class="text-muted">${client.category || "Customer"}</div>`
+                );
+                this.liveInfo.open({ map: this.liveMap, anchor: marker });
+            });
+            this.clientMarkers.set(client.id, marker);
+        }
+        for (const [id, marker] of this.clientMarkers) {
+            if (!shown.has(id)) {
+                marker.setMap(null);
+                this.clientMarkers.delete(id);
+            }
+        }
     }
 
     toggleSidebar() {
@@ -181,6 +443,21 @@ export class AixoloPanel extends Component {
     // -- links into the rest of Odoo ---------------------------------------
     openLiveMap() {
         this.action.doAction({ type: "ir.actions.client", tag: "ff_live_map", name: "Live Map" });
+    }
+
+    /** The GPS trail of this person for today. */
+    openTimeline(person) {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: `${person.name} - today`,
+            res_model: "ff.location.ping",
+            views: [
+                [false, "list"],
+                [false, "form"],
+            ],
+            domain: [["employee_id", "=", person.id]],
+            context: { search_default_today: 1 },
+        });
     }
 
     openEmployee(person) {

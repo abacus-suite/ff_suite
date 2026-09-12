@@ -294,3 +294,65 @@ class FfDashboard(models.AbstractModel):
             'count': sum(row['count'] for row in top),
             'top': top,
         }
+
+    # ------------------------------------------------------------------
+    # Live Location: one employee's day, for the tabs under their card
+    # ------------------------------------------------------------------
+    @api.model
+    def ff_employee_day(self, employee_id, day=None):
+        """What this person did today: visits, orders and forms."""
+        employee = self.env['hr.employee'].sudo().browse(int(employee_id)).exists()
+        if not employee or employee not in self._ff_employees():
+            return {'visits': [], 'orders': [], 'forms': []}
+        day = fields.Date.to_date(day) if day else fields.Date.context_today(self)
+        start, end = self._ff_day_range(day)
+        return {
+            'employee_id': employee.id,
+            'date': day.isoformat(),
+            'visits': self._day_visits(employee, start, end),
+            'orders': self._day_orders(employee, start, end),
+            'forms': self._day_forms(employee, start, end),
+        }
+
+    def _day_visits(self, employee, start, end):
+        visits = self.env['ff.visit'].sudo().search([
+            ('employee_id', '=', employee.id), ('check_in_at', '>=', start), ('check_in_at', '<', end),
+        ], order='check_in_at')
+        return [{
+            'id': visit.id,
+            'client': visit.partner_id.display_name,
+            'state': visit.state,
+            'check_in_at': to_iso(visit.check_in_at),
+            'check_out_at': to_iso(visit.check_out_at),
+            'duration_min': visit.duration_min,
+            'outcome': visit.outcome_id.name or visit.outcome or '',
+            'inside_geofence': visit.inside_geofence,
+        } for visit in visits]
+
+    def _day_orders(self, employee, start, end):
+        if 'sale.order' not in self.env:
+            return []
+        orders = self.env['sale.order'].sudo().search([
+            ('ff_employee_id', '=', employee.id), ('date_order', '>=', start), ('date_order', '<', end),
+        ], order='date_order')
+        return [{
+            'id': order.id,
+            'name': order.name,
+            'client': order.partner_id.display_name,
+            'amount': round(order.amount_total, 2),
+            'state': order.state,
+            'at': to_iso(order.date_order),
+        } for order in orders]
+
+    def _day_forms(self, employee, start, end):
+        if 'ff.form.response' not in self.env:
+            return []
+        responses = self.env['ff.form.response'].sudo().search([
+            ('employee_id', '=', employee.id), ('submitted_at', '>=', start), ('submitted_at', '<', end),
+        ], order='submitted_at')
+        return [{
+            'id': response.id,
+            'name': response.form_id.name,
+            'client': response.partner_id.display_name or '',
+            'at': to_iso(response.submitted_at),
+        } for response in responses]

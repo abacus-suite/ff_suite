@@ -27,7 +27,7 @@
             </div>
 
             <!-- Content -->
-            <div class="ff_panel_main flex-grow-1 overflow-auto">
+            <div class="ff_panel_main flex-grow-1 overflow-auto" t-if="state.section === 'dashboard'">
                 <t t-if="state.loading">
                     <div class="ff_skeleton mb-3" style="height: 72px;"/>
                     <div class="row g-3">
@@ -427,6 +427,211 @@
                         </div>
                     </div>
                 </t>
+            </div>
+
+            <!-- Live Location -->
+            <div class="ff_live flex-grow-1 d-flex flex-column" t-if="state.section === 'live'">
+                <div class="ff_live_bar d-flex align-items-center gap-2 flex-wrap">
+                    <div class="ff_card_head mb-0">
+                        <div class="ff_card_icon"><i class="fa fa-map-marker"/></div>
+                        <div>
+                            <div class="ff_card_title">Live Location</div>
+                            <div class="ff_card_sub"><t t-esc="livePeople.length"/> of <t t-esc="liveCounts.all"/> employees</div>
+                        </div>
+                    </div>
+
+                    <div class="ff_panel_search_wrap">
+                        <i class="fa fa-search"/>
+                        <input type="text" class="form-control form-control-sm ff_panel_search"
+                               placeholder="Search employee, team or place" t-on-input="onLiveSearch"/>
+                    </div>
+
+                    <div class="ff_seg">
+                        <button class="ff_seg_btn" t-att-class="state.liveFilter === 'all' ? 'ff_seg_btn_active' : ''"
+                                t-on-click="() => this.setLiveFilter('all')">All <t t-esc="liveCounts.all"/></button>
+                        <button class="ff_seg_btn" t-att-class="state.liveFilter === 'in' ? 'ff_seg_btn_active' : ''"
+                                t-on-click="() => this.setLiveFilter('in')">Punched in <t t-esc="liveCounts.in"/></button>
+                        <button class="ff_seg_btn" t-att-class="state.liveFilter === 'off' ? 'ff_seg_btn_active' : ''"
+                                t-on-click="() => this.setLiveFilter('off')">Punched out <t t-esc="liveCounts.off"/></button>
+                        <button class="ff_seg_btn" t-att-class="state.liveFilter === 'at_client' ? 'ff_seg_btn_active' : ''"
+                                t-on-click="() => this.setLiveFilter('at_client')">At customer <t t-esc="liveCounts.at_client"/></button>
+                        <button class="ff_seg_btn" t-att-class="state.liveFilter === 'inactive' ? 'ff_seg_btn_active' : ''"
+                                t-on-click="() => this.setLiveFilter('inactive')">Idle <t t-esc="liveCounts.inactive"/></button>
+                        <button class="ff_seg_btn" t-att-class="state.liveFilter === 'no_signal' ? 'ff_seg_btn_active' : ''"
+                                t-on-click="() => this.setLiveFilter('no_signal')">No signal <t t-esc="liveCounts.no_signal"/></button>
+                    </div>
+
+                    <select class="form-select form-select-sm ff_mini_select" t-on-change="setBattery">
+                        <option value="all">Battery: all</option>
+                        <option value="low">Below 20%</option>
+                        <option value="ok">20% and above</option>
+                    </select>
+                    <select class="form-select form-select-sm ff_mini_select" t-on-change="setGps">
+                        <option value="all">GPS: all</option>
+                        <option value="on">GPS on</option>
+                        <option value="off">GPS off</option>
+                    </select>
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="ff_live_clients"
+                               t-att-checked="state.showClients" t-on-change="toggleClients"/>
+                        <label class="form-check-label small" for="ff_live_clients">Show customers</label>
+                    </div>
+
+                    <div class="ms-auto d-flex align-items-center gap-2">
+                        <small class="text-muted" t-if="state.updatedAt">Updated <t t-esc="state.updatedAt"/></small>
+                        <button class="ff_icon_btn" title="Refresh" t-on-click="() => this.loadLive()">
+                            <i class="fa fa-refresh"/>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-grow-1 overflow-hidden">
+                    <div class="ff_live_list">
+                        <t t-if="!state.live">
+                            <div class="ff_skeleton m-2" style="height: 160px;"/>
+                            <div class="ff_skeleton m-2" style="height: 160px;"/>
+                        </t>
+                        <t t-elif="!livePeople.length">
+                            <div class="p-3 text-muted small">Nobody matches these filters.</div>
+                        </t>
+                        <t t-foreach="livePeople" t-as="person" t-key="person.id">
+                            <div class="ff_live_card"
+                                 t-att-class="state.openId === person.id ? 'ff_live_card_open' : ''"
+                                 t-attf-style="border-left-color: {{stateColor(person.state)}}"
+                                 t-on-click="() => this.openPerson(person)">
+                                <div class="d-flex align-items-center gap-2">
+                                    <img class="ff_avatar" t-att-src="person.avatar" alt=""/>
+                                    <div class="flex-grow-1 min-width-0">
+                                        <div class="fw-bold text-truncate" t-esc="person.name"/>
+                                        <div class="small text-muted text-truncate">
+                                            <t t-if="person.code">(<t t-esc="person.code"/>)</t>
+                                            <t t-if="person.phone"> · <t t-esc="person.phone"/></t>
+                                        </div>
+                                    </div>
+                                    <div class="text-end small">
+                                        <div t-if="person.battery"
+                                             t-att-class="person.battery &lt; 20 ? 'text-danger fw-bold' : 'text-muted'">
+                                            <i class="fa" t-att-class="person.is_charging ? 'fa-bolt' : 'fa-battery-half'"/>
+                                            <t t-esc="person.battery"/>%
+                                        </div>
+                                        <i class="fa fa-map-marker" t-att-style="'color: ' + stateColor(person.state)"/>
+                                    </div>
+                                </div>
+
+                                <div class="ff_live_state mt-2"
+                                     t-attf-style="background: {{stateColor(person.state)}}14">
+                                    <div class="d-flex align-items-center">
+                                        <span class="small fw-bold" t-att-style="'color: ' + stateColor(person.state)">
+                                            <t t-if="person.punched_in">
+                                                Punched IN<t t-if="person.punched_in_at"> : <t t-esc="clock(person.punched_in_at)"/></t>
+                                            </t>
+                                            <t t-else="">Punched OUT</t>
+                                        </span>
+                                        <button class="btn btn-sm btn-primary ms-auto py-0"
+                                                t-on-click.stop="() => this.openTimeline(person)">Timeline</button>
+                                    </div>
+                                    <div class="small text-muted mt-1">
+                                        <i class="fa fa-map-marker me-1"/>
+                                        <t t-if="person.at_client">At <t t-esc="person.at_client"/></t>
+                                        <t t-elif="person.address"><t t-esc="person.address"/></t>
+                                        <t t-elif="person.lat">
+                                            <t t-esc="person.lat.toFixed(5)"/>, <t t-esc="person.lng.toFixed(5)"/>
+                                        </t>
+                                        <t t-else="">No location sent yet</t>
+                                        <t t-if="person.last_ping_at"> · <t t-esc="ago(person.last_ping_at)"/></t>
+                                    </div>
+                                </div>
+
+                                <!-- The day of the person, once their card is open -->
+                                <div t-if="state.openId === person.id" class="ff_live_tabs mt-2" t-on-click.stop="() => {}">
+                                    <div class="ff_tabs">
+                                        <button class="ff_tab" t-att-class="state.tab === 'visits' ? 'ff_tab_active' : ''"
+                                                t-on-click="() => this.setTab('visits')">
+                                            Visits <t t-if="state.day">(<t t-esc="state.day.visits.length"/>)</t>
+                                        </button>
+                                        <button class="ff_tab" t-att-class="state.tab === 'orders' ? 'ff_tab_active' : ''"
+                                                t-on-click="() => this.setTab('orders')">
+                                            Orders <t t-if="state.day">(<t t-esc="state.day.orders.length"/>)</t>
+                                        </button>
+                                        <button class="ff_tab" t-att-class="state.tab === 'forms' ? 'ff_tab_active' : ''"
+                                                t-on-click="() => this.setTab('forms')">
+                                            Forms <t t-if="state.day">(<t t-esc="state.day.forms.length"/>)</t>
+                                        </button>
+                                    </div>
+
+                                    <div t-if="state.dayLoading" class="ff_skeleton mt-2" style="height: 60px;"/>
+                                    <t t-elif="state.day">
+                                        <table class="table table-sm ff_day_table mb-0 mt-1">
+                                            <t t-if="state.tab === 'visits'">
+                                                <tr t-foreach="state.day.visits" t-as="visit" t-key="visit.id">
+                                                    <td>
+                                                        <span class="ff_dot"
+                                                              t-attf-style="background: {{visit.state === 'done' ? '#16A34A' : '#1A56DB'}}"/>
+                                                        <t t-esc="visit.client"/>
+                                                        <div class="text-muted" t-if="visit.outcome" t-esc="visit.outcome"/>
+                                                    </td>
+                                                    <td class="text-end text-muted">
+                                                        <t t-esc="clock(visit.check_in_at)"/>
+                                                        <t t-if="visit.check_out_at">–<t t-esc="clock(visit.check_out_at)"/></t>
+                                                        <div t-if="visit.duration_min"><t t-esc="visit.duration_min"/> min</div>
+                                                    </td>
+                                                </tr>
+                                                <tr t-if="!state.day.visits.length">
+                                                    <td class="text-muted">No visits today.</td>
+                                                </tr>
+                                            </t>
+                                            <t t-if="state.tab === 'orders'">
+                                                <tr t-foreach="state.day.orders" t-as="order" t-key="order.id">
+                                                    <td>
+                                                        <t t-esc="order.name"/>
+                                                        <div class="text-muted" t-esc="order.client"/>
+                                                    </td>
+                                                    <td class="text-end">
+                                                        <span class="fw-bold" t-esc="money(order.amount)"/>
+                                                        <div class="text-muted"><t t-esc="clock(order.at)"/></div>
+                                                    </td>
+                                                </tr>
+                                                <tr t-if="!state.day.orders.length">
+                                                    <td class="text-muted">No orders today.</td>
+                                                </tr>
+                                            </t>
+                                            <t t-if="state.tab === 'forms'">
+                                                <tr t-foreach="state.day.forms" t-as="form" t-key="form.id">
+                                                    <td>
+                                                        <t t-esc="form.name"/>
+                                                        <div class="text-muted" t-esc="form.client"/>
+                                                    </td>
+                                                    <td class="text-end text-muted"><t t-esc="clock(form.at)"/></td>
+                                                </tr>
+                                                <tr t-if="!state.day.forms.length">
+                                                    <td class="text-muted">No forms today.</td>
+                                                </tr>
+                                            </t>
+                                        </table>
+                                    </t>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+
+                    <div class="flex-grow-1 position-relative">
+                        <div class="ff_live_canvas" t-ref="liveMap"/>
+                        <div class="ff_warn ff_live_warn" t-if="state.liveError">
+                            <i class="fa fa-exclamation-triangle me-1"/><t t-esc="state.liveError"/>
+                        </div>
+                        <div class="ff_warn ff_live_warn" t-if="state.live and !state.live.google_maps_key">
+                            <i class="fa fa-info-circle me-1"/>
+                            No Google Maps key yet — the list works without one. Paste a key in
+                            Field Force settings to see the map.
+                        </div>
+                        <div class="ff_live_legend">
+                            <span class="me-2" t-foreach="legend" t-as="item" t-key="item.key">
+                                <span class="ff_dot" t-attf-style="background: {{item.color}}"/>
+                                <span t-esc="item.label"/>
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </t>
