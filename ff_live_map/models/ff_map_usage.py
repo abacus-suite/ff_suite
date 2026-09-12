@@ -4,9 +4,12 @@ Google bills two things we use: a map load in the Odoo web map, and a tile in
 the phone app. Both are counted here as they happen, so the office can see the
 month's usage against the free allowance without opening Cloud Console.
 """
+import logging
 from datetime import date
 
 from odoo import api, fields, models
+
+_logger = logging.getLogger(__name__)
 
 KINDS = [
     ('web_map', 'Odoo Map Load'),
@@ -104,7 +107,13 @@ class FfMapUsage(models.Model):
 
     @api.model
     def _ff_month_bounds(self, month=None):
-        first = fields.Date.to_date(month) if month else fields.Date.context_today(self)
+        """The month asked for, or this one when the caller sends nonsense."""
+        first = fields.Date.context_today(self)
+        if month:
+            try:
+                first = fields.Date.to_date(month) or first
+            except ValueError:
+                _logger.warning('Field Force: ignoring an unreadable month (%s)', month)
         first = first.replace(day=1)
         return first, date(first.year + (first.month // 12), (first.month % 12) + 1, 1)
 

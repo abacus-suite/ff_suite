@@ -164,3 +164,11 @@ class TestGeocodeCache(TransactionCase):
         self.status.write({'latitude': 0.0, 'longitude': 0.0})  # nothing to look up
         self.status.ff_resolve_addresses()
         self.assertFalse(Param.get_param('ff_base.geocode_problem'))
+
+    def test_an_unreadable_month_falls_back_to_this_one(self):
+        summary = self.Usage.ff_usage_summary('NaN-NaN-01')
+        self.assertEqual(summary['month'], fields.Date.context_today(self.Usage).strftime('%Y-%m'))
+
+    def test_a_month_can_be_asked_for_by_date(self):
+        summary = self.Usage.ff_usage_summary('2026-04-01')
+        self.assertEqual(summary['month'], '2026-04')

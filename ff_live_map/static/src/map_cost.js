@@ -22,14 +22,20 @@ export class FieldForceMapCost extends Component {
 
     /** Move the view one month back or forward. */
     async shiftMonth(delta) {
-        const current = this.state.month ? new Date(`${this.state.month}-01`) : new Date();
-        current.setMonth(current.getMonth() + delta);
-        const now = new Date();
-        if (current > now) {
+        // state.month is already a full date, so it is parsed as one: appending
+        // another day made "2026-09-01-01", which is not a date at all.
+        const current = this.state.month ? new Date(`${this.state.month}T00:00:00`) : new Date();
+        if (Number.isNaN(current.getTime())) {
+            this.state.month = null;
+            await this.load();
             return;
         }
-        const month = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-01`;
-        this.state.month = month;
+        current.setDate(1);
+        current.setMonth(current.getMonth() + delta);
+        if (current > new Date()) {
+            return;  // a month that has not happened has nothing to show
+        }
+        this.state.month = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-01`;
         await this.load();
     }
 
