@@ -104,3 +104,33 @@ class TestDemand(TransactionCase):
         wizard.distributor_id = self.distributor.id
         wizard.action_create()
         self.assertEqual(demand.distributor_id, self.distributor)
+
+    def test_the_sale_price_follows_pts_on_this_flow(self):
+        product = self.env['product.product'].create({
+            'name': 'Amox 500', 'sale_ok': True, 'list_price': 0.0})
+        product.product_tmpl_id.write({'ff_pts': 62.0, 'ff_ptr': 78.0, 'ff_mrp': 95.0})
+        self.assertEqual(product.product_tmpl_id.list_price, 62.0,
+                         'the distributor is the customer, so the sale price is PTS')
+
+    def test_a_chosen_sale_price_is_left_alone(self):
+        template = self.product.product_tmpl_id
+        template.write({'list_price': 91.0})
+        self.assertEqual(template.list_price, 91.0, 'only a change to PTS moves the sale price')
+
+    def test_the_direct_flow_never_touches_the_sale_price(self):
+        self.env['ir.config_parameter'].sudo().set_param('ff_base.order_flow', 'direct')
+        product = self.env['product.product'].create({
+            'name': 'Direct Item', 'sale_ok': True, 'list_price': 200.0})
+        product.product_tmpl_id.write({'ff_pts': 150.0})
+        self.assertEqual(product.product_tmpl_id.list_price, 200.0)
+        self.env['ir.config_parameter'].sudo().set_param('ff_base.order_flow', 'demand')
+
+    def test_the_backfill_puts_pts_on_the_sale_price(self):
+        self.env['ir.config_parameter'].sudo().set_param('ff_base.order_flow', 'direct')
+        product = self.env['product.product'].create({
+            'name': 'Backfill Item', 'sale_ok': True, 'list_price': 300.0})
+        product.product_tmpl_id.write({'ff_pts': 210.0})
+        self.assertEqual(product.product_tmpl_id.list_price, 300.0)
+        product.product_tmpl_id.action_ff_apply_pts_price()
+        self.assertEqual(product.product_tmpl_id.list_price, 210.0)
+        self.env['ir.config_parameter'].sudo().set_param('ff_base.order_flow', 'demand')
