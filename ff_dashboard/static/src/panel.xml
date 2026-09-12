@@ -925,9 +925,41 @@
                         <button class="ff_seg_btn" t-att-class="state.period === 'month' ? 'ff_seg_btn_active' : ''"
                                 t-on-click="() => this.setPeriod('month')">This Month</button>
                     </div>
-                    <button class="ff_icon_btn" title="Refresh" t-on-click="() => this.loadReport()">
+                    <button class="ff_icon_btn" title="Refresh" t-on-click="() => this.refreshSection()">
                         <i class="fa fa-refresh"/>
                     </button>
+                </div>
+
+                <div class="ff_filter_bar" t-if="state.options">
+                    <span class="ff_filter_label"><i class="fa fa-filter me-1"/>Filter</span>
+                    <select class="form-select form-select-sm ff_mini_select"
+                            t-on-change="(ev) => this.setFilter('employee_id', ev)">
+                        <option value="">All employees</option>
+                        <option t-foreach="state.options.employees" t-as="row" t-key="row.id"
+                                t-att-value="row.id" t-att-selected="state.filters.employee_id === row.id">
+                            <t t-esc="row.name"/><t t-if="row.code"> (<t t-esc="row.code"/>)</t>
+                        </option>
+                    </select>
+                    <select class="form-select form-select-sm ff_mini_select"
+                            t-on-change="(ev) => this.setFilter('department_id', ev)">
+                        <option value="">All departments</option>
+                        <option t-foreach="state.options.departments" t-as="row" t-key="row.id"
+                                t-att-value="row.id" t-att-selected="state.filters.department_id === row.id"
+                                t-esc="row.name"/>
+                    </select>
+                    <select class="form-select form-select-sm ff_mini_select"
+                            t-on-change="(ev) => this.setFilter('team_id', ev)">
+                        <option value="">All teams</option>
+                        <option t-foreach="state.options.teams" t-as="row" t-key="row.id"
+                                t-att-value="row.id" t-att-selected="state.filters.team_id === row.id"
+                                t-esc="row.name"/>
+                    </select>
+                    <button class="ff_chip_btn" t-if="filterCount" t-on-click="clearFilters">
+                        <i class="fa fa-times me-1"/>Clear <t t-esc="filterCount"/>
+                    </button>
+                    <span class="ms-auto small text-muted" t-if="state.report">
+                        <t t-esc="state.report.employee_ids.length"/> employees in this report
+                    </span>
                 </div>
 
                 <t t-if="state.reportLoading">
@@ -943,6 +975,115 @@
 
                     <!-- Attendance -->
                     <t t-if="state.section === 'attendance'">
+                        <div class="d-flex align-items-center gap-2 mt-3">
+                            <div class="ff_seg">
+                                <button class="ff_seg_btn"
+                                        t-att-class="state.attendanceView === 'summary' ? 'ff_seg_btn_active' : ''"
+                                        t-on-click="() => this.setAttendanceView('summary')">
+                                    <i class="fa fa-bar-chart me-1"/>Summary
+                                </button>
+                                <button class="ff_seg_btn"
+                                        t-att-class="state.attendanceView === 'calendar' ? 'ff_seg_btn_active' : ''"
+                                        t-on-click="() => this.setAttendanceView('calendar')">
+                                    <i class="fa fa-calendar me-1"/>Calendar
+                                </button>
+                            </div>
+                            <button class="ff_chip_btn ms-auto" t-on-click="() => this.drillAttendance()">
+                                <i class="fa fa-external-link me-1"/>Open in Odoo
+                            </button>
+                        </div>
+
+                        <t t-if="state.attendanceView === 'calendar'">
+                            <div class="ff_card mt-3 mb-3" t-if="state.calendar">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <div class="ff_card_head mb-0">
+                                        <div class="ff_card_icon"><i class="fa fa-calendar"/></div>
+                                        <div>
+                                            <div class="ff_card_title" t-esc="state.calendar.label"/>
+                                            <div class="ff_card_sub">
+                                                <t t-esc="state.calendar.totals.present"/> of
+                                                <t t-esc="state.calendar.totals.expected"/> expected ·
+                                                <t t-esc="state.calendar.totals.late"/> late ·
+                                                <t t-esc="state.calendar.totals.on_leave"/> on leave
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="ms-auto d-flex align-items-center gap-1">
+                                        <button class="ff_icon_btn" t-on-click="() => this.shiftMonth(-1)">
+                                            <i class="fa fa-chevron-left"/>
+                                        </button>
+                                        <button class="ff_icon_btn" t-on-click="() => this.shiftMonth(1)">
+                                            <i class="fa fa-chevron-right"/>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="ff_cal_head">
+                                    <span t-foreach="['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']"
+                                          t-as="name" t-key="name" t-esc="name"/>
+                                </div>
+                                <div class="ff_cal">
+                                    <t t-foreach="state.calendar.weeks" t-as="week" t-key="week_index">
+                                        <t t-foreach="week" t-as="cell" t-key="cell_index">
+                                            <div t-if="!cell" class="ff_cal_cell ff_cal_empty"/>
+                                            <div t-else="" class="ff_cal_cell"
+                                                 t-att-class="(cell.today ? 'ff_cal_today ' : '') + (state.openDay and state.openDay.date === cell.date ? 'ff_cal_open' : '')"
+                                                 t-on-click="() => this.openDayDetail(cell)">
+                                                <div class="ff_cal_top">
+                                                    <span class="ff_cal_day" t-esc="cell.day"/>
+                                                    <span class="ff_cal_count" t-if="!cell.future">
+                                                        <t t-esc="cell.present"/>/<t t-esc="cell.boxes.length"/>
+                                                    </span>
+                                                </div>
+                                                <div class="ff_cal_boxes">
+                                                    <span t-foreach="cell.boxes" t-as="box" t-key="box.id"
+                                                          class="ff_cal_box" t-att-class="boxClass(box.status)"
+                                                          t-attf-title="{{box.name}}: {{box.status}}{{box.hours ? ' · ' + box.hours + ' h' : ''}}"/>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </t>
+                                </div>
+
+                                <div class="ff_cal_legend">
+                                    <span><span class="ff_cal_box ff_box_present"/> Present</span>
+                                    <span><span class="ff_cal_box ff_box_late"/> Late</span>
+                                    <span><span class="ff_cal_box ff_box_absent"/> Absent</span>
+                                    <span><span class="ff_cal_box ff_box_leave"/> On leave</span>
+                                    <span><span class="ff_cal_box ff_box_future"/> Not yet</span>
+                                </div>
+
+                                <div class="ff_day_detail mt-3" t-if="state.openDay">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span class="fw-bold">
+                                            <t t-esc="state.openDay.weekday"/> <t t-esc="state.openDay.date"/>
+                                        </span>
+                                        <span class="ff_chip ms-2">
+                                            <t t-esc="state.openDay.present"/> present ·
+                                            <t t-esc="state.openDay.absent"/> absent
+                                        </span>
+                                        <button class="ff_chip_btn ms-auto"
+                                                t-on-click="() => this.drillAttendance([['check_in', '&gt;=', state.openDay.date + ' 00:00:00'], ['check_in', '&lt;=', state.openDay.date + ' 23:59:59']])">
+                                            <i class="fa fa-external-link me-1"/>Open that day
+                                        </button>
+                                    </div>
+                                    <div class="ff_day_people">
+                                        <div t-foreach="state.openDay.boxes" t-as="box" t-key="box.id"
+                                             class="ff_day_person">
+                                            <span class="ff_cal_box" t-att-class="boxClass(box.status)"/>
+                                            <span class="text-truncate" t-esc="box.name"/>
+                                            <span class="ms-auto small text-muted">
+                                                <t t-if="box.at"><t t-esc="clock(box.at)"/> · <t t-esc="box.hours"/> h</t>
+                                                <t t-else="" t-esc="box.status"/>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div t-else="" class="ff_skeleton mt-3" style="height: 320px;"/>
+                        </t>
+
+                        <t t-else="">
                         <div class="row g-3 mt-0">
                             <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db">
                                 <div class="ff_card_title">Headcount</div>
@@ -1019,10 +1160,16 @@
                                 </tbody>
                             </table>
                         </div>
+                        </t>
                     </t>
 
                     <!-- Leaves -->
                     <t t-if="state.section === 'leaves'">
+                        <div class="d-flex align-items-center mt-3">
+                            <button class="ff_chip_btn ms-auto" t-on-click="() => this.drillLeaves()">
+                                <i class="fa fa-external-link me-1"/>Open in Odoo
+                            </button>
+                        </div>
                         <div class="row g-3 mt-0">
                             <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b">
                                 <div class="ff_card_title">To approve</div>
@@ -1112,6 +1259,11 @@
 
                     <!-- Expenses -->
                     <t t-if="state.section === 'expenses'">
+                        <div class="d-flex align-items-center mt-3">
+                            <button class="ff_chip_btn ms-auto" t-on-click="() => this.drillExpenses()">
+                                <i class="fa fa-external-link me-1"/>Open in Odoo
+                            </button>
+                        </div>
                         <div class="row g-3 mt-0">
                             <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db">
                                 <div class="ff_card_title">Claimed</div>
@@ -1202,6 +1354,11 @@
 
                     <!-- Orders or demand -->
                     <t t-if="state.section === 'orders'">
+                        <div class="d-flex align-items-center mt-3">
+                            <button class="ff_chip_btn ms-auto" t-on-click="() => this.drillOrders()">
+                                <i class="fa fa-external-link me-1"/>Open in Odoo
+                            </button>
+                        </div>
                         <div class="row g-3 mt-0">
                             <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db">
                                 <div class="ff_card_title">

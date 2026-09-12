@@ -38,6 +38,36 @@ class FfDashboard(models.AbstractModel):
             return Employee.search(company_domain)
         return Employee.browse()
 
+    @api.model
+    def _ff_filtered_employees(self, filters=None):
+        """The scope, narrowed by whatever the panel's filters are set to."""
+        employees = self._ff_employees()
+        filters = filters or {}
+        employee_id = filters.get('employee_id')
+        if employee_id:
+            employees = employees.filtered(lambda e, i=int(employee_id): e.id == i)
+        department_id = filters.get('department_id')
+        if department_id:
+            employees = employees.filtered(lambda e, i=int(department_id): e.department_id.id == i)
+        team_id = filters.get('team_id')
+        if team_id:
+            employees = employees.filtered(lambda e, i=int(team_id): e.ff_team_id.id == i)
+        return employees
+
+    @api.model
+    def ff_filter_options(self):
+        """What the filter dropdowns offer: only what the viewer may see."""
+        employees = self._ff_employees()
+        return {
+            'employees': [{'id': employee.id, 'name': employee.name,
+                           'code': employee.ff_employee_code or ''}
+                          for employee in employees.sorted('name')],
+            'departments': [{'id': department.id, 'name': department.name}
+                            for department in employees.mapped('department_id').sorted('name')],
+            'teams': [{'id': team.id, 'name': team.name}
+                      for team in employees.mapped('ff_team_id').sorted('name')],
+        }
+
     def _ff_day_range(self, day):
         """UTC bounds of a local day, so counts match what people saw."""
         start = fields.Datetime.to_datetime('%s 00:00:00' % day)

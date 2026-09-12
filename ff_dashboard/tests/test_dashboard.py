@@ -238,3 +238,60 @@ class TestReports(TransactionCase):
     def test_a_missing_module_reports_nothing_rather_than_failing(self):
         result = self.Dashboard.ff_leaves_report()
         self.assertTrue(result is None or 'kpis' in result)
+
+
+@tagged('post_install', '-at_install', 'ff')
+class TestFiltersAndCalendar(TransactionCase):
+    """Filters narrow every report, and the month grid tells the day apart."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.Dashboard = cls.env['ff.dashboard']
+        cls.sales = cls.env['hr.department'].create({'name': 'Sales Dept'})
+        cls.medical = cls.env['hr.department'].create({'name': 'Medical Dept'})
+        cls.team = cls.env['ff.team'].create({'name': 'North Team'})
+        cls.one = cls.env['hr.employee'].create({
+            'name': 'Filter One', 'tz': 'UTC', 'department_id': cls.sales.id, 'ff_team_id': cls.team.id})
+        cls.two = cls.env['hr.employee'].create({
+            'name': 'Filter Two', 'tz': 'UTC', 'department_id': cls.medical.id})
+
+    def test_the_filters_offer_only_what_is_in_scope(self):
+        options = self.Dashboard.ff_filter_options()
+        names = [row['name'] for row in options['employees']]
+        self.assertIn('Filter One', names)
+        self.assertIn('Sales Dept', [row['name'] for row in options['departments']])
+        self.assertIn('North Team', [row['name'] for row in options['teams']])
+
+    def test_one_employee_narrows_the_report(self):
+        report = self.Dashboard.ff_attendance_report('month', {'employee_id': self.one.id})
+        self.assertEqual(report['employee_ids'], [self.one.id])
+        self.assertEqual(report['kpis']['headcount'], 1)
+
+    def test_a_department_narrows_the_report(self):
+        report = self.Dashboard.ff_attendance_report('month', {'department_id': self.medical.id})
+        self.assertEqual(report['employee_ids'], [self.two.id])
+
+    def test_a_team_narrows_the_report(self):
+        report = self.Dashboard.ff_expense_report('month', {'team_id': self.team.id})
+        if report is not None:
+            self.assertEqual(report['employee_ids'], [self.one.id])
+
+    def test_the_calendar_is_a_month_of_boxes(self):
+        now = fields.Datetime.now()
+        self.env['hr.attendance'].create({
+            'employee_id': self.one.id, 'check_in': now - timedelta(hours=6), 'check_out': now})
+        calendar = self.Dashboard.ff_attendance_calendar(None, {'employee_id': self.one.id})
+        cells = [cell for week in calendar['weeks'] for cell in week if cell]
+        self.assertTrue(cells, 'the month has days')
+        self.assertTrue(all(len(week) == 7 for week in calendar['weeks']), 'seven columns a week')
+        today = next(cell for cell in cells if cell['today'])
+        self.assertEqual(today['present'], 1)
+        self.assertEqual(today['boxes'][0]['status'], 'present')
+
+    def test_days_still_to_come_are_not_counted_as_absence(self):
+        calendar = self.Dashboard.ff_attendance_calendar()
+        future = [cell for week in calendar['weeks'] for cell in week if cell and cell['future']]
+        for cell in future:
+            self.assertEqual(cell['absent'], 0)
+            self.assertTrue(all(box['status'] == 'future' for box in cell['boxes']))

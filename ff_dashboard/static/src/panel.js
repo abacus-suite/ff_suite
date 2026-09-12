@@ -78,6 +78,12 @@ export class AixoloPanel extends Component {
             collapsedNodes: [],
             report: null,
             reportLoading: false,
+            options: null,
+            filters: { employee_id: null, department_id: null, team_id: null },
+            calendar: null,
+            calendarMonth: null,
+            attendanceView: "summary",
+            openDay: null,
             timeline: null,
             timelineEmployees: [],
             timelineEmployeeId: null,
@@ -482,6 +488,143 @@ export class AixoloPanel extends Component {
 
 
 
+
+    // -- filters shared by every report ------------------------------------
+    async loadOptions() {
+        if (!this.state.options) {
+            this.state.options = await this.orm.call("ff.dashboard", "ff_filter_options", []);
+        }
+    }
+
+    get activeFilters() {
+        const filters = {};
+        for (const [key, value] of Object.entries(this.state.filters)) {
+            if (value) {
+                filters[key] = value;
+            }
+        }
+        return filters;
+    }
+
+    get filterCount() {
+        return Object.keys(this.activeFilters).length;
+    }
+
+    async setFilter(key, ev) {
+        const value = parseInt(ev.target.value, 10);
+        this.state.filters[key] = Number.isNaN(value) ? null : value;
+        await this.refreshSection();
+    }
+
+    async clearFilters() {
+        this.state.filters = { employee_id: null, department_id: null, team_id: null };
+        await this.refreshSection();
+    }
+
+    async refreshSection() {
+        if (REPORTS[this.state.section]) {
+            await this.loadReport();
+            if (this.state.section === "attendance" && this.state.attendanceView === "calendar") {
+                await this.loadCalendar();
+            }
+        }
+    }
+
+    // -- the attendance calendar -------------------------------------------
+    async setAttendanceView(view) {
+        this.state.attendanceView = view;
+        if (view === "calendar") {
+            await this.loadCalendar();
+        }
+    }
+
+    async loadCalendar() {
+        this.state.calendar = await this.orm.call("ff.dashboard", "ff_attendance_calendar", [
+            this.state.calendarMonth,
+            this.activeFilters,
+        ]);
+        this.state.calendarMonth = this.state.calendar.month;
+    }
+
+    async shiftMonth(delta) {
+        const current = new Date(`${this.state.calendarMonth || this.state.calendar.month}T00:00:00`);
+        current.setMonth(current.getMonth() + delta);
+        this.state.calendarMonth = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(
+            2,
+            "0"
+        )}-01`;
+        await this.loadCalendar();
+    }
+
+    openDayDetail(cell) {
+        this.state.openDay = this.state.openDay && this.state.openDay.date === cell.date ? null : cell;
+    }
+
+    boxClass(status) {
+        return {
+            present: "ff_box_present",
+            late: "ff_box_late",
+            absent: "ff_box_absent",
+            leave: "ff_box_leave",
+            future: "ff_box_future",
+        }[status];
+    }
+
+    /** How full the day looks at a glance, for the tint behind the boxes. */
+    dayFill(cell) {
+        const total = cell.boxes.length || 1;
+        return Math.round((cell.present / total) * 100);
+    }
+
+    // -- drill into the Odoo records behind a section ----------------------
+    get reportEmployeeIds() {
+        return this.state.report ? this.state.report.employee_ids : [];
+    }
+
+    /** The period of the report, as a domain leaf on a date field. */
+    periodLeaf(field) {
+        const start = this.state.report ? this.state.report.start : null;
+        return start ? [[field, ">=", start]] : [];
+    }
+
+    drillAttendance(extra) {
+        this.openModel(
+            "hr.attendance",
+            "Attendance",
+            [["employee_id", "in", this.reportEmployeeIds]]
+                .concat(this.periodLeaf("check_in"))
+                .concat(extra || []),
+            [
+                [false, "list"],
+                [false, "form"],
+            ]
+        );
+    }
+
+    drillLeaves(extra) {
+        this.openModel("hr.leave", "Time Off", [["employee_id", "in", this.reportEmployeeIds]].concat(extra || []));
+    }
+
+    drillExpenses(extra) {
+        this.openModel(
+            "ff.expense.claim",
+            "Expense Claims",
+            [["employee_id", "in", this.reportEmployeeIds]].concat(this.periodLeaf("date")).concat(extra || [])
+        );
+    }
+
+    drillOrders(extra) {
+        const demand = this.state.report && this.state.report.flow === "demand";
+        const model = demand ? "ff.demand" : "sale.order";
+        const employeeField = demand ? "employee_id" : "ff_employee_id";
+        const dateField = demand ? "date" : "date_order";
+        this.openModel(
+            model,
+            demand ? "Outlet Demands" : "Orders",
+            [[employeeField, "in", this.reportEmployeeIds]].concat(this.periodLeaf(dateField)).concat(extra || [])
+        );
+    }
+
     // -- the report sections ----------------------------------------------
     async loadReport() {
         const method = REPORTS[this.state.section];
@@ -489,7 +632,11 @@ export class AixoloPanel extends Component {
             return;
         }
         this.state.reportLoading = true;
-        this.state.report = await this.orm.call("ff.dashboard", method, [this.state.period]);
+        await this.loadOptions();
+        this.state.report = await this.orm.call("ff.dashboard", method, [
+            this.state.period,
+            this.activeFilters,
+        ]);
         this.state.reportLoading = false;
     }
 

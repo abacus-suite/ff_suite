@@ -4,6 +4,7 @@ Every one answers the same shape - a few headline numbers, a series to draw,
 and the rows behind them - so the panel can render them with one set of parts.
 Sections whose module is absent simply return nothing and are not shown.
 """
+import calendar
 from datetime import timedelta
 
 from odoo import api, fields, models
@@ -18,8 +19,8 @@ class FfDashboardReports(models.AbstractModel):
     # Attendance
     # ------------------------------------------------------------------
     @api.model
-    def ff_attendance_report(self, period='month'):
-        employees = self._ff_employees()
+    def ff_attendance_report(self, period='month', filters=None):
+        employees = self._ff_filtered_employees(filters)
         today = fields.Date.context_today(self)
         start = self._period_start(today, period)
         start_dt = self._ff_day_range(start)[0]
@@ -72,6 +73,8 @@ class FfDashboardReports(models.AbstractModel):
         return {
             'period': period,
             'days': days,
+            'employee_ids': employees.ids,
+            'start': start.isoformat(),
             'kpis': {
                 'headcount': len(employees),
                 'present_today': len({a.employee_id.id for a in attendances
@@ -89,10 +92,10 @@ class FfDashboardReports(models.AbstractModel):
     # Leaves, on Odoo's own Time Off
     # ------------------------------------------------------------------
     @api.model
-    def ff_leaves_report(self, period='month'):
+    def ff_leaves_report(self, period='month', filters=None):
         if 'hr.leave' not in self.env:
             return None
-        employees = self._ff_employees()
+        employees = self._ff_filtered_employees(filters)
         today = fields.Date.context_today(self)
         start = self._period_start(today, period)
         Leave = self.env['hr.leave'].sudo()
@@ -127,6 +130,8 @@ class FfDashboardReports(models.AbstractModel):
 
         return {
             'period': period,
+            'employee_ids': employees.ids,
+            'start': start.isoformat(),
             'kpis': {
                 'pending': len(leaves.filtered(lambda l: l.state in ('confirm', 'validate1'))),
                 'approved': len(leaves.filtered(lambda l: l.state == 'validate')),
@@ -145,10 +150,10 @@ class FfDashboardReports(models.AbstractModel):
     # Expenses
     # ------------------------------------------------------------------
     @api.model
-    def ff_expense_report(self, period='month'):
+    def ff_expense_report(self, period='month', filters=None):
         if 'ff.expense.claim' not in self.env:
             return None
-        employees = self._ff_employees()
+        employees = self._ff_filtered_employees(filters)
         today = fields.Date.context_today(self)
         start = self._period_start(today, period)
         Claim = self.env['ff.expense.claim'].sudo()
@@ -175,6 +180,8 @@ class FfDashboardReports(models.AbstractModel):
 
         return {
             'period': period,
+            'employee_ids': employees.ids,
+            'start': start.isoformat(),
             'currency': self.env.company.currency_id.symbol or '',
             'kpis': {
                 'total': round(sum(claims.mapped('amount')), 2),
@@ -204,8 +211,8 @@ class FfDashboardReports(models.AbstractModel):
     # Orders, and demand when that flow is on
     # ------------------------------------------------------------------
     @api.model
-    def ff_order_report(self, period='month'):
-        employees = self._ff_employees()
+    def ff_order_report(self, period='month', filters=None):
+        employees = self._ff_filtered_employees(filters)
         today = fields.Date.context_today(self)
         start = self._period_start(today, period)
         start_dt = self._ff_day_range(start)[0]
@@ -224,6 +231,8 @@ class FfDashboardReports(models.AbstractModel):
         return {
             'flow': flow,
             'period': period,
+            'employee_ids': employees.ids,
+            'start': start.isoformat(),
             'currency': self.env.company.currency_id.symbol or '',
             'kpis': {
                 'total': round(total, 2),
@@ -257,6 +266,8 @@ class FfDashboardReports(models.AbstractModel):
         return {
             'flow': flow,
             'period': period,
+            'employee_ids': employees.ids,
+            'start': start.isoformat(),
             'currency': self.env.company.currency_id.symbol or '',
             'kpis': {
                 'total': round(total, 2),
@@ -336,3 +347,117 @@ class FfDashboardReports(models.AbstractModel):
         for row in rows.values():
             row['amount'] = round(row['amount'], 2)
         return sorted(rows.values(), key=lambda row: -row['quantity'])[:limit]
+
+    # ------------------------------------------------------------------
+    # Attendance as a month calendar
+    # ------------------------------------------------------------------
+    @api.model
+    def ff_attendance_calendar(self, month=None, filters=None):
+        """A month of boxes: one cell per day, one small box per employee inside.
+
+        Green means present, amber late, red absent, and days outside the month
+        or still to come are left empty rather than counted as absence.
+        """
+        employees = self._ff_filtered_employees(filters)
+        today = fields.Date.context_today(self)
+        first = fields.Date.to_date(month) if month else today
+        first = first.replace(day=1)
+        last_day = calendar.monthrange(first.year, first.month)[1]
+        last = first.replace(day=last_day)
+
+        attendances = self.env['hr.attendance'].sudo().search([
+            ('employee_id', 'in', employees.ids),
+            ('check_in', '>=', self._ff_day_range(first)[0]),
+            ('check_in', '<', self._ff_day_range(last)[1]),
+        ], order='check_in')
+
+        by_day = {}
+        for attendance in attendances:
+            day = fields.Date.to_date(attendance.check_in)
+            row = by_day.setdefault(day, {})
+            entry = row.setdefault(attendance.employee_id.id, {'hours': 0.0, 'late': 0, 'first': attendance.check_in})
+            entry['hours'] += attendance.worked_hours
+            entry['late'] += 1 if attendance.ff_late_minutes else 0
+            entry['first'] = min(entry['first'], attendance.check_in)
+
+        leave_days = self._ff_leave_days(employees, first, last)
+
+        weeks, week = [], []
+        # Monday-first grid, padded so the month starts in the right column.
+        lead = first.weekday()
+        for _ in range(lead):
+            week.append(None)
+        for number in range(1, last_day + 1):
+            day = first.replace(day=number)
+            week.append(self._calendar_day(day, today, employees, by_day.get(day, {}), leave_days))
+            if len(week) == 7:
+                weeks.append(week)
+                week = []
+        if week:
+            week += [None] * (7 - len(week))
+            weeks.append(week)
+
+        present_days = sum(cell['present'] for row in weeks for cell in row if cell)
+        working_days = len([cell for row in weeks for cell in row if cell and not cell['future']])
+        return {
+            'month': first.strftime('%Y-%m-%d'),
+            'label': first.strftime('%B %Y'),
+            'employees': [{'id': employee.id, 'name': employee.name} for employee in employees.sorted('name')],
+            'weeks': weeks,
+            'totals': {
+                'headcount': len(employees),
+                'present': present_days,
+                'expected': working_days * len(employees),
+                'late': sum(cell['late'] for row in weeks for cell in row if cell),
+                'on_leave': sum(cell['leave'] for row in weeks for cell in row if cell),
+            },
+        }
+
+    def _calendar_day(self, day, today, employees, punches, leave_days):
+        boxes = []
+        for employee in employees.sorted('name'):
+            punch = punches.get(employee.id)
+            if punch:
+                status = 'late' if punch['late'] else 'present'
+            elif employee.id in leave_days.get(day, set()):
+                status = 'leave'
+            elif day > today:
+                status = 'future'
+            else:
+                status = 'absent'
+            boxes.append({
+                'id': employee.id,
+                'name': employee.name,
+                'status': status,
+                'hours': round(punch['hours'], 1) if punch else 0.0,
+                'at': to_iso(punch['first']) if punch else False,
+            })
+        return {
+            'date': day.isoformat(),
+            'day': day.day,
+            'weekday': day.strftime('%a'),
+            'today': day == today,
+            'future': day > today,
+            'present': len([box for box in boxes if box['status'] in ('present', 'late')]),
+            'late': len([box for box in boxes if box['status'] == 'late']),
+            'leave': len([box for box in boxes if box['status'] == 'leave']),
+            'absent': len([box for box in boxes if box['status'] == 'absent']),
+            'boxes': boxes,
+        }
+
+    def _ff_leave_days(self, employees, first, last):
+        """Which employees were on approved leave on which day."""
+        days = {}
+        if 'hr.leave' not in self.env:
+            return days
+        leaves = self.env['hr.leave'].sudo().search([
+            ('employee_id', 'in', employees.ids), ('state', '=', 'validate'),
+            ('date_from', '<=', self._ff_day_range(last)[1]),
+            ('date_to', '>=', self._ff_day_range(first)[0]),
+        ])
+        for leave in leaves:
+            start = max(fields.Date.to_date(leave.date_from), first)
+            end = min(fields.Date.to_date(leave.date_to), last)
+            for index in range((end - start).days + 1):
+                days.setdefault(start + timedelta(days=index), set()).add(leave.employee_id.id)
+        return days
