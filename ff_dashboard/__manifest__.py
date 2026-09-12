@@ -1,6 +1,6 @@
 {
     'name': 'Aixolo - Panel & Dashboard',
-    'version': '19.0.3.1.1',
+    'version': '19.0.3.2.0',
     'category': 'Human Resources/Field Force',
     'summary': 'The Aixolo panel: a sidebar workspace whose first screen is the realtime dashboard',
     'author': 'Field Force Suite',
@@ -10,6 +10,8 @@
     ],
     'assets': {
         'web.assets_backend': [
+            'ff_dashboard/static/src/chart.js',
+            'ff_dashboard/static/src/chart.xml',
             'ff_dashboard/static/src/panel.js',
             'ff_dashboard/static/src/panel.xml',
             'ff_dashboard/static/src/panel.scss',

@@ -4,6 +4,7 @@ import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { Component, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
 import { loadGoogleMaps, pinIcon } from "@ff_live_map/google";
+import { FfChart } from "./chart";
 
 const REFRESH_MS = 60000;
 
@@ -52,6 +53,7 @@ function ago(iso) {
 
 export class AixoloPanel extends Component {
     static template = "ff_dashboard.Panel";
+    static components = { FfChart };
     static props = {};
 
     setup() {
@@ -135,6 +137,10 @@ export class AixoloPanel extends Component {
         } else if (key === "people") {
             await this.loadPeople();
         } else if (REPORTS[key]) {
+            // Each section reads different keys; keeping the previous payload
+            // on screen while the new one loads breaks its template.
+            this.state.report = null;
+            this.state.openDay = null;
             await this.loadReport();
         }
     }
@@ -425,13 +431,6 @@ export class AixoloPanel extends Component {
         };
     }
 
-    /** Bars for the working-hours chart, scaled to the tallest day. */
-    get hourBars() {
-        const rows = this.state.data.working_hours || [];
-        const max = Math.max(8, ...rows.map((row) => row.hours));
-        return rows.map((row) => ({ ...row, height: Math.round((row.hours / max) * 100) }));
-    }
-
     /** The four small counters, in the order the field cares about. */
     get counterCards() {
         const counters = this.state.data.counters;
@@ -457,37 +456,6 @@ export class AixoloPanel extends Component {
             missed: Math.round((visits.missed / total) * 100),
         };
     }
-
-    /** A pie needs slices; build them as stroke-dasharray offsets on one circle. */
-    expenseSlices() {
-        const expenses = this.state.data.expenses;
-        if (!expenses || !expenses.total) {
-            return [];
-        }
-        const parts = [
-            { key: "approved", label: "Approved", color: "#16A34A", amount: expenses.approved.amount },
-            { key: "submitted", label: "Pending", color: "#F59E0B", amount: expenses.submitted.amount },
-            { key: "draft", label: "Draft", color: "#1A56DB", amount: expenses.draft.amount },
-            { key: "rejected", label: "Rejected", color: "#DC2626", amount: expenses.rejected.amount },
-        ].filter((part) => part.amount > 0);
-        const circumference = 2 * Math.PI * 42;
-        let offset = 0;
-        return parts.map((part) => {
-            const share = part.amount / expenses.total;
-            const slice = {
-                ...part,
-                dash: `${circumference * share} ${circumference}`,
-                offset: -offset,
-                percent: Math.round(share * 100),
-            };
-            offset += circumference * share;
-            return slice;
-        });
-    }
-
-
-
-
 
     // -- filters shared by every report ------------------------------------
     async loadOptions() {
@@ -663,17 +631,26 @@ export class AixoloPanel extends Component {
         this.state.reportLoading = false;
     }
 
-    /** Bars for a report series, scaled to its tallest day. */
-    bars(series, key) {
-        const rows = series || [];
-        const max = Math.max(1, ...rows.map((row) => row[key] || 0));
-        return rows.map((row) => ({ ...row, height: Math.round(((row[key] || 0) / max) * 100) }));
+    // -- what the charts are drawn from ------------------------------------
+    chartLabels(series) {
+        return (series || []).map((row) => row.label);
     }
 
-    /** Width of a row in a "top ten" list, against the biggest one. */
-    share(rows, value) {
-        const max = Math.max(1, ...(rows || []).map((row) => row.amount || row.quantity || 0));
-        return Math.round((value / max) * 100);
+    chartValues(series, key) {
+        return (series || []).map((row) => row[key] || 0);
+    }
+
+    /** Horizontal bars for a "top ten" list. */
+    topChart(rows, key) {
+        return {
+            labels: (rows || []).map((row) => row.name),
+            datasets: [
+                {
+                    label: key === "quantity" ? "Units" : key === "days" ? "Days" : "Amount",
+                    data: (rows || []).map((row) => row[key] || 0),
+                },
+            ],
+        };
     }
 
     stateBadge(state) {

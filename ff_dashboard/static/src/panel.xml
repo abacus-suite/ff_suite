@@ -282,13 +282,11 @@
                                         <div class="ff_card_title">Daily Average Working Hours</div>
                                     </div>
                                 </div>
-                                <div class="ff_bars" t-if="hourBars.length">
-                                    <div class="ff_bar_col" t-foreach="hourBars" t-as="bar" t-key="bar.day"
-                                         t-attf-title="{{bar.label}}: {{bar.hours}} h">
-                                        <div class="ff_bar_fill" t-attf-style="height: {{bar.height}}%"/>
-                                        <div class="ff_bar_label" t-esc="bar.label"/>
-                                    </div>
-                                </div>
+                                <FfChart t-if="state.data.working_hours.length"
+                                         type="'bar'"
+                                         labels="chartLabels(state.data.working_hours)"
+                                         datasets="[{label: 'Hours', data: chartValues(state.data.working_hours, 'hours'), color: '#1a56db'}]"
+                                         height="210"/>
                                 <div t-else="" class="text-muted small py-4">No attendance in this period yet.</div>
                             </div>
                         </div>
@@ -338,15 +336,18 @@
                                     </div>
                                 </div>
                                 <div class="d-flex align-items-center gap-3">
-                                    <svg viewBox="0 0 100 100" class="ff_pie">
-                                        <circle cx="50" cy="50" r="42" fill="none" stroke="#EEF2FB" stroke-width="16"/>
-                                        <circle t-foreach="expenseSlices()" t-as="slice" t-key="slice.key"
-                                                cx="50" cy="50" r="42" fill="none" stroke-width="16"
-                                                t-att-stroke="slice.color"
-                                                t-att-stroke-dasharray="slice.dash"
-                                                t-att-stroke-dashoffset="slice.offset"
-                                                transform="rotate(-90 50 50)"/>
-                                    </svg>
+                                    <div style="width: 190px;">
+                                        <FfChart type="'doughnut'"
+                                                 labels="['Approved', 'Pending', 'Draft', 'Rejected']"
+                                                 datasets="[{data: [
+                                                    state.data.expenses.approved.amount,
+                                                    state.data.expenses.submitted.amount,
+                                                    state.data.expenses.draft.amount,
+                                                    state.data.expenses.rejected.amount],
+                                                    colors: ['#16a34a', '#f59e0b', '#1a56db', '#dc2626']}]"
+                                                 money="true" currency="state.data.currency"
+                                                 height="170"/>
+                                    </div>
                                     <div class="flex-grow-1">
                                         <div class="fw-bold mb-1">
                                             Total <t t-esc="money(state.data.expenses.total)"/>
@@ -974,7 +975,7 @@
                 <t t-else="">
 
                     <!-- Attendance -->
-                    <t t-if="state.section === 'attendance'">
+                    <t t-if="state.section === 'attendance' and state.report.series">
                         <div class="d-flex align-items-center gap-2 mt-3">
                             <div class="ff_seg">
                                 <button class="ff_seg_btn"
@@ -1117,13 +1118,14 @@
                                 <div class="ff_card_icon"><i class="fa fa-bar-chart"/></div>
                                 <div class="ff_card_title">Present each day</div>
                             </div>
-                            <div class="ff_bars">
-                                <div class="ff_bar_col" t-foreach="bars(state.report.series, 'present')" t-as="bar"
-                                     t-key="bar.day" t-attf-title="{{bar.label}}: {{bar.present}} present, {{bar.absent}} absent">
-                                    <div class="ff_bar_fill" t-attf-style="height: {{bar.height}}%"/>
-                                    <div class="ff_bar_label" t-esc="bar.label"/>
-                                </div>
-                            </div>
+                            <FfChart type="'bar'"
+                                     labels="chartLabels(state.report.series)"
+                                     datasets="[
+                                        {label: 'Present', data: chartValues(state.report.series, 'present'), color: '#16a34a'},
+                                        {label: 'Late', data: chartValues(state.report.series, 'late'), color: '#f59e0b'},
+                                        {label: 'Absent', data: chartValues(state.report.series, 'absent'), color: '#dc2626'}]"
+                                     stacked="true"
+                                     height="240"/>
                         </div>
 
                         <div class="ff_card mt-3 mb-3">
@@ -1171,7 +1173,7 @@
                     </t>
 
                     <!-- Leaves -->
-                    <t t-if="state.section === 'leaves'">
+                    <t t-if="state.section === 'leaves' and state.report.by_type">
                         <div class="d-flex align-items-center mt-3">
                             <button class="ff_chip_btn ms-auto" t-on-click="() => this.drillLeaves()">
                                 <i class="fa fa-external-link me-1"/>Open in Odoo
@@ -1199,20 +1201,11 @@
                                         <div class="ff_card_icon"><i class="fa fa-pie-chart"/></div>
                                         <div class="ff_card_title">Days by type</div>
                                     </div>
-                                    <div t-foreach="state.report.by_type" t-as="row" t-key="row.id" class="mb-2">
-                                        <div class="d-flex small">
-                                            <span t-esc="row.name"/>
-                                            <span class="ms-auto fw-bold"><t t-esc="row.days"/> days</span>
-                                        </div>
-                                        <div class="ff_stack mt-1">
-                                            <div class="ff_stack_part"
-                                                 t-attf-style="width: {{share(state.report.by_type, row.days)}}%; background:#1a56db"/>
-                                        </div>
-                                    </div>
-                                    <div t-if="!state.report.by_type.length" class="text-muted small">
-                                        No leave in this period.
-                                    </div>
-                                </div>
+                                    <FfChart type="'bar'" horizontal="true"
+                                             labels="topChart(state.report.by_type, 'days').labels"
+                                             datasets="topChart(state.report.by_type, 'days').datasets"
+                                              legend="false" height="220"/>
+                                                                    </div>
                             </div>
                             <div class="col-xl-7">
                                 <div class="ff_card h-100">
@@ -1265,7 +1258,7 @@
                     </t>
 
                     <!-- Expenses -->
-                    <t t-if="state.section === 'expenses'">
+                    <t t-if="state.section === 'expenses' and state.report.by_category">
                         <div class="d-flex align-items-center mt-3">
                             <button class="ff_chip_btn ms-auto" t-on-click="() => this.drillExpenses()">
                                 <i class="fa fa-external-link me-1"/>Open in Odoo
@@ -1296,17 +1289,11 @@
                                         <div class="ff_card_icon"><i class="fa fa-tags"/></div>
                                         <div class="ff_card_title">By category</div>
                                     </div>
-                                    <div t-foreach="state.report.by_category" t-as="row" t-key="row.id" class="mb-2">
-                                        <div class="d-flex small">
-                                            <span t-esc="row.name"/>
-                                            <span class="ms-auto fw-bold" t-esc="money(row.amount)"/>
-                                        </div>
-                                        <div class="ff_stack mt-1">
-                                            <div class="ff_stack_part"
-                                                 t-attf-style="width: {{share(state.report.by_category, row.amount)}}%; background:#1a56db"/>
-                                        </div>
-                                    </div>
-                                </div>
+                                    <FfChart type="'bar'" horizontal="true"
+                                             labels="topChart(state.report.by_category, 'amount').labels"
+                                             datasets="topChart(state.report.by_category, 'amount').datasets"
+                                             money="true" currency="state.report.currency" legend="false" height="220"/>
+                                                                    </div>
                             </div>
                             <div class="col-xl-6">
                                 <div class="ff_card h-100">
@@ -1314,17 +1301,11 @@
                                         <div class="ff_card_icon"><i class="fa fa-user"/></div>
                                         <div class="ff_card_title">Who claimed most</div>
                                     </div>
-                                    <div t-foreach="state.report.by_employee" t-as="row" t-key="row.id" class="mb-2">
-                                        <div class="d-flex small">
-                                            <span t-esc="row.name"/>
-                                            <span class="ms-auto fw-bold" t-esc="money(row.amount)"/>
-                                        </div>
-                                        <div class="ff_stack mt-1">
-                                            <div class="ff_stack_part"
-                                                 t-attf-style="width: {{share(state.report.by_employee, row.amount)}}%; background:#7c5cfc"/>
-                                        </div>
-                                    </div>
-                                </div>
+                                    <FfChart type="'bar'" horizontal="true"
+                                             labels="topChart(state.report.by_employee, 'amount').labels"
+                                             datasets="topChart(state.report.by_employee, 'amount').datasets"
+                                             money="true" currency="state.report.currency" legend="false" height="220"/>
+                                                                    </div>
                             </div>
                         </div>
 
@@ -1360,7 +1341,7 @@
                     </t>
 
                     <!-- Orders or demand -->
-                    <t t-if="state.section === 'orders'">
+                    <t t-if="state.section === 'orders' and state.report.by_employee">
                         <div class="d-flex align-items-center mt-3">
                             <button class="ff_chip_btn ms-auto" t-on-click="() => this.drillOrders()">
                                 <i class="fa fa-external-link me-1"/>Open in Odoo
@@ -1394,13 +1375,11 @@
                                 <div class="ff_card_icon"><i class="fa fa-line-chart"/></div>
                                 <div class="ff_card_title">Value each day</div>
                             </div>
-                            <div class="ff_bars">
-                                <div class="ff_bar_col" t-foreach="bars(state.report.series, 'amount')" t-as="bar"
-                                     t-key="bar.day" t-attf-title="{{bar.label}}: {{bar.amount}}">
-                                    <div class="ff_bar_fill" t-attf-style="height: {{bar.height}}%"/>
-                                    <div class="ff_bar_label" t-esc="bar.label"/>
-                                </div>
-                            </div>
+                            <FfChart type="'line'"
+                                     labels="chartLabels(state.report.series)"
+                                     datasets="[{label: 'Value', data: chartValues(state.report.series, 'amount'), color: '#1a56db'}]"
+                                     money="true" currency="state.report.currency"
+                                     height="240"/>
                         </div>
 
                         <div class="row g-3 mt-0">
@@ -1410,17 +1389,11 @@
                                         <div class="ff_card_icon"><i class="fa fa-trophy"/></div>
                                         <div class="ff_card_title">Top sellers</div>
                                     </div>
-                                    <div t-foreach="state.report.by_employee" t-as="row" t-key="row.id" class="mb-2">
-                                        <div class="d-flex small">
-                                            <span t-esc="row.name"/>
-                                            <span class="ms-auto fw-bold" t-esc="money(row.amount)"/>
-                                        </div>
-                                        <div class="ff_stack mt-1">
-                                            <div class="ff_stack_part"
-                                                 t-attf-style="width: {{share(state.report.by_employee, row.amount)}}%; background:#16a34a"/>
-                                        </div>
-                                    </div>
-                                </div>
+                                    <FfChart type="'bar'" horizontal="true"
+                                             labels="topChart(state.report.by_employee, 'amount').labels"
+                                             datasets="topChart(state.report.by_employee, 'amount').datasets"
+                                             money="true" currency="state.report.currency" legend="false" height="220"/>
+                                                                    </div>
                             </div>
                             <div class="col-xl-6">
                                 <div class="ff_card h-100">
@@ -1428,19 +1401,11 @@
                                         <div class="ff_card_icon"><i class="fa fa-cube"/></div>
                                         <div class="ff_card_title">Top products</div>
                                     </div>
-                                    <div t-foreach="state.report.by_product" t-as="row" t-key="row.id" class="mb-2">
-                                        <div class="d-flex small">
-                                            <span class="text-truncate" t-esc="row.name"/>
-                                            <span class="ms-auto fw-bold">
-                                                <t t-esc="row.quantity"/> units
-                                            </span>
-                                        </div>
-                                        <div class="ff_stack mt-1">
-                                            <div class="ff_stack_part"
-                                                 t-attf-style="width: {{share(state.report.by_product, row.quantity)}}%; background:#14d3c0"/>
-                                        </div>
-                                    </div>
-                                </div>
+                                    <FfChart type="'bar'" horizontal="true"
+                                             labels="topChart(state.report.by_product, 'quantity').labels"
+                                             datasets="topChart(state.report.by_product, 'quantity').datasets"
+                                              legend="false" height="220"/>
+                                                                    </div>
                             </div>
                         </div>
 
