@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_panel_action" model="ir.actions.client">
+        <field name="name">Panel</field>
+        <field name="tag">ff_panel</field>
+    </record>
+
+    <!-- First menu under Aixolo, so opening the app lands on the dashboard. -->
+    <menuitem id="menu_ff_panel" name="Panel" parent="ff_base.menu_ff_root"
+              action="ff_panel_action" sequence="1"/>
+</odoo>

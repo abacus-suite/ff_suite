@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_ff_root" name="Field Force" sequence="45" groups="group_ff_manager"/>
+    <menuitem id="menu_ff_root" name="Aixolo" sequence="45" groups="group_ff_manager"
+              web_icon="ff_base,static/description/icon.png"/>
 
     <menuitem id="menu_ff_organisation" name="Organisation" parent="menu_ff_root" sequence="80"/>
     <menuitem id="menu_ff_employees" name="Field Staff" parent="menu_ff_organisation"

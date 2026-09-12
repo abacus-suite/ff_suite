@@ -1,0 +1,236 @@
+.ff_panel {
+    --ff-primary: #1a56db;
+    --ff-ink: #0f1b3d;
+    --ff-muted: #6b7a99;
+    --ff-line: #e6ebf5;
+    background: #f4f7fe;
+
+    // ---- sidebar ----------------------------------------------------------
+    .ff_panel_side {
+        width: 15rem;
+        min-width: 15rem;
+        background: #fff;
+        border-right: 1px solid var(--ff-line);
+        display: flex;
+        flex-direction: column;
+        transition: width 0.15s ease, min-width 0.15s ease;
+    }
+
+    .ff_panel_side_narrow {
+        width: 4.2rem;
+        min-width: 4.2rem;
+    }
+
+    .ff_panel_brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 12px 10px;
+        font-weight: 800;
+        color: var(--ff-ink);
+        border-bottom: 1px solid var(--ff-line);
+
+        img {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+    }
+
+    .ff_panel_collapse {
+        color: var(--ff-muted);
+        padding: 0 4px;
+    }
+
+    .ff_panel_link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 6px 8px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        color: var(--ff-ink);
+        cursor: pointer;
+        font-weight: 600;
+
+        i {
+            width: 18px;
+            text-align: center;
+            color: var(--ff-muted);
+        }
+
+        &:hover {
+            background: #f1f5ff;
+        }
+    }
+
+    .ff_panel_link_active {
+        background: #e8efff;
+        color: var(--ff-primary);
+
+        i {
+            color: var(--ff-primary);
+        }
+    }
+
+    .ff_panel_side_foot {
+        margin-top: auto;
+        padding: 12px;
+        font-size: 11px;
+        color: var(--ff-muted);
+    }
+
+    // ---- content ----------------------------------------------------------
+    .ff_panel_main {
+        padding: 14px 16px 0;
+    }
+
+    .ff_panel_head {
+        background: #fff;
+        border: 1px solid var(--ff-line);
+        border-radius: 12px;
+        padding: 12px 16px;
+    }
+
+    .ff_panel_search {
+        max-width: 20rem;
+        border-radius: 20px;
+    }
+
+    .ff_card {
+        background: #fff;
+        border: 1px solid var(--ff-line);
+        border-radius: 12px;
+        padding: 14px 16px;
+    }
+
+    .ff_card_title {
+        font-weight: 700;
+        color: var(--ff-ink);
+        margin-bottom: 8px;
+    }
+
+    .ff_big {
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 1.1;
+        color: var(--ff-ink);
+    }
+
+    .ff_chip {
+        display: inline-block;
+        border: 1px solid var(--ff-line);
+        border-radius: 20px;
+        padding: 2px 10px;
+        font-size: 11px;
+        color: var(--ff-muted);
+    }
+
+    .ff_dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+
+    .ff_bar {
+        width: 4px;
+        height: 34px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+
+    .ff_avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #eef2fb;
+    }
+
+    .ff_row {
+        cursor: pointer;
+
+        &:hover {
+            background: #f7f9ff;
+        }
+    }
+
+    .ff_scroll_220 {
+        max-height: 220px;
+        overflow-y: auto;
+    }
+
+    .ff_scroll_320 {
+        max-height: 340px;
+        overflow-y: auto;
+    }
+
+    // ---- charts drawn by hand --------------------------------------------
+    .ff_gauge svg {
+        width: 100%;
+        max-height: 150px;
+    }
+
+    .ff_gauge_value {
+        font-size: 20px;
+        font-weight: 800;
+        fill: var(--ff-ink);
+    }
+
+    .ff_gauge_label {
+        font-size: 9px;
+        fill: var(--ff-muted);
+    }
+
+    .ff_pie {
+        width: 120px;
+        height: 120px;
+        flex: none;
+    }
+
+    .ff_bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 6px;
+        height: 190px;
+        padding-top: 8px;
+    }
+
+    .ff_bar_col {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        align-items: center;
+        height: 100%;
+    }
+
+    .ff_bar_fill {
+        width: 70%;
+        min-height: 3px;
+        border-radius: 6px 6px 0 0;
+        background: linear-gradient(180deg, #3b82f6, #1a56db);
+    }
+
+    .ff_bar_label {
+        font-size: 9px;
+        color: var(--ff-muted);
+        margin-top: 4px;
+        white-space: nowrap;
+    }
+
+    .ff_stack {
+        display: flex;
+        height: 12px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #eef2fb;
+    }
+
+    .ff_stack_part {
+        height: 100%;
+    }
+}
