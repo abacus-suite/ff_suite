@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_collection_mode_view_list" model="ir.ui.view">
+        <field name="name">ff.collection.mode.list</field>
+        <field name="model">ff.collection.mode</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="mode_type"/>
+                <field name="department_ids" widget="many2many_tags" placeholder="All departments"/>
+                <field name="requires_reference"/>
+                <field name="requires_photo"/>
+                <field name="requires_instrument_date"/>
+                <field name="needs_deposit"/>
+                <field name="max_amount"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="active" widget="boolean_toggle" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_collection_mode_action" model="ir.actions.act_window">
+        <field name="name">Collection Modes</field>
+        <field name="res_model">ff.collection.mode</field>
+        <field name="view_mode">list</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Decide how money may be collected</p>
+            <p>Cash, online, cheque, post-dated cheque. Only the modes here appear in the app.</p>
+        </field>
+    </record>
+</odoo>
