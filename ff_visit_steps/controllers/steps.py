@@ -26,7 +26,7 @@ def step_data(step, record):
         'instruction': step.help_text or None,
         'form_id': step.form_id.id or None,
         'state': record.state if record else 'pending',
-        'note': record.note if record else None,
+        'note': (record.note or None) if record else None,
         'done_at': to_iso(record.done_at) if record else None,
     }
 

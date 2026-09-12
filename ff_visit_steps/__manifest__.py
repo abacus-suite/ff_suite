@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Visit Steps & Stock Count',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.0.1',
     'category': 'Human Resources/Field Force',
     'summary': 'Guided visit steps (notes, photo, form, stock count, order, payment) and stock counting with history',
     'author': 'Field Force Suite',
