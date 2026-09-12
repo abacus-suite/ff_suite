@@ -34,3 +34,13 @@ class ResPartner(models.Model):
         missing = self.ff_route_ids.employee_ids - self.ff_employee_ids
         if missing:
             self.ff_employee_ids |= missing
+
+    @api.model
+    def _ff_ownership_domain(self, employee):
+        """Also the contacts of the routes worked by the employee (or their team),
+        even when nobody was assigned to those contacts yet."""
+        domain = super()._ff_ownership_domain(employee)
+        routes = employee._ff_scope_employees().ff_route_ids
+        if not routes:
+            return domain
+        return ['|'] + domain + [('ff_beat_line_ids.beat_id', 'in', routes.ids)]

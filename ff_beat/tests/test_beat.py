@@ -108,3 +108,20 @@ class TestBeat(TransactionCase):
         })
         self.assertIn(self.beat, contact.ff_route_ids)
         self.assertEqual(contact.ff_employee_ids, self.employee | rep2)
+
+    def test_route_customers_visible_to_every_route_employee(self):
+        """A customer assigned to one rep is still visible to whoever works the route."""
+        other = self.env['hr.employee'].create({
+            'name': 'Relief Officer', 'tz': 'UTC', 'department_id': self.sales.id,
+        })
+        other.ff_route_ids = self.beat
+        Partner = self.env['res.partner']
+        visible = Partner.search(Partner._ff_visible_domain(other))
+        self.assertIn(self.c1, visible, 'route customer must be visible to the route employee')
+        self.assertNotIn(self.c3, visible, 'customers of other routes stay hidden')
+
+    def test_sync_assigns_route_employees_to_customers(self):
+        newcomer = self.env['hr.employee'].create({'name': 'New Rep', 'department_id': self.sales.id})
+        self.beat.employee_ids = [(4, newcomer.id)]
+        self.beat.action_sync_contact_employees()
+        self.assertIn(newcomer, self.c1.ff_employee_ids)

@@ -63,16 +63,21 @@ class ResPartner(models.Model):
         return self.ff_geofence_radius or get_param(self.env, 'geofence_radius')
 
     @api.model
+    def _ff_ownership_domain(self, employee):
+        """Which contacts "belong" to an employee. Other modules widen this."""
+        return [('ff_employee_ids', 'in', employee._ff_scope_employees().ids)]
+
+    @api.model
     def _ff_visible_domain(self, employee):
-        """Contacts an employee may see in the app: assigned to them (or to people
-        in their data access), in a category of their department, approved or
-        their own pending ones."""
+        """Contacts an employee may see in the app: theirs (or of people in their
+        data access), in a category of their department, approved or their own
+        pending ones."""
         employee = employee.sudo()
         categories = self.env['ff.contact.category'].ff_for_employee(employee)
         return [
             ('ff_is_client', '=', True),
             ('ff_category_id', 'in', categories.ids),
-            ('ff_employee_ids', 'in', employee._ff_scope_employees().ids),
+        ] + self._ff_ownership_domain(employee) + [
             '|', ('ff_approval_state', '=', 'approved'),
             '&', ('ff_approval_state', '=', 'pending'), ('ff_created_by_employee_id', '=', employee.id),
         ]

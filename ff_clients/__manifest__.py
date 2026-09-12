@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Clients',
-    'version': '19.0.1.2.0',
+    'version': '19.0.1.2.1',
     'category': 'Human Resources/Field Force',
     'summary': 'Field contacts with categories per department, country/state/district, GPS geofence and approval',
     'author': 'Field Force Suite',
