@@ -18,7 +18,7 @@ class FfDashboardTimeline(models.AbstractModel):
         employee = self.env['hr.employee'].sudo().browse(int(employee_id or 0)).exists()
         if not employee or employee not in self._ff_employees():
             return {'events': [], 'path': [], 'summary': {}}
-        day = fields.Date.to_date(day) if day else fields.Date.context_today(self)
+        day = fields.Date.to_date(day) if day else self._ff_today()
         start, end = self._ff_day_range(day)
 
         pings = self.env['ff.location.ping'].sudo().search(

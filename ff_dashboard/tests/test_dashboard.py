@@ -1,4 +1,6 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
+
+import pytz
 
 from odoo import fields
 from odoo.tests import TransactionCase, tagged
@@ -343,3 +345,27 @@ class TestPeriodRange(TransactionCase):
     def test_the_label_says_the_range(self):
         label = self.Dashboard.ff_period_label('custom', {'date_from': '2026-02-01', 'date_to': '2026-02-28'})
         self.assertIn('Feb', label)
+
+
+@tagged('post_install', '-at_install', 'ff')
+class TestPanelToday(TransactionCase):
+    """The panel's idea of today, for a user with no timezone set."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.Dashboard = cls.env['ff.dashboard']
+
+    def test_today_follows_the_user_timezone(self):
+        self.env.user.tz = 'Asia/Kolkata'
+        expected = datetime.now(pytz.utc).astimezone(pytz.timezone('Asia/Kolkata')).date()
+        self.assertEqual(self.Dashboard._ff_today(), expected)
+        self.assertEqual(self.Dashboard._ff_range('today'), (expected, expected))
+
+    def test_without_a_user_timezone_the_company_decides(self):
+        self.env.user.tz = False
+        self.env.user.employee_id.tz = False if self.env.user.employee_id else False
+        self.env.company.partner_id.tz = 'Asia/Kolkata'
+        expected = datetime.now(pytz.utc).astimezone(pytz.timezone('Asia/Kolkata')).date()
+        self.assertEqual(self.Dashboard._ff_today(), expected,
+                         'a night in India must not be reported as yesterday')

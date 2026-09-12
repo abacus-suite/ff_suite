@@ -1397,3 +1397,31 @@
         width: 100%;
     }
 }
+
+// A tile that drills says so under the cursor.
+.ff_panel {
+    .ff_tile[role="button"] {
+        cursor: pointer;
+
+        &:hover {
+            transform: translateY(-2px);
+        }
+
+        &::before {
+            content: "\f08e";  // external link
+            font-family: FontAwesome;
+            position: absolute;
+            right: 12px;
+            bottom: 10px;
+            font-size: 10px;
+            color: var(--ff-muted);
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            z-index: 1;
+        }
+
+        &:hover::before {
+            opacity: 0.75;
+        }
+    }
+}

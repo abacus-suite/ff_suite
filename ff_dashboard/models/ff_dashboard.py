@@ -4,7 +4,9 @@ One call returns everything the dashboard draws, so the screen opens with a
 single request. Modules that may not be installed (expenses, collections,
 visit steps) are read only when their model is present.
 """
-from datetime import timedelta
+from datetime import datetime, timedelta
+
+import pytz
 
 from odoo import api, fields, models
 
@@ -37,6 +39,26 @@ class FfDashboard(models.AbstractModel):
         if self.env.user.has_group('ff_base.group_ff_manager'):
             return Employee.search(company_domain)
         return Employee.browse()
+
+    @api.model
+    def _ff_now_tz(self):
+        """The timezone the panel should think in.
+
+        An Odoo user with no timezone set falls back to UTC, which in India is
+        still yesterday for five and a half hours every night - long enough for
+        "Today" to show the wrong day. So the user's own timezone is preferred,
+        then their employee record, then the company's.
+        """
+        user = self.env.user
+        name = (user.tz
+                or user.employee_id.tz
+                or self.env.company.partner_id.tz
+                or 'UTC')
+        return pytz.timezone(name)
+
+    @api.model
+    def _ff_today(self):
+        return datetime.now(pytz.utc).astimezone(self._ff_now_tz()).date()
 
     @api.model
     def _ff_filtered_employees(self, filters=None):
@@ -79,7 +101,7 @@ class FfDashboard(models.AbstractModel):
     @api.model
     def ff_dashboard_data(self, period='month', filters=None):
         employees = self._ff_filtered_employees(filters)
-        today = fields.Date.context_today(self)
+        today = self._ff_today()
         yesterday = today - timedelta(days=1)
         start, end = self._ff_range(period, filters)
         return {
@@ -113,7 +135,7 @@ class FfDashboard(models.AbstractModel):
         days is asked for. A range that runs backwards is turned around rather
         than returning nothing.
         """
-        today = fields.Date.context_today(self)
+        today = self._ff_today()
         filters = filters or {}
         if period == 'custom' or filters.get('date_from') or filters.get('date_to'):
             start = fields.Date.to_date(filters.get('date_from')) or today.replace(day=1)
@@ -374,7 +396,7 @@ class FfDashboard(models.AbstractModel):
         employee = self.env['hr.employee'].sudo().browse(int(employee_id)).exists()
         if not employee or employee not in self._ff_employees():
             return {'visits': [], 'orders': [], 'forms': []}
-        day = fields.Date.to_date(day) if day else fields.Date.context_today(self)
+        day = fields.Date.to_date(day) if day else self._ff_today()
         start, end = self._ff_day_range(day)
         return {
             'employee_id': employee.id,

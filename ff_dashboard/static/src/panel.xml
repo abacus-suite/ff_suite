@@ -1146,22 +1146,22 @@
 
                         <t t-else="">
                         <div class="row g-3 mt-0">
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db">
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db" t-on-click="() => this.openModel('hr.employee', 'Employees', [['id', 'in', reportEmployeeIds]])" role="button">
                                 <div class="ff_card_title">Headcount</div>
                                 <div class="ff_big" t-esc="state.report.kpis.headcount"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#16a34a">
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#16a34a" t-on-click="() => this.drillAttendance([['check_in', '>=', state.report.end + ' 00:00:00']])" role="button">
                                 <div class="ff_card_title">Present today</div>
                                 <div class="ff_big text-success" t-esc="state.report.kpis.present_today"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b">
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b" t-on-click="() => this.drillAttendance([['ff_late_minutes', '>', 0]])" role="button">
                                 <div class="ff_card_title">Late punches</div>
                                 <div class="ff_big text-warning" t-esc="state.report.kpis.late"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#7c5cfc">
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#7c5cfc" t-on-click="() => this.drillAttendance()" role="button">
                                 <div class="ff_card_title">Punches</div>
                                 <div class="ff_big" t-esc="state.report.kpis.punches"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#14d3c0">
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#14d3c0" t-on-click="() => this.drillAttendance()" role="button">
                                 <div class="ff_card_title">Hours worked</div>
                                 <div class="ff_big" t-esc="state.report.kpis.hours"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1e90ff">
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1e90ff" t-on-click="() => this.drillAttendance()" role="button">
                                 <div class="ff_card_title">Avg per punch</div>
                                 <div class="ff_big"><t t-esc="state.report.kpis.avg_hours"/> h</div></div></div>
                         </div>
@@ -1233,16 +1233,16 @@
                             </button>
                         </div>
                         <div class="row g-3 mt-0">
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b" t-on-click="() => this.drillLeaves([['state', 'in', ['confirm', 'validate1']]])" role="button">
                                 <div class="ff_card_title">To approve</div>
                                 <div class="ff_big text-warning" t-esc="state.report.kpis.pending"/></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#16a34a">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#16a34a" t-on-click="() => this.drillLeaves([['state', '=', 'validate']])" role="button">
                                 <div class="ff_card_title">Approved</div>
                                 <div class="ff_big text-success" t-esc="state.report.kpis.approved"/></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#dc2626">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#dc2626" t-on-click="() => this.drillLeaves([['state', '=', 'refuse']])" role="button">
                                 <div class="ff_card_title">Refused</div>
                                 <div class="ff_big" t-esc="state.report.kpis.refused"/></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db" t-on-click="() => this.drillLeaves([['state', '=', 'validate']])" role="button">
                                 <div class="ff_card_title">Off today</div>
                                 <div class="ff_big text-primary" t-esc="state.report.kpis.off_today"/></div></div>
                         </div>
@@ -1318,19 +1318,19 @@
                             </button>
                         </div>
                         <div class="row g-3 mt-0">
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db" t-on-click="() => this.drillExpenses()" role="button">
                                 <div class="ff_card_title">Claimed</div>
                                 <div class="ff_big" t-esc="money(state.report.kpis.total)"/>
                                 <span class="ff_chip"><t t-esc="state.report.kpis.count"/> claims</span></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b" t-on-click="() => this.drillExpenses([['state', '=', 'submitted']])" role="button">
                                 <div class="ff_card_title">Waiting</div>
                                 <div class="ff_big text-warning" t-esc="money(state.report.kpis.submitted.amount)"/>
                                 <span class="ff_chip"><t t-esc="state.report.kpis.submitted.count"/> to approve</span></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#16a34a">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#16a34a" t-on-click="() => this.drillExpenses([['state', '=', 'approved']])" role="button">
                                 <div class="ff_card_title">Approved</div>
                                 <div class="ff_big text-success" t-esc="money(state.report.kpis.approved.amount)"/>
                                 <span class="ff_chip"><t t-esc="state.report.kpis.approved.count"/> claims</span></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#7c5cfc">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#7c5cfc" t-on-click="() => this.drillExpenses()" role="button">
                                 <div class="ff_card_title">Per head</div>
                                 <div class="ff_big" t-esc="money(state.report.kpis.per_head)"/></div></div>
                         </div>
@@ -1401,16 +1401,17 @@
                             </button>
                         </div>
                         <div class="row g-3 mt-0">
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db" t-on-click="() => this.drillOrders()" role="button">
                                 <div class="ff_card_title">
                                     <t t-esc="state.report.flow === 'demand' ? 'Demand value' : 'Order value'"/>
                                 </div>
                                 <div class="ff_big" t-esc="money(state.report.kpis.total)"/>
                                 <span class="ff_chip"><t t-esc="state.report.kpis.count"/> documents</span></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#14d3c0">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#14d3c0" t-on-click="() => this.drillOrders()" role="button">
                                 <div class="ff_card_title">Average</div>
                                 <div class="ff_big" t-esc="money(state.report.kpis.average)"/></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b" role="button"
+                                 t-on-click="() => this.drillOrders(state.report.flow === 'demand' ? [['state', 'in', ['submitted', 'partial']]] : [['state', '=', 'sale']])">
                                 <div class="ff_card_title">
                                     <t t-esc="state.report.flow === 'demand' ? 'Waiting to quote' : 'Confirmed'"/>
                                 </div>
@@ -1418,7 +1419,7 @@
                                      t-esc="state.report.flow === 'demand' ? state.report.kpis.pending : state.report.kpis.confirmed"/>
                                 <span class="ff_chip" t-if="state.report.flow === 'demand'"
                                       t-esc="money(state.report.kpis.pending_value)"/></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#7c5cfc">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#7c5cfc" t-on-click="() => this.drillOrders()" role="button">
                                 <div class="ff_card_title">Outlets</div>
                                 <div class="ff_big" t-esc="state.report.kpis.outlets"/></div></div>
                         </div>

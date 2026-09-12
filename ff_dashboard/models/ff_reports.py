@@ -21,7 +21,7 @@ class FfDashboardReports(models.AbstractModel):
     @api.model
     def ff_attendance_report(self, period='month', filters=None):
         employees = self._ff_filtered_employees(filters)
-        today = fields.Date.context_today(self)
+        today = self._ff_today()
         start, end = self._ff_range(period, filters)
         start_dt, end_dt = self._ff_day_range(start)[0], self._ff_day_range(end)[1]
 
@@ -99,7 +99,7 @@ class FfDashboardReports(models.AbstractModel):
         if 'hr.leave' not in self.env:
             return None
         employees = self._ff_filtered_employees(filters)
-        today = fields.Date.context_today(self)
+        today = self._ff_today()
         start, end = self._ff_range(period, filters)
         Leave = self.env['hr.leave'].sudo()
 
@@ -368,7 +368,7 @@ class FfDashboardReports(models.AbstractModel):
         or still to come are left empty rather than counted as absence.
         """
         employees = self._ff_filtered_employees(filters)
-        today = fields.Date.context_today(self)
+        today = self._ff_today()
         first = fields.Date.to_date(month) if month else today
         first = first.replace(day=1)
         last_day = calendar.monthrange(first.year, first.month)[1]
