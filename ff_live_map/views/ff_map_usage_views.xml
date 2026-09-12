@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_map_usage_view_list" model="ir.ui.view">
+        <field name="name">ff.map.usage.list</field>
+        <field name="model">ff.map.usage</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0">
+                <field name="date"/>
+                <field name="kind"/>
+                <field name="employee_id" optional="show"/>
+                <field name="user_id" optional="hide"/>
+                <field name="count" sum="Requests"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_map_usage_view_graph" model="ir.ui.view">
+        <field name="name">ff.map.usage.graph</field>
+        <field name="model">ff.map.usage</field>
+        <field name="arch" type="xml">
+            <graph string="Map Requests" type="bar" stacked="1" sample="1">
+                <field name="date" interval="day"/>
+                <field name="kind"/>
+                <field name="count" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="ff_map_usage_view_pivot" model="ir.ui.view">
+        <field name="name">ff.map.usage.pivot</field>
+        <field name="model">ff.map.usage</field>
+        <field name="arch" type="xml">
+            <pivot string="Map Requests" sample="1">
+                <field name="employee_id" type="row"/>
+                <field name="kind" type="col"/>
+                <field name="count" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="ff_map_usage_view_search" model="ir.ui.view">
+        <field name="name">ff.map.usage.search</field>
+        <field name="model">ff.map.usage</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="user_id"/>
+                <filter name="this_month" string="This Month"
+                        domain="[('date', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+                <filter name="tiles" string="App Tiles" domain="[('kind', '=', 'tiles')]"/>
+                <filter name="web_map" string="Odoo Map Loads" domain="[('kind', '=', 'web_map')]"/>
+                <filter name="date" string="Date" date="date"/>
+                <group>
+                    <filter name="group_kind" string="Type" context="{'group_by': 'kind'}"/>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_date" string="Date" context="{'group_by': 'date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_map_usage_action" model="ir.actions.act_window">
+        <field name="name">Map Usage</field>
+        <field name="res_model">ff.map.usage</field>
+        <field name="view_mode">graph,pivot,list</field>
+        <field name="context">{'search_default_this_month': 1, 'search_default_group_kind': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No Google Maps requests counted yet</p>
+            <p>Every map load in Odoo and every tile the app fetches is counted here,
+               so you can see the month's usage against Google's free allowance.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_ff_map_usage" name="Map Usage" parent="ff_tracking.menu_ff_tracking"
+              action="ff_map_usage_action" sequence="7"/>
+</odoo>

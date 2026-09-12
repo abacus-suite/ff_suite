@@ -4,8 +4,11 @@
     'category': 'Human Resources/Field Force',
     'summary': 'See where every field employee is right now on a Google map inside Odoo',
     'author': 'Field Force Suite',
-    'depends': ['ff_visits', 'ff_tracking'],
+    'depends': ['ff_visits', 'ff_tracking', 'ff_mobile_api'],
     'data': [
+        'security/ir.model.access.csv',
+        'views/ff_map_usage_views.xml',
+        'views/res_config_settings_views.xml',
         'views/ff_live_map_views.xml',
     ],
     'assets': {

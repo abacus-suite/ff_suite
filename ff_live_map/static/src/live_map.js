@@ -48,6 +48,7 @@ export class FieldForceLiveMap extends Component {
             hasKey: false,
             loading: true,
             updatedAt: "",
+            usage: null,
         });
         this.markers = new Map();
         this.mapsKey = "";
@@ -114,6 +115,9 @@ export class FieldForceLiveMap extends Component {
         this.state.hasKey = Boolean(data.google_maps_key);
         this.state.loading = false;
         this.state.updatedAt = new Date().toLocaleTimeString();
+        if (!this.state.usage) {
+            this.state.usage = await this.orm.call("ff.map.usage", "ff_usage_summary", []);
+        }
         if (this.mounted && this.mapsKey) {
             await this.ensureMap(this.mapsKey);
             this.drawMarkers();
@@ -141,6 +145,8 @@ export class FieldForceLiveMap extends Component {
         if (!this.mapRef.el) {
             return;
         }
+        // One Google "map load" is billed here, so count it here too.
+        this.state.usage = await this.orm.call("ff.map.usage", "ff_record_web_map", []);
         this.map = new window.google.maps.Map(this.mapRef.el, {
             center: { lat: 20.5937, lng: 78.9629 },
             zoom: 5,
@@ -265,6 +271,20 @@ export class FieldForceLiveMap extends Component {
     onSearch(ev) {
         this.state.search = ev.target.value;
         this.drawMarkers();
+    }
+
+    openUsage() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Map Usage",
+            res_model: "ff.map.usage",
+            views: [
+                [false, "graph"],
+                [false, "pivot"],
+                [false, "list"],
+            ],
+            context: { search_default_this_month: 1, search_default_group_kind: 1 },
+        });
     }
 
     openSettings() {
