@@ -154,3 +154,13 @@ class TestGeocodeCache(TransactionCase):
         self.status.write({'latitude': 10.0, 'longitude': 76.0})
         self.status.ff_resolve_addresses()
         self.assertFalse(self.status.address)
+        self.assertIn('key', self.env['ir.config_parameter'].sudo().get_param(
+            'ff_base.geocode_problem'))
+
+    def test_nothing_to_resolve_clears_an_old_warning(self):
+        Param = self.env['ir.config_parameter'].sudo()
+        Param.set_param('ff_base.google_maps_key', 'AIza-test')
+        Param.set_param('ff_base.geocode_problem', 'REQUEST_DENIED')
+        self.status.write({'latitude': 0.0, 'longitude': 0.0})  # nothing to look up
+        self.status.ff_resolve_addresses()
+        self.assertFalse(Param.get_param('ff_base.geocode_problem'))

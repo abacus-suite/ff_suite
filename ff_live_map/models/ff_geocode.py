@@ -45,17 +45,27 @@ class FfEmployeeStatusGeocode(models.Model):
         return needing
 
     def ff_resolve_addresses(self):
-        """Fill in missing addresses, within the batch limit. Returns self."""
+        """Fill in missing addresses, within the batch limit.
+
+        The stored problem describes this run only: once Google answers, the
+        warning clears itself, and a run with nothing to resolve is not a
+        problem either.
+        """
         key = google_maps_key(self.env)
         if not key:
             self._ff_note_problem('No Google Maps key is set in Field Force settings.')
             return self
         pending = self._ff_needs_address()[:BATCH]
+        if not pending:
+            self._ff_note_problem(False)
+            return self
+        problem = False
         for status in pending:
-            address = self._ff_reverse_geocode(status.latitude, status.longitude, key)
+            address, problem = self._ff_reverse_geocode(status.latitude, status.longitude, key)
+            if problem:
+                break  # the next call would fail the same way; stop asking
             if not address:
                 continue
-            self._ff_note_problem(False)
             status.sudo().write({
                 'address': address,
                 'address_at': fields.Datetime.now(),
@@ -63,9 +73,11 @@ class FfEmployeeStatusGeocode(models.Model):
                 'address_longitude': status.longitude,
             })
             self.env['ff.map.usage'].ff_record('geocode', 1, employee=status.employee_id)
+        self._ff_note_problem(problem)
         return self
 
     def _ff_reverse_geocode(self, latitude, longitude, key):
+        """Returns (address, problem). Both are False when there is simply no match."""
         try:
             response = requests.get(GEOCODE_URL, timeout=TIMEOUT, params={
                 'latlng': '%s,%s' % (latitude, longitude),
@@ -74,17 +86,16 @@ class FfEmployeeStatusGeocode(models.Model):
             payload = response.json()
         except (requests.RequestException, ValueError) as error:
             _logger.warning('Field Force: reverse geocoding failed (%s)', error)
-            self._ff_note_problem('Google could not be reached: %s' % error)
-            return False
-        if payload.get('status') != 'OK' or not payload.get('results'):
-            problem = payload.get('status') or 'no answer'
-            if payload.get('error_message'):
-                problem = '%s - %s' % (problem, payload['error_message'])
-            if payload.get('status') != 'ZERO_RESULTS':
-                _logger.warning('Field Force: Google geocoding said %s', problem)
-                self._ff_note_problem(problem)
-            return False
-        return self._ff_short_address(payload['results'][0])
+            return False, 'Google could not be reached: %s' % error
+        if payload.get('status') == 'OK' and payload.get('results'):
+            return self._ff_short_address(payload['results'][0]), False
+        if payload.get('status') == 'ZERO_RESULTS':
+            return False, False
+        problem = payload.get('status') or 'no answer'
+        if payload.get('error_message'):
+            problem = '%s - %s' % (problem, payload['error_message'])
+        _logger.warning('Field Force: Google geocoding said %s', problem)
+        return False, problem
 
     def _ff_short_address(self, result):
         """A readable place, not the postal essay Google returns.

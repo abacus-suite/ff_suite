@@ -220,9 +220,10 @@ export class FieldForceLiveMap extends Component {
     }
 
     mapsFailed(message) {
+        // No toast: a refresh landing mid-load would pop one every time. The
+        // banner on the map says the same thing and disappears once it works.
         this.mapPromise = null;
         this.state.mapError = message;
-        this.notification.add(message, { type: "danger" });
     }
 
     markerIcon(person) {
