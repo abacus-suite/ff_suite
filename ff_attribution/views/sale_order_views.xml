@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="sale_order_view_form_ff_attribution" model="ir.ui.view">
+        <field name="name">sale.order.form.ff_attribution</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="ff_orders.sale_order_view_form_ff"/>
+        <field name="arch" type="xml">
+            <!-- The page is useful for back-office orders too, once they are credited. -->
+            <xpath expr="//page[@name='ff_orders']" position="attributes">
+                <attribute name="invisible"/>
+            </xpath>
+            <xpath expr="//page[@name='ff_orders']//field[@name='ff_visit_id']" position="after">
+                <field name="ff_team_id"/>
+                <field name="ff_department_id"/>
+            </xpath>
+            <xpath expr="//page[@name='ff_orders']//field[@name='ff_longitude']" position="before">
+                <field name="ff_route_id"/>
+                <field name="ff_district_id"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="sale_order_view_search_ff_attribution" model="ir.ui.view">
+        <field name="name">sale.order.search.ff_attribution</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+        <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="ff_employee_id"/>
+                <field name="ff_route_id"/>
+            </field>
+            <xpath expr="//search/group" position="inside">
+                <filter name="ff_group_employee" string="Field Employee" context="{'group_by': 'ff_employee_id'}"/>
+                <filter name="ff_group_route" string="Route" context="{'group_by': 'ff_route_id'}"/>
+                <filter name="ff_group_district" string="City / District" context="{'group_by': 'ff_district_id'}"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

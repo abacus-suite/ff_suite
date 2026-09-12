@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="account_move_view_form_ff_attribution" model="ir.ui.view">
+        <field name="name">account.move.form.ff_attribution</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="arch" type="xml">
+            <field name="invoice_user_id" position="after">
+                <field name="ff_employee_id"/>
+                <field name="ff_route_id"/>
+                <field name="ff_district_id"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="account_move_view_search_ff_attribution" model="ir.ui.view">
+        <field name="name">account.move.search.ff_attribution</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_account_invoice_filter"/>
+        <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="ff_employee_id"/>
+                <field name="ff_route_id"/>
+            </field>
+            <xpath expr="//search/group" position="inside">
+                <filter name="ff_group_employee" string="Field Employee" context="{'group_by': 'ff_employee_id'}"/>
+                <filter name="ff_group_route" string="Route" context="{'group_by': 'ff_route_id'}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="account_payment_view_form_ff_attribution" model="ir.ui.view">
+        <field name="name">account.payment.form.ff_attribution</field>
+        <field name="model">account.payment</field>
+        <field name="inherit_id" ref="account.view_account_payment_form"/>
+        <field name="arch" type="xml">
+            <field name="ref" position="after">
+                <field name="ff_employee_id"/>
+                <field name="ff_route_id"/>
+            </field>
+        </field>
+    </record>
+</odoo>
