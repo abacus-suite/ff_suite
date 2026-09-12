@@ -34,7 +34,7 @@
         <field name="model">account.payment</field>
         <field name="inherit_id" ref="account.view_account_payment_form"/>
         <field name="arch" type="xml">
-            <field name="ref" position="after">
+            <field name="partner_id" position="after">
                 <field name="ff_employee_id"/>
                 <field name="ff_route_id"/>
             </field>
