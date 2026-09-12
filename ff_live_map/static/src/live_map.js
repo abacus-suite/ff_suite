@@ -150,7 +150,7 @@ export class FieldForceLiveMap extends Component {
         if (!window.google || !window.google.maps) {
             try {
                 await loadJS(
-                    `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=maps,marker&loading=async&callback=Function.prototype`
+                    `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=marker&loading=async&callback=Function.prototype`
                 );
             } catch {
                 this.mapsFailed("Google Maps could not be loaded. Check the API key and that the Maps JavaScript API is enabled.");
@@ -168,13 +168,15 @@ export class FieldForceLiveMap extends Component {
                 await maps.importLibrary("marker");
             } catch (error) {
                 console.warn("Field Force live map: importLibrary failed", error);
+                this.lastMapError = error && error.message ? error.message : String(error);
             }
         }
         if (typeof window.google.maps.Map !== "function") {
             this.mapsFailed(
-                "Google Maps loaded but did not hand over the map library. Open the browser console: " +
-                    "Google prints the reason there (usually billing is off, the Maps JavaScript API is " +
-                    "not enabled, or the key's referrer restriction excludes this domain)."
+                "Google Maps did not hand over the map library. " +
+                    (this.lastMapError ? `Google said: ${this.lastMapError}. ` : "") +
+                    "Check that billing is on, the Maps JavaScript API is enabled, and the key's " +
+                    "restrictions allow this domain."
             );
             return;
         }

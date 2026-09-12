@@ -11,16 +11,19 @@ class FfEmployeeStatus(models.Model):
     def _ff_map_employees(self):
         """Everybody the current user may watch.
 
-        Normally the user's own data access scope decides. An administrator
-        without an employee record of their own still needs to see the field, so
-        they get the whole company rather than an empty map.
+        Normally the user's own data access scope decides. An administrator is
+        the exception: watching the whole field is the point of the screen, and
+        their own employee record (if any) would otherwise narrow it to one card.
         """
         Employee = self.env['hr.employee'].sudo()
+        company_domain = [('company_id', 'in', self.env.companies.ids)]
+        if self.env.user.has_group('ff_base.group_ff_admin'):
+            return Employee.search(company_domain)
         scope_ids = self.env.user.ff_scope_employee_ids()
         if scope_ids:
             return Employee.browse(scope_ids).exists()
         if self.env.user.has_group('ff_base.group_ff_manager'):
-            return Employee.search([('company_id', 'in', self.env.companies.ids)])
+            return Employee.search(company_domain)
         return Employee.browse()
 
     @api.model
