@@ -901,6 +901,421 @@
                     <div t-else="" class="ff_skeleton mt-3" style="height: 320px;"/>
                 </t>
             </div>
+
+            <!-- Report sections: attendance, leaves, expenses, orders -->
+            <div class="ff_panel_main flex-grow-1 overflow-auto"
+                 t-if="['attendance', 'leaves', 'expenses', 'orders'].includes(state.section)">
+                <div class="ff_panel_head d-flex align-items-center gap-2 flex-wrap">
+                    <div class="ff_card_head mb-0">
+                        <div class="ff_card_icon">
+                            <i class="fa" t-att-class="sections.find((s) => s.key === state.section).icon"/>
+                        </div>
+                        <div>
+                            <div class="ff_card_title" t-esc="sections.find((s) => s.key === state.section).label"/>
+                            <div class="ff_card_sub">
+                                <t t-esc="state.data ? state.data.period_label : ''"/> · everybody in your view
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ff_seg ms-auto">
+                        <button class="ff_seg_btn" t-att-class="state.period === 'today' ? 'ff_seg_btn_active' : ''"
+                                t-on-click="() => this.setPeriod('today')">Today</button>
+                        <button class="ff_seg_btn" t-att-class="state.period === 'week' ? 'ff_seg_btn_active' : ''"
+                                t-on-click="() => this.setPeriod('week')">This Week</button>
+                        <button class="ff_seg_btn" t-att-class="state.period === 'month' ? 'ff_seg_btn_active' : ''"
+                                t-on-click="() => this.setPeriod('month')">This Month</button>
+                    </div>
+                    <button class="ff_icon_btn" title="Refresh" t-on-click="() => this.loadReport()">
+                        <i class="fa fa-refresh"/>
+                    </button>
+                </div>
+
+                <t t-if="state.reportLoading">
+                    <div class="ff_skeleton mt-3" style="height: 120px;"/>
+                    <div class="ff_skeleton mt-3" style="height: 260px;"/>
+                </t>
+                <t t-elif="!state.report">
+                    <div class="ff_card mt-3 text-muted">
+                        This area is not installed yet, so there is nothing to report.
+                    </div>
+                </t>
+                <t t-else="">
+
+                    <!-- Attendance -->
+                    <t t-if="state.section === 'attendance'">
+                        <div class="row g-3 mt-0">
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db">
+                                <div class="ff_card_title">Headcount</div>
+                                <div class="ff_big" t-esc="state.report.kpis.headcount"/></div></div>
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#16a34a">
+                                <div class="ff_card_title">Present today</div>
+                                <div class="ff_big text-success" t-esc="state.report.kpis.present_today"/></div></div>
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b">
+                                <div class="ff_card_title">Late punches</div>
+                                <div class="ff_big text-warning" t-esc="state.report.kpis.late"/></div></div>
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#7c5cfc">
+                                <div class="ff_card_title">Punches</div>
+                                <div class="ff_big" t-esc="state.report.kpis.punches"/></div></div>
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#14d3c0">
+                                <div class="ff_card_title">Hours worked</div>
+                                <div class="ff_big" t-esc="state.report.kpis.hours"/></div></div>
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1e90ff">
+                                <div class="ff_card_title">Avg per punch</div>
+                                <div class="ff_big"><t t-esc="state.report.kpis.avg_hours"/> h</div></div></div>
+                        </div>
+
+                        <div class="ff_card mt-3">
+                            <div class="ff_card_head">
+                                <div class="ff_card_icon"><i class="fa fa-bar-chart"/></div>
+                                <div class="ff_card_title">Present each day</div>
+                            </div>
+                            <div class="ff_bars">
+                                <div class="ff_bar_col" t-foreach="bars(state.report.series, 'present')" t-as="bar"
+                                     t-key="bar.day" t-attf-title="{{bar.label}}: {{bar.present}} present, {{bar.absent}} absent">
+                                    <div class="ff_bar_fill" t-attf-style="height: {{bar.height}}%"/>
+                                    <div class="ff_bar_label" t-esc="bar.label"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ff_card mt-3 mb-3">
+                            <div class="ff_card_head">
+                                <div class="ff_card_icon"><i class="fa fa-list"/></div>
+                                <div class="ff_card_title">Muster</div>
+                            </div>
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Employee</th>
+                                        <th class="text-end">Present</th>
+                                        <th class="text-end">Absent</th>
+                                        <th class="text-end">Late</th>
+                                        <th class="text-end">Hours</th>
+                                        <th class="text-end">Avg / day</th>
+                                        <th>Last punch</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="state.report.rows" t-as="row" t-key="row.id" class="ff_row"
+                                        t-on-click="() => this.openEmployee(row)">
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <img class="ff_avatar" t-att-src="row.avatar" alt=""/>
+                                                <div>
+                                                    <div class="fw-bold" t-esc="row.name"/>
+                                                    <div class="small text-muted" t-if="row.code" t-esc="row.code"/>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-end fw-bold text-success" t-esc="row.present"/>
+                                        <td class="text-end" t-att-class="row.absent ? 'text-danger' : 'text-muted'"
+                                            t-esc="row.absent"/>
+                                        <td class="text-end" t-att-class="row.late ? 'text-warning' : 'text-muted'"
+                                            t-esc="row.late"/>
+                                        <td class="text-end" t-esc="row.hours"/>
+                                        <td class="text-end" t-esc="row.avg_hours"/>
+                                        <td class="small text-muted" t-esc="row.last_in ? ago(row.last_in) : '-'"/>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </t>
+
+                    <!-- Leaves -->
+                    <t t-if="state.section === 'leaves'">
+                        <div class="row g-3 mt-0">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b">
+                                <div class="ff_card_title">To approve</div>
+                                <div class="ff_big text-warning" t-esc="state.report.kpis.pending"/></div></div>
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#16a34a">
+                                <div class="ff_card_title">Approved</div>
+                                <div class="ff_big text-success" t-esc="state.report.kpis.approved"/></div></div>
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#dc2626">
+                                <div class="ff_card_title">Refused</div>
+                                <div class="ff_big" t-esc="state.report.kpis.refused"/></div></div>
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db">
+                                <div class="ff_card_title">Off today</div>
+                                <div class="ff_big text-primary" t-esc="state.report.kpis.off_today"/></div></div>
+                        </div>
+
+                        <div class="row g-3 mt-0">
+                            <div class="col-xl-5">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-pie-chart"/></div>
+                                        <div class="ff_card_title">Days by type</div>
+                                    </div>
+                                    <div t-foreach="state.report.by_type" t-as="row" t-key="row.id" class="mb-2">
+                                        <div class="d-flex small">
+                                            <span t-esc="row.name"/>
+                                            <span class="ms-auto fw-bold"><t t-esc="row.days"/> days</span>
+                                        </div>
+                                        <div class="ff_stack mt-1">
+                                            <div class="ff_stack_part"
+                                                 t-attf-style="width: {{share(state.report.by_type, row.days)}}%; background:#1a56db"/>
+                                        </div>
+                                    </div>
+                                    <div t-if="!state.report.by_type.length" class="text-muted small">
+                                        No leave in this period.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-7">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-plane"/></div>
+                                        <div class="ff_card_title">Who is off today</div>
+                                    </div>
+                                    <div t-foreach="state.report.off_today" t-as="row" t-key="row.id"
+                                         class="d-flex align-items-center py-1 border-bottom">
+                                        <span class="fw-bold" t-esc="row.name"/>
+                                        <span class="ff_chip ms-2" t-esc="row.type"/>
+                                        <span class="ms-auto small text-muted">until <t t-esc="row.until"/></span>
+                                    </div>
+                                    <div t-if="!state.report.off_today.length" class="text-muted small">
+                                        Everybody is at work.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ff_card mt-3 mb-3">
+                            <div class="ff_card_head">
+                                <div class="ff_card_icon"><i class="fa fa-list"/></div>
+                                <div class="ff_card_title">Requests</div>
+                            </div>
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Employee</th><th>Type</th><th>From</th><th>To</th>
+                                        <th class="text-end">Days</th><th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="state.report.rows" t-as="row" t-key="row.id" class="ff_row"
+                                        t-on-click="() => this.openModel('hr.leave', 'Time Off', [['id', '=', row.id]])">
+                                        <td class="fw-bold" t-esc="row.employee"/>
+                                        <td t-esc="row.type"/>
+                                        <td t-esc="row.from"/>
+                                        <td t-esc="row.to"/>
+                                        <td class="text-end" t-esc="row.days"/>
+                                        <td><span class="ff_pill" t-att-class="stateBadge(row.state)"
+                                                  t-esc="stateWord(row.state)"/></td>
+                                    </tr>
+                                    <tr t-if="!state.report.rows.length">
+                                        <td colspan="6" class="text-muted">No requests in this period.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </t>
+
+                    <!-- Expenses -->
+                    <t t-if="state.section === 'expenses'">
+                        <div class="row g-3 mt-0">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db">
+                                <div class="ff_card_title">Claimed</div>
+                                <div class="ff_big" t-esc="money(state.report.kpis.total)"/>
+                                <span class="ff_chip"><t t-esc="state.report.kpis.count"/> claims</span></div></div>
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b">
+                                <div class="ff_card_title">Waiting</div>
+                                <div class="ff_big text-warning" t-esc="money(state.report.kpis.submitted.amount)"/>
+                                <span class="ff_chip"><t t-esc="state.report.kpis.submitted.count"/> to approve</span></div></div>
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#16a34a">
+                                <div class="ff_card_title">Approved</div>
+                                <div class="ff_big text-success" t-esc="money(state.report.kpis.approved.amount)"/>
+                                <span class="ff_chip"><t t-esc="state.report.kpis.approved.count"/> claims</span></div></div>
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#7c5cfc">
+                                <div class="ff_card_title">Per head</div>
+                                <div class="ff_big" t-esc="money(state.report.kpis.per_head)"/></div></div>
+                        </div>
+
+                        <div class="row g-3 mt-0">
+                            <div class="col-xl-6">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-tags"/></div>
+                                        <div class="ff_card_title">By category</div>
+                                    </div>
+                                    <div t-foreach="state.report.by_category" t-as="row" t-key="row.id" class="mb-2">
+                                        <div class="d-flex small">
+                                            <span t-esc="row.name"/>
+                                            <span class="ms-auto fw-bold" t-esc="money(row.amount)"/>
+                                        </div>
+                                        <div class="ff_stack mt-1">
+                                            <div class="ff_stack_part"
+                                                 t-attf-style="width: {{share(state.report.by_category, row.amount)}}%; background:#1a56db"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-6">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-user"/></div>
+                                        <div class="ff_card_title">Who claimed most</div>
+                                    </div>
+                                    <div t-foreach="state.report.by_employee" t-as="row" t-key="row.id" class="mb-2">
+                                        <div class="d-flex small">
+                                            <span t-esc="row.name"/>
+                                            <span class="ms-auto fw-bold" t-esc="money(row.amount)"/>
+                                        </div>
+                                        <div class="ff_stack mt-1">
+                                            <div class="ff_stack_part"
+                                                 t-attf-style="width: {{share(state.report.by_employee, row.amount)}}%; background:#7c5cfc"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ff_card mt-3 mb-3">
+                            <div class="ff_card_head">
+                                <div class="ff_card_icon"><i class="fa fa-list"/></div>
+                                <div class="ff_card_title">Claims</div>
+                            </div>
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th><th>Employee</th><th>Category</th><th>Contact</th>
+                                        <th class="text-end">Amount</th><th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="state.report.rows" t-as="row" t-key="row.id" class="ff_row"
+                                        t-on-click="() => this.openModel('ff.expense.claim', 'Expense Claims', [['id', '=', row.id]])">
+                                        <td t-esc="row.date"/>
+                                        <td class="fw-bold" t-esc="row.employee"/>
+                                        <td t-esc="row.category"/>
+                                        <td class="text-muted" t-esc="row.partner"/>
+                                        <td class="text-end fw-bold" t-esc="money(row.amount)"/>
+                                        <td><span class="ff_pill" t-att-class="stateBadge(row.state)"
+                                                  t-esc="stateWord(row.state)"/></td>
+                                    </tr>
+                                    <tr t-if="!state.report.rows.length">
+                                        <td colspan="6" class="text-muted">No claims in this period.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </t>
+
+                    <!-- Orders or demand -->
+                    <t t-if="state.section === 'orders'">
+                        <div class="row g-3 mt-0">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db">
+                                <div class="ff_card_title">
+                                    <t t-esc="state.report.flow === 'demand' ? 'Demand value' : 'Order value'"/>
+                                </div>
+                                <div class="ff_big" t-esc="money(state.report.kpis.total)"/>
+                                <span class="ff_chip"><t t-esc="state.report.kpis.count"/> documents</span></div></div>
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#14d3c0">
+                                <div class="ff_card_title">Average</div>
+                                <div class="ff_big" t-esc="money(state.report.kpis.average)"/></div></div>
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b">
+                                <div class="ff_card_title">
+                                    <t t-esc="state.report.flow === 'demand' ? 'Waiting to quote' : 'Confirmed'"/>
+                                </div>
+                                <div class="ff_big"
+                                     t-esc="state.report.flow === 'demand' ? state.report.kpis.pending : state.report.kpis.confirmed"/>
+                                <span class="ff_chip" t-if="state.report.flow === 'demand'"
+                                      t-esc="money(state.report.kpis.pending_value)"/></div></div>
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#7c5cfc">
+                                <div class="ff_card_title">Outlets</div>
+                                <div class="ff_big" t-esc="state.report.kpis.outlets"/></div></div>
+                        </div>
+
+                        <div class="ff_card mt-3">
+                            <div class="ff_card_head">
+                                <div class="ff_card_icon"><i class="fa fa-line-chart"/></div>
+                                <div class="ff_card_title">Value each day</div>
+                            </div>
+                            <div class="ff_bars">
+                                <div class="ff_bar_col" t-foreach="bars(state.report.series, 'amount')" t-as="bar"
+                                     t-key="bar.day" t-attf-title="{{bar.label}}: {{bar.amount}}">
+                                    <div class="ff_bar_fill" t-attf-style="height: {{bar.height}}%"/>
+                                    <div class="ff_bar_label" t-esc="bar.label"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mt-0">
+                            <div class="col-xl-6">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-trophy"/></div>
+                                        <div class="ff_card_title">Top sellers</div>
+                                    </div>
+                                    <div t-foreach="state.report.by_employee" t-as="row" t-key="row.id" class="mb-2">
+                                        <div class="d-flex small">
+                                            <span t-esc="row.name"/>
+                                            <span class="ms-auto fw-bold" t-esc="money(row.amount)"/>
+                                        </div>
+                                        <div class="ff_stack mt-1">
+                                            <div class="ff_stack_part"
+                                                 t-attf-style="width: {{share(state.report.by_employee, row.amount)}}%; background:#16a34a"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-6">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-cube"/></div>
+                                        <div class="ff_card_title">Top products</div>
+                                    </div>
+                                    <div t-foreach="state.report.by_product" t-as="row" t-key="row.id" class="mb-2">
+                                        <div class="d-flex small">
+                                            <span class="text-truncate" t-esc="row.name"/>
+                                            <span class="ms-auto fw-bold">
+                                                <t t-esc="row.quantity"/> units
+                                            </span>
+                                        </div>
+                                        <div class="ff_stack mt-1">
+                                            <div class="ff_stack_part"
+                                                 t-attf-style="width: {{share(state.report.by_product, row.quantity)}}%; background:#14d3c0"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ff_card mt-3 mb-3">
+                            <div class="ff_card_head">
+                                <div class="ff_card_icon"><i class="fa fa-list"/></div>
+                                <div class="ff_card_title">
+                                    <t t-esc="state.report.flow === 'demand' ? 'Outlet demands' : 'Orders'"/>
+                                </div>
+                            </div>
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Reference</th><th>Date</th><th>Employee</th><th>Outlet</th>
+                                        <th t-if="state.report.flow === 'demand'">Distributor</th>
+                                        <th class="text-end">Amount</th><th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="state.report.rows" t-as="row" t-key="row.id" class="ff_row"
+                                        t-on-click="() => this.openModel(state.report.flow === 'demand' ? 'ff.demand' : 'sale.order', 'Documents', [['id', '=', row.id]])">
+                                        <td class="fw-bold" t-esc="row.name"/>
+                                        <td t-esc="clock(row.date)"/>
+                                        <td t-esc="row.employee"/>
+                                        <td t-esc="row.partner"/>
+                                        <td t-if="state.report.flow === 'demand'" t-esc="row.distributor"/>
+                                        <td class="text-end fw-bold" t-esc="money(row.amount)"/>
+                                        <td><span class="ff_pill" t-att-class="stateBadge(row.state)"
+                                                  t-esc="stateWord(row.state)"/></td>
+                                    </tr>
+                                    <tr t-if="!state.report.rows.length">
+                                        <td colspan="7" class="text-muted">Nothing in this period.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </t>
+                </t>
+            </div>
         </div>
     </t>
 

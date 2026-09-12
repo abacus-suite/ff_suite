@@ -190,3 +190,51 @@ class TestOrgTree(TransactionCase):
             [self._find(tree['roots'], 'Regional Head')], 'Area Manager')
         self.assertEqual(manager['team'], 'South Team')
         self.assertIn('/web/image/hr.employee/', manager['avatar'])
+
+
+@tagged('post_install', '-at_install', 'ff')
+class TestReports(TransactionCase):
+    """The sections a manager reads: attendance, expenses, orders, leaves."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.Dashboard = cls.env['ff.dashboard']
+        cls.employee = cls.env['hr.employee'].create({'name': 'Report Officer', 'tz': 'UTC'})
+
+    def test_attendance_counts_the_days_somebody_worked(self):
+        now = fields.Datetime.now()
+        self.env['hr.attendance'].create({
+            'employee_id': self.employee.id,
+            'check_in': now - timedelta(hours=8),
+            'check_out': now,
+        })
+        report = self.Dashboard.ff_attendance_report('month')
+        row = next(row for row in report['rows'] if row['id'] == self.employee.id)
+        self.assertEqual(row['present'], 1)
+        self.assertGreater(row['hours'], 7)
+        self.assertEqual(len(report['series']), report['days'], 'one bar per day of the period')
+        self.assertGreaterEqual(report['kpis']['punches'], 1)
+
+    def test_every_period_answers_for_every_section(self):
+        for period in ('today', 'week', 'month'):
+            attendance = self.Dashboard.ff_attendance_report(period)
+            self.assertEqual(attendance['period'], period)
+            orders = self.Dashboard.ff_order_report(period)
+            self.assertIn(orders['flow'], ('direct', 'demand'))
+            self.assertIsInstance(orders['series'], list)
+
+    def test_the_order_report_follows_the_flow_setting(self):
+        Param = self.env['ir.config_parameter'].sudo()
+        Param.set_param('ff_base.order_flow', 'direct')
+        self.assertEqual(self.Dashboard.ff_order_report()['flow'], 'direct')
+        if 'ff.demand' in self.env:
+            Param.set_param('ff_base.order_flow', 'demand')
+            report = self.Dashboard.ff_order_report()
+            self.assertEqual(report['flow'], 'demand')
+            self.assertIn('pending', report['kpis'])
+        Param.set_param('ff_base.order_flow', 'direct')
+
+    def test_a_missing_module_reports_nothing_rather_than_failing(self):
+        result = self.Dashboard.ff_leaves_report()
+        self.assertTrue(result is None or 'kpis' in result)

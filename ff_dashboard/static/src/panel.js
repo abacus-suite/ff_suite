@@ -12,7 +12,19 @@ const SECTIONS = [
     { key: "dashboard", label: "Dashboard", icon: "fa-th-large" },
     { key: "live", label: "Live Location", icon: "fa-map-marker" },
     { key: "people", label: "Employees", icon: "fa-users" },
+    { key: "attendance", label: "Attendance", icon: "fa-calendar-check-o" },
+    { key: "leaves", label: "Leaves", icon: "fa-plane" },
+    { key: "expenses", label: "Expenses", icon: "fa-credit-card" },
+    { key: "orders", label: "Orders", icon: "fa-shopping-cart" },
 ];
+
+/** Which model method feeds each report section. */
+const REPORTS = {
+    attendance: "ff_attendance_report",
+    leaves: "ff_leaves_report",
+    expenses: "ff_expense_report",
+    orders: "ff_order_report",
+};
 
 /** Colour and wording for what somebody is doing right now. */
 const STATES = {
@@ -64,6 +76,8 @@ export class AixoloPanel extends Component {
             org: null,
             orgSearch: "",
             collapsedNodes: [],
+            report: null,
+            reportLoading: false,
             timeline: null,
             timelineEmployees: [],
             timelineEmployeeId: null,
@@ -101,6 +115,10 @@ export class AixoloPanel extends Component {
 
     async setPeriod(period) {
         this.state.period = period;
+        if (REPORTS[this.state.section]) {
+            await this.loadReport();
+            return;
+        }
         await this.load();
     }
 
@@ -110,6 +128,8 @@ export class AixoloPanel extends Component {
             await this.loadLive();
         } else if (key === "people") {
             await this.loadPeople();
+        } else if (REPORTS[key]) {
+            await this.loadReport();
         }
     }
 
@@ -460,6 +480,73 @@ export class AixoloPanel extends Component {
     }
 
 
+
+
+    // -- the report sections ----------------------------------------------
+    async loadReport() {
+        const method = REPORTS[this.state.section];
+        if (!method) {
+            return;
+        }
+        this.state.reportLoading = true;
+        this.state.report = await this.orm.call("ff.dashboard", method, [this.state.period]);
+        this.state.reportLoading = false;
+    }
+
+    /** Bars for a report series, scaled to its tallest day. */
+    bars(series, key) {
+        const rows = series || [];
+        const max = Math.max(1, ...rows.map((row) => row[key] || 0));
+        return rows.map((row) => ({ ...row, height: Math.round(((row[key] || 0) / max) * 100) }));
+    }
+
+    /** Width of a row in a "top ten" list, against the biggest one. */
+    share(rows, value) {
+        const max = Math.max(1, ...(rows || []).map((row) => row.amount || row.quantity || 0));
+        return Math.round((value / max) * 100);
+    }
+
+    stateBadge(state) {
+        return (
+            {
+                draft: "ff_pill_grey",
+                submitted: "ff_pill_blue",
+                confirm: "ff_pill_amber",
+                validate1: "ff_pill_amber",
+                validate: "ff_pill_green",
+                approved: "ff_pill_green",
+                sale: "ff_pill_green",
+                supplied: "ff_pill_green",
+                quoted: "ff_pill_blue",
+                partial: "ff_pill_amber",
+                refuse: "ff_pill_red",
+                rejected: "ff_pill_red",
+                cancel: "ff_pill_red",
+                cancelled: "ff_pill_red",
+            }[state] || "ff_pill_grey"
+        );
+    }
+
+    stateWord(state) {
+        return (
+            {
+                confirm: "To approve",
+                validate1: "Second approval",
+                validate: "Approved",
+                refuse: "Refused",
+                sale: "Confirmed",
+                draft: "Draft",
+                submitted: "Submitted",
+                approved: "Approved",
+                rejected: "Rejected",
+                quoted: "Quoted",
+                partial: "Partly quoted",
+                supplied: "Supplied",
+                cancelled: "Cancelled",
+                cancel: "Cancelled",
+            }[state] || state
+        );
+    }
 
     // -- Employees: cards and hierarchy ------------------------------------
     async loadPeople() {
