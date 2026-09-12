@@ -131,18 +131,23 @@ export class FieldForceLiveMap extends Component {
         if (!window.google || !window.google.maps) {
             try {
                 await loadJS(
-                    `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=marker&loading=async`
+                    `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=maps,marker&loading=async&callback=Function.prototype`
                 );
             } catch {
-                this.notification.add(
-                    "Google Maps could not be loaded. Check the API key and that the Maps JavaScript API is enabled.",
-                    { type: "danger" }
-                );
-                this.state.hasKey = false;
+                this.mapsFailed("Google Maps could not be loaded. Check the API key and that the Maps JavaScript API is enabled.");
                 return;
             }
         }
-        if (!this.mapRef.el) {
+        // With the async loader the script only installs a bootstrap: the classes
+        // themselves arrive when their library is imported.
+        try {
+            await window.google.maps.importLibrary("maps");
+            await window.google.maps.importLibrary("marker");
+        } catch {
+            this.mapsFailed("Google Maps loaded but refused the key. Check its API restrictions and that billing is on.");
+            return;
+        }
+        if (!this.mapRef.el || typeof window.google.maps.Map !== "function") {
             return;
         }
         // One Google "map load" is billed here, so count it here too.
@@ -156,6 +161,11 @@ export class FieldForceLiveMap extends Component {
             clickableIcons: false,
         });
         this.infoWindow = new window.google.maps.InfoWindow();
+    }
+
+    mapsFailed(message) {
+        this.notification.add(message, { type: "danger" });
+        this.state.hasKey = false;
     }
 
     markerIcon(person) {
