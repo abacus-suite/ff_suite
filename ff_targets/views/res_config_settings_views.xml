@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_ff_targets" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.ff.targets</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="ff_base.res_config_settings_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='ff_security_settings']" position="before">
+                <block title="Targets &amp; Incentives" name="ff_target_settings">
+                    <setting string="Who splits targets" help="With owners splitting, a department or team manager (or anyone with people under them) divides the target they were given among their teams and people, in Odoo or in the app.">
+                        <field name="ff_targets_who_splits" widget="radio"/>
+                    </setting>
+                    <setting string="Splitting rule" help="Whether the parts may add up to more than the target they come from.">
+                        <field name="ff_targets_split_mode" widget="radio"/>
+                    </setting>
+                    <setting string="Default incentive" help="Rules live under Aixolo › Targets › Incentive Rules.">
+                        <field name="ff_targets_default_rule_id"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

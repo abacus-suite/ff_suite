@@ -17,6 +17,11 @@ class FfDashboardTargets(models.AbstractModel):
         progress = self.env['ff.target'].ff_progress(employees, start)
         first, _last = month_bounds(start)
         rows = progress['rows']
+        # Company, department and team targets sit above the people, when the filters leave them in view.
+        upper = self.env['ff.target'].sudo().search([('month', '=', first), ('scope', '!=', 'employee')])
+        if employees:
+            upper = upper.filtered(lambda t: t._ff_members() & employees)
+        upper_rows = [t.ff_row() for t in upper.sorted(lambda t: ['company', 'department', 'team'].index(t.scope))]
 
         def team(metric):
             target = sum(m['target'] for row in rows for m in row['metrics'] if m['key'] == metric)
@@ -47,23 +52,27 @@ class FfDashboardTargets(models.AbstractModel):
                            sorted(rows, key=lambda row: -row['achievement'])[:12]], money=False),
             ],
             'columns': [
-                {'key': 'employee', 'label': 'Employee', 'bold': True},
+                {'key': 'level', 'label': 'Level'},
+                {'key': 'employee', 'label': 'For', 'bold': True},
                 {'key': 'visits', 'label': 'Visits'},
                 {'key': 'customers', 'label': 'New customers'},
                 {'key': 'sales', 'label': 'Sales'},
                 {'key': 'collections', 'label': 'Collections'},
                 {'key': 'achievement', 'label': 'Achievement', 'progress': True},
+                {'key': 'incentive', 'label': 'Incentive', 'end': True},
             ],
             'rows': [dict({
                 'id': row['id'],
+                'level': {'company': 'Company', 'department': 'Department', 'team': 'Team'}.get(row['scope'], 'Employee'),
                 'employee': row['employee'],
                 'achievement': row['achievement'],
+                'incentive': self._fmt_target(row['incentive']['earned'], True) if row.get('incentive') else '–',
             }, **{
                 metric: ('%s / %s' % (self._fmt_target(metric_of(row, metric, 'actual'), money),
                                       self._fmt_target(metric_of(row, metric, 'target'), money))
                          if metric_of(row, metric, 'target') else '–')
                 for metric, _field, _label, money in METRICS
-            }) for row in rows],
+            }) for row in upper_rows + rows],
         })
         if not rows:
             report['empty_hint'] = 'No targets set for %s. Add them under Aixolo › Targets.' % first.strftime('%B %Y')
