@@ -66,16 +66,37 @@ class ApiClient {
 
   /// A read. Online, the answer is also kept on the phone; offline, the last
   /// kept answer is returned instead, so screens still open in a dead zone.
-  Future<dynamic> get(String path, {Map<String, dynamic>? query}) async {
+  Future<dynamic> get(String path, {Map<String, dynamic>? query}) {
     final key = cacheKey(path, query);
+    // Two screens asking the same thing at once share one trip to the server.
+    return _inFlight[key] ??= _get(path, query, key).whenComplete(() => _inFlight.remove(key));
+  }
+
+  final Map<String, Future<dynamic>> _inFlight = {};
+
+  /// Last answers kept in memory, so a screen can draw straight away and refresh behind.
+  final Map<String, Object?> _memory = {};
+
+  /// The last saved answer for this read, without asking the server (null if never loaded).
+  Future<dynamic> peek(String path, {Map<String, dynamic>? query}) async {
+    final key = cacheKey(path, query);
+    if (_memory.containsKey(key)) return _memory[key];
+    final cached = await store?.readCache(key);
+    if (cached != null) _memory[key] = cached.$1;
+    return cached?.$1;
+  }
+
+  Future<dynamic> _get(String path, Map<String, dynamic>? query, String key) async {
     try {
       if (online.value && beforeRead != null) {
         await beforeRead!().timeout(const Duration(seconds: 10), onTimeout: () {});
       }
       final data = await _send('GET', path, query: query);
-      await store?.saveCache(key, data);
+      _memory[key] = data;
+      // Saved in the background: the screen does not wait for the disk.
+      store?.saveCache(key, data).catchError((_) {});
       // The latest answer for the screen, whatever its filters: the fallback offline.
-      if (key != path && !_perRecord.contains(path)) await store?.saveCache(path, data);
+      if (key != path && !_perRecord.contains(path)) store?.saveCache(path, data).catchError((_) {});
       return data;
     } on ApiException catch (e) {
       if (e.code != 'network' || store == null) rethrow;
@@ -95,6 +116,7 @@ class ApiClient {
     final base = await _storage.baseUrl();
     final token = await _storage.token();
     final Response<dynamic> res;
+    final watch = Stopwatch()..start();
     try {
       res = await _dio.request<dynamic>(
         '$base$path',
@@ -109,6 +131,7 @@ class ApiClient {
       throw ApiException(null, 'network', 'Cannot reach the server. Check your internet connection.');
     }
     online.value = true;
+    if (watch.elapsedMilliseconds > 1500) debugPrint('[api] slow $method $path ${watch.elapsedMilliseconds}ms');
 
     final data = res.data;
     if (data is Map && data['ok'] == true) return data['data'];

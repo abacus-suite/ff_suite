@@ -8,7 +8,7 @@ import '../../widgets/common.dart';
 import '../../widgets/group_kit.dart';
 import 'report_views.dart';
 
-enum _View { list, table, chart, pivot, map }
+enum _View { list, table, chart, pivot, calendar, map }
 
 /// One report: pick the period and whose rows, read it as cards or a table,
 /// and download it as an Excel sheet.
@@ -32,6 +32,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
   String _period = 'month';
   String _member = 'me';
   String _groupBy = 'none';
+  late String _by = _splits.isEmpty ? '' : '${_splits.first['key']}';
   String _status = 'all';
   String _find = '';
   final Set<String> _collapsed = {};
@@ -70,10 +71,14 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
     };
   }
 
+  /// How a report splits its rows (the summary report: overall, employee, day...).
+  List<Map<String, dynamic>> get _splits => ((widget.report['by'] as List?) ?? []).cast<Map<String, dynamic>>();
+
   Map<String, dynamic> get _query => {
         'start': fmtDate(_range.start),
         'end': fmtDate(_range.end),
         'member': _member,
+        if (_by.isNotEmpty) 'by': _by,
       };
 
   Future<void> _load() async {
@@ -81,10 +86,17 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
       _loading = true;
       _error = null;
     });
+    final path = '/api/v1/reports/${widget.report['key']}';
+    final query = _query;
+    // The last copy of this exact view draws at once; the fresh one replaces it.
+    final saved = await Services.api.peek(path, query: query);
+    if (mounted && saved is Map && _data == null) setState(() => _data = saved.cast<String, dynamic>());
     try {
-      final data = await Services.api
-              .get('/api/v1/reports/${widget.report['key']}', query: _query)
-          as Map<String, dynamic>;
+      final data = await Services.api.get(path, query: query) as Map<String, dynamic>;
+      if (!mounted || query['by'] != _query['by'] || query['start'] != _query['start'] ||
+          query['member'] != _query['member']) {
+        return; // the reader moved on while this was loading
+      }
       if (mounted) setState(() => _data = data);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -352,6 +364,10 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
     final columns =
         ((data?['columns'] as List?) ?? []).cast<Map<String, dynamic>>();
     final allRows = ((data?['rows'] as List?) ?? []).cast<Map<String, dynamic>>();
+    if ((_view == _View.map && !reportHasPlaces(allRows)) ||
+        (_view == _View.calendar && columns.isNotEmpty && !reportHasDates(columns))) {
+      _view = _View.list;
+    }
     final rows = _filtered(columns, allRows);
     final filtering = _status != 'all' || _find.trim().isNotEmpty;
     final totals = filtering
@@ -368,7 +384,8 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
             onSelected: (v) => setState(() => _view = v),
             itemBuilder: (_) => [
               for (final v in _View.values)
-                if (v != _View.map || reportHasPlaces(allRows))
+                if ((v != _View.map || reportHasPlaces(allRows)) &&
+                    (v != _View.calendar || reportHasDates(columns)))
                   PopupMenuItem(
                     value: v,
                     child: Row(children: [
@@ -394,6 +411,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
       body: Column(
         children: [
           _filters(),
+          if (_splits.isNotEmpty) _splitBar(),
           if (columns.isNotEmpty) _refine(columns, allRows),
           if (_loading) const LinearProgressIndicator(minHeight: 2),
           if (totals.isNotEmpty && rows.isNotEmpty)
@@ -419,6 +437,15 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
                                     initialDimension: _groupBy)
                                 : _view == _View.pivot
                                 ? ReportPivotView(columns: columns, rows: rows, currency: data?['currency'] as String?)
+                                : _view == _View.calendar
+                                ? ReportCalendarView(
+                                    reportKey: '${widget.report['key']}',
+                                    columns: columns,
+                                    rows: rows,
+                                    start: _range.start,
+                                    end: _range.end,
+                                    onePerson: _member != 'team',
+                                    format: _format)
                                 : _view == _View.map
                                 ? ReportMapView(
                                     columns: columns, rows: rows, currency: data?['currency'] as String?, format: _format)
@@ -439,6 +466,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
         _View.table => Icons.table_chart_rounded,
         _View.chart => Icons.bar_chart_rounded,
         _View.pivot => Icons.pivot_table_chart_rounded,
+        _View.calendar => Icons.calendar_month_rounded,
         _View.map => Icons.map_rounded,
       };
 
@@ -447,6 +475,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
         _View.table => 'Table',
         _View.chart => 'Chart',
         _View.pivot => 'Pivot',
+        _View.calendar => 'Calendar',
         _View.map => 'Map',
       };
 
@@ -501,6 +530,43 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _splitBar() {
+    return Container(
+      color: Colors.white,
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+        children: [
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: Text('Summary by', style: TextStyle(color: AixoloColors.muted, fontWeight: FontWeight.w700)),
+            ),
+          ),
+          for (final split in _splits)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ChoiceChip(
+                label: Text('${split['label']}'),
+                selected: _by == split['key'],
+                onSelected: (_) {
+                  if (_by == split['key']) return;
+                  setState(() {
+                    _by = '${split['key']}';
+                    _data = null; // different columns: nothing old to show
+                    _groupBy = 'none';
+                    _status = 'all';
+                  });
+                  _load();
+                },
+              ),
+            ),
         ],
       ),
     );

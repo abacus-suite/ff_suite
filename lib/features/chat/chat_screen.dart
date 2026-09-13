@@ -649,7 +649,7 @@ class ChatBadge {
   static Timer? _timer;
 
   static void start() {
-    _timer ??= Timer.periodic(const Duration(seconds: 60), (_) => refresh());
+    _timer ??= Timer.periodic(const Duration(minutes: 2), (_) => refresh());
     refresh();
   }
 

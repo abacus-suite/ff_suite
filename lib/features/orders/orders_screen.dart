@@ -56,6 +56,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    if (_orders.isEmpty && _summary == null) {
+      // The last copy of this view first; the fresh one replaces it.
+      final saved = await Future.wait([
+        Services.api.peek(_demandFlow ? '/api/v1/demands' : '/api/v1/orders', query: {..._query, 'limit': 1000}),
+        Services.api.peek('/api/v1/orders/summary', query: _query),
+      ]);
+      if (mounted && saved[0] is List && saved[1] is Map && _orders.isEmpty) {
+        setState(() {
+          _orders = (saved[0] as List).cast<Map<String, dynamic>>();
+          _summary = (saved[1] as Map).cast<String, dynamic>();
+        });
+      }
+    }
     try {
       final results = await Future.wait([
         Services.api.get(_demandFlow ? '/api/v1/demands' : '/api/v1/orders', query: {..._query, 'limit': 1000}),

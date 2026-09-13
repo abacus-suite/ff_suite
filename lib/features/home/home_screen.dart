@@ -72,9 +72,38 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<dynamic> _optional(Future<dynamic> future) =>
       future.catchError((_) => null);
 
+  bool _peeked = false;
+
+  /// The last known day, drawn before the server answers.
+  Future<void> _peek() async {
+    _peeked = true;
+    final profile = _profile;
+    final api = Services.api;
+    final results = await Future.wait<dynamic>([
+      api.peek('/api/v1/attendance/status'),
+      api.peek('/api/v1/visits/current'),
+      profile.feature('routes') ? api.peek('/api/v1/beat/today') : Future<dynamic>.value(null),
+      profile.feature('orders')
+          ? api.peek('/api/v1/orders/dashboard', query: {'period': _period, 'member': _member})
+          : Future<dynamic>.value(null),
+      api.peek('/api/v1/tracking/my-day'),
+      api.peek('/api/v1/visits'),
+    ]).catchError((_) => <dynamic>[null, null, null, null, null, null]);
+    if (!mounted || _status != null || results[0] is! Map) return;
+    setState(() {
+      _status = (results[0] as Map).cast<String, dynamic>();
+      _visit = (results[1] as Map?)?.cast<String, dynamic>();
+      _today = (results[2] as Map?)?.cast<String, dynamic>();
+      _sales = (results[3] as Map?)?.cast<String, dynamic>();
+      _travel = (results[4] as Map?)?.cast<String, dynamic>();
+      _visits = ((results[5] as List?) ?? []).cast<Map<String, dynamic>>();
+    });
+  }
+
   Future<void> _load() async {
     if (!mounted) return;
     setState(() => _loading = true);
+    if (!_peeked) unawaited(_peek());
     final profile = _profile;
     try {
       final results = await Future.wait<dynamic>([

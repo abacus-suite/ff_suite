@@ -69,6 +69,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Future<void> _load() async {
     setState(() => _error = null);
+    if (_data == null) {
+      final saved = await Services.api.peek('/api/v1/reports');
+      if (mounted && saved is Map && _data == null) setState(() => _data = saved.cast<String, dynamic>());
+    }
     try {
       final data = await Services.api.get('/api/v1/reports') as Map<String, dynamic>;
       if (mounted) setState(() => _data = data);
