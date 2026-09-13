@@ -16,6 +16,7 @@ import '../leaves/leaves_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../reports/reports_screen.dart';
 import '../forms/forms_screen.dart';
+import '../tasks/tasks_screen.dart';
 import 'profile_screen.dart';
 
 /// Every screen that is not a main tab, as a menu. Profile details and
@@ -29,6 +30,7 @@ class MoreScreen extends StatelessWidget {
     void open(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
     final menu = <(IconData, String, Color, Widget)>[
       (Icons.bar_chart_rounded, 'Reports', AixoloColors.primary, const ReportsScreen()),
+      (Icons.task_alt_rounded, 'Tasks', AixoloColors.success, const TasksScreen()),
       if (profile.feature('routes')) ...[
         (Icons.calendar_month_rounded, 'My ${profile.routeLabel} Plan', AixoloColors.primary, const BeatTodayScreen()),
         (Icons.edit_calendar_rounded, 'Plan a ${profile.routeLabel} Day', AixoloColors.sky, const PlanDayScreen()),

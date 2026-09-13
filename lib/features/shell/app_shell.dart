@@ -7,6 +7,7 @@ import '../clients/add_client_screen.dart';
 import '../collections/collect_payment_screen.dart';
 import '../leaves/leaves_screen.dart';
 import '../orders/catalog_screen.dart';
+import '../tasks/tasks_screen.dart';
 import '../visits/visit_gate.dart';
 import '../clients/clients_screen.dart';
 import '../expenses/new_expense_screen.dart';
@@ -98,6 +99,9 @@ class _AppShellState extends State<AppShell> {
               if (profile.feature('visits'))
                 option('client', Icons.add_business_rounded, AixoloColors.success, 'New $customer',
                     'Add a shop you are standing in front of', sheet),
+              if (profile.isManager)
+                option('task', Icons.add_task_rounded, AixoloColors.purple, 'Give a task',
+                    'Send a task to someone in your team', sheet),
               option('leave', Icons.beach_access_rounded, AixoloColors.sky, 'Leave request',
                   'Ask for time off', sheet),
               option('expense', Icons.receipt_long_rounded, AixoloColors.warning, 'New expense claim',
@@ -124,6 +128,8 @@ class _AppShellState extends State<AppShell> {
             : CollectPaymentScreen(client: client, visitId: visit['id'] as int?));
       case 'client':
         await open(const AddClientScreen());
+      case 'task':
+        await open(const NewTaskScreen());
       case 'leave':
         await _requestLeave(context);
       default:

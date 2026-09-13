@@ -19,6 +19,8 @@ const _icons = <String, IconData>{
   'beach_access': Icons.beach_access_rounded,
   'route': Icons.route_rounded,
   'add_business': Icons.add_business_rounded,
+  'flag': Icons.flag_rounded,
+  'task_alt': Icons.task_alt_rounded,
 };
 
 const _tones = [

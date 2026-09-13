@@ -17,6 +17,7 @@ import '../../widgets/dashboard.dart';
 import '../../widgets/home_kit.dart';
 import '../notifications/notifications_screen.dart';
 import '../more/profile_screen.dart';
+import 'month_target_card.dart';
 import 'my_requests_card.dart';
 import '../../widgets/sync_status.dart';
 import '../beat/beat_today_screen.dart';
@@ -228,6 +229,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 12),
                 _targetBanner(),
                 const SizedBox(height: 12),
+                const MonthTargetCard(),
+                const MyTasksCard(),
                 const MyRequestsCard(),
                 const SizedBox(height: 12),
                 _travelCard(),

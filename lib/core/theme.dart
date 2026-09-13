@@ -26,6 +26,7 @@ class AixoloColors {
     end: Alignment.bottomLeft,
   );
   static const dangerGradient = LinearGradient(colors: [Color(0xFFE53935), Color(0xFFFF7A45)]);
+  static const successGradient = LinearGradient(colors: [Color(0xFF16A34A), Color(0xFF14D3C0)]);
 }
 
 ThemeData aixoloTheme() {
