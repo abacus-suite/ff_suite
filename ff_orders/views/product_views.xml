@@ -30,7 +30,7 @@
         <field name="model">product.template</field>
         <field name="priority">99</field>
         <field name="arch" type="xml">
-            <list editable="bottom">
+            <list editable="bottom" open_form_view="True">
                 <field name="ff_sku_code"/>
                 <field name="name"/>
                 <field name="default_code" optional="show"/>
