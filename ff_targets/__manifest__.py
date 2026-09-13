@@ -1,6 +1,6 @@
 {
     'name': 'Aixolo - Targets',
-    'version': '19.0.2.0.0',
+    'version': '19.0.2.1.0',
     'category': 'Human Resources/Field Force',
     'summary': 'Monthly visit, customer, sales and collection targets per employee, with achievement',
     'author': 'Field Force Suite',

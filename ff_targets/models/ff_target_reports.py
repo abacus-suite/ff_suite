@@ -74,6 +74,57 @@ class FfDashboardTargets(models.AbstractModel):
                 for metric, _field, _label, money in METRICS
             }) for row in upper_rows + rows],
         })
+        # The Targets screen: each figure against its target and last month, who is ahead, and visits by day.
+        previous_rows = self.env['ff.target'].ff_progress(employees, first - timedelta(days=1))['rows']
+
+        def summed(source, metric):
+            target = sum(m['target'] for row in source for m in row['metrics'] if m['key'] == metric)
+            actual = sum(m['actual'] for row in source for m in row['metrics'] if m['key'] == metric)
+            return target, actual
+
+        metrics = []
+        for metric, _field, label, money in METRICS:
+            target, actual = summed(rows, metric)
+            _prev_target, prev_actual = summed(previous_rows, metric)
+            metrics.append({
+                'key': metric, 'label': label, 'money': money, 'target': target, 'actual': actual,
+                'percent': round(actual * 100 / target) if target else 0,
+                'change': round((actual - prev_actual) * 100 / prev_actual) if prev_actual else (100 if actual else 0),
+            })
+
+        month_end = month_bounds(start)[1]
+        days = (month_end - first).days + 1
+        counts = {}
+        if 'ff.visit' in self.env:
+            for visit in self.env['ff.visit'].sudo().search([
+                    ('employee_id', 'in', employees.ids),
+                    ('check_in_at', '>=', self._ff_day_range(first)[0]),
+                    ('check_in_at', '<', self._ff_day_range(month_end)[1])]):
+                day = self._local_day(visit.employee_id, visit.check_in_at)
+                counts[day] = counts.get(day, 0) + 1
+        visit_target, _visits_done = summed(rows, 'visits')
+        per_day = round(visit_target / days, 1) if days else 0
+        today = self._ff_today()
+        trend = []
+        for n in range(days):
+            day = first + timedelta(days=n)
+            if day > today:
+                break
+            trend.append({'label': day.strftime('%d %b'), 'visits': counts.get(day, 0), 'target': per_day})
+
+        def visits_of(row):
+            found = [m for m in row['metrics'] if m['key'] == 'visits']
+            return (found[0]['actual'], found[0]['target']) if found else (None, None)
+
+        report['target'] = {
+            'month_label': first.strftime('%B %Y'),
+            'metrics': metrics,
+            'trend': trend,
+            'by_employee': [{
+                'id': row['employee_id'], 'name': row['employee'], 'achievement': row['achievement'],
+                'done': visits_of(row)[0], 'goal': visits_of(row)[1],
+            } for row in sorted(rows, key=lambda row: -row['achievement'])],
+        }
         if not rows:
             report['empty_hint'] = 'No targets set for %s. Add them under Aixolo › Targets.' % first.strftime('%B %Y')
         return report

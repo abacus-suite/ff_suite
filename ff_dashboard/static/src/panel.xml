@@ -1029,7 +1029,7 @@
                 <t t-else="">
 
                     <!-- Visits, demands, collections: one generic layout -->
-                    <t t-if="state.report.generic and !state.report.visit and !state.report.demand and !state.report.collection">
+                    <t t-if="state.report.generic and !state.report.visit and !state.report.demand and !state.report.collection and !state.report.target">
                         <div class="d-flex align-items-center mt-3">
                             <button class="ff_chip_btn ms-auto" t-on-click="() => this.drillGeneric()">
                                 <i class="fa fa-external-link me-1"/>Open in Odoo
@@ -1101,6 +1101,153 @@
                                 </table></div>
                             <t t-call="ff_dashboard.Pager"/>
                             </div>
+                        </div>
+                    </t>
+
+                    <!-- Targets -->
+                    <t t-if="state.section === 'targets' and state.report.target">
+                        <div class="d-flex align-items-center mt-2">
+                            <div class="ff_warn" t-if="state.report.empty_hint" t-esc="state.report.empty_hint"/>
+                            <button class="btn btn-link btn-sm ms-auto" t-on-click="() => this.drillGeneric()">
+                                <i class="fa fa-external-link me-1"/>Open in Odoo
+                            </button>
+                        </div>
+                        <div class="row g-3 mt-0">
+                            <t t-foreach="targetKpis" t-as="kpi" t-key="kpi.key">
+                                <div class="col-xl-3 col-md-6">
+                                    <div class="ff_kpi h-100" t-attf-style="--tile: {{kpi.color}}">
+                                        <div class="d-flex align-items-start gap-3">
+                                            <div class="ff_kpi_icon"><i class="fa" t-att-class="kpi.icon"/></div>
+                                            <div class="flex-grow-1 min-width-0">
+                                                <div class="ff_kpi_label" t-esc="kpi.label"/>
+                                                <div class="ff_target_value text-nowrap" t-esc="kpi.value"/>
+                                                <div class="ff_kpi_note m-0">of <t t-esc="kpi.goal"/> target</div>
+                                            </div>
+                                            <div class="text-center">
+                                                <div class="ff_mini_ring" t-attf-style="--pct: {{Math.min(kpi.percent, 100)}}">
+                                                    <span><t t-esc="kpi.percent"/>%</span>
+                                                </div>
+                                                <span class="ff_trend mt-2"
+                                                      t-att-class="kpi.change > 0 ? 'ff_trend_up' : kpi.change &lt; 0 ? 'ff_trend_down' : 'ff_trend_flat'">
+                                                    <i class="fa" t-att-class="kpi.change > 0 ? 'fa-arrow-up' : kpi.change &lt; 0 ? 'fa-arrow-down' : 'fa-minus'"/>
+                                                    <t t-esc="Math.abs(kpi.change)"/>%
+                                                </span>
+                                                <div class="ff_kpi_note m-0 small">vs last month</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+
+                        <div class="row g-3 mt-0">
+                            <div class="col-xl-6">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-user"/></div>
+                                        <div class="ff_card_title">Achievement by employee</div>
+                                        <span class="ff_period_chip ms-auto" t-esc="state.report.target.month_label"/>
+                                    </div>
+                                    <t t-if="state.report.target.by_employee.length">
+                                        <div t-foreach="state.report.target.by_employee.slice(0, 5)" t-as="row" t-key="row_index" class="ff_bar_row">
+                                            <span class="text-muted" style="width: 16px;" t-esc="row_index + 1"/>
+                                            <img t-if="row.id" class="ff_avatar ff_avatar_round ff_avatar_sm"
+                                                 t-att-src="'/web/image/hr.employee/' + row.id + '/avatar_128'" alt=""/>
+                                            <span class="ff_bar_name text-truncate" t-esc="row.name"/>
+                                            <div class="ff_progress flex-grow-1 mt-0">
+                                                <div t-attf-style="width: {{Math.max(3, Math.min(row.achievement, 100))}}%; background: linear-gradient(90deg, #1a56db, #60a5fa);"/>
+                                            </div>
+                                            <span class="small text-muted text-nowrap" t-if="row.goal"><t t-esc="row.done"/> / <t t-esc="row.goal"/></span>
+                                            <b class="text-primary" style="min-width: 3rem; text-align: right;"><t t-esc="row.achievement"/>%</b>
+                                        </div>
+                                    </t>
+                                    <div t-else="" class="ff_empty">
+                                        <i class="fa fa-bullseye"/>
+                                        <div class="fw-bold">No targets set</div>
+                                        <div class="small text-muted">Add employee targets for this month.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-6">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-bar-chart"/></div>
+                                        <div class="ff_card_title">Visits vs Target Trend</div>
+                                        <div class="ff_chart_legend ms-auto">
+                                            <span><span class="ff_dot" style="background:#1A56DB"/>Visits</span>
+                                            <span><span class="ff_dot" style="background:#94A3B8"/>Target</span>
+                                        </div>
+                                    </div>
+                                    <FfChart type="'bar'"
+                                             labels="state.report.target.trend.map((row) => row.label)"
+                                             datasets="[
+                                                {label: 'Visits', data: state.report.target.trend.map((row) => row.visits), color: '#1a56db'},
+                                                {label: 'Target', type: 'line', data: state.report.target.trend.map((row) => row.target), borderColor: '#94a3b8', backgroundColor: '#94a3b8', borderDash: [5, 5], pointRadius: 2, fill: false, color: '#94a3b8'}]"
+                                             legend="false" height="240"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ff_card mt-3 mb-3">
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+                                <div class="ff_card_icon"><i class="fa fa-list"/></div>
+                                <div class="ff_card_title">Records</div>
+                                <div class="ff_search_box ms-auto">
+                                    <i class="fa fa-search"/>
+                                    <input type="text" class="form-control form-control-sm" placeholder="Search department, employee..."
+                                           t-att-value="state.rowSearch" t-on-input="searchRows"/>
+                                </div>
+                            </div>
+                            <div class="ff_table_scroll">
+                                <table class="table ff_table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 44px;">#</th>
+                                            <th>Level</th><th>For</th><th>Visits</th><th>New Customers</th>
+                                            <th>Sales</th><th>Collections</th><th style="min-width: 180px;">Achievement</th>
+                                            <th class="text-end">Incentive</th>
+                                            <th class="text-center" style="width: 70px;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="pagedRows" t-as="row" t-key="row.id" class="ff_row"
+                                            t-on-click="() => this.openGenericRow(row)">
+                                            <td class="text-muted" t-esc="pageInfo.from + row_index"/>
+                                            <td t-esc="row.level"/>
+                                            <td class="fw-bold" t-esc="row.employee"/>
+                                            <td class="text-nowrap" t-esc="row.visits"/>
+                                            <td class="text-nowrap" t-esc="row.customers"/>
+                                            <td class="text-nowrap" t-esc="row.sales"/>
+                                            <td class="text-nowrap" t-esc="row.collections"/>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="ff_progress flex-grow-1 mt-0">
+                                                        <div t-attf-style="width: {{Math.max(2, Math.min(row.achievement || 0, 100))}}%; background: {{(row.achievement || 0) >= 100 ? '#16a34a' : (row.achievement || 0) >= 60 ? '#1a56db' : '#f59e0b'}};"/>
+                                                    </div>
+                                                    <span class="small fw-bold"><t t-esc="row.achievement || 0"/>%</span>
+                                                </div>
+                                            </td>
+                                            <td class="text-end fw-bold" t-esc="row.incentive"/>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm ff_more" title="Open"
+                                                        t-on-click.stop="() => this.openGenericRow(row)">
+                                                    <i class="fa fa-ellipsis-h"/>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr t-if="!pagedRows.length">
+                                            <td colspan="10">
+                                                <div class="ff_empty">
+                                                    <i class="fa fa-bullseye"/>
+                                                    <div class="fw-bold">No targets for this month.</div>
+                                                    <div class="small text-muted">Targets you set will appear here.</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <t t-call="ff_dashboard.Pager"/>
                         </div>
                     </t>
 

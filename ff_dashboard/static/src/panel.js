@@ -929,6 +929,21 @@ export class AixoloPanel extends Component {
         ];
     }
 
+    get targetKpis() {
+        const look = {
+            visits: { label: "Total Visits", icon: "fa-users", color: "#1a56db" },
+            customers: { label: "New Customers", icon: "fa-user", color: "#7c5cfc" },
+            sales: { label: "Sales", icon: "fa-bar-chart", color: "#16a34a" },
+            collections: { label: "Collections", icon: "fa-credit-card", color: "#f59e0b" },
+        };
+        return (this.state.report.target.metrics || []).map((m) => ({
+            ...m,
+            ...(look[m.key] || { label: m.label, icon: "fa-bullseye", color: "#1a56db" }),
+            value: m.money ? this.money(m.actual) : this.number(m.actual),
+            goal: m.money ? this.money(m.target) : this.number(m.target),
+        }));
+    }
+
     get collectionKpis() {
         const c = this.state.report.collection;
         const prev = c.previous || {};
