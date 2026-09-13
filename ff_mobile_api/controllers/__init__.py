@@ -9,3 +9,4 @@ from . import allowance
 from . import route_plan
 from . import profile
 from . import receivables
+from . import chat
