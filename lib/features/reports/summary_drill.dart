@@ -182,8 +182,8 @@ class _Plain extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 280),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -337,7 +337,17 @@ class EmployeeSummaryCard extends StatelessWidget {
               ),
               if (plain && shown.isNotEmpty) const Divider(height: 20, color: AixoloColors.border),
               if (!plain) const SizedBox(height: 12),
-              for (var r = 0; r < shown.length; r += 3)
+              // Plain cards flow freely: each figure takes the width its text needs.
+              if (plain)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 28,
+                    runSpacing: 10,
+                    children: [for (final f in shown) _Plain(f.$3, f.$2)],
+                  ),
+                ),
+              for (var r = 0; !plain && r < shown.length; r += 3)
                 _row([
                   for (final f in shown.skip(r).take(3))
                     plain ? _Plain(f.$3, f.$2) : _Mini(f.$1, f.$2, f.$3),
