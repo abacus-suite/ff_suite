@@ -106,6 +106,7 @@ class FieldForceOrdersApi(http.Controller):
         except (TypeError, ValueError):
             raise ApiError('partner_id is required.')
         partner = visible_client(employee, partner_id)
+        request.env['ff.visit'].ff_require_visit(employee, partner)
         # Companies that sell through distributors collect demand instead of
         # quoting the outlet; the app posts the same body either way.
         flow = request.env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct'

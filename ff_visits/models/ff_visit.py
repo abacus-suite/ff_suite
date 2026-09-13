@@ -152,6 +152,31 @@ class FfVisit(models.Model):
         }])
         return visit
 
+    @api.model
+    def ff_require_visit(self, employee, partner):
+        """Orders, demands and payments are taken at the customer.
+
+        Refused while checked in somewhere else. With no visit open, a visit at
+        this customer earlier today is enough - an order queued offline may
+        reach the server after the check-out.
+        """
+        Visit = self.sudo()
+        ongoing = Visit.search([('employee_id', '=', employee.id), ('state', '=', 'ongoing')], limit=1)
+        if ongoing:
+            if ongoing.partner_id.commercial_partner_id != partner.commercial_partner_id:
+                raise UserError(self.env._(
+                    'You are checked in at %(here)s. Check out there before working on %(there)s.',
+                    here=ongoing.partner_id.display_name, there=partner.display_name))
+            return ongoing
+        start, end = employee._ff_day_bounds(employee._ff_today())
+        today = Visit.search([('employee_id', '=', employee.id), ('check_in_at', '>=', start),
+                              ('check_in_at', '<', end),
+                              ('partner_id.commercial_partner_id', '=', partner.commercial_partner_id.id)],
+                             order='check_in_at desc', limit=1)
+        if not today:
+            raise UserError(self.env._('Check in at %s first.', partner.display_name))
+        return today
+
     def ff_check_out(self, data):
         self.ensure_one()
         visit = self.sudo()

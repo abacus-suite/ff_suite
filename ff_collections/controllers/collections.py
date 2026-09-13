@@ -86,7 +86,11 @@ class FieldForceCollectionsApi(http.Controller):
     @api_route('/api/v1/collections', methods=('POST',))
     def create_collection(self, employee, **kw):
         check_enabled()
-        collection = request.env['ff.collection'].ff_create_from_app(employee, body())
+        data = body()
+        partner = request.env['res.partner'].sudo().browse(to_int(data.get('partner_id'))).exists()
+        if partner:
+            request.env['ff.visit'].ff_require_visit(employee, partner)
+        collection = request.env['ff.collection'].ff_create_from_app(employee, data)
         return ok(collection_data(collection), status=201)
 
     @api_route('/api/v1/collections', methods=('GET',))

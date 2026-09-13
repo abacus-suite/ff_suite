@@ -51,6 +51,7 @@ class FieldForceDemandApi(http.Controller):
     def create_demand(self, employee, **kw):
         data = body()
         partner = visible_client(employee, to_int(data.get('partner_id')))
+        request.env['ff.visit'].ff_require_visit(employee, partner)
         demand = request.env['ff.demand'].ff_create_from_app(employee, partner, data)
         return ok(demand_data(demand, with_lines=True), status=201)
 
