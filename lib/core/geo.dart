@@ -5,9 +5,19 @@ import 'permissions.dart';
 import 'services.dart';
 
 /// Fresh GPS fix for check-ins. Throws a user-readable message on failure.
-Future<Position> currentPosition() async {
+Future<Position> currentPosition({bool recentOk = false}) async {
   final error = await PermissionsHelper.ensureLocation();
   if (error != null) throw error;
+  if (recentOk) {
+    // Lists sorted by distance do not need a fresh fix: a recent one answers at once.
+    final last = await lastKnownPosition();
+    if (last != null &&
+        !last.isMocked &&
+        last.accuracy <= 150 &&
+        DateTime.now().difference(last.timestamp).inMinutes < 10) {
+      return last;
+    }
+  }
   final pos = await Geolocator.getCurrentPosition(
     locationSettings: const LocationSettings(
       accuracy: LocationAccuracy.best,

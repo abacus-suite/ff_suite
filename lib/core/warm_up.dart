@@ -18,13 +18,39 @@ class WarmUp {
   /// Refill if the saved copy is older than [maxAge] (or on [force]).
   static Future<void> run({bool force = false, Duration maxAge = const Duration(minutes: 30)}) {
     if (!force && _last != null && DateTime.now().difference(_last!) < maxAge) return Future.value();
-    return _running ??= _fill().whenComplete(() => _running = null);
+    return _running ??= runZoned(_fill, zoneValues: {#ffBackground: true}).whenComplete(() => _running = null);
   }
 
-  static Future<dynamic> _get(String path, [Map<String, dynamic>? query]) =>
-      Services.api.get(path, query: query).catchError((_) => null);
+  // Background filling goes two at a time, so the screens the user opens are
+  // never stuck behind a wall of warm-up requests on the server.
+  static const _parallel = 2;
+  static int _active = 0;
+  static final List<Completer<void>> _waiting = [];
+
+  static Future<dynamic> _get(String path, [Map<String, dynamic>? query]) async {
+    while (_active >= _parallel) {
+      final turn = Completer<void>();
+      _waiting.add(turn);
+      await turn.future;
+    }
+    _active++;
+    try {
+      // Let whatever the user just opened go first.
+      while (Services.api.busy > 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      }
+      return await Services.api.get(path, query: query);
+    } catch (_) {
+      return null;
+    } finally {
+      _active--;
+      if (_waiting.isNotEmpty) _waiting.removeAt(0).complete();
+    }
+  }
 
   static Future<void> _fill() async {
+    // Not while the app is opening: the first screen gets the server to itself.
+    await Future<void>.delayed(const Duration(seconds: 20));
     final profile = Services.auth.profile;
     if (profile == null) return;
     final today = fmtDate(DateTime.now());

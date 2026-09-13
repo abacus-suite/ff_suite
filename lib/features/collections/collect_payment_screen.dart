@@ -101,7 +101,7 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
     try {
       Position? pos;
       try {
-        pos = await currentPosition();
+        pos = await currentPosition(recentOk: true);
       } catch (_) {
         // Location is a nice-to-have on a receipt.
       }

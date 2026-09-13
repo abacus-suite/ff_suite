@@ -96,7 +96,7 @@ class _NewExpenseScreenState extends State<NewExpenseScreen> {
     try {
       Position? pos;
       try {
-        pos = await currentPosition();
+        pos = await currentPosition(recentOk: true);
       } catch (_) {
         // Location is optional for a claim.
       }

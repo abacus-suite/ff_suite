@@ -90,7 +90,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
     try {
       Position? pos;
       try {
-        pos = await currentPosition();
+        pos = await currentPosition(recentOk: true);
       } catch (_) {
         // Location is optional for forms.
       }

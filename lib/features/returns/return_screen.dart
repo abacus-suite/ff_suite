@@ -94,7 +94,7 @@ class _ReturnScreenState extends State<ReturnScreen> {
     try {
       double? lat, lng;
       try {
-        final pos = await currentPosition();
+        final pos = await currentPosition(recentOk: true);
         lat = pos.latitude;
         lng = pos.longitude;
       } catch (_) {}

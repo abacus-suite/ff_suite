@@ -276,7 +276,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         body['note'] = _note.text.trim();
         if (_photo != null) body['photo'] = base64Encode(_photo!);
         try {
-          final pos = await currentPosition();
+          final pos = await currentPosition(recentOk: true);
           body['lat'] = pos.latitude;
           body['lng'] = pos.longitude;
         } catch (_) {

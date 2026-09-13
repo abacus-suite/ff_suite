@@ -75,7 +75,10 @@ class _ClientsScreenState extends State<ClientsScreen> {
       if (q.isNotEmpty) query['q'] = q;
       if (_categoryId != null) query['category_id'] = _categoryId;
       if (_nearby) {
-        final pos = await currentPosition();
+        // Never leave the list spinning on a slow GPS fix: fall back to the last known place.
+        final pos = await currentPosition(recentOk: true)
+            .timeout(const Duration(seconds: 12))
+            .catchError((_) async => (await lastKnownPosition())!);
         _me = LatLng(pos.latitude, pos.longitude);
         query.addAll({'lat': pos.latitude, 'lng': pos.longitude, 'radius_km': 25});
       }

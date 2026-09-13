@@ -7,6 +7,8 @@ class PermissionsHelper {
     if (!await Geolocator.isLocationServiceEnabled()) {
       return 'Turn on location (GPS) to continue.';
     }
+    // Already allowed: no request (a second request while one is open never answers).
+    if (await Permission.locationWhenInUse.isGranted) return null;
     final status = await Permission.locationWhenInUse.request();
     if (status.isPermanentlyDenied) {
       await openAppSettings();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -66,10 +67,18 @@ class ApiClient {
 
   /// A read. Online, the answer is also kept on the phone; offline, the last
   /// kept answer is returned instead, so screens still open in a dead zone.
+  /// Reads the user is waiting for right now (warm-up holds back while any run).
+  int busy = 0;
+
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) {
     final key = cacheKey(path, query);
     // Two screens asking the same thing at once share one trip to the server.
-    return _inFlight[key] ??= _get(path, query, key).whenComplete(() => _inFlight.remove(key));
+    final flight = '${Zone.current[#ffBackground] == true ? 'bg:' : ''}$path?${jsonEncode(query ?? const {})}';
+    return _inFlight[flight] ??= _get(path, query, key).whenComplete(() {
+      // A block, not an arrow: remove() hands back this very future, and whenComplete
+      // would wait for it - the read would never finish.
+      _inFlight.remove(flight);
+    });
   }
 
   final Map<String, Future<dynamic>> _inFlight = {};
@@ -117,6 +126,8 @@ class ApiClient {
     final token = await _storage.token();
     final Response<dynamic> res;
     final watch = Stopwatch()..start();
+    final foreground = Zone.current[#ffBackground] != true;
+    if (foreground) busy++;
     try {
       res = await _dio.request<dynamic>(
         '$base$path',
@@ -125,10 +136,16 @@ class ApiClient {
         options: Options(method: method, headers: {
           if (token != null) 'Authorization': 'Bearer $token',
         }),
-      );
+      ).timeout(const Duration(seconds: 40));
     } on DioException {
       online.value = false;
       throw ApiException(null, 'network', 'Cannot reach the server. Check your internet connection.');
+    } on TimeoutException {
+      online.value = false;
+      throw ApiException(null, 'network', 'Cannot reach the server. Check your internet connection.');
+    }
+    finally {
+      if (foreground) busy--;
     }
     online.value = true;
     if (watch.elapsedMilliseconds > 1500) debugPrint('[api] slow $method $path ${watch.elapsedMilliseconds}ms');

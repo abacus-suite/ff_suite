@@ -130,7 +130,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
     try {
       Position? pos;
       try {
-        pos = await currentPosition();
+        pos = await currentPosition(recentOk: true);
       } catch (_) {
         // Orders are accepted without a fresh GPS fix.
       }
