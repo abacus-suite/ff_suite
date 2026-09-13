@@ -37,6 +37,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   String? _error;
 
   bool get _elsewhere => _current != null && !_atThisClient;
+  /// Demand, returns and payments only once checked in here (or when visits are not used at all).
+  bool get _canAct => _atThisClient || !(Services.auth.profile?.feature('visits') ?? false);
+
   bool get _atThisClient => _current != null && (_current!['client'] as Map)['id'] == widget.clientId;
 
   @override
@@ -339,7 +342,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         const SizedBox(height: 10),
         if (profile.feature('visits')) _visitAction(),
         // Checked in at another customer: nothing to take here until they check out there.
-        if (profile.feature('orders') && !_elsewhere && c['allow_orders'] != false && c['approval_state'] == 'approved') ...[
+        if (profile.feature('orders') && _canAct && c['allow_orders'] != false && c['approval_state'] == 'approved') ...[
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: () => _takeOrder(c),
@@ -349,7 +352,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                 : 'Take ${profile.label('order', 'Order').toLowerCase()}'),
           ),
         ],
-        if (profile.feature('orders') && !_elsewhere) ...[
+        if (profile.feature('orders') && _canAct) ...[
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: () async {
@@ -373,7 +376,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             label: const Text('Product history'),
           ),
         ],
-        if (profile.paymentCollection && !_elsewhere) ...[
+        if (profile.paymentCollection && _canAct) ...[
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: () => _collectPayment(c),
