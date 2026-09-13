@@ -56,7 +56,11 @@ String _weekday(String iso) {
 
 /// A soft coloured tile: icon, label and value (the top strip of each screen).
 class MetricTile extends StatelessWidget {
-  const MetricTile({super.key, required this.metric, required this.label, required this.value, this.big = false});
+  const MetricTile(
+      {super.key, required this.metric, required this.label, required this.value, this.big = false, this.plain = false});
+
+  /// Label and value only, on a white tile (reports other than the summary).
+  final bool plain;
 
   final String metric;
   final String label;
@@ -66,6 +70,29 @@ class MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, colour) = metricLook(metric);
+    if (plain) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AixoloColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(label,
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: AixoloColors.muted)),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AixoloColors.text)),
+            ),
+          ],
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
@@ -146,6 +173,36 @@ class _Mini extends StatelessWidget {
   }
 }
 
+/// Label over value, left aligned, no icon (plain report cards).
+class _Plain extends StatelessWidget {
+  const _Plain(this.label, this.value);
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11.5, color: AixoloColors.muted)),
+          const SizedBox(height: 2),
+          Text(value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: AixoloColors.text)),
+        ],
+      ),
+    );
+  }
+}
+
 /// One line of the summary (a person, a day, or everyone): header and ten figures.
 class EmployeeSummaryCard extends StatelessWidget {
   const EmployeeSummaryCard({
@@ -162,7 +219,11 @@ class EmployeeSummaryCard extends StatelessWidget {
     this.valueCaption = 'Total value',
     this.status,
     this.statusColour,
+    this.plain = false,
   });
+
+  /// Reports other than the summary: no badge, no icons - label over value only.
+  final bool plain;
 
   /// A small coloured pill under the headline value (e.g. Approved, On duty).
   final String? status;
@@ -225,13 +286,15 @@ class EmployeeSummaryCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 26,
-                    backgroundColor: tint.withValues(alpha: 0.12),
-                    child: Text(initials,
-                        style: TextStyle(color: tint, fontWeight: FontWeight.w800, fontSize: 17)),
-                  ),
-                  const SizedBox(width: 12),
+                  if (!plain) ...[
+                    CircleAvatar(
+                      radius: 26,
+                      backgroundColor: tint.withValues(alpha: 0.12),
+                      child: Text(initials,
+                          style: TextStyle(color: tint, fontWeight: FontWeight.w800, fontSize: 17)),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -272,10 +335,12 @@ class EmployeeSummaryCard extends StatelessWidget {
                   if (onTap != null) const Icon(Icons.chevron_right_rounded, color: AixoloColors.muted),
                 ],
               ),
-              const SizedBox(height: 12),
+              if (plain && shown.isNotEmpty) const Divider(height: 20, color: AixoloColors.border),
+              if (!plain) const SizedBox(height: 12),
               for (var r = 0; r < shown.length; r += 3)
                 _row([
-                  for (final f in shown.skip(r).take(3)) _Mini(f.$1, f.$2, f.$3),
+                  for (final f in shown.skip(r).take(3))
+                    plain ? _Plain(f.$3, f.$2) : _Mini(f.$1, f.$2, f.$3),
                   // Short last row keeps the column widths of the rows above.
                   for (var k = shown.skip(r).take(3).length; k < 3; k++) const SizedBox(),
                 ]),
@@ -296,7 +361,7 @@ class EmployeeSummaryCard extends StatelessWidget {
           children: [
             for (var i = 0; i < items.length; i++) ...[
               if (i > 0) const VerticalDivider(width: 1, thickness: 1, color: AixoloColors.border),
-              Expanded(child: Center(child: items[i])),
+              Expanded(child: Align(alignment: plain ? Alignment.centerLeft : Alignment.center, child: items[i])),
             ],
           ],
         ),

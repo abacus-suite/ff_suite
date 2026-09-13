@@ -813,7 +813,11 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
               for (final (i, item) in items.indexed)
                 Padding(
                   padding: EdgeInsets.only(right: i == items.length - 1 ? 0 : 8),
-                  child: SizedBox(width: width, child: MetricTile(metric: item.$1, label: item.$2, value: item.$3)),
+                  child: SizedBox(width: width, child: MetricTile(
+                        metric: item.$1,
+                        label: item.$2,
+                        value: item.$3,
+                        plain: widget.report['key'] != 'summary')),
                 ),
             ],
           ),
@@ -862,6 +866,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
           status: statusText,
           statusColour: statusText == null ? null : _statusColour(statusText),
           figures: shown,
+          plain: true,
         );
       },
     );
