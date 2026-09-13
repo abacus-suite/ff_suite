@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/format.dart';
@@ -444,7 +445,8 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
     if (!_form.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
-      await Services.api.post('/api/v1/tasks', {
+      await Services.outbox.submit('/api/v1/tasks', {
+        'uuid': const Uuid().v4(),
         'name': _name.text.trim(),
         'description': _description.text.trim(),
         'employee_id': _employeeId,

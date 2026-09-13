@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -125,7 +126,8 @@ class _RegularisationFormState extends State<_RegularisationForm> {
     }
     setState(() => _busy = true);
     try {
-      await Services.api.post('/api/v1/attendance/regularisations', {
+      await Services.outbox.submit('/api/v1/attendance/regularisations', {
+        'uuid': const Uuid().v4(),
         'date': fmtDate(_date),
         'check_in': _at(_in).toUtc().toIso8601String(),
         'check_out': _at(_out).toUtc().toIso8601String(),

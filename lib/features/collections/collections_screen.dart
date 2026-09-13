@@ -80,7 +80,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
     if (confirmed != true) return;
     setState(() => _busy = true);
     try {
-      await Services.api.post('/api/v1/deposits', {'reference': reference.text.trim(), 'uuid': const Uuid().v4()});
+      await Services.outbox.submit('/api/v1/deposits', {'reference': reference.text.trim(), 'uuid': const Uuid().v4()});
       Services.refresh.value++;
       if (mounted) showSnack(context, 'Submitted to the office');
       await _load();

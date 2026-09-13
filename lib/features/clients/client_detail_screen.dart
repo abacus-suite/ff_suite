@@ -9,6 +9,7 @@ import '../collections/collect_payment_screen.dart';
 import '../forms/form_fill_screen.dart';
 import '../orders/catalog_screen.dart';
 import '../visits/step_screen.dart';
+import '../../core/local_state.dart';
 import '../visits/visit_gate.dart';
 import '../visits/stock_count_screen.dart';
 import 'visit_checkout_screen.dart';
@@ -65,11 +66,16 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       final current = results[1] as Map<String, dynamic>?;
       final visitHere = current != null && (current['client'] as Map)['id'] == widget.clientId;
       var steps = <Map<String, dynamic>>[];
-      // A check-in still waiting to sync has no id yet: no steps to fetch for it.
-      if (visitHere && current['id'] != null && Services.auth.profile!.visitSteps) {
+      if (visitHere && Services.auth.profile!.visitSteps) {
         try {
-          final data = await Services.api.get('/api/v1/visits/${current['id']}/steps') as Map<String, dynamic>;
-          steps = ((data['steps'] as List?) ?? []).cast<Map<String, dynamic>>();
+          // A check-in still waiting to sync has no id: read the steps any visit here has.
+          final data = (current['id'] == null
+              ? await Services.api.get('/api/v1/visits/0/steps', query: {'partner_id': widget.clientId})
+              : await Services.api.get('/api/v1/visits/${current['id']}/steps')) as Map<String, dynamic>;
+          steps = [
+            for (final step in ((data['steps'] as List?) ?? []).cast<Map<String, dynamic>>())
+              LocalState.isStepDone(current, step['id'] as int) ? {...step, 'state': 'done'} : step,
+          ];
         } catch (_) {
           // Steps are optional; the visit still works without them.
         }
@@ -78,7 +84,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       if (Services.auth.profile!.feature('forms')) {
         final atClient = current != null && (current['client'] as Map)['id'] == widget.clientId;
         forms = [
-          if (atClient && current['id'] != null) ...await _formsFor('visit', visitId: current['id'] as int),
+          if (atClient) ...await _formsFor('visit', visitId: current['id'] as int?),
           ...await _formsFor('contact'),
         ];
       }
@@ -142,7 +148,11 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
 
   Future<void> _markStepDone(Map<String, dynamic> step, {String note = ''}) async {
     try {
-      await Services.api.post('/api/v1/visits/${_current!['id']}/steps/${step['id']}', {'note': note});
+      await Services.outbox.submit('/api/v1/visits/${_current!['id'] ?? 0}/steps/${step['id']}', {
+        'note': note,
+        if (_current!['uuid'] != null) 'visit_uuid': _current!['uuid'],
+      }, label: '${step['name']}');
+      LocalState.stepDone(_current!, step['id'] as int);
     } catch (e) {
       if (mounted) showSnack(context, e.toString());
     }
@@ -150,16 +160,13 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
 
   Future<void> _openStep(Map<String, dynamic> step) async {
     final visitId = _current!['id'] as int?;
-    if (visitId == null) {
-      showSnack(context, 'Visit steps open once your offline check-in has synced.');
-      return;
-    }
+    final visitUuid = visitId == null ? _current!['uuid'] as String? : null;
     final type = step['type'] as String;
     bool? done;
     switch (type) {
       case 'stock':
         done = await Navigator.of(context).push<bool>(MaterialPageRoute(
-          builder: (_) => StockCountScreen(clientId: widget.clientId, visitId: visitId, step: step),
+          builder: (_) => StockCountScreen(clientId: widget.clientId, visitId: visitId, visitUuid: visitUuid, step: step),
         ));
       case 'order':
         final placed = await Navigator.of(context)
@@ -190,9 +197,12 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         }
       default:
         done = await Navigator.of(context)
-            .push<bool>(MaterialPageRoute(builder: (_) => StepScreen(visitId: visitId, step: step)));
+            .push<bool>(MaterialPageRoute(builder: (_) => StepScreen(visitId: visitId, visitUuid: visitUuid, step: step)));
     }
-    if (done == true) _load();
+    if (done == true) {
+      LocalState.stepDone(_current!, step['id'] as int);
+      _load();
+    }
   }
 
   Future<void> _openForm(Map<String, dynamic> form) async {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -55,7 +56,7 @@ class _AllowanceScreenState extends State<AllowanceScreen> {
   Future<void> _submit(int id) async {
     setState(() => _busy.add(id));
     try {
-      await Services.api.post('/api/v1/allowances/$id/submit');
+      await Services.outbox.submit('/api/v1/allowances/$id/submit', {'uuid': const Uuid().v4()});
       if (mounted) showSnack(context, 'Sent for approval');
       await _load();
     } catch (e) {

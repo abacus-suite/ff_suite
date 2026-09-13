@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -121,7 +122,8 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
     }
     setState(() => _busy = true);
     try {
-      await Services.api.post('/api/v1/route-plan/days', {
+      await Services.outbox.submit('/api/v1/route-plan/days', {
+        'uuid': const Uuid().v4(),
         'date': fmtDate(_date),
         'beat_id': route['id'],
         'partner_ids': _selected.toList(),

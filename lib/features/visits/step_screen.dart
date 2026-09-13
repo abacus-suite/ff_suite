@@ -13,9 +13,12 @@ const _maxPhotos = 5;
 
 /// One visit step: notes, photo or confirmation. Pops `true` when recorded.
 class StepScreen extends StatefulWidget {
-  const StepScreen({super.key, required this.visitId, required this.step});
+  const StepScreen({super.key, this.visitId, required this.step, this.visitUuid});
 
-  final int visitId;
+  final int? visitId;
+
+  /// Set for a check-in made offline, which has no id on the phone yet.
+  final String? visitUuid;
   final Map<String, dynamic> step;
 
   @override
@@ -48,7 +51,10 @@ class _StepScreenState extends State<StepScreen> {
   Future<void> _send(Map<String, dynamic> payload) async {
     setState(() => _busy = true);
     try {
-      await Services.api.post('/api/v1/visits/${widget.visitId}/steps/${widget.step['id']}', payload);
+      await Services.outbox.submit('/api/v1/visits/${widget.visitId ?? 0}/steps/${widget.step['id']}', {
+        ...payload,
+        if (widget.visitUuid != null) 'visit_uuid': widget.visitUuid,
+      }, label: '${widget.step['name']}');
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {

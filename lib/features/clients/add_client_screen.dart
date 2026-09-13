@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../core/format.dart';
@@ -96,7 +97,8 @@ class _AddClientScreenState extends State<AddClientScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
-      final result = await Services.api.post('/api/v1/clients', {
+      final sent = await Services.outbox.submit('/api/v1/clients', {
+        'uuid': const Uuid().v4(),
         'name': _name.text.trim(),
         'category_id': _categoryId,
         if (_routeId != null) 'route_id': _routeId,
@@ -110,10 +112,15 @@ class _AddClientScreenState extends State<AddClientScreen> {
         'note': _note.text.trim(),
         'lat': _pos?.latitude,
         'lng': _pos?.longitude,
-      }) as Map<String, dynamic>;
+      }, label: 'New customer · ${_name.text.trim()}');
+      final result = sent.map;
       if (!mounted) return;
       showSnack(context,
-          result['approval_state'] == 'pending' ? '$_clientLabel sent to your manager for approval' : '$_clientLabel added');
+          sent.queued
+              ? '$_clientLabel saved offline'
+              : result['approval_state'] == 'pending'
+                  ? '$_clientLabel sent to your manager for approval'
+                  : '$_clientLabel added');
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) showSnack(context, e.toString());

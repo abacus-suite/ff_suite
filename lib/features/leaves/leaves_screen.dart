@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -68,7 +69,7 @@ class _LeavesScreenState extends State<LeavesScreen> {
     );
     if (sure != true) return;
     try {
-      await Services.api.post('/api/v1/leaves/${leave['id']}', const {});
+      await Services.outbox.submit('/api/v1/leaves/${leave['id']}', {'uuid': const Uuid().v4()});
       if (mounted) showSnack(context, 'Request withdrawn');
       await _load();
     } catch (e) {
@@ -228,7 +229,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   Future<void> _submit() async {
     setState(() => _busy = true);
     try {
-      await Services.api.post('/api/v1/leaves', {
+      await Services.outbox.submit('/api/v1/leaves', {
+        'uuid': const Uuid().v4(),
         'type_id': _type!['id'],
         'from': fmtDate(_from),
         'to': fmtDate(_halfDay ? _from : _to),

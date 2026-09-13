@@ -9,10 +9,11 @@ import '../../widgets/common.dart';
 
 /// Count stock at the customer; the previous count is shown for comparison.
 class StockCountScreen extends StatefulWidget {
-  const StockCountScreen({super.key, required this.clientId, this.visitId, this.step});
+  const StockCountScreen({super.key, required this.clientId, this.visitId, this.step, this.visitUuid});
 
   final int clientId;
   final int? visitId;
+  final String? visitUuid;
   final Map<String, dynamic>? step;
 
   @override
@@ -120,18 +121,21 @@ class _StockCountScreenState extends State<StockCountScreen> {
       for (final entry in _counted.entries) {'product_id': entry.key, 'quantity': entry.value},
     ];
     try {
-      if (widget.step != null && widget.visitId != null) {
-        await Services.api.post('/api/v1/visits/${widget.visitId}/steps/${widget.step!['id']}', {
+      final visitKnown = widget.visitId != null || widget.visitUuid != null;
+      if (widget.step != null && visitKnown) {
+        await Services.outbox.submit('/api/v1/visits/${widget.visitId ?? 0}/steps/${widget.step!['id']}', {
           'lines': lines,
           'note': _note.text.trim(),
-        });
+          if (widget.visitUuid != null) 'visit_uuid': widget.visitUuid,
+        }, label: 'Stock count');
       } else {
-        await Services.api.post('/api/v1/stock/counts', {
+        await Services.outbox.submit('/api/v1/stock/counts', {
           'partner_id': widget.clientId,
           if (widget.visitId != null) 'visit_id': widget.visitId,
+          if (widget.visitUuid != null) 'visit_uuid': widget.visitUuid,
           'lines': lines,
           'note': _note.text.trim(),
-        });
+        }, label: 'Stock count');
       }
       if (!mounted) return;
       showSnack(context, 'Stock count saved');

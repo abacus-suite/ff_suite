@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -47,7 +48,7 @@ class _DepositsReceiveScreenState extends State<DepositsReceiveScreen> {
   Future<void> _decide(Map<String, dynamic> deposit, bool received) async {
     setState(() => _busyId = deposit['id'] as int);
     try {
-      await Services.api.post('/api/v1/deposits/${deposit['id']}/${received ? 'receive' : 'reject'}', const {});
+      await Services.outbox.submit('/api/v1/deposits/${deposit['id']}/${received ? 'receive' : 'reject'}', {'uuid': const Uuid().v4()});
       Services.refresh.value++;
       if (mounted) showSnack(context, received ? 'Marked as received' : 'Sent back to the employee');
       await _load();

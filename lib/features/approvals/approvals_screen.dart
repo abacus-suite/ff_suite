@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -62,7 +63,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     final key = '$kind-$id';
     setState(() => _busy.add(key));
     try {
-      await Services.api.post('/api/v1/approvals/$kind/$id/${approve ? 'approve' : 'reject'}');
+      await Services.outbox.submit('/api/v1/approvals/$kind/$id/${approve ? 'approve' : 'reject'}', {'uuid': const Uuid().v4()});
       if (mounted) showSnack(context, approve ? 'Approved' : 'Rejected');
       await _load();
     } catch (e) {

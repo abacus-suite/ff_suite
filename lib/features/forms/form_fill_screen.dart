@@ -83,7 +83,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       } catch (_) {
         // Location is optional for forms.
       }
-      await Services.api.post('/api/v1/forms/${widget.form['id']}/responses', {
+      await Services.outbox.submit('/api/v1/forms/${widget.form['id']}/responses', {
         'answers': answers,
         'photos': photos,
         if (widget.partnerId != null) 'partner_id': widget.partnerId,
@@ -91,7 +91,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         'lat': pos?.latitude,
         'lng': pos?.longitude,
         'uuid': _uuid,
-      });
+      }, label: '${widget.form['name']}');
       if (!mounted) return;
       showSnack(context, 'Saved');
       Navigator.of(context).pop(true);

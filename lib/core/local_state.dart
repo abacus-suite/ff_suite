@@ -44,5 +44,16 @@ class LocalState {
     return visit;
   }
 
+  static final Map<String, Set<int>> _stepsDone = {};
+
+  static String _visitKey(Map<String, dynamic> visit) => '${visit['id'] ?? visit['uuid']}';
+
+  /// A step finished offline shows as done until the server says so itself.
+  static void stepDone(Map<String, dynamic> visit, int stepId) =>
+      _stepsDone.putIfAbsent(_visitKey(visit), () => <int>{}).add(stepId);
+
+  static bool isStepDone(Map<String, dynamic> visit, int stepId) =>
+      _stepsDone[_visitKey(visit)]?.contains(stepId) ?? false;
+
   static Future<void> visitClosed() => Services.queue.saveCache(ApiClient.cacheKey(_visit, null), null);
 }
