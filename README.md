@@ -1,44 +1,66 @@
-# Field Force Suite (Odoo 19)    
- 
-Field sales force management for Odoo 19 (Odoo.sh) with a companion Flutter Android app.
+# Aixolo – Field Force Suite (Odoo 19)
 
-## Modules (Phase 1)
+Field sales force management on Odoo 19 (Odoo.sh), with the Aixolo Flutter Android
+app (repository `aixolo`).
+
+## Modules
 | Module | Purpose |
 |---|---|
-| `ff_base` | Teams, designations, devices, security groups (Officer / Manager / Admin), settings |
-| `ff_tracking` | GPS pings, live status, inactive / no-signal alerts, daily distance, compliance log |
-| `ff_attendance` | Selfie + GPS punch, shifts, late / half-day marks, monthly calendar, regularisation approvals |
-| `ff_mobile_api` | REST API `/api/v1/*` for the mobile app (bearer token auth) |
+| `ff_base` | Teams, designations, devices, groups (Officer / Manager / Admin), settings, field timezone, reference numbering |
+| `ff_tracking` | GPS pings, live status, inactive / no-signal flags, daily distance, compliance log |
+| `ff_attendance` | Selfie + GPS punch (online or queued offline), shifts, late / half-day, calendar, corrections |
+| `ff_clients` | Field customers, categories, approval of new customers, districts |
+| `ff_visits` | Check-in / check-out, geofence, **onsite / offsite**, outcomes, offline flag |
+| `ff_visit_steps` | Guided visit steps, stock count |
+| `ff_beat` | Routes, route plans, planning from the app |
+| `ff_orders` | Sale orders from the app, PTS / PTR / MRP and margins |
+| `ff_demand` | Demand flow: outlet demands consolidated into distributor quotations |
+| `ff_collections` | Payment collection (cash, online, cheque, PDC), deposits to office |
+| `ff_expenses`, `ff_allowance` | Expense claims, distance-based travel allowance |
+| `ff_approvals` | Approval chains (first / second approver) and notifications |
+| `ff_leaves` | Time off from the app (Odoo Time Off) |
+| `ff_leaves_approvals` | Time off through the approval chain when a flow is set *(auto-install)* |
+| `ff_forms` | Custom forms |
+| `ff_attribution*` | Field employee stamped on sales, CRM, invoices |
+| `ff_live_map` | Google Maps live map, geocoding, map usage and cost |
+| `ff_dashboard` | **Aixolo Panel**: dashboard, live location + timeline, employees and org chart, attendance, leaves, expenses, orders, visits, demands, collections, targets — with Excel export |
+| `ff_app_reports` | Reports in the app (own / team, date range, list / table, Excel) *(auto-install)* |
+| `ff_targets` | Monthly visit / customer / sales / collection targets and achievement |
+| `ff_tasks` | Tasks given to field staff, finished with note and photo |
+| `ff_returns` | Returns and damaged / expired stock, approval, credit note |
+| `ff_alerts` | Manager alerts (not moving, no signal, GPS off, offsite, fake GPS, clock changes) and daily / weekly email digest |
+| `ff_mobile_api` | REST API `/api/v1/*` for the app, request receipts (every write safe to repeat) |
 
-Install `ff_mobile_api` — it pulls in the others.
+Install `ff_dashboard`, `ff_targets`, `ff_tasks`, `ff_returns` and `ff_alerts`; they
+pull in the rest. Add `ff_demand`, `ff_collections`, `ff_forms` as the company needs.
 
 ## Setup after install
-1. Settings → Field Force: check tracking & selfie options.
-2. Field Force → Configuration → Shifts: create shifts.
-3. For each field employee: link a **user**, set **Manager**, **Field Team**, **Field Shift**, **Timezone**.
-4. Give users the group *Field Force: Officer* (field staff) or *Field Force: Manager* (team leads).
+1. **Aixolo › Configuration › Settings**: field timezone (then *Set it on everyone
+   still on UTC*), tracking, selfie, geofence, order flow, payment collection,
+   app security, manager alerts, email summary, Google Maps key.
+2. Google Cloud: enable **Maps JavaScript API**, **Map Tiles API** and **Geocoding API**
+   for the key.
+3. For each field employee: app login, **Manager**, **Field Team**, **Field Shift**, data access.
+4. Approval flows (Aixolo › Configuration) for expenses, allowances and time off if two
+   signatures are needed.
+5. Outgoing mail server, for the email summary.
 
-## API quick reference
-All responses: `{"ok": true, "data": ...}` or `{"ok": false, "error": {"code", "message"}}`.
+## API conventions
+- Every response: `{"ok": true, "data": ...}` or `{"ok": false, "error": {"code", "message"}}`.
+- `Authorization: Bearer <token>` on every call except login.
+- **Writes carry a `uuid`.** The server stores the answer per uuid for 30 days and
+  replays it if the same request comes again (header `X-Replayed: 1`).
+- **Offline work carries `at`** (ISO UTC, when it really happened): records keep that
+  time, rules are checked at that moment, anything older than 7 days is refused.
+- Punches and check-ins sent live carry `device_time`; a phone clock further off than
+  the setting is refused (`clock_skew`) and logged as time tampering.
 
-| Method | Path | Notes |
-|---|---|---|
-| POST | `/api/v1/auth/login` | `{login, password, device_uid, device_name?, os_version?, app_version?, fcm_token?}` → `token` (90 days) |
-| POST | `/api/v1/auth/logout` | `{device_uid}` revokes the token |
-| GET | `/api/v1/me` | profile, roles, shift, app settings |
-| POST | `/api/v1/device/register` | refresh push token / app version |
-| POST | `/api/v1/tracking/pings` | `{pings: [{uuid, ts, lat, lng, accuracy, speed, battery, charging, gps_on, mock}]}` (≤500, idempotent on uuid) |
-| POST | `/api/v1/tracking/compliance` | `{events: [{uuid, ts, type, detail}]}` |
-| GET | `/api/v1/attendance/status` | today's punches |
-| POST | `/api/v1/attendance/punch-in` / `punch-out` | `{lat, lng, accuracy, mock, address, selfie(base64), battery}` |
-| GET | `/api/v1/attendance/month?year=&month=` | calendar with day status |
-| GET/POST | `/api/v1/attendance/regularisations` | list / request correction |
-| GET | `/api/v1/team/live` | manager: team live status |
-| GET | `/api/v1/team/<employee_id>/timeline?date=` | manager: route replay |
-| GET | `/api/v1/approvals` | manager: pending approvals |
-| POST | `/api/v1/approvals/regularisation/<id>/approve\|reject` | manager decision |
+Main groups of endpoints: `auth`, `me` (+ photo), `tracking`, `attendance`, `clients`
+(+ history, balance, update), `visits` (+ steps, check-out by uuid), `beat` /
+`route-plan`, `products`, `orders` / `demands`, `collections` / `deposits`, `returns`,
+`expenses`, `allowances`, `leaves`, `tasks`, `targets`, `reports` (+ Excel download),
+`team` (live, timeline), `approvals`, `notifications`.
 
-Send `Authorization: Bearer <token>` on every call except login.
-
-## Tests 
-Tagged `ff`; Odoo.sh runs them on every build. Locally: `odoo-bin -d test -i ff_mobile_api --test-tags ff --stop-after-init`.
+## Tests
+Tagged `ff`; Odoo.sh runs them on every build. Locally:
+`odoo-bin -d test -i ff_dashboard,ff_targets,ff_tasks,ff_returns,ff_alerts --test-tags ff --stop-after-init`.
