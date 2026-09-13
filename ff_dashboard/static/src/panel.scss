@@ -2220,4 +2220,14 @@
         color: var(--tile);
         background: color-mix(in srgb, var(--tile) 13%, #fff);
     }
+
+    .ff_info_good {
+        background: #ecfdf3;
+        border-color: #c9f0da;
+        color: #14532d;
+
+        > i {
+            color: #16a34a;
+        }
+    }
 }

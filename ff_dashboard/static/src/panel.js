@@ -929,6 +929,38 @@ export class AixoloPanel extends Component {
         ];
     }
 
+    get visitKpis() {
+        const v = this.state.report.visit;
+        const prev = v.previous || {};
+        const series = v.series || [];
+        const pick = (key) => series.map((row) => row[key] || 0);
+        const change = (now, before) => (before ? Math.round(((now - before) / before) * 100) : now ? 100 : 0);
+        const share = (n) => (v.total ? Math.round((n / v.total) * 100) : 0);
+        return [
+            { key: "total", label: "Total Visits", value: v.total, icon: "fa-users", color: "#1a56db",
+              change: change(v.total, prev.total), series: pick("total"), note: `${v.customers} customers`,
+              open: () => this.drillGeneric() },
+            { key: "onsite", label: "Onsite", value: v.onsite, icon: "fa-check", color: "#16a34a",
+              change: change(v.onsite, prev.onsite), series: pick("onsite"), note: `${share(v.onsite)}% of visits`,
+              open: () => this.drillGeneric([["visit_type", "=", "onsite"]]) },
+            { key: "offsite", label: "Offsite", value: v.offsite, icon: "fa-home", color: "#dc2626", bad: true,
+              change: change(v.offsite, prev.offsite), series: pick("offsite"), note: `${share(v.offsite)}% of visits`,
+              open: () => this.drillGeneric([["visit_type", "=", "offsite"]]) },
+            { key: "productive", label: "Productive", value: v.productive, icon: "fa-bar-chart", color: "#7c5cfc",
+              change: change(v.productive, prev.productive), series: pick("productive"),
+              note: `Avg. ${v.avg_minutes} min`, open: () => this.drillGeneric([["productive", "=", true]]) },
+        ];
+    }
+
+    get visitMix() {
+        const v = this.state.report.visit;
+        const onsitePct = v.total ? Math.round((v.onsite / v.total) * 100) : 0;
+        return {
+            onsitePct,
+            headline: onsitePct >= 75 ? "Great job!" : onsitePct >= 50 ? "Going well" : "Needs attention",
+        };
+    }
+
     get orderKpis() {
         const report = this.state.report;
         const k = report.kpis;

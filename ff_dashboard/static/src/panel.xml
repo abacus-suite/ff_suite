@@ -1029,7 +1029,7 @@
                 <t t-else="">
 
                     <!-- Visits, demands, collections: one generic layout -->
-                    <t t-if="state.report.generic">
+                    <t t-if="state.report.generic and !state.report.visit">
                         <div class="d-flex align-items-center mt-3">
                             <button class="ff_chip_btn ms-auto" t-on-click="() => this.drillGeneric()">
                                 <i class="fa fa-external-link me-1"/>Open in Odoo
@@ -1101,6 +1101,187 @@
                                 </table></div>
                             <t t-call="ff_dashboard.Pager"/>
                             </div>
+                        </div>
+                    </t>
+
+                    <!-- Visits -->
+                    <t t-if="state.section === 'visits' and state.report.visit">
+                        <div class="row g-3 mt-0">
+                            <t t-foreach="visitKpis" t-as="kpi" t-key="kpi.key">
+                                <div class="col-xl-3 col-md-6">
+                                    <div class="ff_kpi h-100" t-attf-style="--tile: {{kpi.color}}" role="button"
+                                         t-on-click="kpi.open">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="ff_kpi_icon"><i class="fa" t-att-class="kpi.icon"/></div>
+                                            <div class="ff_kpi_label" t-esc="kpi.label"/>
+                                        </div>
+                                        <div class="d-flex align-items-end">
+                                            <div>
+                                                <div class="ff_kpi_value" t-esc="kpi.value"/>
+                                                <div class="ff_kpi_chip_row">
+                                                    <span class="ff_trend"
+                                                          t-att-class="kpi.change > 0 ? (kpi.bad ? 'ff_trend_down' : 'ff_trend_up') : kpi.change &lt; 0 ? (kpi.bad ? 'ff_trend_up' : 'ff_trend_down') : 'ff_trend_flat'">
+                                                        <i class="fa" t-att-class="kpi.change > 0 ? 'fa-arrow-up' : kpi.change &lt; 0 ? 'fa-arrow-down' : 'fa-minus'"/>
+                                                        <t t-esc="Math.abs(kpi.change)"/>%
+                                                    </span>
+                                                </div>
+                                                <div class="ff_kpi_note" t-esc="kpi.note"/>
+                                            </div>
+                                            <svg class="ff_spark ms-auto" viewBox="0 0 100 40" preserveAspectRatio="none">
+                                                <path t-att-d="spark(kpi.series, true)" t-attf-fill="{{kpi.color}}" fill-opacity="0.12"/>
+                                                <path t-att-d="spark(kpi.series)" fill="none" t-attf-stroke="{{kpi.color}}"
+                                                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+
+                        <div class="ff_card mt-3">
+                            <div class="d-flex align-items-center gap-3 flex-wrap mb-2">
+                                <div class="ff_card_icon"><i class="fa fa-bar-chart"/></div>
+                                <div>
+                                    <div class="ff_card_title">Visits per day</div>
+                                    <div class="ff_card_sub">Number of customer visits each day</div>
+                                </div>
+                                <div class="ff_chart_legend ms-auto">
+                                    <span><span class="ff_dot" style="background:#16A34A"/>Onsite</span>
+                                    <span><span class="ff_dot" style="background:#1A56DB"/>Offsite</span>
+                                    <span><span class="ff_dot" style="background:#7C5CFC"/>Productive</span>
+                                </div>
+                                <span class="ff_period_chip" t-esc="state.report.period_label"/>
+                            </div>
+                            <FfChart type="'line'"
+                                     labels="state.report.visit.series.map((row) => row.label)"
+                                     datasets="[
+                                        {label: 'Onsite', data: state.report.visit.series.map((row) => row.onsite), color: '#16a34a'},
+                                        {label: 'Offsite', data: state.report.visit.series.map((row) => row.offsite), color: '#1a56db'},
+                                        {label: 'Productive', data: state.report.visit.series.map((row) => row.productive), color: '#7c5cfc'}]"
+                                     legend="false" height="260"/>
+                        </div>
+
+                        <div class="row g-3 mt-0">
+                            <div class="col-xl-6">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-user"/></div>
+                                        <div class="ff_card_title">Visits by employee</div>
+                                        <span class="ff_period_chip ms-auto" t-esc="state.report.period_label"/>
+                                    </div>
+                                    <t t-if="state.report.visit.by_employee.length">
+                                        <div t-foreach="state.report.visit.by_employee.slice(0, 5)" t-as="row" t-key="row.id" class="ff_bar_row">
+                                            <span class="text-muted" style="width: 16px;" t-esc="row_index + 1"/>
+                                            <img class="ff_avatar ff_avatar_round ff_avatar_sm"
+                                                 t-att-src="'/web/image/hr.employee/' + row.id + '/avatar_128'" alt=""/>
+                                            <span class="ff_bar_name text-truncate" t-esc="row.name"/>
+                                            <div class="ff_progress flex-grow-1 mt-0">
+                                                <div t-attf-style="width: {{Math.max(4, Math.round(row.count * 100 / (state.report.visit.by_employee[0].count || 1)))}}%; background: linear-gradient(90deg, #1a56db, #60a5fa);"/>
+                                            </div>
+                                            <b style="min-width: 2rem; text-align: right;" t-esc="row.count"/>
+                                        </div>
+                                    </t>
+                                    <div t-else="" class="ff_empty">
+                                        <i class="fa fa-users"/>
+                                        <div class="fw-bold">No data to display</div>
+                                        <div class="small text-muted">No visits in this period.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-6">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-pie-chart"/></div>
+                                        <div class="ff_card_title">Visit type distribution</div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-4 flex-wrap">
+                                        <div class="ff_ring_big" t-attf-style="--pct: {{visitMix.onsitePct}}; background: conic-gradient(#16a34a calc({{visitMix.onsitePct}} * 1%), #1a56db 0);">
+                                            <div class="ff_ring_big_inner">
+                                                <div class="ff_ring_big_value" t-esc="state.report.visit.total"/>
+                                                <div class="small text-muted">Total Visits</div>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="ff_off_row">
+                                                <span class="ff_dot" style="background:#16A34A"/>Onsite
+                                                <b class="ms-auto" t-esc="state.report.visit.onsite"/>
+                                                <span class="ff_off_pct text-primary fw-bold"><t t-esc="visitMix.onsitePct"/>%</span>
+                                            </div>
+                                            <div class="ff_off_row">
+                                                <span class="ff_dot" style="background:#1A56DB"/>Offsite
+                                                <b class="ms-auto" t-esc="state.report.visit.offsite"/>
+                                                <span class="ff_off_pct text-primary fw-bold"><t t-esc="100 - visitMix.onsitePct"/>%</span>
+                                            </div>
+                                            <div class="ff_info_box ff_info_good mt-3" t-if="state.report.visit.total">
+                                                <i class="fa fa-bar-chart"/>
+                                                <div>
+                                                    <div class="fw-bold" t-esc="visitMix.headline"/>
+                                                    <div class="small"><t t-esc="visitMix.onsitePct"/>% of your visits are onsite.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ff_card mt-3 mb-3">
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+                                <div class="ff_card_icon"><i class="fa fa-list"/></div>
+                                <div class="ff_card_title">Visit Records</div>
+                                <div class="ff_search_box ms-auto">
+                                    <i class="fa fa-search"/>
+                                    <input type="text" class="form-control form-control-sm" placeholder="Search employee, customer..."
+                                           t-att-value="state.rowSearch" t-on-input="searchRows"/>
+                                </div>
+                                <button class="ff_outline_btn" t-on-click="() => this.drillGeneric()">
+                                    <i class="fa fa-filter me-1"/>Open in Odoo
+                                </button>
+                            </div>
+                            <div class="ff_table_scroll">
+                                <table class="table ff_table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 44px;">#</th>
+                                            <th>Date</th><th>Employee</th><th>Customer</th><th>In – Out</th>
+                                            <th class="text-center">Duration</th><th>Type</th><th>Outcome</th>
+                                            <th class="text-center" style="width: 70px;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="pagedRows" t-as="row" t-key="row.id" class="ff_row"
+                                            t-on-click="() => this.openGenericRow(row)">
+                                            <td class="text-muted" t-esc="pageInfo.from + row_index"/>
+                                            <td class="text-nowrap" t-esc="row.date"/>
+                                            <td class="fw-bold" t-esc="row.employee"/>
+                                            <td t-esc="row.customer"/>
+                                            <td class="text-nowrap" t-esc="row.time"/>
+                                            <td class="text-center text-primary text-nowrap"><t t-esc="row.minutes or 0"/> min</td>
+                                            <td>
+                                                <span class="ff_state_pill" t-att-class="row.type === 'offsite' ? 'ff_state_out' : 'ff_state_in'"
+                                                      t-esc="row.type === 'offsite' ? 'Offsite' : 'Onsite'"/>
+                                            </td>
+                                            <td t-esc="row.outcome or '—'"/>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm ff_more" title="Open"
+                                                        t-on-click.stop="() => this.openGenericRow(row)">
+                                                    <i class="fa fa-ellipsis-h"/>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr t-if="!pagedRows.length">
+                                            <td colspan="9">
+                                                <div class="ff_empty">
+                                                    <i class="fa fa-map-marker"/>
+                                                    <div class="fw-bold">No visits in this period.</div>
+                                                    <div class="small text-muted">Customer check-ins will appear here.</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <t t-call="ff_dashboard.Pager"/>
                         </div>
                     </t>
 

@@ -141,6 +141,51 @@ class FfDashboardSections(models.AbstractModel):
                 'outcome': v.outcome_id.name or '',
             } for v in visits[:200]],
         })
+
+        # The Visits screen: figures against the period before, a line per type, and who visited most.
+        length = (end - start).days + 1
+        prev_start, prev_end = start - timedelta(days=length), start - timedelta(days=1)
+        before = self.env['ff.visit'].sudo().search([
+            ('employee_id', 'in', employees.ids),
+            ('check_in_at', '>=', self._ff_day_range(prev_start)[0]),
+            ('check_in_at', '<', self._ff_day_range(prev_end)[1])])
+        before_onsite = before.filtered(lambda v: v.visit_type == 'onsite') if has_type else before
+
+        def daily(records):
+            by_day = {}
+            for v in records:
+                day = self._local_day(v.employee_id, v.check_in_at)
+                by_day[day] = by_day.get(day, 0) + 1
+            return by_day
+
+        on_days, off_days, good_days = daily(onsite), daily(offsite), daily(visits.filtered('productive'))
+        series = []
+        for n in range(length):
+            day = start + timedelta(days=n)
+            series.append({'label': day.strftime('%d %b'), 'onsite': on_days.get(day, 0),
+                           'offsite': off_days.get(day, 0), 'productive': good_days.get(day, 0),
+                           'total': on_days.get(day, 0) + off_days.get(day, 0)})
+        by_employee = {}
+        for v in visits:
+            row = by_employee.setdefault(v.employee_id.id, {'id': v.employee_id.id, 'name': v.employee_id.name,
+                                                            'count': 0})
+            row['count'] += 1
+        report['visit'] = {
+            'total': len(visits),
+            'customers': len(visits.mapped('partner_id')),
+            'onsite': len(onsite),
+            'offsite': len(offsite),
+            'productive': len(visits.filtered('productive')),
+            'avg_minutes': (minutes // len(done)) if done else 0,
+            'previous': {
+                'total': len(before),
+                'onsite': len(before_onsite),
+                'offsite': len(before - before_onsite),
+                'productive': len(before.filtered('productive')),
+            },
+            'series': series,
+            'by_employee': sorted(by_employee.values(), key=lambda row: -row['count']),
+        }
         return report
 
     # ------------------------------------------------------------------
