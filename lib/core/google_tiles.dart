@@ -31,14 +31,16 @@ class GoogleTiles {
 
   /// The tile URL template for [flutter_map], or null when Google cannot be used.
   Future<String?> urlTemplate({String mapType = 'roadmap', bool highDpi = true}) async {
+    if (!available) return null;
     final key = Services.auth.profile?.googleMapsKey ?? '';
-    if (key.isEmpty) return null;
     final session = await _session(key, mapType, highDpi);
     if (session == null) return null;
     return '$_tile?session=$session&key=${Uri.encodeQueryComponent(key)}';
   }
 
-  bool get available => (Services.auth.profile?.googleMapsKey ?? '').isNotEmpty;
+  /// Google only when the office chose it and gave a key; otherwise the free tiles are used.
+  bool get available =>
+      Services.auth.profile?.mapProvider == 'google' && (Services.auth.profile?.googleMapsKey ?? '').isNotEmpty;
 
   Future<String?> _session(String key, String mapType, bool highDpi) {
     final cached = _token;

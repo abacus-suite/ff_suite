@@ -25,6 +25,7 @@ class Profile {
     required this.stockCount,
     required this.paymentCollection,
     this.googleMapsKey = '',
+    this.mapProvider = 'open',
     this.orderFlow = 'direct',
     this.photoVersion,
     this.idleLogoutHours = 0,
@@ -63,6 +64,9 @@ class Profile {
 
   /// Key set in Odoo settings; empty means the app uses the free basemap.
   final String googleMapsKey;
+
+  /// 'google' (paid tiles, needs the key) or 'open' (free CARTO / OpenStreetMap tiles).
+  final String mapProvider;
 
   /// 'direct' books a sale order at the outlet; 'demand' collects demand for
   /// the office to consolidate into distributor quotations.
@@ -122,6 +126,7 @@ class Profile {
       stockCount: settings['stock_count'] == true,
       paymentCollection: settings['payment_collection'] == true,
       googleMapsKey: '${settings['google_maps_key'] ?? ''}',
+      mapProvider: '${settings['map_provider'] ?? ((settings['google_maps_key'] ?? '') != '' ? 'google' : 'open')}',
       orderFlow: '${settings['order_flow'] ?? 'direct'}',
       photoVersion: employee['photo_version'] as String?,
       idleLogoutHours: (settings['idle_logout_hours'] as num? ?? 0).toInt(),

@@ -45,6 +45,13 @@ String fmtDistance(num? metres) {
 }
 
 Future<void> openDirections(num lat, num lng) async {
+  // Directions are free either way. On open maps the phone offers whichever
+  // navigation app the person uses; Google's link is the fallback.
+  if (Services.auth.profile?.mapProvider != 'google') {
+    final opened = await launchUrl(Uri.parse('geo:$lat,$lng?q=$lat,$lng'), mode: LaunchMode.externalApplication)
+        .catchError((_) => false);
+    if (opened) return;
+  }
   await launchUrl(
     Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng'),
     mode: LaunchMode.externalApplication,
