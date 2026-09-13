@@ -91,7 +91,7 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
 
   Future<void> _fillForm(Map<String, dynamic> form) async {
     final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
-      builder: (_) => FormFillScreen(form: form, partnerId: _clientId, visitId: widget.visit['id'] as int),
+      builder: (_) => FormFillScreen(form: form, partnerId: _clientId, visitId: widget.visit['id'] as int?),
     ));
     if (saved == true) _load();
   }

@@ -65,7 +65,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       final current = results[1] as Map<String, dynamic>?;
       final visitHere = current != null && (current['client'] as Map)['id'] == widget.clientId;
       var steps = <Map<String, dynamic>>[];
-      if (visitHere && Services.auth.profile!.visitSteps) {
+      // A check-in still waiting to sync has no id yet: no steps to fetch for it.
+      if (visitHere && current['id'] != null && Services.auth.profile!.visitSteps) {
         try {
           final data = await Services.api.get('/api/v1/visits/${current['id']}/steps') as Map<String, dynamic>;
           steps = ((data['steps'] as List?) ?? []).cast<Map<String, dynamic>>();
@@ -77,7 +78,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       if (Services.auth.profile!.feature('forms')) {
         final atClient = current != null && (current['client'] as Map)['id'] == widget.clientId;
         forms = [
-          if (atClient) ...await _formsFor('visit', visitId: current['id'] as int),
+          if (atClient && current['id'] != null) ...await _formsFor('visit', visitId: current['id'] as int),
           ...await _formsFor('contact'),
         ];
       }
@@ -134,7 +135,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     if (!await _atClient(client)) return;
     if (!mounted) return;
     final collected = await Navigator.of(context).push<Map<String, dynamic>>(MaterialPageRoute(
-      builder: (_) => CollectPaymentScreen(client: client, visitId: _atThisClient ? _current!['id'] as int : null),
+      builder: (_) => CollectPaymentScreen(client: client, visitId: _atThisClient ? _current!['id'] as int? : null),
     ));
     if (collected != null) _load();
   }
