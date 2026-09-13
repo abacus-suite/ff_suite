@@ -124,6 +124,15 @@ class FieldForceClientsApi(http.Controller):
             # The contact joins the route and is shared with everyone working it.
             vals['ff_route_ids'] = [(4, route.id)]
             vals['ff_extra_employee_ids'] = route.employee_ids.ids
+            # A route covers one city: the customer takes it unless the app said otherwise.
+            if route.district_id and not vals.get('ff_district_id'):
+                vals['ff_district_id'] = route.district_id.id
+            if route.district_id and not vals.get('city'):
+                vals['city'] = route.district_id.name
+            if route.state_id and not vals.get('state_id'):
+                vals['state_id'] = route.state_id.id
+            if route.country_id and not vals.get('country_id'):
+                vals['country_id'] = route.country_id.id
         partner = request.env['res.partner'].ff_create_from_app(employee, vals)
         return ok(client_data(partner), status=201)
 

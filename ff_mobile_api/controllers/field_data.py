@@ -49,6 +49,7 @@ def visit_data(visit):
         'distance_m': visit.distance_m,
         'inside_geofence': visit.inside_geofence,
         'location_captured': visit.location_captured,
+        'visit_type': visit.visit_type,
         'outcome': visit.outcome or None,
         'outcome_type': ref(visit.outcome_id),
         'productive': visit.productive,

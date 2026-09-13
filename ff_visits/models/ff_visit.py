@@ -29,6 +29,14 @@ def _strip_data_url(image):
     return image
 
 
+class OffsiteConfirmation(Exception):
+    """Check-in away from the client that the person has not yet confirmed as offsite."""
+
+    def __init__(self, distance, radius, client):
+        super().__init__(distance)
+        self.distance, self.radius, self.client = distance, radius, client
+
+
 class FfVisit(models.Model):
     _name = 'ff.visit'
     _description = 'Client Visit'
@@ -51,6 +59,10 @@ class FfVisit(models.Model):
     distance_m = fields.Integer(string='Distance from Client (m)')
     inside_geofence = fields.Boolean(string='At Client Location', default=True)
     location_captured = fields.Boolean(help='The client had no GPS location; it was saved from this check-in.')
+    visit_type = fields.Selection([('onsite', 'Onsite'), ('offsite', 'Offsite')], default='onsite',
+                                  required=True, index=True, tracking=True,
+                                  help='Offsite: checked in away from the client, after confirming it in the app.')
+    offsite_reason = fields.Char()
     outcome = fields.Selection(OUTCOMES, string='Outcome Code')
     outcome_id = fields.Many2one('ff.visit.outcome', string='Outcome', index=True)
     productive = fields.Boolean(related='outcome_id.productive', store=True)
@@ -102,6 +114,7 @@ class FfVisit(models.Model):
             raise UserError(self.env._('A fake GPS app was detected. Disable it to check in.'))
 
         partner = partner.sudo()
+        offsite = bool(data.get('offsite'))
         vals = {
             'employee_id': employee.id,
             'partner_id': partner.id,
@@ -115,11 +128,17 @@ class FfVisit(models.Model):
         if partner._ff_has_location():
             distance = haversine_m(lat, lng, partner.partner_latitude, partner.partner_longitude)
             radius = partner._ff_radius()
-            if distance > radius and settings['visit_block_outside']:
+            inside = distance <= radius
+            if not inside and settings['visit_block_outside']:
                 raise UserError(self.env._(
                     'You are %(distance)s m away from %(client)s. Move within %(radius)s m to check in.',
                     distance=int(distance), client=partner.name, radius=radius))
-            vals.update(distance_m=int(distance), inside_geofence=distance <= radius)
+            if not inside and not offsite:
+                # The app asks "offsite visit?" and sends the check-in again with offsite=True.
+                raise OffsiteConfirmation(int(distance), radius, partner.name)
+            vals.update(distance_m=int(distance), inside_geofence=inside,
+                        visit_type='onsite' if inside else 'offsite',
+                        offsite_reason=False if inside else (data.get('offsite_reason') or False))
         else:
             # First visit of a client without coordinates: learn its location.
             partner.write({'partner_latitude': lat, 'partner_longitude': lng,

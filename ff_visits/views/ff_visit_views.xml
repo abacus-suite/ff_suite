@@ -11,7 +11,9 @@
                 <field name="partner_id"/>
                 <field name="duration_min" sum="Total"/>
                 <field name="distance_m" optional="show"/>
-                <field name="inside_geofence" optional="show"/>
+                <field name="visit_type" optional="show" widget="badge"
+                       decoration-success="visit_type == 'onsite'" decoration-warning="visit_type == 'offsite'"/>
+                <field name="inside_geofence" optional="hide"/>
                 <field name="outcome_id" optional="show"/>
                 <field name="productive" optional="hide"/>
                 <field name="photo_count" optional="show"/>
@@ -42,6 +44,8 @@
                             <field name="productive"/>
                         </group>
                         <group>
+                            <field name="visit_type" readonly="1"/>
+                            <field name="offsite_reason" readonly="1" invisible="visit_type != 'offsite'"/>
                             <field name="inside_geofence" readonly="1"/>
                             <field name="distance_m" readonly="1"/>
                             <field name="location_captured" readonly="1" invisible="not location_captured"/>
@@ -92,9 +96,12 @@
                 <filter name="check_in_at" string="Date" date="check_in_at"/>
                 <separator/>
                 <filter name="ongoing" string="At Client Now" domain="[('state', '=', 'ongoing')]"/>
+                <filter name="onsite" string="Onsite" domain="[('visit_type', '=', 'onsite')]"/>
+                <filter name="offsite" string="Offsite" domain="[('visit_type', '=', 'offsite')]"/>
                 <filter name="outside" string="Outside Geofence" domain="[('inside_geofence', '=', False)]"/>
                 <group>
                     <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_visit_type" string="Onsite / Offsite" context="{'group_by': 'visit_type'}"/>
                     <filter name="group_client" string="Client" context="{'group_by': 'partner_id'}"/>
                     <filter name="group_outcome" string="Outcome" context="{'group_by': 'outcome_id'}"/>
                     <filter name="group_productive" string="Productive" context="{'group_by': 'productive'}"/>

@@ -15,6 +15,10 @@ class FieldForceRoutePlanApi(http.Controller):
             'id': route.id,
             'name': route.display_name,
             'route_type': route.route_type_id.name or None,
+            # So a new customer on this route can take its city without typing it.
+            'district': ref(route.district_id),
+            'city': route.district_id.name or None,
+            'state': ref(route.state_id),
             'customer_count': len(route.line_ids),
             'planned_km': round(route.planned_km, 1),
         } for route in routes])

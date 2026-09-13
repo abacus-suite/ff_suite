@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Client Visits',
-    'version': '19.0.1.2.0',
+    'version': '19.0.1.3.0',
     'category': 'Human Resources/Field Force',
     'summary': 'Geofence-verified check-in / check-out with configurable outcomes, photos and notes',
     'author': 'Field Force Suite',

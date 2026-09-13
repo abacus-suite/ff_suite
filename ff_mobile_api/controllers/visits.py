@@ -2,6 +2,8 @@ from odoo import fields, http
 from odoo.http import request
 
 from .clients import to_float, visible_client
+from odoo.addons.ff_visits.models.ff_visit import OffsiteConfirmation
+
 from .common import ApiError, api_route, body, ok, ref
 from .field_data import client_data, plan_data, visit_data
 
@@ -30,7 +32,12 @@ class FieldForceVisitsApi(http.Controller):
         except (TypeError, ValueError):
             raise ApiError('partner_id is required.')
         partner = visible_client(employee, partner_id)
-        visit = request.env['ff.visit'].ff_check_in(employee, partner, data)
+        try:
+            visit = request.env['ff.visit'].ff_check_in(employee, partner, data)
+        except OffsiteConfirmation as far:
+            away = '%.1f km' % (far.distance / 1000.0) if far.distance >= 1000 else '%d m' % far.distance
+            raise ApiError('%s is %s from where you are. Check in as an offsite visit?' % (far.client, away),
+                           409, 'offsite_confirm')
         return ok(visit_data(visit))
 
     @api_route('/api/v1/visits/<int:visit_id>/check-out', methods=('POST',))

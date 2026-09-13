@@ -149,6 +149,19 @@ class FieldForceOrdersApi(http.Controller):
             'server_time': to_iso(fields.Datetime.now()),
         })
 
+    def _hourly(self, employee, orders):
+        """Order value by hour of the working day, in the employee's timezone."""
+        buckets = {hour: 0.0 for hour in range(9, 20, 2)}
+        for order in orders:
+            local = employee._ff_to_local(order.date_order)
+            hour = min(max(local.hour - (local.hour % 2), 9), 19)
+            buckets[hour] = buckets.get(hour, 0.0) + order.amount_total
+        return [{
+            'hour': hour,
+            'label': '%d%s' % (hour if hour <= 12 else hour - 12, 'AM' if hour < 12 else 'PM'),
+            'amount': round(amount, 2),
+        } for hour, amount in sorted(buckets.items())]
+
     @api_route('/api/v1/orders/dashboard', methods=('GET',))
     def dashboard(self, employee, period='today', **kw):
         """Order totals, a 7-day bar series and the top moved products."""
@@ -179,12 +192,35 @@ class FieldForceOrdersApi(http.Controller):
             [('order_id', 'in', orders.ids), ('product_id', '!=', False)],
             ['product_id'], ['product_uom_qty:sum'])
         top = sorted(groups, key=lambda g: g[1], reverse=True)[:5]
+
+        # The same stretch of time, one period earlier, so the app can say
+        # "+28% against yesterday" rather than showing a number with no scale.
+        span = (today - first).days + 1
+        previous_end = first
+        previous_start = first - timedelta(days=span)
+        prev_from, _unused = employee._ff_day_bounds(previous_start)
+        prev_to, _unused2 = employee._ff_day_bounds(previous_end)
+        previous = Order.search(base_domain + [('date_order', '>=', prev_from), ('date_order', '<', prev_to)])
+
+        def change(now, before):
+            if not before:
+                return 100.0 if now else 0.0
+            return round((now - before) / float(before) * 100.0, 1)
+
         return ok({
             'period': period if period in ('today', 'week', 'month') else 'today',
             'count': len(orders),
             'amount_untaxed': sum(orders.mapped('amount_untaxed')),
             'amount_total': sum(orders.mapped('amount_total')),
             'currency': orders[:1].currency_id.name or employee.company_id.currency_id.name,
+            'previous': {
+                'count': len(previous),
+                'amount_total': sum(previous.mapped('amount_total')),
+                'count_change': change(len(orders), len(previous)),
+                'amount_change': change(sum(orders.mapped('amount_total')),
+                                        sum(previous.mapped('amount_total'))),
+            },
+            'hours': self._hourly(employee, orders),
             'series': series,
             'top_products': [{
                 'id': product.id,
