@@ -76,7 +76,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 child: ListTile(
                   leading: const Icon(Icons.today),
                   title: Text('Today: ${summary['count']} ${_demandFlow ? 'demands' : 'orders'}'),
-                  subtitle: Text('${fmtMoney(summary['amount_total'] as num?, summary['currency'] as String?)} incl. tax'),
+                  subtitle: Text('${fmtMoney(summary['amount_total'] as num?, summary['currency'] as String?)}'
+                      '${_demandFlow ? ' at PTR' : ' incl. tax'}'),
                 ),
               ),
             if (_orders.isEmpty && !_loading)
