@@ -17,6 +17,14 @@ class FfDashboardOrg(models.AbstractModel):
             return {'roots': [], 'total': 0, 'unassigned': []}
 
         nodes = {employee.id: self._org_node(employee) for employee in employees}
+        # This month's target achievement, when targets are in use.
+        if 'ff.target' in self.env:
+            first = self._ff_today().replace(day=1)
+            for target in self.env['ff.target'].sudo().search([
+                    ('scope', '=', 'employee'), ('employee_id', 'in', employees.ids), ('month', '=', first)]):
+                node = nodes.get(target.employee_id.id)
+                if node:
+                    node['target'] = target.ff_row()['achievement']
         roots = []
         for employee in employees:
             node = nodes[employee.id]
@@ -50,6 +58,7 @@ class FfDashboardOrg(models.AbstractModel):
             'email': employee.work_email or '',
             'avatar': '/web/image/hr.employee/%s/avatar_128' % employee.id,
             'punched_in': bool(status and status.punched_in),
+            'target': None,
             'children': [],
             'reports': 0,
         }

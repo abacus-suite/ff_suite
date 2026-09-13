@@ -86,6 +86,10 @@ export class AixoloPanel extends Component {
             peopleView: "cards",
             org: null,
             orgSearch: "",
+            peopleDept: "",
+            peopleTeam: "",
+            peopleStatus: "",
+            peopleSort: "az",
             collapsedNodes: [],
             report: null,
             reportLoading: false,
@@ -1215,6 +1219,9 @@ export class AixoloPanel extends Component {
 
     // -- Employees: cards and hierarchy ------------------------------------
     async loadPeople() {
+        if (!this.state.org) {
+            this.state.org = await this.orm.call("ff.dashboard", "ff_org_tree", []);
+        }
         if (!this.state.live) {
             this.state.live = await this.orm.call("ff.employee.status", "ff_live_map", [false]);
         }
@@ -1226,6 +1233,79 @@ export class AixoloPanel extends Component {
     async setPeopleView(view) {
         this.state.peopleView = view;
         await this.loadPeople();
+    }
+
+    get peopleChoices() {
+        const people = this.state.live ? this.state.live.people : [];
+        const unique = (key) => [...new Set(people.map((p) => p[key]).filter(Boolean))].sort();
+        return { departments: unique("department"), teams: unique("team") };
+    }
+
+    /** Employee cards after the section's own filters and sort. */
+    get peopleCards() {
+        const people = this.state.live ? this.state.live.people : [];
+        const term = (this.state.liveSearch || "").trim().toLowerCase();
+        const rows = people.filter((p) => {
+            if (this.state.peopleDept && p.department !== this.state.peopleDept) {
+                return false;
+            }
+            if (this.state.peopleTeam && p.team !== this.state.peopleTeam) {
+                return false;
+            }
+            const status = this.state.peopleStatus;
+            if ((status === "in" && !p.punched_in) || (status === "out" && p.punched_in) || (status === "field" && !p.at_client)) {
+                return false;
+            }
+            return !term || [p.name, p.code, p.team, p.job, p.department, p.address]
+                .some((v) => (v || "").toLowerCase().includes(term));
+        });
+        const byName = (a, b) => (a.name || "").localeCompare(b.name || "");
+        if (this.state.peopleSort === "za") {
+            rows.sort((a, b) => byName(b, a));
+        } else if (this.state.peopleSort === "in") {
+            rows.sort((a, b) => (b.punched_in - a.punched_in) || byName(a, b));
+        } else {
+            rows.sort(byName);
+        }
+        return rows;
+    }
+
+    get peopleStats() {
+        const people = this.state.live ? this.state.live.people : [];
+        return {
+            total: this.state.org ? this.state.org.total : people.length,
+            managers: this.state.org ? this.state.org.managers : "–",
+            teams: this.state.org ? this.state.org.teams : new Set(people.map((p) => p.team).filter(Boolean)).size,
+        };
+    }
+
+    get peopleTiles() {
+        const people = this.state.live ? this.state.live.people : [];
+        const total = people.length;
+        const share = (n) => (total ? Math.round((n / total) * 100) : 0);
+        const active = people.filter((p) => p.punched_in).length;
+        const field = people.filter((p) => p.at_client).length;
+        return [
+            { key: "total", label: "Total Employees", value: total, pct: null, icon: "fa-users", color: "#1a56db", status: "" },
+            { key: "in", label: "Active (IN)", value: active, pct: share(active), icon: "fa-heartbeat", color: "#16a34a", status: "in" },
+            { key: "out", label: "Punched Out", value: total - active, pct: share(total - active), icon: "fa-power-off", color: "#dc2626", status: "out" },
+            { key: "field", label: "On Field", value: field, pct: share(field), icon: "fa-map-marker", color: "#7c5cfc", status: "field" },
+        ];
+    }
+
+    personTone(person) {
+        if (!person.punched_in) {
+            return "#dc2626";
+        }
+        if (person.is_inactive || person.is_signal_lost) {
+            return "#eab308";
+        }
+        return "#16a34a";
+    }
+
+    resetPeopleFilters() {
+        Object.assign(this.state, { peopleDept: "", peopleTeam: "", peopleStatus: "", peopleSort: "az",
+                                    liveSearch: "", orgSearch: "" });
     }
 
     onOrgSearch(ev) {
@@ -1268,15 +1348,25 @@ export class AixoloPanel extends Component {
     /** A search hides the branches that do not match, without losing the shape. */
     matchesOrg(node) {
         const term = this.state.orgSearch.trim().toLowerCase();
-        if (!term) {
+        const status = this.state.peopleStatus;
+        const filtered = this.state.peopleDept || this.state.peopleTeam || status === "in" || status === "out";
+        if (!term && !filtered) {
             return true;
+        }
+        const fits =
+            (!this.state.peopleDept || node.department === this.state.peopleDept) &&
+            (!this.state.peopleTeam || node.team === this.state.peopleTeam) &&
+            (status !== "in" || node.punched_in) &&
+            (status !== "out" || !node.punched_in);
+        if (!term) {
+            return fits || node.children.some((child) => this.matchesOrg(child));
         }
         const hit =
             (node.name || "").toLowerCase().includes(term) ||
             (node.job || "").toLowerCase().includes(term) ||
             (node.team || "").toLowerCase().includes(term) ||
             (node.code || "").toLowerCase().includes(term);
-        return hit || node.children.some((child) => this.matchesOrg(child));
+        return (hit && fits) || node.children.some((child) => this.matchesOrg(child));
     }
 
     // -- Timeline ---------------------------------------------------------

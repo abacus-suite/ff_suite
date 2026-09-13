@@ -56,6 +56,7 @@ class FfEmployeeStatus(models.Model):
             'name': employee.name,
             'code': employee.ff_employee_code or '',
             'team': employee.ff_team_id.name or '',
+            'department': employee.department_id.name or '',
             'job': employee.job_title or '',
             'phone': employee.mobile_phone or employee.work_phone or '',
             'avatar': '/web/image/hr.employee/%s/avatar_128' % employee.id,
