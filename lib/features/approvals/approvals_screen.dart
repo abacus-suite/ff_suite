@@ -21,6 +21,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   List<Map<String, dynamic>> _allowances = [];
   List<Map<String, dynamic>> _expenses = [];
   List<Map<String, dynamic>> _leaves = [];
+  List<Map<String, dynamic>> _returns = [];
   bool _loading = true;
   String? _error;
   final Set<String> _busy = {};
@@ -41,6 +42,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         _optional(Services.api.get('/api/v1/allowances/to-approve')),
         _optional(Services.api.get('/api/v1/expenses/to-approve')),
         _optional(Services.api.get('/api/v1/leaves/to-approve')),
+        _optional(Services.api.get('/api/v1/returns/to-approve')),
       ]);
       final base = results[0] as Map<String, dynamic>;
       if (!mounted) return;
@@ -50,6 +52,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         _allowances = ((results[1] as List?) ?? []).cast<Map<String, dynamic>>();
         _expenses = ((results[2] as List?) ?? []).cast<Map<String, dynamic>>();
         _leaves = ((results[3] as List?) ?? []).cast<Map<String, dynamic>>();
+        _returns = ((results[4] as List?) ?? []).cast<Map<String, dynamic>>();
         _error = null;
       });
     } catch (e) {
@@ -63,7 +66,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     final key = '$kind-$id';
     setState(() => _busy.add(key));
     try {
-      await Services.outbox.submit('/api/v1/approvals/$kind/$id/${approve ? 'approve' : 'reject'}', {'uuid': const Uuid().v4()});
+      final decision = approve ? 'approve' : 'reject';
+      final path = kind == 'return' ? '/api/v1/returns/$id/$decision' : '/api/v1/approvals/$kind/$id/$decision';
+      await Services.outbox.submit(path, {'uuid': const Uuid().v4()});
       if (mounted) showSnack(context, approve ? 'Approved' : 'Rejected');
       await _load();
     } catch (e) {
@@ -118,9 +123,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   @override
   Widget build(BuildContext context) {
     final empty = _regularisations.isEmpty && _clients.isEmpty && _allowances.isEmpty &&
-        _expenses.isEmpty && _leaves.isEmpty;
+        _expenses.isEmpty && _leaves.isEmpty && _returns.isEmpty;
     final total = _regularisations.length + _clients.length + _allowances.length +
-        _expenses.length + _leaves.length;
+        _expenses.length + _leaves.length + _returns.length;
     return Scaffold(
       appBar: AppBar(title: Text(total == 0 ? 'Approvals' : 'Approvals ($total)')),
       body: RefreshIndicator(
@@ -161,6 +166,23 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                         '${(e['category'] as Map?)?['name'] ?? ''} · ${e['date']}',
                         if ((e['contact'] as Map?)?['name'] != null) 'Contact: ${(e['contact'] as Map)['name']}',
                         '${e['receipt_count']} receipt(s)${e['note'] != null ? ' · ${e['note']}' : ''}',
+                      ],
+                    ),
+                  if (_returns.isNotEmpty) const _Section('Returns & damaged'),
+                  for (final r in _returns)
+                    _card(
+                      kind: 'return',
+                      id: r['id'] as int,
+                      icon: Icons.assignment_return_rounded,
+                      color: AixoloColors.danger,
+                      title: '${(r['employee'] as Map?)?['name'] ?? ''} · ${r['reason_label']}',
+                      amount: fmtMoney(r['amount'] as num?, r['currency'] as String?),
+                      lines: [
+                        '${r['name']} · ${(r['customer'] as Map?)?['name'] ?? ''}',
+                        for (final line in ((r['lines'] as List?) ?? []).cast<Map<String, dynamic>>().take(4))
+                          '• ${line['product']} × ${fmtQty((line['quantity'] as num?) ?? 0)}',
+                        if ((r['photos'] as num? ?? 0) > 0) '${r['photos']} photo(s)',
+                        if (asText(r['note']) != null) '${r['note']}',
                       ],
                     ),
                   if (_leaves.isNotEmpty) const _Section('Time off'),

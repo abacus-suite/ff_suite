@@ -21,6 +21,7 @@ const _icons = <String, IconData>{
   'add_business': Icons.add_business_rounded,
   'flag': Icons.flag_rounded,
   'task_alt': Icons.task_alt_rounded,
+  'assignment_return': Icons.assignment_return_rounded,
 };
 
 const _tones = [

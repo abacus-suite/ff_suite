@@ -12,6 +12,8 @@ import '../visits/step_screen.dart';
 import '../../core/local_state.dart';
 import '../visits/visit_gate.dart';
 import '../visits/stock_count_screen.dart';
+import '../returns/return_screen.dart';
+import 'client_extras.dart';
 import 'visit_checkout_screen.dart';
 
 class ClientDetailScreen extends StatefulWidget {
@@ -228,7 +230,26 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       child: Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !locked,
-        title: Text(asText(client?['name']) ?? Services.auth.profile!.label('client', 'Client'))),
+        title: Text(asText(client?['name']) ?? Services.auth.profile!.label('client', 'Client')),
+        actions: [
+          if (client != null) ...[
+            IconButton(
+              tooltip: 'History',
+              icon: const Icon(Icons.history_rounded),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => ClientHistoryScreen(clientId: widget.clientId, name: '${client['name']}'))),
+            ),
+            IconButton(
+              tooltip: 'Edit',
+              icon: const Icon(Icons.edit_rounded),
+              onPressed: () async {
+                final saved = await Navigator.of(context)
+                    .push<bool>(MaterialPageRoute(builder: (_) => EditClientScreen(client: client)));
+                if (saved == true) _load();
+              },
+            ),
+          ],
+        ]),
       body: _loading && client == null
           ? const Center(child: CircularProgressIndicator())
           : client == null
@@ -306,6 +327,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           ),
         ),
         const SizedBox(height: 10),
+        ClientBalanceCard(clientId: widget.clientId),
+        const SizedBox(height: 10),
         if (profile.feature('visits')) _visitAction(),
         // Checked in at another customer: nothing to take here until they check out there.
         if (profile.feature('orders') && !_elsewhere && c['allow_orders'] != false && c['approval_state'] == 'approved') ...[
@@ -316,6 +339,19 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             label: Text(profile.isDemandFlow
                 ? 'Take demand'
                 : 'Take ${profile.label('order', 'Order').toLowerCase()}'),
+          ),
+        ],
+        if (profile.feature('orders') && !_elsewhere) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () async {
+              if (!await _atClient(c) || !mounted) return;
+              final sent = await Navigator.of(context)
+                  .push<bool>(MaterialPageRoute(builder: (_) => ReturnScreen(client: c)));
+              if (sent == true) _load();
+            },
+            icon: const Icon(Icons.assignment_return_rounded),
+            label: const Text('Return / damaged goods'),
           ),
         ],
         if (profile.paymentCollection && !_elsewhere) ...[

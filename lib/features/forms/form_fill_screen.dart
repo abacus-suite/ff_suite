@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/photos.dart';
 import '../../core/format.dart';
 import '../../core/geo.dart';
 import '../../core/services.dart';
@@ -275,9 +276,8 @@ class _FormFillScreenState extends State<FormFillScreen> {
             height: 88,
             child: OutlinedButton(
               onPressed: () async {
-                final image = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1280, imageQuality: 65);
-                if (image == null) return;
-                final bytes = await image.readAsBytes();
+                final bytes = await takePhoto(ImageSource.camera);
+                if (bytes == null) return;
                 setState(() => _photos[key] = [...list, bytes]);
               },
               child: const Icon(Icons.add_a_photo_rounded),

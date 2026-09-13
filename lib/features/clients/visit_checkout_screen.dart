@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/photos.dart';
 import '../../core/format.dart';
 import '../../core/local_state.dart';
 import '../../core/geo.dart';
@@ -83,9 +84,8 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
 
   Future<void> _addPhoto() async {
     if (_photos.length >= _maxPhotos) return;
-    final image = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1280, imageQuality: 65);
-    if (image == null) return;
-    final bytes = await image.readAsBytes();
+    final bytes = await takePhoto(ImageSource.camera);
+    if (bytes == null) return;
     setState(() => _photos.add(bytes));
   }
 

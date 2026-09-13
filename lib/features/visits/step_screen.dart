@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/photos.dart';
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
@@ -42,9 +43,8 @@ class _StepScreenState extends State<StepScreen> {
 
   Future<void> _addPhoto() async {
     if (_photos.length >= _maxPhotos) return;
-    final image = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1280, imageQuality: 65);
-    if (image == null) return;
-    final bytes = await image.readAsBytes();
+    final bytes = await takePhoto(ImageSource.camera);
+    if (bytes == null) return;
     setState(() => _photos.add(bytes));
   }
 

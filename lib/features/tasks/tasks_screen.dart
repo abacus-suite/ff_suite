@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/photos.dart';
 import '../../core/format.dart';
 import '../../core/geo.dart';
 import '../../core/services.dart';
@@ -258,9 +259,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   Future<void> _takePhoto() async {
-    final image = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1280, imageQuality: 65);
-    if (image == null) return;
-    final bytes = await image.readAsBytes();
+    final bytes = await takePhoto(ImageSource.camera);
+    if (bytes == null) return;
     if (mounted) setState(() => _photo = bytes);
   }
 

@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/photos.dart';
 import '../../core/format.dart';
 import '../../core/local_state.dart';
 import '../../core/models.dart';
@@ -132,14 +133,9 @@ class _HomeScreenState extends State<HomeScreen> {
         throw 'A fake GPS app was detected. Disable it to punch.';
       String? selfie;
       if (_profile.selfieRequired) {
-        final photo = await ImagePicker().pickImage(
-          source: ImageSource.camera,
-          preferredCameraDevice: CameraDevice.front,
-          maxWidth: 720,
-          imageQuality: 60,
-        );
+        final photo = await takePhoto(ImageSource.camera, selfie: true);
         if (photo == null) throw 'A selfie is required to punch.';
-        selfie = base64Encode(await photo.readAsBytes());
+        selfie = base64Encode(photo);
       }
       int? battery;
       try {

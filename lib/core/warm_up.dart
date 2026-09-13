@@ -67,6 +67,7 @@ class WarmUp {
       await Future.wait([
         for (final id in perClient.skip(i).take(6)) ...[
           _get('/api/v1/clients/$id'),
+          _get('/api/v1/clients/$id/balance'),
           if (profile.feature('visits')) _get('/api/v1/visit-outcomes', {'partner_id': id}),
           if (profile.stockCount) _get('/api/v1/stock/last', {'partner_id': id}),
           if (profile.visitSteps) _get('/api/v1/visits/0/steps', {'partner_id': id}),
