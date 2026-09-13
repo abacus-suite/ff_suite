@@ -62,6 +62,11 @@ def body():
     return data if isinstance(data, dict) else {}
 
 
+def _request_uuid():
+    uuid = body().get('uuid')
+    return uuid if isinstance(uuid, str) and 8 <= len(uuid) <= 64 else None
+
+
 def ok(data=None, status=200):
     return request.make_json_response({'ok': True, 'data': data}, status=status)
 
@@ -94,7 +99,19 @@ def api_route(route, methods=('GET',), public=False, manager=False):
             try:
                 if not public:
                     kwargs['employee'] = current_employee(manager=manager)
-                return func(self, *args, **kwargs)
+                uuid = _request_uuid() if not public and request.httprequest.method == 'POST' else None
+                if uuid:
+                    # Sent before (queued offline, or an answer lost on the way): same answer again.
+                    seen = request.env['ff.api.receipt'].ff_find(uuid)
+                    if seen:
+                        return request.make_response(seen.response, status=seen.status, headers=[
+                            ('Content-Type', 'application/json; charset=utf-8'), ('X-Replayed', '1')])
+                response = func(self, *args, **kwargs)
+                if uuid and 200 <= response.status_code < 300:
+                    request.env['ff.api.receipt'].ff_store(
+                        uuid, kwargs.get('employee'), request.httprequest.path,
+                        response.status_code, response.get_data(as_text=True))
+                return response
             except ApiError as e:
                 request.env.cr.rollback()
                 return fail(e.code, e.message, e.status)

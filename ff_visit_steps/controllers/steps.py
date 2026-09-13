@@ -7,8 +7,12 @@ from odoo.addons.ff_mobile_api.controllers.clients import to_int, visible_client
 from odoo.addons.ff_mobile_api.controllers.common import ApiError, api_route, body, ok, ref
 
 
-def own_visit(employee, visit_id):
-    visit = request.env['ff.visit'].sudo().browse(to_int(visit_id) or []).exists()
+def own_visit(employee, visit_id, uuid=None):
+    """The employee's visit by id; id 0 plus the check-in's uuid finds one made offline."""
+    Visit = request.env['ff.visit'].sudo()
+    visit = Visit.browse(to_int(visit_id) or []).exists()
+    if not visit and uuid:
+        visit = Visit.search([('client_uuid', '=', uuid), ('employee_id', '=', employee.id)], limit=1)
     if not visit or visit.employee_id != employee:
         raise ApiError('Visit not found.', 404, 'not_found')
     return visit
@@ -50,21 +54,27 @@ def last_count_data(count):
 class FieldForceStepsApi(http.Controller):
 
     @api_route('/api/v1/visits/<int:visit_id>/steps', methods=('GET',))
-    def steps(self, employee, visit_id, **kw):
-        visit = own_visit(employee, visit_id)
+    def steps(self, employee, visit_id, partner_id=None, **kw):
         if not get_param(request.env, 'visit_steps'):
             return ok({'enabled': False, 'steps': []})
-        steps = request.env['ff.visit.step'].ff_for(employee, visit.partner_id).sorted('sequence')
-        records = {r.step_id.id: r for r in visit.sudo().step_record_ids}
+        if not visit_id and partner_id:
+            # The steps a visit here would have - saved on the phone for an offline check-in.
+            partner = visible_client(employee, to_int(partner_id))
+            visit, records = None, {}
+        else:
+            visit = own_visit(employee, visit_id)
+            partner = visit.partner_id
+            records = {r.step_id.id: r for r in visit.sudo().step_record_ids}
+        steps = request.env['ff.visit.step'].ff_for(employee, partner).sorted('sequence')
         return ok({
             'enabled': True,
             'steps': [step_data(step, records.get(step.id)) for step in steps],
-            'last_stock_count': last_count_data(request.env['ff.stock.count'].ff_last_for(visit.partner_id)),
+            'last_stock_count': last_count_data(request.env['ff.stock.count'].ff_last_for(partner)),
         })
 
     @api_route('/api/v1/visits/<int:visit_id>/steps/<int:step_id>', methods=('POST',))
     def complete_step(self, employee, visit_id, step_id, **kw):
-        visit = own_visit(employee, visit_id)
+        visit = own_visit(employee, visit_id, body().get('visit_uuid'))
         step = request.env['ff.visit.step'].sudo().browse(step_id).exists()
         if not step:
             raise ApiError('Step not found.', 404, 'not_found')
@@ -87,6 +97,9 @@ class FieldForceStepsApi(http.Controller):
         if not lines:
             raise ApiError('Count at least one product.')
         visit = request.env['ff.visit'].sudo().browse(to_int(data.get('visit_id')) or []).exists()
+        if not visit and data.get('visit_uuid'):
+            visit = request.env['ff.visit'].sudo().search(
+                [('client_uuid', '=', data['visit_uuid']), ('employee_id', '=', employee.id)], limit=1)
         if visit and visit.employee_id != employee:
             raise ApiError('Visit not found.', 404, 'not_found')
         count = request.env['ff.stock.count'].ff_record(employee, partner, lines, visit=visit,
