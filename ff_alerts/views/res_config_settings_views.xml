@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_ff_alerts" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.ff.alerts</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="ff_base.res_config_settings_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='ff_security_settings']" position="after">
+                <block title="Manager Alerts" name="ff_alert_settings">
+                    <setting help="The reporting manager gets a notification in the app, and the alert is listed under Aixolo › Alerts.">
+                        <field name="ff_alerts_enabled"/>
+                        <div class="mt-2" invisible="not ff_alerts_enabled">
+                            <div><field name="ff_alerts_kind_inactive"/> <label for="ff_alerts_kind_inactive"/></div>
+                            <div><field name="ff_alerts_kind_no_signal"/> <label for="ff_alerts_kind_no_signal"/></div>
+                            <div><field name="ff_alerts_kind_gps_off"/> <label for="ff_alerts_kind_gps_off"/></div>
+                            <div><field name="ff_alerts_kind_offsite_visit"/> <label for="ff_alerts_kind_offsite_visit"/></div>
+                            <div><field name="ff_alerts_kind_mock_location"/> <label for="ff_alerts_kind_mock_location"/></div>
+                        </div>
+                    </setting>
+                    <setting string="Repeat after" help="The same alert about the same person is not sent again within this many minutes." invisible="not ff_alerts_enabled">
+                        <field name="ff_alerts_repeat_minutes"/>
+                    </setting>
+                </block>
+                <block title="Email Summary" name="ff_digest_settings">
+                    <setting help="Every manager with a team gets the day in one email: present, visits, offsite, sales, collections, km, tasks and alerts per person.">
+                        <field name="ff_digest_daily"/>
+                    </setting>
+                    <setting help="On Sunday evening, the same for Monday to Sunday.">
+                        <field name="ff_digest_weekly"/>
+                    </setting>
+                    <setting string="Send at" help="Local hour, in the field timezone.">
+                        <field name="ff_digest_hour"/>
+                        <div class="mt-2">
+                            <button name="action_ff_send_digest_now" type="object" class="btn-link" icon="fa-envelope"
+                                    string="Send today's summary now"/>
+                        </div>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>
