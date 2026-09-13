@@ -509,27 +509,107 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
         ],
       );
     }
-    if (_by == 'day') {
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-        children: [
-          for (final row in rows)
-            EmployeeSummaryCard(
-              row: {...row, 'employee': _prettyDate('${row['date']}')},
+    String n(Map<String, dynamic> r, String k) => '${(r[k] as num?)?.toInt() ?? 0}';
+    String money(Map<String, dynamic> r, String k) => fmtMoney((r[k] as num?) ?? 0, currency);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    void openPeriod(DateTime start, DateTime end) => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => EmployeeReportScreen(memberId: _member, name: _memberLabel, start: start, end: end),
+        ));
+    Widget cards(List<Widget> children) =>
+        ListView(padding: const EdgeInsets.fromLTRB(12, 4, 12, 24), children: children);
+
+    if (_by == 'day' || _by == 'week' || _by == 'month') {
+      return cards([
+        for (final row in rows)
+          () {
+            final d = DateTime.tryParse('${row['date']}') ?? DateTime.now();
+            final (title, subtitle, badge, start, end) = switch (_by) {
+              'week' => (
+                  'Week of ${_prettyDate('${row['date']}')}',
+                  '${_prettyDate('${row['date']}')} – ${_prettyDate(fmtDate(d.add(const Duration(days: 6))))}',
+                  'W',
+                  d,
+                  d.add(const Duration(days: 6)),
+                ),
+              'month' => (
+                  '${months[d.month - 1]} ${d.year}',
+                  '${n(row, 'days')} days worked',
+                  months[d.month - 1].toUpperCase(),
+                  d,
+                  DateTime(d.year, d.month + 1, 0),
+                ),
+              _ => (_prettyDate('${row['date']}'), _weekdayOf('${row['date']}'), '${d.day}', d, d),
+            };
+            return EmployeeSummaryCard(
+              row: {...row, 'employee': title},
               currency: currency,
               saleWord: saleWord,
-              subtitle: _weekdayOf('${row['date']}'),
-              badge: '${DateTime.tryParse('${row['date']}')?.day ?? ''}',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => VisitDetailsScreen(
-                  memberId: _member,
-                  name: _memberLabel,
-                  date: DateTime.parse('${row['date']}'),
-                ),
-              )),
-            ),
-        ],
-      );
+              subtitle: subtitle,
+              badge: badge,
+              onTap: _by == 'day'
+                  ? () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => VisitDetailsScreen(memberId: _member, name: _memberLabel, date: d),
+                      ))
+                  // A week or month never reaches past the period picked.
+                  : () => openPeriod(start.isBefore(_range.start) ? _range.start : start,
+                      end.isAfter(_range.end) ? _range.end : end),
+            );
+          }(),
+      ]);
+    }
+    if (_by == 'customer') {
+      return cards([
+        for (final row in rows)
+          EmployeeSummaryCard(
+            row: {...row, 'employee': row['customer']},
+            currency: currency,
+            saleWord: saleWord,
+            subtitle: [
+              if ('${row['city'] ?? ''}'.isNotEmpty) '${row['city']}',
+              if (row['last_visit'] != null) 'Last visit ${_prettyDate('${row['last_visit']}')}',
+            ].join(' · '),
+            figures: [
+              ('orders', n(row, 'orders'), saleWord),
+              ('collections', money(row, 'collected'), 'Collected'),
+              ('difference', money(row, 'difference'), 'Not collected'),
+            ],
+          ),
+      ]);
+    }
+    if (_by == 'product') {
+      return cards([
+        for (final row in rows)
+          EmployeeSummaryCard(
+            row: {...row, 'employee': row['product']},
+            currency: currency,
+            saleWord: saleWord,
+            subtitle: '${row['sku'] ?? ''}'.isEmpty ? null : 'SKU ${row['sku']}',
+            value: money(row, 'amount'),
+            figures: [
+              ('quantity', n(row, 'quantity'), 'Quantity'),
+              ('outlets', n(row, 'outlets'), 'Outlets'),
+              ('amount', money(row, 'amount'), 'Value'),
+            ],
+          ),
+      ]);
+    }
+    if (_by == 'route') {
+      return cards([
+        for (final row in rows)
+          EmployeeSummaryCard(
+            row: {...row, 'employee': row['route']},
+            currency: currency,
+            saleWord: saleWord,
+            subtitle: '${n(row, 'days')} days planned · ${((row['km'] as num?) ?? 0).toStringAsFixed(1)} km',
+            value: '${((row['completion'] as num?) ?? 0).toStringAsFixed(0)}%',
+            valueCaption: 'Completed',
+            figures: [
+              ('planned', n(row, 'planned'), 'Planned'),
+              ('visited', n(row, 'visited'), 'Visited'),
+              ('missed', n(row, 'missed'), 'Missed'),
+            ],
+          ),
+      ]);
     }
     return _list(((_data?['columns'] as List?) ?? []).cast<Map<String, dynamic>>(), rows);
   }

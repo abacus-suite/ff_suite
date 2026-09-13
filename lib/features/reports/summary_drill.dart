@@ -18,6 +18,12 @@ import '../../widgets/common.dart';
       'expenses' => (Icons.account_balance_wallet_rounded, AixoloColors.danger),
       'customers' => (Icons.groups_rounded, AixoloColors.primary),
       'km' || 'distance' => (Icons.add_road_rounded, AixoloColors.muted),
+      'difference' || 'missed' => (Icons.pending_actions_rounded, AixoloColors.danger),
+      'quantity' => (Icons.inventory_2_rounded, AixoloColors.warning),
+      'outlets' => (Icons.storefront_rounded, AixoloColors.primary),
+      'planned' => (Icons.event_note_rounded, AixoloColors.primary),
+      'visited' => (Icons.task_alt_rounded, AixoloColors.success),
+      'last_visit' => (Icons.history_rounded, AixoloColors.purple),
       _ => (Icons.insights_rounded, AixoloColors.primary),
     };
 
@@ -139,7 +145,18 @@ class EmployeeSummaryCard extends StatelessWidget {
     this.highlight = false,
     this.subtitle,
     this.badge,
+    this.figures,
+    this.value,
+    this.valueCaption = 'Total value',
   });
+
+  /// (metric, value, caption) shown under the header, three to a row.
+  /// Default: visits, offsite, demand, collected, expenses, new customers.
+  final List<(String, String, String)>? figures;
+
+  /// Headline on the right (default: the sales value).
+  final String? value;
+  final String valueCaption;
 
   final Map<String, dynamic> row;
   final String? currency;
@@ -166,6 +183,15 @@ class EmployeeSummaryCard extends StatelessWidget {
         name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).take(2).map((p) => p[0]).join().toUpperCase();
     final tint = _tints[name.hashCode.abs() % _tints.length];
     String n(String k) => '${(row[k] as num?)?.toInt() ?? 0}';
+    final shown = figures ??
+        [
+          ('visits', n('visits'), 'Visits'),
+          ('offsite', n('offsite'), 'Offsite'),
+          ('orders', n('orders'), saleWord),
+          ('collections', _money(row['collections'] as num?, currency), 'Collected'),
+          ('expenses', _money(row['expenses'] as num?, currency), 'Expenses'),
+          ('customers', n('customers'), 'New customers'),
+        ];
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
@@ -204,32 +230,22 @@ class EmployeeSummaryCard extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(_money(row['sales'] as num?, currency),
+                      Text(value ?? _money(row['sales'] as num?, currency),
                           style: const TextStyle(
                               fontWeight: FontWeight.w900, fontSize: 16.5, color: AixoloColors.primary)),
-                      const Text('Total value', style: TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                      Text(valueCaption, style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
                     ],
                   ),
                   if (onTap != null) const Icon(Icons.chevron_right_rounded, color: AixoloColors.muted),
                 ],
               ),
               const SizedBox(height: 12),
-              _row([
-                _Mini('days', n('days'), 'Days worked'),
-                _Mini('hours', fmtHours(row['hours'] as num?), 'Hours'),
-                _Mini('late', n('late'), 'Late days'),
-              ]),
-              _row([
-                _Mini('visits', n('visits'), 'Visits'),
-                _Mini('offsite', n('offsite'), 'Offsite'),
-                _Mini('orders', n('orders'), saleWord),
-              ]),
-              _row([
-                _Mini('collections', _money(row['collections'] as num?, currency), 'Collected'),
-                _Mini('expenses', _money(row['expenses'] as num?, currency), 'Expenses'),
-                _Mini('customers', n('customers'), 'New customers'),
-                _Mini('km', '${((row['km'] as num?) ?? 0).toStringAsFixed(1)} km', 'Distance'),
-              ]),
+              for (var r = 0; r < shown.length; r += 3)
+                _row([
+                  for (final f in shown.skip(r).take(3)) _Mini(f.$1, f.$2, f.$3),
+                  // Short last row keeps the column widths of the rows above.
+                  for (var k = shown.skip(r).take(3).length; k < 3; k++) const SizedBox(),
+                ]),
             ],
           ),
         ),
@@ -467,6 +483,8 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
         MetricTile(metric: 'km', label: 'Distance', value: '${((o['km'] as num?) ?? 0).toStringAsFixed(1)} km'),
         MetricTile(metric: 'days', label: 'Days worked', value: '${o['days'] ?? 0}'),
         MetricTile(metric: 'hours', label: 'Hours', value: fmtHours(o['hours'] as num?)),
+        MetricTile(metric: 'late', label: 'Late days', value: '${o['late'] ?? 0}'),
+        MetricTile(metric: 'offsite', label: 'Offsite visits', value: '${o['offsite'] ?? 0}'),
       ]),
     ];
   }
