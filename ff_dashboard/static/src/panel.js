@@ -446,19 +446,106 @@ export class AixoloPanel extends Component {
         };
     }
 
-    /** The four small counters, in the order the field cares about. */
+    get greeting() {
+        const hour = new Date().getHours();
+        return hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+    }
+
+    get periodName() {
+        return { today: "Today", week: "This Week", month: "This Month" }[this.state.period] || "This Period";
+    }
+
+    /** The four headline figures across the top. */
+    get kpiCards() {
+        const rt = this.state.data.realtime;
+        const total = rt.total || 0;
+        const share = (n) => (total ? Math.round((n / total) * 100) : 0);
+        const people = () => this.openModel("hr.employee", "Employees");
+        return [
+            {
+                key: "total", label: "Total Employees", value: total, icon: "fa-users", color: "#1a56db",
+                chip: `${rt.active_month || 0} active`, note: "Active this month", open: people,
+            },
+            {
+                key: "in", label: "Punched In", value: rt.punched_in, icon: "fa-sign-in", color: "#16a34a",
+                chip: `${share(rt.punched_in)}%`, note: "Currently at work", open: () => this.openSection("attendance"),
+            },
+            {
+                key: "out", label: "Punched Out", value: rt.punched_out, icon: "fa-sign-out", color: "#dc2626",
+                chip: `${share(rt.punched_out)}%`, note: "Out for the day", open: () => this.openSection("attendance"),
+            },
+            {
+                key: "client", label: "At a Customer Now", value: rt.at_client, icon: "fa-briefcase", color: "#7c5cfc",
+                chip: `of ${rt.punched_in} on duty`, note: "Out in the field",
+                open: () => this.openModel("ff.visit", "Visits", [["state", "=", "ongoing"]]),
+            },
+        ];
+    }
+
+    /** Counter tiles: today, the change on yesterday, and a seven-day line. */
     get counterCards() {
         const counters = this.state.data.counters;
+        const demandWord = this.state.data.orders && this.state.data.orders.word === "demands";
         const meta = {
-            visits: { label: "Visits Today", icon: "fa-map-marker", color: "#1a56db" },
-            orders: { label: "Orders Submitted", icon: "fa-shopping-cart", color: "#14d3c0" },
+            visits: { label: "Visits Today", icon: "fa-map-marker", color: "#1a56db",
+                      open: () => this.openModel("ff.visit", "Visits") },
+            orders: { label: demandWord ? "Demands Submitted" : "Orders Submitted", icon: "fa-shopping-cart",
+                      color: "#14b8a6", open: () => this.openSection("orders") },
             new_clients: { label: "New Customers", icon: "fa-user-plus", color: "#7c5cfc" },
             forms: { label: "Forms Filled", icon: "fa-file-text-o", color: "#1e90ff" },
             photos: { label: "Photos Uploaded", icon: "fa-camera", color: "#f59e0b" },
+            distance: { label: "Total Distance Travelled", icon: "fa-road", color: "#0ea5e9", unit: " km" },
+            pending_demands: { label: "Pending Demands", icon: "fa-bar-chart", color: "#d97706",
+                               open: () => this.openModel("ff.demand", "Demands", [["state", "in", ["submitted", "partial"]]]) },
+            open_claims: { label: "Open Claims", icon: "fa-file-o", color: "#e11d48",
+                           open: () => this.openModel("ff.expense.claim", "Expense Claims", [["state", "=", "submitted"]]) },
         };
         return Object.keys(meta)
             .filter((key) => counters[key])
-            .map((key) => ({ key, ...meta[key], ...counters[key] }));
+            .map((key) => {
+                const row = counters[key];
+                const unit = meta[key].unit || "";
+                return {
+                    key, ...meta[key], ...row,
+                    display: `${this.number(row.today)}${unit}`,
+                    yesterdayText: `${this.number(row.yesterday)}${unit}`,
+                };
+            });
+    }
+
+    /** SVG path for a small trend line (or the area under it). */
+    spark(series, area = false) {
+        if (!series || !series.length) {
+            return "";
+        }
+        const max = Math.max(...series, 1);
+        const step = series.length > 1 ? 100 / (series.length - 1) : 100;
+        const points = series.map((v, i) => [i * step, 36 - (v / max) * 30]);
+        let d = points.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+        if (area) {
+            d += ` L100 40 L0 40 Z`;
+        }
+        return d;
+    }
+
+    get visitTiles() {
+        const share = this.visitShare;
+        return [
+            { key: "done", label: "Done", pct: share.done, icon: "fa-check-circle", color: "#16a34a" },
+            { key: "ongoing", label: "Ongoing", pct: share.ongoing, icon: "fa-map-marker", color: "#1a56db" },
+            { key: "planned", label: "Planned", pct: share.planned, icon: "fa-calendar", color: "#f59e0b" },
+            { key: "missed", label: "Missed", pct: share.missed, icon: "fa-times-circle", color: "#dc2626" },
+        ];
+    }
+
+    get expenseRows() {
+        const e = this.state.data.expenses;
+        return [
+            { label: "Approved", color: "#16a34a", ...e.approved },
+            { label: "Pending", color: "#f59e0b", ...e.submitted },
+            { label: "Draft", color: "#1a56db", ...e.draft },
+            { label: "Rejected", color: "#dc2626", ...e.rejected },
+        ];
     }
 
     get visitShare() {

@@ -1424,4 +1424,381 @@
             opacity: 0.75;
         }
     }
+
+    // ---- dashboard, second design -----------------------------------------
+    .ff_hello {
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: -0.6px;
+    }
+
+    .ff_hello_sub {
+        font-size: 18px;
+        font-weight: 500;
+        margin-bottom: 2px;
+    }
+
+    .ff_kpi {
+        position: relative;
+        overflow: hidden;
+        border-radius: 18px;
+        padding: 18px 20px;
+        cursor: pointer;
+        border: 1px solid color-mix(in srgb, var(--tile) 14%, #fff);
+        background: linear-gradient(135deg, color-mix(in srgb, var(--tile) 10%, #fff) 0%, #fff 70%);
+        box-shadow: var(--ff-shadow);
+        transition: box-shadow 0.18s ease, transform 0.18s ease;
+
+        &:hover {
+            box-shadow: var(--ff-shadow-hover);
+            transform: translateY(-1px);
+        }
+    }
+
+    .ff_kpi_icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 13px;
+        display: grid;
+        place-items: center;
+        font-size: 18px;
+        color: #fff;
+        background: var(--tile);
+        box-shadow: 0 6px 14px color-mix(in srgb, var(--tile) 35%, transparent);
+    }
+
+    .ff_kpi_label {
+        font-weight: 700;
+        font-size: 15px;
+    }
+
+    .ff_kpi_value {
+        font-size: 34px;
+        font-weight: 800;
+        line-height: 1.1;
+        margin: 10px 0 2px 60px;
+    }
+
+    .ff_kpi_chip {
+        margin-left: 60px;
+        font-size: 11.5px;
+        font-weight: 700;
+        padding: 2px 9px;
+        border-radius: 999px;
+        color: var(--tile);
+        background: color-mix(in srgb, var(--tile) 12%, #fff);
+    }
+
+    .ff_kpi_note {
+        margin: 6px 0 0 60px;
+        font-size: 12.5px;
+        color: var(--ff-muted);
+    }
+
+    .ff_kpi_ghost {
+        position: absolute;
+        right: 18px;
+        bottom: 14px;
+        font-size: 62px;
+        color: var(--tile);
+        opacity: 0.13;
+        pointer-events: none;
+    }
+
+    .ff_live_pill {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #0f8a4b;
+        background: #e6f7ee;
+        border-radius: 999px;
+        padding: 2px 10px 2px 6px;
+    }
+
+    .ff_gauge_value {
+        font-size: 24px;
+        font-weight: 800;
+        fill: var(--ff-ink);
+    }
+
+    .ff_gauge_ratio {
+        font-size: 12px;
+        font-weight: 600;
+        fill: var(--ff-muted);
+    }
+
+    .ff_legend {
+        min-width: 9.5rem;
+        font-size: 12.5px;
+    }
+
+    .ff_team_row {
+        padding: 8px 0;
+
+        & + .ff_team_row {
+            border-top: 1px solid var(--ff-line);
+        }
+    }
+
+    .ff_team_pct {
+        min-width: 2.6rem;
+        text-align: right;
+        font-weight: 700;
+        color: var(--ff-muted);
+    }
+
+    .ff_progress {
+        height: 6px;
+        margin-top: 6px;
+        border-radius: 999px;
+        background: #edf1f9;
+        overflow: hidden;
+
+        > div {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #16a34a, #22c55e);
+        }
+    }
+
+    .ff_promo {
+        position: relative;
+        overflow: hidden;
+        border-radius: 18px;
+        min-height: 190px;
+        padding: 22px 22px;
+        color: #fff;
+        background: radial-gradient(420px 220px at 90% 20%, rgba(30, 144, 255, 0.55), transparent 60%),
+            linear-gradient(135deg, #0b3aa8 0%, #0a2463 100%);
+        box-shadow: var(--ff-shadow);
+        display: flex;
+    }
+
+    .ff_promo_text {
+        position: relative;
+        z-index: 1;
+    }
+
+    .ff_promo_title {
+        font-size: 21px;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+
+    .ff_promo_sub {
+        margin-top: 10px;
+        font-size: 13px;
+        opacity: 0.85;
+    }
+
+    .ff_promo_btn {
+        margin-top: 16px;
+        border: 0;
+        border-radius: 10px;
+        padding: 8px 14px;
+        font-weight: 700;
+        font-size: 13px;
+        color: var(--ff-primary);
+        background: #fff;
+    }
+
+    .ff_promo_phone {
+        position: absolute;
+        right: 22px;
+        top: 18px;
+        bottom: -30px;
+        width: 92px;
+        border-radius: 20px;
+        border: 3px solid rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.08);
+        padding: 8px;
+    }
+
+    .ff_promo_screen {
+        height: 100%;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.06) 0 8px, transparent 8px 16px),
+            #1b4fc9;
+
+        i {
+            font-size: 40px;
+            color: #ff4d4f;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
+        }
+    }
+
+    .ff_search_box {
+        position: relative;
+        width: 20rem;
+        max-width: 100%;
+
+        i {
+            position: absolute;
+            left: 11px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--ff-muted);
+            font-size: 12px;
+        }
+
+        input {
+            padding-left: 30px;
+            border-radius: 10px;
+            border-color: var(--ff-line);
+        }
+    }
+
+    .ff_table {
+        th {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--ff-muted);
+            background: #f7f9fd;
+            border-bottom: 1px solid var(--ff-line);
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        td {
+            border-color: var(--ff-line);
+            padding-top: 9px;
+            padding-bottom: 9px;
+        }
+    }
+
+    .ff_avatar_round {
+        border-radius: 50%;
+    }
+
+    .ff_battery {
+        display: inline-block;
+        position: relative;
+        width: 22px;
+        height: 11px;
+        border: 1.5px solid #16a34a;
+        border-radius: 3px;
+        vertical-align: middle;
+
+        &::after {
+            content: "";
+            position: absolute;
+            right: -4px;
+            top: 3px;
+            width: 2px;
+            height: 3px;
+            border-radius: 1px;
+            background: #16a34a;
+        }
+
+        span {
+            display: block;
+            height: 100%;
+            background: #16a34a;
+        }
+    }
+
+    .ff_battery_low {
+        border-color: #dc2626;
+
+        &::after,
+        span {
+            background: #dc2626;
+        }
+    }
+
+    .ff_more {
+        color: var(--ff-muted);
+        border-radius: 8px;
+
+        &:hover {
+            background: #f1f4fb;
+        }
+    }
+
+    .ff_counter {
+        .ff_card_icon {
+            background: color-mix(in srgb, var(--tile) 12%, #fff);
+            color: var(--tile);
+        }
+
+        &[role="button"] {
+            cursor: pointer;
+        }
+    }
+
+    .ff_spark {
+        width: 44%;
+        height: 44px;
+    }
+
+    .ff_counter_ghost {
+        font-size: 44px;
+        color: var(--tile);
+        opacity: 0.18;
+    }
+
+    .ff_period_chip {
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--ff-muted);
+        border: 1px solid var(--ff-line);
+        border-radius: 8px;
+        padding: 3px 10px;
+    }
+
+    .ff_vtile {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: color-mix(in srgb, var(--tile) 9%, #fff);
+
+        > i {
+            font-size: 20px;
+            color: var(--tile);
+        }
+    }
+
+    .ff_vtile_value {
+        font-weight: 800;
+        font-size: 16px;
+        color: var(--tile);
+        line-height: 1.1;
+    }
+
+    .ff_vtile_label {
+        font-size: 11.5px;
+        color: var(--ff-muted);
+    }
+
+    .ff_money_chip {
+        font-size: 11.5px;
+        font-weight: 700;
+        border-radius: 999px;
+        padding: 4px 11px;
+        color: var(--tile);
+        background: color-mix(in srgb, var(--tile) 11%, #fff);
+    }
+
+    .ff_seller_row {
+        padding: 9px 0;
+        border-top: 1px solid var(--ff-line);
+    }
+
+    .ff_rank {
+        width: 24px;
+        height: 24px;
+        flex: none;
+        margin-right: 10px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-size: 11.5px;
+        font-weight: 800;
+        color: var(--ff-primary);
+        background: var(--ff-primary-soft);
+    }
 }

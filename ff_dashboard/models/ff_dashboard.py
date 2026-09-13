@@ -185,6 +185,10 @@ class FfDashboard(models.AbstractModel):
             'low_battery': len(punched_in.filtered('is_low_battery')),
             'at_client': self.env['ff.visit'].sudo().search_count(
                 [('employee_id', 'in', employees.ids), ('state', '=', 'ongoing')]),
+            'active_month': len(self.env['hr.attendance'].sudo()._read_group(
+                [('employee_id', 'in', employees.ids),
+                 ('check_in', '>=', self._ff_day_range(self._ff_today().replace(day=1))[0])],
+                ['employee_id'], [])),
         }
 
     def _teamwise(self, employees):
@@ -193,13 +197,16 @@ class FfDashboard(models.AbstractModel):
         for employee in employees:
             team = employee.ff_team_id
             key = team.id or 0
-            row = rows.setdefault(key, {'id': key, 'name': team.name or 'No team', 'in': 0, 'out': 0})
+            row = rows.setdefault(key, {'id': key, 'name': team.name or 'No team', 'in': 0, 'out': 0, 'total': 0})
             row['out'] += 1  # corrected below once the status is known
+            row['total'] += 1
         for status in Status.search([('employee_id', 'in', employees.ids), ('punched_in', '=', True)]):
             key = status.employee_id.ff_team_id.id or 0
             if key in rows:
                 rows[key]['in'] += 1
                 rows[key]['out'] -= 1
+        for row in rows.values():
+            row['pct'] = round(row['in'] * 100.0 / row['total']) if row['total'] else 0
         return sorted(rows.values(), key=lambda row: (-row['in'], row['name']))
 
     def _people(self, employees):
@@ -238,66 +245,76 @@ class FfDashboard(models.AbstractModel):
         return people
 
     def _counters(self, employees, today, yesterday):
-        """Today against yesterday, the way the field measures a day."""
+        """Today against yesterday, with the last seven days for the small trend lines."""
         Visit = self.env['ff.visit'].sudo()
         Partner = self.env['res.partner'].sudo()
+        days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
 
-        def day_count(model, date_field, day, extra=None):
+        def in_day(date_field, day):
             start, end = self._ff_day_range(day)
-            domain = [(date_field, '>=', start), (date_field, '<', end)]
-            if 'employee_id' in model._fields:
-                domain.append(('employee_id', 'in', employees.ids))
-            return model.search_count(domain + (extra or []))
+            return [(date_field, '>=', start), (date_field, '<', end)]
 
-        counters = {
-            'visits': {
-                'today': day_count(Visit, 'check_in_at', today),
-                'yesterday': day_count(Visit, 'check_in_at', yesterday),
-            },
-            'new_clients': {
-                'today': Partner.search_count([
-                    ('ff_is_client', '=', True), ('ff_created_by_employee_id', 'in', employees.ids),
-                    ('create_date', '>=', self._ff_day_range(today)[0]),
-                ]),
-                'yesterday': Partner.search_count([
-                    ('ff_is_client', '=', True), ('ff_created_by_employee_id', 'in', employees.ids),
-                    ('create_date', '>=', self._ff_day_range(yesterday)[0]),
-                    ('create_date', '<', self._ff_day_range(yesterday)[1]),
-                ]),
-            },
+        counts = {
+            'visits': lambda day: Visit.search_count(
+                [('employee_id', 'in', employees.ids)] + in_day('check_in_at', day)),
+            'new_clients': lambda day: Partner.search_count(
+                [('ff_is_client', '=', True), ('ff_created_by_employee_id', 'in', employees.ids)]
+                + in_day('create_date', day)),
         }
-        if 'sale.order' in self.env:
+        if self._ff_demand_flow():
+            Demand = self.env['ff.demand'].sudo()
+            counts['orders'] = lambda day: Demand.search_count(
+                [('employee_id', 'in', employees.ids), ('state', '!=', 'cancelled')] + in_day('date', day))
+        elif 'sale.order' in self.env:
             Order = self.env['sale.order'].sudo()
-            counters['orders'] = {
-                'today': Order.search_count([
-                    ('ff_employee_id', 'in', employees.ids),
-                    ('date_order', '>=', self._ff_day_range(today)[0]),
-                ]),
-                'yesterday': Order.search_count([
-                    ('ff_employee_id', 'in', employees.ids),
-                    ('date_order', '>=', self._ff_day_range(yesterday)[0]),
-                    ('date_order', '<', self._ff_day_range(yesterday)[1]),
-                ]),
-            }
+            counts['orders'] = lambda day: Order.search_count(
+                [('ff_employee_id', 'in', employees.ids)] + in_day('date_order', day))
         if 'ff.form.response' in self.env:
             Response = self.env['ff.form.response'].sudo()
-            counters['forms'] = {
-                'today': day_count(Response, 'submitted_at', today),
-                'yesterday': day_count(Response, 'submitted_at', yesterday),
+            counts['forms'] = lambda day: Response.search_count(
+                [('employee_id', 'in', employees.ids)] + in_day('submitted_at', day)
+                if 'employee_id' in Response._fields else in_day('submitted_at', day))
+        Attachment = self.env['ir.attachment'].sudo()
+        counts['photos'] = lambda day: Attachment.search_count(
+            [('res_model', 'in', ['ff.visit', 'ff.visit.step.record', 'ff.expense.claim'])]
+            + in_day('create_date', day))
+
+        counters = {}
+        for key, count in counts.items():
+            series = [count(day) for day in days]
+            counters[key] = {'today': series[-1], 'yesterday': series[-2], 'series': series}
+
+        if 'ff.daily.track' in self.env:
+            Track = self.env['ff.daily.track'].sudo()
+            groups = dict(Track._read_group(
+                [('employee_id', 'in', employees.ids), ('date', '>=', days[0]), ('date', '<=', today)],
+                ['date:day'], ['distance_km:sum']))
+            by_day = {fields.Date.to_date(day): km for day, km in groups.items()}
+            series = [round(by_day.get(day, 0.0) or 0.0, 1) for day in days]
+            counters['distance'] = {'today': series[-1], 'yesterday': series[-2], 'series': series}
+
+        # Waiting work: what is open now against what was open by yesterday.
+        if self._ff_demand_flow():
+            Demand = self.env['ff.demand'].sudo()
+            open_domain = [('employee_id', 'in', employees.ids), ('state', 'in', ('submitted', 'partial'))]
+            counters['pending_demands'] = {
+                'today': Demand.search_count(open_domain),
+                'yesterday': Demand.search_count(open_domain + [('date', '<', self._ff_day_range(today)[0])]),
             }
-        photos_today = self.env['ir.attachment'].sudo().search_count([
-            ('res_model', 'in', ['ff.visit', 'ff.visit.step.record', 'ff.expense.claim']),
-            ('create_date', '>=', self._ff_day_range(today)[0]),
-        ])
-        photos_yesterday = self.env['ir.attachment'].sudo().search_count([
-            ('res_model', 'in', ['ff.visit', 'ff.visit.step.record', 'ff.expense.claim']),
-            ('create_date', '>=', self._ff_day_range(yesterday)[0]),
-            ('create_date', '<', self._ff_day_range(yesterday)[1]),
-        ])
-        counters['photos'] = {'today': photos_today, 'yesterday': photos_yesterday}
+        if 'ff.expense.claim' in self.env:
+            Claim = self.env['ff.expense.claim'].sudo()
+            open_domain = [('employee_id', 'in', employees.ids), ('state', '=', 'submitted')]
+            counters['open_claims'] = {
+                'today': Claim.search_count(open_domain),
+                'yesterday': Claim.search_count(open_domain + [('date', '<', today)]),
+            }
         for row in counters.values():
             row['change'] = pct_change(row['today'], row['yesterday'])
         return counters
+
+    def _ff_demand_flow(self):
+        flow = self.env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct'
+        return flow == 'demand' and 'ff.demand' in self.env
 
     def _working_hours(self, employees, start, today):
         """Average hours worked per day, for the bar chart."""
@@ -369,6 +386,21 @@ class FfDashboard(models.AbstractModel):
         }
 
     def _orders(self, employees, start):
+        if self._ff_demand_flow():
+            groups = self.env['ff.demand'].sudo()._read_group(
+                [('employee_id', 'in', employees.ids), ('date', '>=', self._ff_day_range(start)[0]),
+                 ('state', '!=', 'cancelled')],
+                ['employee_id'], ['amount_total:sum', '__count'])
+            rows = sorted(
+                [{'id': employee.id, 'name': employee.display_name, 'amount': round(amount or 0.0, 2), 'count': count}
+                 for employee, amount, count in groups],
+                key=lambda row: -row['amount'])
+            return {
+                'total': round(sum(row['amount'] for row in rows), 2),
+                'count': sum(row['count'] for row in rows),
+                'top': rows[:6],
+                'word': 'demands',
+            }
         if 'sale.order' not in self.env:
             return None
         Order = self.env['sale.order'].sudo()
@@ -384,6 +416,7 @@ class FfDashboard(models.AbstractModel):
             'total': round(sum(row['amount'] for row in top), 2),
             'count': sum(row['count'] for row in top),
             'top': top,
+            'word': 'orders',
         }
 
     # ------------------------------------------------------------------

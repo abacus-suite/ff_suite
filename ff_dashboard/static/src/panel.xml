@@ -31,18 +31,21 @@
                 <t t-if="state.loading">
                     <div class="ff_skeleton mb-3" style="height: 72px;"/>
                     <div class="row g-3">
-                        <div class="col-xl-4 col-lg-6"><div class="ff_skeleton" style="height: 250px;"/></div>
-                        <div class="col-xl-4 col-lg-6"><div class="ff_skeleton" style="height: 250px;"/></div>
-                        <div class="col-xl-4"><div class="ff_skeleton" style="height: 250px;"/></div>
+                        <div class="col-xl-3 col-md-6"><div class="ff_skeleton" style="height: 130px;"/></div>
+                        <div class="col-xl-3 col-md-6"><div class="ff_skeleton" style="height: 130px;"/></div>
+                        <div class="col-xl-3 col-md-6"><div class="ff_skeleton" style="height: 130px;"/></div>
+                        <div class="col-xl-3 col-md-6"><div class="ff_skeleton" style="height: 130px;"/></div>
                         <div class="col-12"><div class="ff_skeleton" style="height: 300px;"/></div>
                     </div>
                 </t>
                 <t t-else="">
+                    <!-- Greeting and period -->
                     <div class="ff_panel_head d-flex align-items-center gap-2 flex-wrap">
                         <div>
-                            <h4 class="mb-0">Realtime Dashboard</h4>
+                            <h2 class="ff_hello mb-0"><t t-esc="greeting"/>, <span class="ff_wave">👋</span></h2>
+                            <div class="ff_hello_sub">Here's what's happening today!</div>
                             <small class="text-muted">
-                                <t t-esc="state.data.company"/> · updated <t t-esc="state.updatedAt"/>
+                                <t t-esc="state.data.company"/> · Updated at <t t-esc="state.updatedAt"/>
                             </small>
                         </div>
                         <div class="ff_seg ms-auto">
@@ -53,123 +56,137 @@
                             <button class="ff_seg_btn" t-att-class="state.period === 'month' ? 'ff_seg_btn_active' : ''"
                                     t-on-click="() => this.setPeriod('month')">This Month</button>
                         </div>
-                        <button class="ff_btn_primary" t-on-click="openLiveMap">
-                            <i class="fa fa-map-marker me-1"/>Live Map
-                        </button>
                         <button class="ff_icon_btn" title="Refresh" t-on-click="() => this.load()">
                             <i class="fa fa-refresh"/>
                         </button>
+                        <button class="ff_btn_primary" t-on-click="openLiveMap">
+                            <i class="fa fa-map-marker me-1"/>Live Map
+                        </button>
                     </div>
 
-                    <!-- Row 1: presence -->
+                    <!-- Row 1: four headline figures -->
+                    <div class="row g-3 mt-0">
+                        <t t-foreach="kpiCards" t-as="kpi" t-key="kpi.key">
+                            <div class="col-xl-3 col-md-6">
+                                <div class="ff_kpi h-100" t-attf-style="--tile: {{kpi.color}}" role="button"
+                                     t-on-click="kpi.open">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="ff_kpi_icon"><i class="fa" t-att-class="kpi.icon"/></div>
+                                        <div class="ff_kpi_label" t-esc="kpi.label"/>
+                                    </div>
+                                    <div class="ff_kpi_value" t-esc="kpi.value"/>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <span class="ff_kpi_chip" t-esc="kpi.chip"/>
+                                    </div>
+                                    <div class="ff_kpi_note" t-esc="kpi.note"/>
+                                    <i class="fa ff_kpi_ghost" t-att-class="kpi.icon"/>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+
+                    <!-- Row 2: status gauge, teams, live map promo -->
                     <div class="row g-3 mt-0">
                         <div class="col-xl-4 col-lg-6">
                             <div class="ff_card h-100">
                                 <div class="ff_card_head">
-                                    <div class="ff_card_icon"><i class="fa fa-bolt"/></div>
-                                    <div>
-                                        <div class="ff_card_title">Real Time Status</div>
-                                        <div class="ff_card_sub">Who is on duty right now</div>
-                                    </div>
+                                    <div class="ff_card_icon"><i class="fa fa-user-circle-o"/></div>
+                                    <div class="ff_card_title">Real Time Status</div>
+                                    <span class="ff_live_pill ms-auto"><span class="ff_dot" style="background:#16A34A"/>Live</span>
                                 </div>
-                                <div class="d-flex gap-4 mb-1">
-                                    <div>
-                                        <span class="ff_dot" style="background:#16A34A"/>
-                                        <span class="fw-bold" t-esc="state.data.realtime.punched_in"/>
-                                        <div class="small text-muted">Punched In</div>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="ff_gauge flex-grow-1">
+                                        <svg viewBox="0 0 180 110">
+                                            <path d="M20 95 A70 70 0 0 1 160 95" fill="none" stroke="#FDE2E2" stroke-width="16"
+                                                  stroke-linecap="round"/>
+                                            <path d="M20 95 A70 70 0 0 1 160 95" fill="none" stroke="#16A34A" stroke-width="16"
+                                                  stroke-linecap="round"
+                                                  t-att-stroke-dasharray="gaugeArc.length"
+                                                  t-att-stroke-dashoffset="gaugeArc.length - gaugeArc.filled"/>
+                                            <text x="90" y="74" text-anchor="middle" class="ff_gauge_value"><t t-esc="gaugeArc.percent"/>%</text>
+                                            <text x="90" y="92" text-anchor="middle" class="ff_gauge_ratio">
+                                                <t t-esc="state.data.realtime.punched_in"/> / <t t-esc="state.data.realtime.total"/>
+                                            </text>
+                                        </svg>
+                                        <div class="text-center small text-muted">Employees Punched In</div>
                                     </div>
-                                    <div>
-                                        <span class="ff_dot" style="background:#DC2626"/>
-                                        <span class="fw-bold" t-esc="state.data.realtime.punched_out"/>
-                                        <div class="small text-muted">Punched Out</div>
+                                    <div class="ff_legend">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="ff_dot" style="background:#16A34A"/>Punched In
+                                            <b class="ms-auto ps-3" t-esc="state.data.realtime.punched_in"/>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2 mt-2">
+                                            <span class="ff_dot" style="background:#DC2626"/>Punched Out
+                                            <b class="ms-auto ps-3" t-esc="state.data.realtime.punched_out"/>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2 mt-2" t-if="state.data.realtime.inactive">
+                                            <span class="ff_dot" style="background:#F59E0B"/>Idle
+                                            <b class="ms-auto ps-3" t-esc="state.data.realtime.inactive"/>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="ff_gauge">
-                                    <svg viewBox="0 0 180 100">
-                                        <path d="M20 95 A70 70 0 0 1 160 95" fill="none" stroke="#FEE2E2" stroke-width="18"
-                                              stroke-linecap="round"/>
-                                        <path d="M20 95 A70 70 0 0 1 160 95" fill="none" stroke="#16A34A" stroke-width="18"
-                                              stroke-linecap="round"
-                                              t-att-stroke-dasharray="gaugeArc.length"
-                                              t-att-stroke-dashoffset="gaugeArc.length - gaugeArc.filled"/>
-                                        <text x="90" y="80" text-anchor="middle" class="ff_gauge_value"
-                                              t-esc="state.data.realtime.total"/>
-                                        <text x="90" y="96" text-anchor="middle" class="ff_gauge_label">All Employees</text>
-                                    </svg>
                                 </div>
                             </div>
                         </div>
 
                         <div class="col-xl-4 col-lg-6">
-                            <div class="d-flex flex-column gap-3 h-100">
-                                <div class="ff_card flex-grow-1">
-                                    <div class="ff_card_head">
-                                    <div class="ff_card_icon"><i class="fa fa-hourglass-half"/></div>
-                                    <div>
-                                        <div class="ff_card_title">Punched In but Idle</div>
-                                    </div>
-                                </div>
-                                    <div class="ff_big" t-att-class="state.data.realtime.inactive ? 'text-warning' : ''"
-                                         t-esc="state.data.realtime.inactive"/>
-                                    <div class="d-flex gap-2 mt-2 flex-wrap">
-                                        <span class="ff_chip"><t t-esc="state.data.realtime.no_signal"/> no signal</span>
-                                        <span class="ff_chip"><t t-esc="state.data.realtime.low_battery"/> low battery</span>
-                                    </div>
-                                </div>
-                                <div class="ff_card flex-grow-1">
-                                    <div class="ff_card_head">
-                                    <div class="ff_card_icon"><i class="fa fa-handshake-o"/></div>
-                                    <div>
-                                        <div class="ff_card_title">At a Customer Now</div>
-                                    </div>
-                                </div>
-                                    <div class="ff_big text-primary" t-esc="state.data.realtime.at_client"/>
-                                    <div class="small text-muted">
-                                        of <t t-esc="state.data.realtime.punched_in"/> punched in
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-xl-4">
                             <div class="ff_card h-100">
                                 <div class="ff_card_head">
-                                    <div class="ff_card_icon"><i class="fa fa-users"/></div>
-                                    <div>
-                                        <div class="ff_card_title">Teamwise Attendance</div>
-                                    </div>
+                                    <div class="ff_card_icon"><i class="fa fa-sitemap"/></div>
+                                    <div class="ff_card_title">Teamwise Attendance</div>
+                                    <button class="btn btn-link btn-sm ms-auto p-0" t-on-click="() => this.openSection('attendance')">
+                                        View All
+                                    </button>
                                 </div>
                                 <div class="ff_scroll_220">
-                                    <div class="d-flex align-items-center py-1 border-bottom"
-                                         t-foreach="state.data.teams" t-as="team" t-key="team.id">
-                                        <span class="text-truncate" t-esc="team.name"/>
-                                        <span class="ms-auto">
-                                            <span class="ff_dot" style="background:#16A34A"/>
-                                            <span class="fw-bold me-2" t-esc="team.in"/>
-                                            <span class="ff_dot" style="background:#DC2626"/>
-                                            <span class="fw-bold" t-esc="team.out"/>
-                                        </span>
+                                    <div class="ff_team_row" t-foreach="state.data.teams" t-as="team" t-key="team.id">
+                                        <div class="d-flex align-items-center small">
+                                            <span class="text-truncate" t-esc="team.name"/>
+                                            <span class="ms-auto d-flex align-items-center gap-2">
+                                                <span><span class="ff_dot" style="background:#16A34A"/><b t-esc="team.in"/></span>
+                                                <span><span class="ff_dot" style="background:#DC2626"/><b t-esc="team.out"/></span>
+                                                <span class="ff_team_pct"><t t-esc="team.pct or 0"/>%</span>
+                                            </span>
+                                        </div>
+                                        <div class="ff_progress"><div t-attf-style="width: {{team.pct or 0}}%"/></div>
                                     </div>
                                     <div t-if="!state.data.teams.length" class="text-muted small py-2">No teams yet.</div>
                                 </div>
                             </div>
                         </div>
+
+                        <div class="col-xl-4">
+                            <div class="ff_promo h-100">
+                                <div class="ff_promo_text">
+                                    <div class="ff_promo_title">Track Your<br/>Team in Real Time</div>
+                                    <div class="ff_promo_sub">Field visibility<br/>for better decisions.</div>
+                                    <button class="ff_promo_btn" t-on-click="openLiveMap">
+                                        View Live Map <i class="fa fa-arrow-right ms-1"/>
+                                    </button>
+                                </div>
+                                <div class="ff_promo_phone">
+                                    <div class="ff_promo_screen">
+                                        <i class="fa fa-map-marker"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Row 2: the people list -->
+                    <!-- Row 3: employees -->
                     <div class="row g-3 mt-0">
                         <div class="col-12">
                             <div class="ff_card">
-                                <div class="d-flex align-items-center mb-2">
+                                <div class="d-flex align-items-center mb-2 gap-2 flex-wrap">
                                     <div class="ff_card_head mb-0">
                                         <div class="ff_card_icon"><i class="fa fa-id-badge"/></div>
-                                        <div>
-                                            <div class="ff_card_title">Employees</div>
-                                            <div class="ff_card_sub"><t t-esc="people.length"/> in your view</div>
-                                        </div>
+                                        <div class="ff_card_title">Employees</div>
+                                        <span class="ff_card_sub ms-2"><t t-esc="people.length"/> in your view</span>
                                     </div>
-                                    <input type="text" class="form-control form-control-sm ms-auto ff_panel_search"
-                                           placeholder="Search employee, code or team" t-on-input="onSearch"/>
+                                    <div class="ms-auto ff_search_box">
+                                        <i class="fa fa-search"/>
+                                        <input type="text" class="form-control form-control-sm"
+                                               placeholder="Search employee, code or team..." t-on-input="onSearch"/>
+                                    </div>
                                 </div>
                                 <div t-if="state.data.geocode_problem" class="ff_warn mb-2">
                                     <i class="fa fa-exclamation-triangle me-1"/>
@@ -177,68 +194,70 @@
                                     Google said: <t t-esc="state.data.geocode_problem"/>
                                 </div>
                                 <div class="ff_scroll_320">
-                                    <table class="table table-sm align-middle mb-0">
+                                    <table class="table ff_table align-middle mb-0">
                                         <thead>
                                             <tr>
+                                                <th style="width: 40px;">#</th>
                                                 <th>Employee</th>
-                                                <th>Attendance</th>
-                                                <th>Last location</th>
-                                                <th class="text-end">Battery</th>
+                                                <th>Team</th>
+                                                <th>Status</th>
+                                                <th>Last Location</th>
+                                                <th>Battery</th>
+                                                <th>Last Seen</th>
+                                                <th class="text-center">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <tr t-foreach="people" t-as="person" t-key="person.id"
                                                 class="ff_row" t-on-click="() => this.openEmployee(person)">
+                                                <td class="text-muted" t-esc="person_index + 1"/>
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
-                                                        <span class="ff_bar"
-                                                              t-attf-style="background: {{person.punched_in ? '#16A34A' : '#DC2626'}}"/>
-                                                        <img class="ff_avatar" t-att-src="person.avatar" alt=""/>
+                                                        <img class="ff_avatar ff_avatar_round" t-att-src="person.avatar" alt=""/>
                                                         <div class="min-width-0">
                                                             <div class="fw-bold text-truncate" t-esc="person.name"/>
-                                                            <div class="small text-muted text-truncate">
-                                                                <t t-if="person.code">(<t t-esc="person.code"/>)</t>
-                                                                <t t-if="person.team"> · <t t-esc="person.team"/></t>
-                                                            </div>
+                                                            <div class="small text-muted" t-if="person.code">(<t t-esc="person.code"/>)</div>
                                                         </div>
                                                     </div>
                                                 </td>
+                                                <td class="text-muted small" t-esc="person.team or '—'"/>
                                                 <td>
-                                                    <t t-if="person.punched_in">
-                                                        <span class="ff_state_pill ff_state_in">Punched In</span>
-                                                        <span class="small text-muted ms-1" t-if="person.punched_at"
-                                                              t-esc="clock(person.punched_at)"/>
-                                                    </t>
-                                                    <t t-else="">
-                                                        <span class="ff_state_pill ff_state_out">Punched Out</span>
-                                                    </t>
+                                                    <span t-if="person.punched_in" class="ff_state_pill ff_state_in">Punched In</span>
+                                                    <span t-else="" class="ff_state_pill ff_state_out">Punched Out</span>
                                                     <div class="small text-muted" t-if="person.at_client">
                                                         At <t t-esc="person.at_client"/>
                                                     </div>
                                                 </td>
-                                                <td class="small text-muted ff_address">
-                                                    <t t-if="person.address">
-                                                        <div class="text-body" t-esc="person.address"/>
-                                                    </t>
+                                                <td class="small ff_address">
+                                                    <t t-if="person.address"><t t-esc="person.address"/></t>
                                                     <t t-elif="person.lat or person.lng">
-                                                        <div class="text-body">
-                                                            <t t-esc="person.lat.toFixed(5)"/>, <t t-esc="person.lng.toFixed(5)"/>
-                                                        </div>
+                                                        <t t-esc="person.lat.toFixed(5)"/>, <t t-esc="person.lng.toFixed(5)"/>
                                                     </t>
-                                                    <t t-else="">No location yet</t>
-                                                    <div t-if="person.lat or person.lng">
-                                                        <t t-esc="ago(person.last_ping_at)"/>
-                                                        <t t-if="person.accuracy"> · &#177;<t t-esc="person.accuracy"/> m</t>
-                                                    </div>
+                                                    <span t-else="" class="text-muted">No location yet</span>
                                                 </td>
-                                                <td class="text-end small"
-                                                    t-att-class="person.battery and person.battery &lt; 20 ? 'text-danger' : 'text-muted'">
-                                                    <t t-if="person.battery"><t t-esc="person.battery"/>%</t>
+                                                <td class="small">
+                                                    <t t-if="person.battery">
+                                                        <span class="ff_battery" t-att-class="person.battery &lt; 20 ? 'ff_battery_low' : ''">
+                                                            <span t-attf-style="width: {{person.battery}}%"/>
+                                                        </span>
+                                                        <span class="text-muted ms-1"><t t-esc="person.battery"/>%</span>
+                                                    </t>
+                                                    <span t-else="" class="text-muted">—</span>
+                                                </td>
+                                                <td class="small text-muted">
+                                                    <t t-if="person.last_ping_at" t-esc="ago(person.last_ping_at)"/>
+                                                    <t t-elif="person.punched_at" t-esc="clock(person.punched_at)"/>
                                                     <t t-else="">—</t>
+                                                </td>
+                                                <td class="text-center">
+                                                    <button class="btn btn-sm ff_more" title="Open"
+                                                            t-on-click.stop="() => this.openEmployee(person)">
+                                                        <i class="fa fa-ellipsis-h"/>
+                                                    </button>
                                                 </td>
                                             </tr>
                                             <tr t-if="!people.length">
-                                                <td colspan="4" class="text-muted">Nobody matches this search.</td>
+                                                <td colspan="8" class="text-muted">Nobody matches this search.</td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -247,46 +266,56 @@
                         </div>
                     </div>
 
-                    <!-- Row 3: counters -->
+                    <!-- Row 4: counters with a seven-day line -->
                     <div class="row g-3 mt-0">
                         <t t-foreach="counterCards" t-as="card" t-key="card.key">
                             <div class="col-xl-3 col-md-6">
-                                <div class="ff_card ff_tile h-100" t-attf-style="--tile: {{card.color}}">
+                                <div class="ff_card ff_counter h-100" t-attf-style="--tile: {{card.color}}"
+                                     t-att-role="card.open ? 'button' : ''" t-on-click="() => card.open and card.open()">
                                     <div class="ff_card_head">
                                         <div class="ff_card_icon"><i class="fa" t-att-class="card.icon"/></div>
                                         <div class="ff_card_title" t-esc="card.label"/>
                                     </div>
-                                    <div class="d-flex align-items-baseline gap-2">
-                                        <span class="ff_big" t-esc="number(card.today)"/>
-                                        <span class="ff_trend"
-                                              t-att-class="card.change >= 0 ? 'ff_trend_up' : 'ff_trend_down'">
-                                            <i class="fa" t-att-class="card.change >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'"/>
-                                            <t t-esc="Math.abs(card.change)"/>%
-                                        </span>
-                                    </div>
-                                    <div class="mt-2">
-                                        <span class="ff_chip"><t t-esc="number(card.yesterday)"/> yesterday</span>
+                                    <div class="d-flex align-items-end">
+                                        <div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="ff_big" t-esc="card.display"/>
+                                                <span class="ff_trend"
+                                                      t-att-class="card.change >= 0 ? 'ff_trend_up' : 'ff_trend_down'">
+                                                    <i class="fa" t-att-class="card.change >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'"/>
+                                                    <t t-esc="Math.abs(card.change)"/>%
+                                                </span>
+                                            </div>
+                                            <div class="mt-2">
+                                                <span class="ff_chip"><t t-esc="card.yesterdayText"/> yesterday</span>
+                                            </div>
+                                        </div>
+                                        <svg t-if="card.series" class="ff_spark ms-auto" viewBox="0 0 100 40" preserveAspectRatio="none">
+                                            <path t-att-d="spark(card.series, true)" t-attf-fill="{{card.color}}" fill-opacity="0.12"/>
+                                            <path t-att-d="spark(card.series)" fill="none" t-attf-stroke="{{card.color}}"
+                                                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                        <i t-else="" class="fa ff_counter_ghost ms-auto" t-att-class="card.icon"/>
                                     </div>
                                 </div>
                             </div>
                         </t>
                     </div>
 
-                    <!-- Row 4: hours, visits, money -->
+                    <!-- Row 5: hours and visits -->
                     <div class="row g-3 mt-0">
                         <div class="col-xl-6">
                             <div class="ff_card h-100">
                                 <div class="ff_card_head">
                                     <div class="ff_card_icon"><i class="fa fa-clock-o"/></div>
-                                    <div>
-                                        <div class="ff_card_title">Daily Average Working Hours</div>
-                                    </div>
+                                    <div class="ff_card_title">Daily Average Working Hours</div>
+                                    <span class="ff_period_chip ms-auto" t-esc="periodName"/>
                                 </div>
                                 <FfChart t-if="state.data.working_hours.length"
                                          type="'bar'"
                                          labels="chartLabels(state.data.working_hours)"
                                          datasets="[{label: 'Hours', data: chartValues(state.data.working_hours, 'hours'), color: '#1a56db'}]"
-                                         height="210"/>
+                                         height="220"/>
                                 <div t-else="" class="text-muted small py-4">No attendance in this period yet.</div>
                             </div>
                         </div>
@@ -294,20 +323,15 @@
                         <div class="col-xl-6">
                             <div class="ff_card h-100">
                                 <div class="ff_card_head">
-                                    <div class="ff_card_icon"><i class="fa fa-map-signs"/></div>
-                                    <div>
-                                        <div class="ff_card_title">Visit Status Overview</div>
-                                    </div>
+                                    <div class="ff_card_icon"><i class="fa fa-flag"/></div>
+                                    <div class="ff_card_title">Visit Status Overview</div>
+                                    <span class="ff_period_chip ms-auto" t-esc="periodName"/>
                                 </div>
-                                <div class="d-flex flex-wrap gap-3 mb-2">
-                                    <div><span class="ff_dot" style="background:#16A34A"/>
-                                        <span class="fw-bold" t-esc="state.data.visits.done"/> done</div>
-                                    <div><span class="ff_dot" style="background:#1A56DB"/>
-                                        <span class="fw-bold" t-esc="state.data.visits.ongoing"/> ongoing</div>
-                                    <div><span class="ff_dot" style="background:#F59E0B"/>
-                                        <span class="fw-bold" t-esc="state.data.visits.planned"/> planned</div>
-                                    <div><span class="ff_dot" style="background:#DC2626"/>
-                                        <span class="fw-bold" t-esc="state.data.visits.missed"/> missed</div>
+                                <div class="d-flex flex-wrap gap-3 mb-2 small">
+                                    <div><span class="ff_dot" style="background:#16A34A"/><b t-esc="state.data.visits.done"/> Done</div>
+                                    <div><span class="ff_dot" style="background:#1A56DB"/><b t-esc="state.data.visits.ongoing"/> Ongoing</div>
+                                    <div><span class="ff_dot" style="background:#F59E0B"/><b t-esc="state.data.visits.planned"/> Planned</div>
+                                    <div><span class="ff_dot" style="background:#DC2626"/><b t-esc="state.data.visits.missed"/> Missed</div>
                                 </div>
                                 <div class="ff_stack">
                                     <div class="ff_stack_part" t-attf-style="width: {{visitShare.done}}%; background:#16A34A"/>
@@ -316,27 +340,40 @@
                                     <div class="ff_stack_part" t-attf-style="width: {{visitShare.missed}}%; background:#DC2626"/>
                                 </div>
                                 <div class="small text-muted mt-2">
-                                    <t t-esc="state.data.visits.total"/> visits in <t t-esc="state.data.period_label.toLowerCase()"/>
+                                    <t t-esc="state.data.visits.total"/> visits in <t t-esc="state.data.period_label"/>
                                 </div>
-                                <button class="btn btn-link btn-sm p-0 mt-1"
+                                <div class="row g-2 mt-2">
+                                    <t t-foreach="visitTiles" t-as="tile" t-key="tile.key">
+                                        <div class="col-6 col-md-3">
+                                            <div class="ff_vtile" t-attf-style="--tile: {{tile.color}}">
+                                                <i class="fa" t-att-class="tile.icon"/>
+                                                <div>
+                                                    <div class="ff_vtile_value"><t t-esc="tile.pct"/>%</div>
+                                                    <div class="ff_vtile_label" t-esc="tile.label"/>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </div>
+                                <button class="btn btn-link btn-sm p-0 mt-2"
                                         t-on-click="() => this.openModel('ff.visit', 'Visits')">
-                                    Open visits
+                                    Open visits <i class="fa fa-arrow-right ms-1"/>
                                 </button>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Row 6: money -->
                     <div class="row g-3 mt-0 pb-3">
-                        <div class="col-xl-6" t-if="state.data.expenses">
+                        <div class="col-xl-4" t-if="state.data.expenses">
                             <div class="ff_card h-100">
                                 <div class="ff_card_head">
                                     <div class="ff_card_icon"><i class="fa fa-credit-card"/></div>
-                                    <div>
-                                        <div class="ff_card_title">Expense Overview</div>
-                                    </div>
+                                    <div class="ff_card_title">Expense Overview</div>
+                                    <span class="ff_period_chip ms-auto" t-esc="periodName"/>
                                 </div>
                                 <div class="d-flex align-items-center gap-3">
-                                    <div style="width: 190px;">
+                                    <div style="width: 150px; flex: none;">
                                         <FfChart type="'doughnut'"
                                                  labels="['Approved', 'Pending', 'Draft', 'Rejected']"
                                                  datasets="[{data: [
@@ -346,83 +383,86 @@
                                                     state.data.expenses.rejected.amount],
                                                     colors: ['#16a34a', '#f59e0b', '#1a56db', '#dc2626']}]"
                                                  money="true" currency="state.data.currency"
-                                                 height="170"/>
+                                                 height="150"/>
                                     </div>
-                                    <div class="flex-grow-1">
-                                        <div class="fw-bold mb-1">
-                                            Total <t t-esc="money(state.data.expenses.total)"/>
-                                            (<t t-esc="state.data.expenses.count"/>)
-                                        </div>
-                                        <div class="small"><span class="ff_dot" style="background:#F59E0B"/>
-                                            Pending <t t-esc="money(state.data.expenses.submitted.amount)"/>
-                                            (<t t-esc="state.data.expenses.submitted.count"/>)</div>
-                                        <div class="small"><span class="ff_dot" style="background:#16A34A"/>
-                                            Approved <t t-esc="money(state.data.expenses.approved.amount)"/>
-                                            (<t t-esc="state.data.expenses.approved.count"/>)</div>
-                                        <div class="small"><span class="ff_dot" style="background:#DC2626"/>
-                                            Rejected <t t-esc="money(state.data.expenses.rejected.amount)"/>
-                                            (<t t-esc="state.data.expenses.rejected.count"/>)</div>
-                                        <button class="btn btn-link btn-sm p-0"
-                                                t-on-click="() => this.openModel('ff.expense.claim', 'Expense Claims')">
-                                            Open claims
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-xl-6" t-if="state.data.collections">
-                            <div class="ff_card h-100">
-                                <div class="ff_card_head">
-                                    <div class="ff_card_icon"><i class="fa fa-money"/></div>
-                                    <div>
-                                        <div class="ff_card_title">Collections</div>
-                                    </div>
-                                </div>
-                                <div class="ff_big" t-esc="money(state.data.collections.total)"/>
-                                <div class="small text-muted mb-2">
-                                    <t t-esc="state.data.collections.count"/> collections in
-                                    <t t-esc="state.data.period_label.toLowerCase()"/>
-                                </div>
-                                <div class="d-flex gap-3 flex-wrap">
-                                    <div class="ff_chip text-warning">
-                                        With staff <t t-esc="money(state.data.collections.with_staff.amount)"/>
-                                    </div>
-                                    <div class="ff_chip text-primary">
-                                        Submitted <t t-esc="money(state.data.collections.submitted.amount)"/>
-                                    </div>
-                                    <div class="ff_chip text-success">
-                                        Received <t t-esc="money(state.data.collections.received.amount)"/>
+                                    <div class="flex-grow-1 small">
+                                        <div class="fw-bold fs-6 mb-2">Total <t t-esc="money(state.data.expenses.total)"/></div>
+                                        <t t-foreach="expenseRows" t-as="line" t-key="line.label">
+                                            <div class="d-flex align-items-center py-1">
+                                                <span class="ff_dot" t-attf-style="background: {{line.color}}"/>
+                                                <span t-esc="line.label"/>
+                                                <span class="ms-auto text-muted">
+                                                    <t t-esc="line.count"/> (<t t-esc="money(line.amount)"/>)
+                                                </span>
+                                            </div>
+                                        </t>
                                     </div>
                                 </div>
                                 <button class="btn btn-link btn-sm p-0 mt-2"
-                                        t-on-click="() => this.openModel('ff.collection', 'Collections')">
-                                    Open collections
+                                        t-on-click="() => this.openModel('ff.expense.claim', 'Expense Claims')">
+                                    View claims <i class="fa fa-arrow-right ms-1"/>
                                 </button>
                             </div>
                         </div>
 
-                        <div class="col-xl-6" t-if="state.data.orders">
+                        <div class="col-xl-4" t-if="state.data.collections">
+                            <div class="ff_card h-100">
+                                <div class="ff_card_head">
+                                    <div class="ff_card_icon"><i class="fa fa-database"/></div>
+                                    <div class="ff_card_title">Collections</div>
+                                    <span class="ff_period_chip ms-auto" t-esc="periodName"/>
+                                </div>
+                                <div class="ff_big" t-esc="money(state.data.collections.total)"/>
+                                <div class="small text-muted mb-3">
+                                    <t t-esc="state.data.collections.count"/> collections in
+                                    <t t-esc="state.data.period_label"/>
+                                </div>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <span class="ff_money_chip" style="--tile:#d97706">
+                                        With staff <t t-esc="money(state.data.collections.with_staff.amount)"/>
+                                    </span>
+                                    <span class="ff_money_chip" style="--tile:#7c5cfc">
+                                        Submitted <t t-esc="money(state.data.collections.submitted.amount)"/>
+                                    </span>
+                                    <span class="ff_money_chip" style="--tile:#16a34a">
+                                        Received <t t-esc="money(state.data.collections.received.amount)"/>
+                                    </span>
+                                </div>
+                                <button class="btn btn-link btn-sm p-0 mt-3"
+                                        t-on-click="() => this.openModel('ff.collection', 'Collections')">
+                                    View collections <i class="fa fa-arrow-right ms-1"/>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="col-xl-4" t-if="state.data.orders">
                             <div class="ff_card h-100">
                                 <div class="ff_card_head">
                                     <div class="ff_card_icon"><i class="fa fa-trophy"/></div>
-                                    <div>
-                                        <div class="ff_card_title">Top Sellers</div>
-                                    </div>
+                                    <div class="ff_card_title">Top Sellers</div>
+                                    <span class="ff_period_chip ms-auto" t-esc="periodName"/>
                                 </div>
                                 <div class="ff_big" t-esc="money(state.data.orders.total)"/>
                                 <div class="small text-muted mb-2">
-                                    <t t-esc="state.data.orders.count"/> orders in
-                                    <t t-esc="state.data.period_label.toLowerCase()"/>
+                                    <t t-esc="state.data.orders.count"/> <t t-esc="state.data.orders.word or 'orders'"/> in
+                                    <t t-esc="state.data.period_label"/>
                                 </div>
                                 <div t-foreach="state.data.orders.top" t-as="row" t-key="row.id"
-                                     class="d-flex align-items-center py-1 border-bottom">
+                                     class="ff_seller_row d-flex align-items-center">
+                                    <span class="ff_rank" t-esc="row_index + 1"/>
                                     <span class="text-truncate" t-esc="row.name"/>
-                                    <span class="ms-auto small text-muted me-2"><t t-esc="row.count"/> orders</span>
+                                    <span class="ms-auto small text-muted me-3">
+                                        <t t-esc="row.count"/> <t t-esc="state.data.orders.word or 'orders'"/>
+                                    </span>
                                     <span class="fw-bold" t-esc="money(row.amount)"/>
                                 </div>
                                 <div t-if="!state.data.orders.top.length" class="text-muted small">
-                                    No orders in this period.
+                                    Nothing in this period.
+                                </div>
+                                <div class="text-end">
+                                    <button class="btn btn-link btn-sm p-0 mt-2" t-on-click="() => this.openSection('orders')">
+                                        View all <i class="fa fa-arrow-right ms-1"/>
+                                    </button>
                                 </div>
                             </div>
                         </div>
