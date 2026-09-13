@@ -4,6 +4,7 @@ import '../../core/format.dart';
 import '../../core/offline_queue.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
+import '../../core/warm_up.dart';
 
 /// What the phone still has to send, and anything the server refused.
 class SyncScreen extends StatefulWidget {
@@ -97,6 +98,35 @@ class _SyncScreenState extends State<SyncScreen> {
                     child: _syncing
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Text('Sync now'),
+                  ),
+                ),
+              ),
+            ),
+            Card(
+              child: ValueListenableBuilder<DateTime?>(
+                valueListenable: WarmUp.lastDone,
+                builder: (context, last, _) => ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE8EFFF),
+                    child: Icon(Icons.download_for_offline_rounded, color: AixoloColors.primary),
+                  ),
+                  title: const Text('Ready for offline', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text(last == null
+                      ? "Customers, products and today's route are saved while you are online"
+                      : 'Saved at ${_when(last)} · customers, products, route, forms'),
+                  trailing: TextButton(
+                    onPressed: _syncing
+                        ? null
+                        : () async {
+                            setState(() => _syncing = true);
+                            await WarmUp.run(force: true);
+                            if (mounted) {
+                              setState(() => _syncing = false);
+                              showSnack(context,
+                                  Services.api.online.value ? 'Saved for offline use' : 'You are offline - try again with network');
+                            }
+                          },
+                    child: const Text('Refresh'),
                   ),
                 ),
               ),

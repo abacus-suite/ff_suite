@@ -34,11 +34,18 @@ class ApiClient {
   /// Whether the last request reached the server.
   final ValueNotifier<bool> online = ValueNotifier(true);
 
+  /// Where a read is kept. The phone's position is left out - it changes with
+  /// every step and would make every saved answer impossible to find again.
   static String cacheKey(String path, Map<String, dynamic>? query) {
-    if (query == null || query.isEmpty) return path;
-    final keys = query.keys.toList()..sort();
-    return '$path?${jsonEncode({for (final k in keys) k: '${query[k]}'})}';
+    final keys = (query?.keys.where((k) => !_volatile.contains(k)).toList() ?? [])..sort();
+    if (keys.isEmpty) return path;
+    return '$path?${jsonEncode({for (final k in keys) k: '${query![k]}'})}';
   }
+
+  static const _volatile = {'lat', 'lng', 'accuracy', 'radius_km'};
+
+  /// Answers about one customer or visit: another customer's copy is no stand-in.
+  static const _perRecord = {'/api/v1/forms', '/api/v1/visit-outcomes', '/api/v1/stock/last'};
 
   /// Absolute URL for [path] on the configured server (e.g. for images).
   Future<String> url(String path) async => '${await _storage.baseUrl()}$path';
@@ -67,10 +74,13 @@ class ApiClient {
       }
       final data = await _send('GET', path, query: query);
       await store?.saveCache(key, data);
+      // The latest answer for the screen, whatever its filters: the fallback offline.
+      if (key != path && !_perRecord.contains(path)) await store?.saveCache(path, data);
       return data;
     } on ApiException catch (e) {
       if (e.code != 'network' || store == null) rethrow;
-      final cached = await store!.readCache(key);
+      final cached = await store!.readCache(key) ??
+          (_perRecord.contains(path) ? null : await store!.readCache(path));
       if (cached == null) {
         throw ApiException(null, 'network', 'You are offline, and this screen was not opened online before.');
       }

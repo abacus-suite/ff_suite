@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import 'api_client.dart';
 import 'offline_queue.dart';
+import 'warm_up.dart';
 
 class SubmitResult {
   const SubmitResult(this.data, {this.queued = false});
@@ -40,9 +41,13 @@ class Outbox {
   Future<void>? _flushing;
 
   Future<void> start() async {
-    _timer ??= Timer.periodic(const Duration(seconds: 45), (_) => flush());
+    _timer ??= Timer.periodic(const Duration(seconds: 45), (_) async {
+      await flush();
+      // Keep the offline copy fresh while there is network (at most every 30 min).
+      if (_api.online.value) unawaited(WarmUp.run());
+    });
     await refreshCounts();
-    unawaited(flush());
+    unawaited(flush().then((_) => WarmUp.run(force: true)));
   }
 
   void stop() {
