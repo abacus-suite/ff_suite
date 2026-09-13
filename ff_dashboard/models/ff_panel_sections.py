@@ -242,6 +242,52 @@ class FfDashboardSections(models.AbstractModel):
                 'state': r.state,
             } for r in records[:200]],
         })
+
+        # The Collections screen: four figures against the period before, the mode split and a daily line.
+        length = (end - start).days + 1
+        prev_start, prev_end = start - timedelta(days=length), start - timedelta(days=1)
+        before = self.env['ff.collection'].sudo().search([
+            ('employee_id', 'in', employees.ids), ('state', '!=', 'cancelled'),
+            ('date', '>=', self._ff_day_range(prev_start)[0]), ('date', '<', self._ff_day_range(prev_end)[1])])
+
+        def figures(chosen):
+            def part(state=None):
+                rows = chosen.filtered(lambda r: r.state == state) if state else chosen
+                return round(sum(rows.mapped('amount')), 2), len(rows)
+            out = {}
+            for key, state in (('collected', None), ('held', 'collected'), ('submitted', 'submitted'),
+                               ('received', 'received')):
+                out[key], out[key + '_count'] = part(state)
+            return out
+
+        days = {}
+        for r in records:
+            day = self._local_day(r.employee_id, r.date)
+            row = days.setdefault(day, {'amount': 0.0, 'held': 0.0, 'submitted': 0.0, 'received': 0.0})
+            row['amount'] += r.amount
+            if r.state == 'collected':
+                row['held'] += r.amount
+            elif r.state in ('submitted', 'received'):
+                row[r.state] += r.amount
+        series = []
+        for n in range(length):
+            day = start + timedelta(days=n)
+            row = days.get(day, {})
+            series.append({'label': day.strftime('%d %b'),
+                           **{k: round(row.get(k, 0.0), 2) for k in ('amount', 'held', 'submitted', 'received')}})
+        modes = {}
+        for r in records:
+            row = modes.setdefault(r.mode_id.id, {'id': r.mode_id.id, 'name': r.mode_id.name or 'Other',
+                                                  'amount': 0.0, 'count': 0})
+            row['amount'] += r.amount
+            row['count'] += 1
+        report['collection'] = {
+            **figures(records),
+            'previous': figures(before),
+            'series': series,
+            'by_mode': sorted(({**m, 'amount': round(m['amount'], 2)} for m in modes.values()),
+                              key=lambda m: -m['amount']),
+        }
         return report
 
     # ------------------------------------------------------------------

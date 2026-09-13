@@ -929,6 +929,37 @@ export class AixoloPanel extends Component {
         ];
     }
 
+    get collectionKpis() {
+        const c = this.state.report.collection;
+        const prev = c.previous || {};
+        const change = (now, before) => (before ? Math.round(((now - before) / before) * 1000) / 10 : now ? 100 : 0);
+        return [
+            { key: "collected", label: "Collected", value: this.money(c.collected), icon: "fa-credit-card",
+              ghost: "fa-bar-chart", color: "#1a56db", change: change(c.collected, prev.collected),
+              note: `${c.collected_count} payments`, open: () => this.drillGeneric() },
+            { key: "held", label: "With employees", value: this.money(c.held), icon: "fa-hourglass-half",
+              ghost: "fa-clock-o", color: "#f59e0b", bad: true, count: c.held_count, change: change(c.held, prev.held),
+              note: `${c.held_count} not deposited`, open: () => this.drillGeneric([["state", "=", "collected"]]) },
+            { key: "submitted", label: "Submitted to office", value: this.money(c.submitted), icon: "fa-paper-plane",
+              ghost: "fa-file-text-o", color: "#7c5cfc", change: change(c.submitted, prev.submitted),
+              note: `${c.submitted_count} payments`, open: () => this.drillGeneric([["state", "=", "submitted"]]) },
+            { key: "received", label: "Received", value: this.money(c.received), icon: "fa-check",
+              ghost: "fa-bar-chart", color: "#16a34a", change: change(c.received, prev.received),
+              note: `${c.received_count} payments`, open: () => this.drillGeneric([["state", "=", "received"]]) },
+        ];
+    }
+
+    get collectionModes() {
+        const palette = ["#1a56db", "#16a34a", "#f59e0b", "#7c5cfc", "#0ea5e9", "#e11d48", "#94a3b8"];
+        const rows = this.state.report.collection.by_mode || [];
+        const total = rows.reduce((sum, row) => sum + (row.amount || 0), 0);
+        return rows.map((row, index) => ({
+            ...row,
+            color: palette[index % palette.length],
+            pct: total ? Math.round((row.amount / total) * 100) : 0,
+        }));
+    }
+
     get demandKpis() {
         const d = this.state.report.demand;
         const prev = d.previous || {};

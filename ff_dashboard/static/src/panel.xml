@@ -1029,7 +1029,7 @@
                 <t t-else="">
 
                     <!-- Visits, demands, collections: one generic layout -->
-                    <t t-if="state.report.generic and !state.report.visit and !state.report.demand">
+                    <t t-if="state.report.generic and !state.report.visit and !state.report.demand and !state.report.collection">
                         <div class="d-flex align-items-center mt-3">
                             <button class="ff_chip_btn ms-auto" t-on-click="() => this.drillGeneric()">
                                 <i class="fa fa-external-link me-1"/>Open in Odoo
@@ -1101,6 +1101,148 @@
                                 </table></div>
                             <t t-call="ff_dashboard.Pager"/>
                             </div>
+                        </div>
+                    </t>
+
+                    <!-- Collections -->
+                    <t t-if="state.section === 'collections' and state.report.collection">
+                        <div class="row g-3 mt-0">
+                            <t t-foreach="collectionKpis" t-as="kpi" t-key="kpi.key">
+                                <div class="col-xl-3 col-md-6">
+                                    <div class="ff_kpi h-100" t-attf-style="--tile: {{kpi.color}}" role="button"
+                                         t-on-click="kpi.open">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="ff_kpi_icon"><i class="fa" t-att-class="kpi.icon"/></div>
+                                            <div class="ff_kpi_label" t-esc="kpi.label"/>
+                                        </div>
+                                        <div class="d-flex align-items-end">
+                                            <div class="min-width-0">
+                                                <div class="ff_kpi_value text-nowrap" t-esc="kpi.value"/>
+                                                <div class="ff_kpi_chip_row" t-if="kpi.value !== money(0)">
+                                                    <span class="ff_trend"
+                                                          t-att-class="kpi.change > 0 ? (kpi.bad ? 'ff_trend_down' : 'ff_trend_up') : kpi.change &lt; 0 ? (kpi.bad ? 'ff_trend_up' : 'ff_trend_down') : 'ff_trend_flat'">
+                                                        <i class="fa" t-att-class="kpi.change > 0 ? 'fa-arrow-up' : kpi.change &lt; 0 ? 'fa-arrow-down' : 'fa-minus'"/>
+                                                        <t t-esc="Math.abs(kpi.change)"/>%
+                                                    </span>
+                                                </div>
+                                                <div class="ff_kpi_note" t-att-class="kpi.bad and kpi.count ? 'text-warning' : ''" t-esc="kpi.note"/>
+                                            </div>
+                                            <i class="fa ff_kpi_ghost" t-att-class="kpi.ghost"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+
+                        <div class="row g-3 mt-0">
+                            <div class="col-xl-6">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-credit-card"/></div>
+                                        <div class="ff_card_title">Collections by mode</div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-4 flex-wrap">
+                                        <div style="width: 200px; flex: none;" class="ff_ring">
+                                            <t t-if="state.report.collection.collected">
+                                                <div class="ff_ring_center">
+                                                    <div class="ff_ring_value fs-5" t-esc="money(state.report.collection.collected)"/>
+                                                    <div class="ff_ring_label">Total</div>
+                                                </div>
+                                                <FfChart type="'doughnut'" legend="false"
+                                                         labels="collectionModes.map((row) => row.name)"
+                                                         datasets="[{data: collectionModes.map((row) => row.amount), colors: collectionModes.map((row) => row.color)}]"
+                                                         money="true" currency="state.report.currency" height="200"/>
+                                            </t>
+                                            <div t-else="" class="ff_empty py-2">
+                                                <div class="ff_ring_empty"/>
+                                                <div class="fw-bold">No data to display</div>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="ff_off_row" t-foreach="collectionModes" t-as="row" t-key="row.name">
+                                                <span class="ff_dot" t-attf-style="background: {{row.color}}"/>
+                                                <span class="text-truncate" t-esc="row.name"/>
+                                                <b class="ms-auto ff_amount" t-esc="money(row.amount)"/>
+                                                <span class="text-muted small ms-3" style="min-width: 2.6rem; text-align: right;"><t t-esc="row.pct"/>%</span>
+                                            </div>
+                                            <div t-if="!collectionModes.length" class="text-muted small">No collections in this period.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-6">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-line-chart"/></div>
+                                        <div class="ff_card_title">Collections trend</div>
+                                        <span class="ff_period_chip ms-auto" t-esc="state.report.period_label"/>
+                                    </div>
+                                    <FfChart type="'line'"
+                                             labels="state.report.collection.series.map((row) => row.label)"
+                                             datasets="[{label: 'Collected', data: state.report.collection.series.map((row) => row.amount), color: '#1a56db'}]"
+                                             money="true" currency="state.report.currency" legend="false" height="230"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ff_card mt-3 mb-3">
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+                                <div class="ff_card_icon"><i class="fa fa-list"/></div>
+                                <div class="ff_card_title">Collection Records</div>
+                                <div class="ff_search_box ms-auto">
+                                    <i class="fa fa-search"/>
+                                    <input type="text" class="form-control form-control-sm" placeholder="Search employee, customer, reference..."
+                                           t-att-value="state.rowSearch" t-on-input="searchRows"/>
+                                </div>
+                                <button class="ff_outline_btn" t-on-click="() => this.drillGeneric()">
+                                    <i class="fa fa-filter me-1"/>Open in Odoo
+                                </button>
+                            </div>
+                            <div class="ff_table_scroll">
+                                <table class="table ff_table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 44px;">#</th>
+                                            <th>Date</th><th>Employee</th><th>Customer</th><th>Mode</th><th>Reference</th>
+                                            <th class="text-end">Amount</th><th>Status</th>
+                                            <th class="text-center" style="width: 70px;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="pagedRows" t-as="row" t-key="row.id" class="ff_row"
+                                            t-on-click="() => this.openGenericRow(row)">
+                                            <td class="text-muted" t-esc="pageInfo.from + row_index"/>
+                                            <td class="text-nowrap" t-esc="row.date"/>
+                                            <td class="fw-bold" t-esc="row.employee"/>
+                                            <td t-esc="row.customer"/>
+                                            <td t-esc="row.mode"/>
+                                            <td class="text-muted" t-esc="row.reference or '—'"/>
+                                            <td class="text-end fw-bold text-nowrap" t-esc="money(row.amount)"/>
+                                            <td>
+                                                <span class="ff_state_pill"
+                                                      t-att-class="row.state === 'received' ? 'ff_state_in' : row.state === 'submitted' ? 'ff_state_sub' : 'ff_state_held'"
+                                                      t-esc="row.state === 'collected' ? 'With employee' : stateWord(row.state)"/>
+                                            </td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm ff_more" title="Open"
+                                                        t-on-click.stop="() => this.openGenericRow(row)">
+                                                    <i class="fa fa-ellipsis-h"/>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr t-if="!pagedRows.length">
+                                            <td colspan="9">
+                                                <div class="ff_empty">
+                                                    <i class="fa fa-money"/>
+                                                    <div class="fw-bold">No collections in this period.</div>
+                                                    <div class="small text-muted">Payments collected in the app will appear here.</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <t t-call="ff_dashboard.Pager"/>
                         </div>
                     </t>
 
