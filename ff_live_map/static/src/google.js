@@ -1,6 +1,7 @@
 /** @odoo-module **/
 
 import { loadJS } from "@web/core/assets";
+import { loadOpenMaps } from "./open_maps";
 
 /**
  * Load the Google Maps classes once for the whole backend.
@@ -18,6 +19,17 @@ export function loadGoogleMaps(key) {
         throw error;
     });
     return pending;
+}
+
+/**
+ * The map classes for the provider chosen in settings: Google's, or the free
+ * MapLibre / OpenFreeMap ones shaped the same way.
+ */
+export function loadMaps(provider, key, style) {
+    if (provider === "google") {
+        return loadGoogleMaps(key).then((classes) => ({ provider: "google", ...classes }));
+    }
+    return loadOpenMaps(style);
 }
 
 /** Forget the loaded classes, so a failed attempt can be retried. */

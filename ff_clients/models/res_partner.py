@@ -2,7 +2,7 @@ from odoo import api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tools.safe_eval import safe_eval
 
-from odoo.addons.ff_base.tools import get_param
+from odoo.addons.ff_base.tools import get_param, map_link
 
 APPROVAL_STATES = [
     ('approved', 'Approved'),
@@ -51,8 +51,8 @@ class ResPartner(models.Model):
 
     def _compute_ff_map_url(self):
         for partner in self:
-            partner.ff_map_url = partner._ff_has_location() and 'https://www.google.com/maps?q=%s,%s' % (
-                partner.partner_latitude, partner.partner_longitude) or False
+            partner.ff_map_url = partner._ff_has_location() and map_link(
+                partner.env, partner.partner_latitude, partner.partner_longitude) or False
 
     def _ff_has_location(self):
         self.ensure_one()

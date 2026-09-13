@@ -784,7 +784,7 @@
                         <div class="ff_warn ff_live_warn" t-if="state.liveError">
                             <i class="fa fa-exclamation-triangle me-1"/><t t-esc="state.liveError"/>
                         </div>
-                        <div class="ff_warn ff_live_warn" t-if="state.live and !state.live.google_maps_key">
+                        <div class="ff_warn ff_live_warn" t-if="state.live and !mapsUsable">
                             <i class="fa fa-info-circle me-1"/>
                             No Google Maps key yet — the list works without one. Paste a key in
                             Field Force settings to see the map.

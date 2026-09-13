@@ -1,7 +1,7 @@
 """Data behind the live map: where everybody is, right now."""
 from odoo import api, models
 
-from odoo.addons.ff_base.tools import google_maps_key, to_iso
+from odoo.addons.ff_base.tools import google_maps_key, map_provider, map_style, to_iso
 
 
 class FfEmployeeStatus(models.Model):
@@ -42,7 +42,9 @@ class FfEmployeeStatus(models.Model):
                   for employee in employees]
         people.sort(key=lambda row: (not row['punched_in'], row['name'] or ''))
         data = {
-            'google_maps_key': google_maps_key(self.env),
+            'map_provider': map_provider(self.env),
+            'map_style': map_style(self.env),
+            'google_maps_key': google_maps_key(self.env) if map_provider(self.env) == 'google' else '',
             'people': people,
             'clients': self._ff_map_clients(employees) if with_clients else [],
         }

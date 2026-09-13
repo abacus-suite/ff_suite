@@ -47,6 +47,15 @@ class ResConfigSettings(models.TransientModel):
     ff_payment_collection = fields.Boolean(
         string='Payment Collection', config_parameter='ff_base.payment_collection',
         help='Collect money at the customer and deposit it to the office.')
+    ff_map_provider = fields.Selection(
+        [('google', 'Google Maps (paid, needs a key)'), ('open', 'Open maps (free, no key)')],
+        string='Map Provider', config_parameter='ff_base.map_provider',
+        default=lambda self: 'google' if self.env['ir.config_parameter'].sudo().get_param('ff_base.google_maps_key') else 'open',
+        help='Google: Google tiles, web map and addresses, billed by Google. Open maps: OpenFreeMap / MapLibre '
+             'for the web map, CARTO / OpenStreetMap tiles in the app and OpenStreetMap addresses, all free.')
+    ff_open_map_style = fields.Selection(
+        [('liberty', 'Liberty (colourful)'), ('positron', 'Positron (light)'), ('bright', 'Bright')],
+        string='Free Map Style', config_parameter='ff_base.open_map_style', default='liberty')
     ff_google_maps_key = fields.Char(
         string='Google Maps API Key', config_parameter='ff_base.google_maps_key',
         help='Key from your Google Cloud project. Odoo uses it for the live map; the app receives '

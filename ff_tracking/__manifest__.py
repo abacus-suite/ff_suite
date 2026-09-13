@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Location Tracking',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.0.1',
     'category': 'Human Resources/Field Force',
     'summary': 'GPS pings, live status, daily distance and compliance of field staff',
     'author': 'Field Force Suite',

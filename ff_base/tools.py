@@ -44,6 +44,30 @@ def google_maps_key(env):
     return env['ir.config_parameter'].sudo().get_param('ff_base.google_maps_key') or ''
 
 
+def map_provider(env):
+    """'google' or 'open'. Unset keeps what a company already had: Google when a key exists."""
+    params = env['ir.config_parameter'].sudo()
+    chosen = params.get_param('ff_base.map_provider')
+    if chosen not in ('google', 'open'):
+        chosen = 'google' if google_maps_key(env) else 'open'
+    if chosen == 'google' and not google_maps_key(env):
+        return 'open'  # Google picked but no key yet: still show a map
+    return chosen
+
+
+def map_style(env):
+    """The free map's look: liberty (colourful), positron (light) or bright."""
+    style = env['ir.config_parameter'].sudo().get_param('ff_base.open_map_style')
+    return style if style in ('liberty', 'positron', 'bright') else 'liberty'
+
+
+def map_link(env, latitude, longitude):
+    """A link that opens a place in the chosen provider's website (free, no key)."""
+    if map_provider(env) == 'google':
+        return 'https://www.google.com/maps?q=%s,%s' % (latitude, longitude)
+    return 'https://www.openstreetmap.org/?mlat=%s&mlon=%s#map=17/%s/%s' % (latitude, longitude, latitude, longitude)
+
+
 def get_settings(env):
     return {key: get_param(env, key) for key in PARAM_DEFAULTS}
 

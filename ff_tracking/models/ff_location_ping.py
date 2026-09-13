@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from odoo import api, fields, models
 
-from odoo.addons.ff_base.tools import get_param, parse_client_dt
+from odoo.addons.ff_base.tools import get_param, map_link, parse_client_dt
 
 PING_SOURCES = [
     ('background', 'Background'),
@@ -45,7 +45,7 @@ class FfLocationPing(models.Model):
 
     def _compute_map_url(self):
         for ping in self:
-            ping.map_url = 'https://www.google.com/maps?q=%s,%s' % (ping.latitude, ping.longitude)
+            ping.map_url = map_link(ping.env, ping.latitude, ping.longitude)
 
     @api.model
     def ff_ingest(self, employee, pings):

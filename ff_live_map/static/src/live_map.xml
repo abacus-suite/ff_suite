@@ -137,13 +137,12 @@
                     <div class="ff_live_map_error" t-if="state.hasKey and state.mapError">
                         <i class="fa fa-exclamation-triangle me-1"/><t t-esc="state.mapError"/>
                     </div>
-                    <div t-else="" class="d-flex flex-column align-items-center justify-content-center h-100 text-center p-4">
+                    <div t-if="!state.hasKey" class="d-flex flex-column align-items-center justify-content-center h-100 text-center p-4">
                         <i class="fa fa-map-o fa-3x text-muted mb-3"/>
                         <h5>No Google Maps key yet</h5>
                         <p class="text-muted" style="max-width: 34rem;">
-                            Paste your key in Field Force settings (Maps section) after enabling the
-                            Maps JavaScript API for the web and the Map Tiles API for the phone app.
-                            The list on the left works without a key.
+                            Paste your key in Field Force settings (Maps section), or switch the map
+                            provider to the free open maps there. The list on the left works either way.
                         </p>
                         <button class="btn btn-primary" t-on-click="openSettings">Open Settings</button>
                     </div>

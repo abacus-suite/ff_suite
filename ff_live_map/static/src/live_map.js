@@ -2,7 +2,7 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { loadGoogleMaps, pinIcon } from "@ff_live_map/google";
+import { loadMaps, pinIcon } from "@ff_live_map/google";
 import { Component, onWillStart, onWillUnmount, useRef, useState, onMounted } from "@odoo/owl";
 
 const REFRESH_MS = 30000;
@@ -65,7 +65,7 @@ export class FieldForceLiveMap extends Component {
         onMounted(async () => {
             // The map div only exists once we are in the DOM.
             this.mounted = true;
-            if (this.mapsKey) {
+            if (this.state.hasKey) {
                 await this.ensureMap(this.mapsKey);
                 this.drawMarkers();
             }
@@ -132,13 +132,16 @@ export class FieldForceLiveMap extends Component {
         this.state.people = data.people;
         this.state.clients = data.clients || [];
         this.mapsKey = data.google_maps_key;
-        this.state.hasKey = Boolean(data.google_maps_key);
+        this.mapProvider = data.map_provider || (data.google_maps_key ? "google" : "open");
+        this.mapStyle = data.map_style;
+        // Free maps need no key, so there is always something to draw.
+        this.state.hasKey = this.mapProvider === "open" || Boolean(data.google_maps_key);
         this.state.loading = false;
         this.state.updatedAt = new Date().toLocaleTimeString();
         if (!this.state.usage) {
             this.state.usage = await this.orm.call("ff.map.usage", "ff_usage_summary", []);
         }
-        if (this.mounted && this.mapsKey) {
+        if (this.mounted && this.state.hasKey) {
             await this.ensureMap(this.mapsKey);
             this.drawMarkers();
         }
@@ -156,7 +159,7 @@ export class FieldForceLiveMap extends Component {
     async buildMap(key) {
         let classes;
         try {
-            classes = await loadGoogleMaps(key);
+            classes = await loadMaps(this.mapProvider, key, this.mapStyle);
         } catch (error) {
             this.mapsFailed(error.message || String(error));
             return;
@@ -170,8 +173,10 @@ export class FieldForceLiveMap extends Component {
             this.mapPromise = null;
             return;
         }
-        // One Google "map load" is billed here, so count it here too.
-        this.state.usage = await this.orm.call("ff.map.usage", "ff_record_web_map", []);
+        // One Google "map load" is billed here, so count it here too (free maps cost nothing).
+        if (classes.provider === "google") {
+            this.state.usage = await this.orm.call("ff.map.usage", "ff_record_web_map", []);
+        }
         this.map = new this.MapClass(this.mapRef.el, {
             center: { lat: 20.5937, lng: 78.9629 },
             zoom: 5,

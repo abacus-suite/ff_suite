@@ -1,8 +1,8 @@
 {
     'name': 'Field Force - Live Map',
-    'version': '19.0.1.9.2',
+    'version': '19.0.2.0.0',
     'category': 'Human Resources/Field Force',
-    'summary': 'See where every field employee is right now on a Google map inside Odoo',
+    'summary': 'See where every field employee is right now on a map inside Odoo (Google or free open maps)',
     'author': 'Field Force Suite',
     'depends': ['ff_visits', 'ff_tracking', 'ff_mobile_api'],
     'data': [
@@ -13,6 +13,7 @@
     ],
     'assets': {
         'web.assets_backend': [
+            'ff_live_map/static/src/open_maps.js',
             'ff_live_map/static/src/google.js',
             'ff_live_map/static/src/live_map.js',
             'ff_live_map/static/src/map_cost.js',

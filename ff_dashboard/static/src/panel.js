@@ -3,7 +3,7 @@
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { Component, onPatched, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
-import { loadGoogleMaps, pinIcon } from "@ff_live_map/google";
+import { loadMaps, pinIcon } from "@ff_live_map/google";
 import { FfChart } from "./chart";
 
 const REFRESH_MS = 60000;
@@ -230,6 +230,20 @@ export class AixoloPanel extends Component {
         return (STATES[key] || STATES.off).label;
     }
 
+    /** The provider the server chose: Google when set up with a key, the free maps otherwise. */
+    get mapProviderName() {
+        const live = this.state.live;
+        if (!live) {
+            return "open";
+        }
+        return live.map_provider || (live.google_maps_key ? "google" : "open");
+    }
+
+    get mapsUsable() {
+        const live = this.state.live;
+        return Boolean(live) && (this.mapProviderName === "open" || Boolean(live.google_maps_key));
+    }
+
     stateColor(key) {
         return (STATES[key] || STATES.off).color;
     }
@@ -306,12 +320,12 @@ export class AixoloPanel extends Component {
 
     async _drawLive() {
         const live = this.state.live;
-        if (!live || !live.google_maps_key) {
+        if (!live || !this.mapsUsable) {
             return;
         }
-        if (!this.google) {
+        if (!this.google || this.google.provider !== this.mapProviderName) {
             try {
-                this.google = await loadGoogleMaps(live.google_maps_key);
+                this.google = await loadMaps(this.mapProviderName, live.google_maps_key, live.map_style);
                 this.state.liveError = "";
             } catch (error) {
                 this.state.liveError = error.message || String(error);
@@ -334,7 +348,9 @@ export class AixoloPanel extends Component {
             this.liveMap = null;
         }
         if (!this.liveMap) {
-            this.state.usage = await this.orm.call("ff.map.usage", "ff_record_web_map", []);
+            if (this.google.provider === "google") {
+                this.state.usage = await this.orm.call("ff.map.usage", "ff_record_web_map", []);
+            }
             this.liveMap = new this.google.Map(this.mapRef.el, {
                 center: { lat: 20.5937, lng: 78.9629 },
                 zoom: 5,
@@ -1485,12 +1501,12 @@ export class AixoloPanel extends Component {
     async drawTimeline() {
         const live = this.state.live;
         const key = live ? live.google_maps_key : "";
-        if (!key || !this.state.timeline) {
+        if (!this.mapsUsable || !this.state.timeline) {
             return;
         }
-        if (!this.google) {
+        if (!this.google || this.google.provider !== this.mapProviderName) {
             try {
-                this.google = await loadGoogleMaps(key);
+                this.google = await loadMaps(this.mapProviderName, key, live.map_style);
                 this.state.liveError = "";
             } catch (error) {
                 this.state.liveError = error.message || String(error);
@@ -1501,7 +1517,9 @@ export class AixoloPanel extends Component {
             return;
         }
         if (!this.liveMap) {
-            this.state.usage = await this.orm.call("ff.map.usage", "ff_record_web_map", []);
+            if (this.google.provider === "google") {
+                this.state.usage = await this.orm.call("ff.map.usage", "ff_record_web_map", []);
+            }
             this.liveMap = new this.google.Map(this.mapRef.el, {
                 center: { lat: 20.5937, lng: 78.9629 },
                 zoom: 5,

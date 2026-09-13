@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from odoo import api, fields, models
 
-from odoo.addons.ff_base.tools import get_param, haversine_m
+from odoo.addons.ff_base.tools import get_param, haversine_m, map_link
 
 # Movement below this distance is treated as standing still.
 MOVE_THRESHOLD_M = 100
@@ -51,8 +51,8 @@ class FfEmployeeStatus(models.Model):
 
     def _compute_map_url(self):
         for status in self:
-            status.map_url = status.last_ping_at and 'https://www.google.com/maps?q=%s,%s' % (
-                status.latitude, status.longitude) or False
+            status.map_url = status.last_ping_at and map_link(
+                status.env, status.latitude, status.longitude) or False
 
     @api.model
     def _ff_get(self, employee):
