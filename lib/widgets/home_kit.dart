@@ -407,6 +407,7 @@ class StatBox extends StatelessWidget {
     required this.label,
     required this.value,
     this.change,
+    this.compareWith = 'yesterday',
   });
 
   final IconData icon;
@@ -414,69 +415,63 @@ class StatBox extends StatelessWidget {
   final String label;
   final String value;
   final double? change;
+  final String compareWith;
 
   @override
   Widget build(BuildContext context) {
     final change = this.change;
     final up = (change ?? 0) >= 0;
+    final tone = up ? AixoloColors.success : AixoloColors.danger;
+    // Stacked, not side by side: half a phone width is too narrow for
+    // icon, label, amount and the trend in one row.
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: const Color(0xFFF7F9FD),
-          borderRadius: BorderRadius.circular(16)),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      decoration: BoxDecoration(color: const Color(0xFFF7F9FD), borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-                color: colour.withValues(alpha: 0.12), shape: BoxShape.circle),
-            child: Icon(icon, color: colour, size: 18),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 11, color: AixoloColors.muted)),
-                Text(value,
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(color: colour.withValues(alpha: 0.12), shape: BoxShape.circle),
+                child: Icon(icon, color: colour, size: 16),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w900)),
-              ],
-            ),
+                    style: const TextStyle(fontSize: 12, color: AixoloColors.muted, fontWeight: FontWeight.w600)),
+              ),
+            ],
           ),
-          if (change != null)
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value, maxLines: 1, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+          ),
+          if (change != null) ...[
+            const SizedBox(height: 4),
+            Row(
               children: [
-                Row(
-                  children: [
-                    Icon(
-                        up
-                            ? Icons.trending_up_rounded
-                            : Icons.trending_down_rounded,
-                        size: 13,
-                        color: up ? AixoloColors.success : AixoloColors.danger),
-                    const SizedBox(width: 2),
-                    Text('${up ? '+' : ''}${change.round()}%',
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: up
-                                ? AixoloColors.success
-                                : AixoloColors.danger)),
-                  ],
+                Icon(up ? Icons.trending_up_rounded : Icons.trending_down_rounded, size: 14, color: tone),
+                const SizedBox(width: 3),
+                Text('${up ? '+' : ''}${change.round()}%',
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: tone)),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text('vs $compareWith',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: AixoloColors.muted)),
                 ),
-                const Text('vs. yesterday',
-                    style: TextStyle(fontSize: 9, color: AixoloColors.muted)),
               ],
             ),
+          ],
         ],
       ),
     );

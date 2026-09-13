@@ -139,6 +139,84 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
     }
   }
 
+  String _routeDetails(Map<String, dynamic> r) => [
+        if (r['route_type'] != null) r['route_type'],
+        '${r['customer_count']} customers',
+        if ((r['planned_km'] as num? ?? 0) > 0) '${r['planned_km']} km',
+      ].join(' · ');
+
+  /// A searchable list: someone with thirty routes finds theirs by typing.
+  Future<void> _chooseRoute(String routeLabel) async {
+    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheet) {
+        var query = '';
+        return StatefulBuilder(
+          builder: (context, setSheet) {
+            final q = query.trim().toLowerCase();
+            final shown = q.isEmpty
+                ? _routes
+                : _routes
+                    .where((r) => '${r['name']} ${r['route_type'] ?? ''} ${r['city'] ?? ''}'.toLowerCase().contains(q))
+                    .toList();
+            return SizedBox(
+              height: MediaQuery.of(context).size.height * 0.75,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: TextField(
+                        autofocus: _routes.length > 8,
+                        onChanged: (v) => setSheet(() => query = v),
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          hintText: 'Search $routeLabel',
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text('${shown.length} of ${_routes.length}',
+                            style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                      ),
+                    ),
+                    Expanded(
+                      child: shown.isEmpty
+                          ? const Center(child: Text('Nothing matches', style: TextStyle(color: AixoloColors.muted)))
+                          : ListView.builder(
+                              itemCount: shown.length,
+                              itemBuilder: (context, i) {
+                                final r = shown[i];
+                                final selected = _route?['id'] == r['id'];
+                                return ListTile(
+                                  leading: Icon(selected ? Icons.check_circle_rounded : Icons.route_rounded,
+                                      color: selected ? AixoloColors.success : AixoloColors.primary),
+                                  title: Text('${r['name']}',
+                                      style: TextStyle(fontWeight: selected ? FontWeight.w800 : FontWeight.w600)),
+                                  subtitle: Text(_routeDetails(r)),
+                                  onTap: () => Navigator.pop(sheet, r),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (picked != null) _pickRoute(picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = Services.auth.profile!;
@@ -174,18 +252,21 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                             EmptyView(
                                 icon: Icons.route_rounded,
                                 text: 'No $routeLabel is assigned to you yet. Ask the office to assign one.'),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final r in _routes)
-                                ChoiceChip(
-                                  label: Text('${r['name']} · ${r['customer_count']}'),
-                                  selected: _route?['id'] == r['id'],
-                                  onSelected: (_) => _pickRoute(r),
-                                ),
-                            ],
-                          ),
+                          if (_routes.isNotEmpty)
+                            Card(
+                              child: ListTile(
+                                leading: const Icon(Icons.route_rounded, color: AixoloColors.primary),
+                                title: Text(_route == null ? 'Choose a $routeLabel' : '${_route!['name']}',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        color: _route == null ? AixoloColors.muted : AixoloColors.text)),
+                                subtitle: _route == null
+                                    ? Text('${_routes.length} to choose from')
+                                    : Text(_routeDetails(_route!)),
+                                trailing: const Icon(Icons.search_rounded),
+                                onTap: () => _chooseRoute(routeLabel),
+                              ),
+                            ),
                           const SizedBox(height: 12),
                           if (_loadingCustomers)
                             const Padding(

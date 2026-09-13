@@ -476,6 +476,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String get _compareWord => switch (_period) {
+        'week' => 'last week',
+        'month' => 'last month',
+        _ => 'yesterday',
+      };
+
   Widget _salesSummary() {
     final sales = _sales;
     final currency = sales?['currency'] as String?;
@@ -507,6 +513,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: 'Total ${Services.auth.profile!.orderWord}s',
                     value: '${sales?['count'] ?? 0}',
                     change: (previous['count_change'] as num?)?.toDouble(),
+                    compareWith: _compareWord,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -517,6 +524,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: 'Total Value',
                     value: fmtMoney(sales?['amount_total'] as num?, currency),
                     change: (previous['amount_change'] as num?)?.toDouble(),
+                    compareWith: _compareWord,
                   ),
                 ),
               ],

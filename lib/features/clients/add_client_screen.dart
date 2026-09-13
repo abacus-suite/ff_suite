@@ -194,7 +194,7 @@ class _AddClientScreenState extends State<AddClientScreen> {
                     for (final r in _routes)
                       DropdownMenuItem<int?>(
                         value: r['id'] as int,
-                        child: Text(r['city'] == null ? '${r['name']}' : '${r['name']} · ${r['city']}',
+                        child: Text('${r['name']}',
                             overflow: TextOverflow.ellipsis),
                       ),
                   ],
