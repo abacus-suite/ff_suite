@@ -298,6 +298,62 @@ class FfDashboardSections(models.AbstractModel):
                 'state': d.state,
             } for d in demands[:200]],
         })
+
+        # The Demands screen: four figures against the period before, a daily line, and two top-5 lists.
+        length = (end - start).days + 1
+        prev_start, prev_end = start - timedelta(days=length), start - timedelta(days=1)
+        before = self.env['ff.demand'].sudo().search([
+            ('employee_id', 'in', employees.ids), ('state', '!=', 'cancelled'),
+            ('date', '>=', self._ff_day_range(prev_start)[0]), ('date', '<', self._ff_day_range(prev_end)[1])])
+
+        def figures(records):
+            waiting = records.filtered(lambda d: d.state in ('submitted', 'partial'))
+            quoted = records.filtered(lambda d: d.state in ('quoted', 'supplied'))
+            return {
+                'value': round(sum(records.mapped('amount_total')), 2), 'count': len(records),
+                'waiting': round(sum(waiting.mapped('amount_total')), 2), 'waiting_count': len(waiting),
+                'quoted': round(sum(quoted.mapped('amount_total')), 2), 'quoted_count': len(quoted),
+                'outlets': len(records.mapped('partner_id')), 'units': round(sum(records.mapped('quantity_total'))),
+            }
+
+        days = {}
+        for d in demands:
+            day = self._local_day(d.employee_id, d.date)
+            row = days.setdefault(day, {'amount': 0.0, 'count': 0, 'waiting': 0.0, 'quoted': 0.0, 'outlets': set()})
+            row['amount'] += d.amount_total
+            row['count'] += 1
+            row['outlets'].add(d.partner_id.id)
+            if d.state in ('submitted', 'partial'):
+                row['waiting'] += d.amount_total
+            elif d.state in ('quoted', 'supplied'):
+                row['quoted'] += d.amount_total
+        series = []
+        for n in range(length):
+            day = start + timedelta(days=n)
+            row = days.get(day, {})
+            series.append({'label': day.strftime('%d %b'), 'amount': round(row.get('amount', 0.0), 2),
+                           'count': row.get('count', 0), 'waiting': round(row.get('waiting', 0.0), 2),
+                           'quoted': round(row.get('quoted', 0.0), 2), 'outlets': len(row.get('outlets', ()))})
+
+        def top(key_of):
+            rows = {}
+            for d in demands:
+                key = key_of(d)
+                if not key:
+                    continue
+                row = rows.setdefault(key.id, {'id': key.id, 'name': key.display_name, 'amount': 0.0, 'count': 0})
+                row['amount'] += d.amount_total
+                row['count'] += 1
+            return sorted(({**r, 'amount': round(r['amount'], 2)} for r in rows.values()),
+                          key=lambda r: -r['amount'])[:10]
+
+        report['demand'] = {
+            **figures(demands),
+            'previous': figures(before),
+            'series': series,
+            'by_distributor': top(lambda d: d.distributor_id),
+            'by_employee': top(lambda d: d.employee_id),
+        }
         return report
 
     @api.model

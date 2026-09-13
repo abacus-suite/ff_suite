@@ -929,6 +929,28 @@ export class AixoloPanel extends Component {
         ];
     }
 
+    get demandKpis() {
+        const d = this.state.report.demand;
+        const prev = d.previous || {};
+        const series = d.series || [];
+        const pick = (key) => series.map((row) => row[key] || 0);
+        const change = (now, before) => (before ? Math.round(((now - before) / before) * 1000) / 10 : now ? 100 : 0);
+        return [
+            { key: "value", label: "Demand value", value: this.money(d.value), icon: "fa-file-text", color: "#1a56db",
+              change: change(d.value, prev.value), series: pick("amount"), note: `${d.count} demands`,
+              open: () => this.drillGeneric() },
+            { key: "waiting", label: "Waiting for quotation", value: this.money(d.waiting), icon: "fa-hourglass-half",
+              color: "#f59e0b", bad: true, change: change(d.waiting, prev.waiting), series: pick("waiting"),
+              note: `${d.waiting_count} demands`, open: () => this.drillGeneric([["state", "in", ["submitted", "partial"]]]) },
+            { key: "quoted", label: "Quoted / supplied", value: this.money(d.quoted), icon: "fa-check", color: "#16a34a",
+              change: change(d.quoted, prev.quoted), series: pick("quoted"), note: `${d.quoted_count} demands`,
+              open: () => this.drillGeneric([["state", "in", ["quoted", "supplied"]]]) },
+            { key: "outlets", label: "Outlets", value: d.outlets, icon: "fa-building", color: "#7c5cfc",
+              change: change(d.outlets, prev.outlets), series: pick("outlets"), note: `${d.units} units`,
+              open: () => this.drillGeneric() },
+        ];
+    }
+
     get visitKpis() {
         const v = this.state.report.visit;
         const prev = v.previous || {};

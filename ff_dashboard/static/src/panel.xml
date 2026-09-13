@@ -1029,7 +1029,7 @@
                 <t t-else="">
 
                     <!-- Visits, demands, collections: one generic layout -->
-                    <t t-if="state.report.generic and !state.report.visit">
+                    <t t-if="state.report.generic and !state.report.visit and !state.report.demand">
                         <div class="d-flex align-items-center mt-3">
                             <button class="ff_chip_btn ms-auto" t-on-click="() => this.drillGeneric()">
                                 <i class="fa fa-external-link me-1"/>Open in Odoo
@@ -1101,6 +1101,180 @@
                                 </table></div>
                             <t t-call="ff_dashboard.Pager"/>
                             </div>
+                        </div>
+                    </t>
+
+                    <!-- Demands -->
+                    <t t-if="state.section === 'demands' and state.report.demand">
+                        <div class="row g-3 mt-0">
+                            <t t-foreach="demandKpis" t-as="kpi" t-key="kpi.key">
+                                <div class="col-xl-3 col-md-6">
+                                    <div class="ff_kpi h-100" t-attf-style="--tile: {{kpi.color}}" role="button"
+                                         t-on-click="kpi.open">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="ff_kpi_icon"><i class="fa" t-att-class="kpi.icon"/></div>
+                                            <div class="ff_kpi_label" t-esc="kpi.label"/>
+                                        </div>
+                                        <div class="d-flex align-items-end">
+                                            <div class="min-width-0">
+                                                <div class="ff_kpi_value text-nowrap" t-esc="kpi.value"/>
+                                                <div class="ff_kpi_chip_row">
+                                                    <span class="ff_trend"
+                                                          t-att-class="kpi.change > 0 ? (kpi.bad ? 'ff_trend_down' : 'ff_trend_up') : kpi.change &lt; 0 ? (kpi.bad ? 'ff_trend_up' : 'ff_trend_down') : 'ff_trend_flat'">
+                                                        <i class="fa" t-att-class="kpi.change > 0 ? 'fa-arrow-up' : kpi.change &lt; 0 ? 'fa-arrow-down' : 'fa-minus'"/>
+                                                        <t t-esc="Math.abs(kpi.change)"/>%
+                                                    </span>
+                                                </div>
+                                                <div class="ff_kpi_note" t-esc="kpi.note"/>
+                                            </div>
+                                            <svg class="ff_spark ms-auto" viewBox="0 0 100 40" preserveAspectRatio="none">
+                                                <path t-att-d="spark(kpi.series, true)" t-attf-fill="{{kpi.color}}" fill-opacity="0.12"/>
+                                                <path t-att-d="spark(kpi.series)" fill="none" t-attf-stroke="{{kpi.color}}"
+                                                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+
+                        <div class="ff_card mt-3">
+                            <div class="d-flex align-items-center gap-3 flex-wrap mb-2">
+                                <div class="ff_card_icon"><i class="fa fa-line-chart"/></div>
+                                <div>
+                                    <div class="ff_card_title">Demand value per day</div>
+                                    <div class="ff_card_sub">
+                                        <t t-esc="state.orderMeasure === 'count' ? 'Number of demands each day' : 'Trend of demand value for the selected period'"/>
+                                    </div>
+                                </div>
+                                <div class="ff_seg ms-auto">
+                                    <button class="ff_seg_btn" t-att-class="state.orderMeasure !== 'count' ? 'ff_seg_btn_active' : ''"
+                                            t-on-click="() => this.state.orderMeasure = 'amount'">Value</button>
+                                    <button class="ff_seg_btn" t-att-class="state.orderMeasure === 'count' ? 'ff_seg_btn_active' : ''"
+                                            t-on-click="() => this.state.orderMeasure = 'count'">Count</button>
+                                </div>
+                                <span class="ff_period_chip" t-esc="state.report.period_label"/>
+                            </div>
+                            <FfChart type="'line'"
+                                     labels="state.report.demand.series.map((row) => row.label)"
+                                     datasets="[{label: state.orderMeasure === 'count' ? 'Demands' : 'Value', data: state.report.demand.series.map((row) => state.orderMeasure === 'count' ? row.count : row.amount), color: '#1a56db'}]"
+                                     money="state.orderMeasure !== 'count'" currency="state.report.currency" legend="false"
+                                     height="260"/>
+                        </div>
+
+                        <div class="row g-3 mt-0">
+                            <div class="col-xl-6">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-truck"/></div>
+                                        <div class="ff_card_title">By distributor</div>
+                                        <select class="form-select form-select-sm ff_pager_size ms-auto"
+                                                t-on-change="(ev) => this.state.topN = parseInt(ev.target.value, 10)">
+                                            <option value="5" t-att-selected="state.topN === 5">Top 5</option>
+                                            <option value="10" t-att-selected="state.topN === 10">Top 10</option>
+                                        </select>
+                                    </div>
+                                    <t t-if="state.report.demand.by_distributor.length">
+                                        <div t-foreach="state.report.demand.by_distributor.slice(0, state.topN)" t-as="row" t-key="row.id" class="ff_bar_row">
+                                            <span class="text-muted" style="width: 18px;" t-esc="row_index + 1"/>
+                                            <span class="ff_bar_name ff_bar_name_wide text-truncate" t-esc="row.name"/>
+                                            <div class="ff_progress flex-grow-1 mt-0">
+                                                <div t-attf-style="width: {{Math.max(4, Math.round(row.amount * 100 / (state.report.demand.by_distributor[0].amount || 1)))}}%; background: linear-gradient(90deg, #1a56db, #60a5fa);"/>
+                                            </div>
+                                            <b class="ff_amount" t-esc="money(row.amount)"/>
+                                        </div>
+                                    </t>
+                                    <div t-else="" class="ff_empty">
+                                        <i class="fa fa-truck"/>
+                                        <div class="fw-bold">No data to display</div>
+                                        <div class="small text-muted">No demands in this period.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-6">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa fa-user"/></div>
+                                        <div class="ff_card_title">By employee</div>
+                                        <select class="form-select form-select-sm ff_pager_size ms-auto"
+                                                t-on-change="(ev) => this.state.topN = parseInt(ev.target.value, 10)">
+                                            <option value="5" t-att-selected="state.topN === 5">Top 5</option>
+                                            <option value="10" t-att-selected="state.topN === 10">Top 10</option>
+                                        </select>
+                                    </div>
+                                    <t t-if="state.report.demand.by_employee.length">
+                                        <div t-foreach="state.report.demand.by_employee.slice(0, state.topN)" t-as="row" t-key="row.id" class="ff_bar_row">
+                                            <span class="text-muted" style="width: 18px;" t-esc="row_index + 1"/>
+                                            <span class="ff_bar_name ff_bar_name_wide text-truncate" t-esc="row.name"/>
+                                            <div class="ff_progress flex-grow-1 mt-0">
+                                                <div t-attf-style="width: {{Math.max(4, Math.round(row.amount * 100 / (state.report.demand.by_employee[0].amount || 1)))}}%; background: linear-gradient(90deg, #1a56db, #60a5fa);"/>
+                                            </div>
+                                            <b class="ff_amount" t-esc="money(row.amount)"/>
+                                        </div>
+                                    </t>
+                                    <div t-else="" class="ff_empty">
+                                        <i class="fa fa-user"/>
+                                        <div class="fw-bold">No data to display</div>
+                                        <div class="small text-muted">No demands in this period.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ff_card mt-3 mb-3">
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+                                <div class="ff_card_icon"><i class="fa fa-list"/></div>
+                                <div class="ff_card_title">Records</div>
+                                <div class="ff_search_box ms-auto">
+                                    <i class="fa fa-search"/>
+                                    <input type="text" class="form-control form-control-sm" placeholder="Search reference, employee, outlet..."
+                                           t-att-value="state.rowSearch" t-on-input="searchRows"/>
+                                </div>
+                                <button class="ff_outline_btn" t-on-click="() => this.drillGeneric()">
+                                    <i class="fa fa-filter me-1"/>Open in Odoo
+                                </button>
+                            </div>
+                            <div class="ff_table_scroll">
+                                <table class="table ff_table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 44px;">#</th>
+                                            <th>Number</th><th>Date</th><th>Employee</th><th>Outlet</th><th>Distributor</th>
+                                            <th class="text-end">Value</th><th>Status</th>
+                                            <th class="text-center" style="width: 70px;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="pagedRows" t-as="row" t-key="row.id" class="ff_row"
+                                            t-on-click="() => this.openGenericRow(row)">
+                                            <td class="text-muted" t-esc="pageInfo.from + row_index"/>
+                                            <td class="fw-bold text-nowrap" t-esc="row.name"/>
+                                            <td class="text-nowrap" t-esc="row.date"/>
+                                            <td t-esc="row.employee"/>
+                                            <td t-esc="row.customer"/>
+                                            <td class="text-muted" t-esc="row.distributor or '—'"/>
+                                            <td class="text-end fw-bold text-nowrap" t-esc="money(row.amount)"/>
+                                            <td><span class="ff_pill" t-att-class="stateBadge(row.state)" t-esc="stateWord(row.state)"/></td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm ff_more" title="Open"
+                                                        t-on-click.stop="() => this.openGenericRow(row)">
+                                                    <i class="fa fa-ellipsis-h"/>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr t-if="!pagedRows.length">
+                                            <td colspan="9">
+                                                <div class="ff_empty">
+                                                    <i class="fa fa-shopping-basket"/>
+                                                    <div class="fw-bold">No demands in this period.</div>
+                                                    <div class="small text-muted">Outlet demands will appear here.</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <t t-call="ff_dashboard.Pager"/>
                         </div>
                     </t>
 
