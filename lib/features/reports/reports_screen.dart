@@ -32,6 +32,7 @@ const _icons = <String, IconData>{
   'sort': Icons.sort_rounded,
   'receipt_long': Icons.receipt_long_rounded,
   'alt_route': Icons.alt_route_rounded,
+  'redeem': Icons.redeem_rounded,
 };
 
 const _tones = [

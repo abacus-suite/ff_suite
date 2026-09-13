@@ -23,6 +23,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
   Timer? _debounce;
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _categories = [];
+  List<Map<String, dynamic>> _schemes = [];
   int? _categoryId;
   final Map<int, double> _cart = {};
   final Map<int, Map<String, dynamic>> _known = {};
@@ -53,8 +54,22 @@ class _CatalogScreenState extends State<CatalogScreen> {
     } catch (_) {
       // Category chips are optional.
     }
+    try {
+      final foc = await Services.api.get('/api/v1/foc/schemes',
+          query: {if (widget.client != null) 'partner_id': widget.client!['id']}) as Map<String, dynamic>;
+      _schemes = ((foc['schemes'] as List?) ?? []).cast<Map<String, dynamic>>();
+    } catch (_) {
+      // No FOC module: no badges.
+    }
     await _load();
   }
+
+  /// The schemes that give something free on this product.
+  List<Map<String, dynamic>> _schemesFor(Map<String, dynamic> p) => _schemes.where((s) {
+        final products = ((s['product_ids'] as List?) ?? []);
+        if (products.isNotEmpty) return products.contains(p['id']);
+        return ((s['category_ids'] as List?) ?? []).contains((p['category'] as Map?)?['id']);
+      }).toList();
 
   Future<void> _load() async {
     setState(() {
@@ -202,6 +217,29 @@ class _CatalogScreenState extends State<CatalogScreen> {
                         if (p['sku'] != null) p['sku'],
                         '${fmtMoney(p['price'] as num?)} / ${p['uom']}',
                       ].join(' · ')),
+                      for (final scheme in _schemesFor(p))
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                                color: const Color(0xFFE6F7EE), borderRadius: BorderRadius.circular(20)),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.redeem_rounded, size: 13, color: AixoloColors.success),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text('${scheme['summary']}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontSize: 11.5, color: AixoloColors.success, fontWeight: FontWeight.w700)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       // The three trade prices, when the office has set them:
                       // what the outlet pays, what it sells at, what it earns.
                       if (p['mrp'] != null || p['ptr'] != null)

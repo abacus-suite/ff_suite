@@ -40,6 +40,7 @@ class WarmUp {
       if (profile.feature('orders')) _get('/api/v1/products/categories') else Future.value(null),
       _get('/api/v1/contact-categories'),
       _get('/api/v1/expense-categories'),
+      if (profile.feature('orders')) _get('/api/v1/foc/schemes') else Future.value(null),
       if (profile.paymentCollection) _get('/api/v1/collection-modes') else Future.value(null),
       _get('/api/v1/leaves'),
       _get('/api/v1/tasks', {'state': 'todo,in_progress'}),

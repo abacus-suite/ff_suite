@@ -25,6 +25,97 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
   final String _uuid = const Uuid().v4();
   bool _busy = false;
 
+  /// Free units the schemes give this cart (from the server), and whether it could be asked.
+  List<Map<String, dynamic>> _free = [];
+  bool _freeChecked = false;
+  bool _manualAllowed = false;
+
+  /// Free goods the rep adds by hand: product, qty, reason.
+  final List<Map<String, dynamic>> _manual = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFoc();
+  }
+
+  Future<void> _loadFoc() async {
+    try {
+      final results = await Future.wait([
+        Services.api.get('/api/v1/foc/schemes', query: {'partner_id': widget.client['id']}),
+        Services.api.post('/api/v1/foc/preview', {
+          'partner_id': widget.client['id'],
+          'lines': [for (final l in widget.lines) {'product_id': l['id'], 'qty': l['qty']}],
+        }),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _manualAllowed = (results[0] as Map)['manual_allowed'] == true;
+        _free = ((results[1] as List?) ?? []).cast<Map<String, dynamic>>();
+        _freeChecked = true;
+      });
+    } catch (_) {
+      // Offline or no FOC module: the server works the free units out when the order arrives.
+    }
+  }
+
+  Future<void> _addManual() async {
+    final qty = TextEditingController(text: '1');
+    final reason = TextEditingController();
+    int? productId = widget.lines.isEmpty ? null : widget.lines.first['id'] as int;
+    final added = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => StatefulBuilder(
+        builder: (context, setDialog) => AlertDialog(
+          title: const Text('Add free goods (FOC)'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                initialValue: productId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Product'),
+                items: [
+                  for (final l in widget.lines)
+                    DropdownMenuItem(value: l['id'] as int, child: Text('${l['name']}', overflow: TextOverflow.ellipsis)),
+                ],
+                onChanged: (v) => setDialog(() => productId = v),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: qty,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Free quantity'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: reason,
+                decoration: const InputDecoration(labelText: 'Reason *', hintText: 'Sample, display, damage cover…'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Add')),
+          ],
+        ),
+      ),
+    );
+    final quantity = double.tryParse(qty.text.trim()) ?? 0;
+    final why = reason.text.trim();
+    WidgetsBinding.instance.addPostFrameCallback((_) => Future.delayed(const Duration(milliseconds: 400), () {
+          qty.dispose();
+          reason.dispose();
+        }));
+    if (added != true || productId == null) return;
+    if (quantity <= 0 || why.isEmpty) {
+      if (mounted) showSnack(context, 'Enter a quantity and the reason.');
+      return;
+    }
+    final line = widget.lines.firstWhere((l) => l['id'] == productId);
+    setState(() => _manual.add({'product_id': productId, 'name': line['name'], 'qty': quantity, 'reason': why}));
+  }
+
   @override
   void dispose() {
     _note.dispose();
@@ -48,6 +139,8 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
         'lines': [
           for (final l in widget.lines) {'product_id': l['id'], 'qty': l['qty']},
         ],
+        if (_manual.isNotEmpty)
+          'foc': [for (final m in _manual) {'product_id': m['product_id'], 'qty': m['qty'], 'reason': m['reason']}],
         'note': _note.text.trim(),
         'lat': pos?.latitude,
         'lng': pos?.longitude,
@@ -111,6 +204,50 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
               subtitle: Text('${fmtQty(l['qty'] as num)} × ${fmtMoney(l['price'] as num?)}'),
               trailing: Text(fmtMoney(((l['price'] as num?) ?? 0) * (l['qty'] as num))),
             ),
+          if (_free.isNotEmpty || _manual.isNotEmpty || _manualAllowed || !_freeChecked) ...[
+            const Divider(),
+            Row(
+              children: [
+                const Icon(Icons.redeem_rounded, color: AixoloColors.success, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(child: Text('Free goods (FOC)', style: TextStyle(fontWeight: FontWeight.w800))),
+                if (_manualAllowed && widget.lines.isNotEmpty)
+                  TextButton.icon(onPressed: _addManual, icon: const Icon(Icons.add_rounded), label: const Text('Add')),
+              ],
+            ),
+            if (!_freeChecked)
+              const Text('Free units from schemes are worked out when the order reaches the office.',
+                  style: TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+            for (final f in _free)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text('${(f['product'] as Map)['name']}'),
+                subtitle: Text('${(f['scheme'] as Map)['name']} · ${(f['scheme'] as Map)['summary']}'),
+                trailing: Text('+${fmtQty((f['qty'] as num?) ?? 0)} free',
+                    style: const TextStyle(color: AixoloColors.success, fontWeight: FontWeight.w800)),
+              ),
+            for (final m in _manual)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text('${m['name']}'),
+                subtitle: Text('${m['reason']}'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('+${fmtQty(m['qty'] as num)} free',
+                        style: const TextStyle(color: AixoloColors.success, fontWeight: FontWeight.w800)),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      onPressed: () => setState(() => _manual.remove(m)),
+                    ),
+                  ],
+                ),
+              ),
+            if (_freeChecked && _free.isEmpty && _manual.isEmpty)
+              const Text('No scheme applies to this cart.', style: TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+          ],
           const Divider(),
           ListTile(
             contentPadding: EdgeInsets.zero,
