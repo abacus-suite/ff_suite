@@ -95,7 +95,8 @@ export class AixoloPanel extends Component {
                        date_from: null, date_to: null },
             calendar: null,
             page: 1,
-            pageSize: 25,
+            pageSize: 10,
+            rowSearch: "",
             calendarMonth: null,
             attendanceView: "summary",
             openDay: null,
@@ -853,6 +854,7 @@ export class AixoloPanel extends Component {
         }
         this.state.reportLoading = true;
         this.state.page = 1;
+        this.state.rowSearch = "";
         await this.loadOptions();
         this.state.report = await this.orm.call("ff.dashboard", method, [
             this.state.period,
@@ -862,8 +864,71 @@ export class AixoloPanel extends Component {
     }
 
     // -- pages for the records tables -------------------------------------
+    /** Rows after the table's own search box. */
+    get filteredRows() {
+        const rows = (this.state.report && this.state.report.rows) || [];
+        const needle = (this.state.rowSearch || "").trim().toLowerCase();
+        if (!needle) {
+            return rows;
+        }
+        return rows.filter((row) =>
+            Object.values(row).some((value) => typeof value === "string" && value.toLowerCase().includes(needle))
+        );
+    }
+
+    searchRows(ev) {
+        this.state.rowSearch = ev.target.value;
+        this.state.page = 1;
+    }
+
+    get sectionSubtitle() {
+        return {
+            attendance: "Track your team's attendance and working hours",
+            leaves: "Time off requests, approvals and who is away",
+            expenses: "Claims raised, waiting and approved",
+            orders: "What the team sold and where",
+            visits: "Customer visits, onsite and offsite",
+            demands: "Outlet demands and how they were quoted",
+            collections: "Payments collected and deposited",
+            targets: "Targets set against what was achieved",
+        }[this.state.section] || "";
+    }
+
+    /** The five attendance figures, with a line and the change on the day before. */
+    get attendanceKpis() {
+        const report = this.state.report;
+        const series = report.series || [];
+        const pick = (key) => series.map((row) => row[key] || 0);
+        const change = (values) => {
+            if (values.length < 2) {
+                return null;
+            }
+            const [before, now] = values.slice(-2);
+            return before ? Math.round(((now - before) / before) * 100) : now ? 100 : 0;
+        };
+        const present = pick("present");
+        const late = pick("late");
+        const absent = pick("absent");
+        const punches = pick("punches").some(Boolean) ? pick("punches") : present.map((v, i) => v + late[i]);
+        return [
+            { key: "total", label: "Total Employees", value: report.kpis.headcount, icon: "fa-users", color: "#1a56db",
+              change: null, series: null,
+              open: () => this.openModel("hr.employee", "Employees", [["id", "in", this.reportEmployeeIds]]) },
+            { key: "present", label: "Present Today", value: report.kpis.present_today, icon: "fa-check", color: "#16a34a",
+              change: change(present), series: present, open: () => this.drillAttendance() },
+            { key: "late", label: "Late Punches", value: report.kpis.late, icon: "fa-clock-o", color: "#f59e0b",
+              change: change(late), series: late, bad: true,
+              open: () => this.drillAttendance([["ff_late_minutes", ">", 0]]) },
+            { key: "absent", label: "Absent Today", value: absent.length ? absent[absent.length - 1] : 0,
+              icon: "fa-times", color: "#dc2626", change: change(absent), series: absent, bad: true,
+              open: () => this.drillAttendance() },
+            { key: "punches", label: "Total Punches", value: report.kpis.punches, icon: "fa-hourglass-half",
+              color: "#7c5cfc", change: change(punches), series: punches, open: () => this.drillAttendance() },
+        ];
+    }
+
     get pageInfo() {
-        const total = (this.state.report && this.state.report.rows || []).length;
+        const total = this.filteredRows.length;
         const pages = Math.max(1, Math.ceil(total / this.state.pageSize));
         const page = Math.min(Math.max(1, this.state.page), pages);
         return {
@@ -876,7 +941,7 @@ export class AixoloPanel extends Component {
     }
 
     get pagedRows() {
-        const rows = (this.state.report && this.state.report.rows) || [];
+        const rows = this.filteredRows;
         const { page } = this.pageInfo;
         return rows.slice((page - 1) * this.state.pageSize, page * this.state.pageSize);
     }

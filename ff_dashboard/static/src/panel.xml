@@ -946,22 +946,21 @@
             <!-- Report sections: attendance, leaves, expenses, orders -->
             <div class="ff_panel_main flex-grow-1 overflow-auto"
                  t-if="['attendance', 'leaves', 'expenses', 'orders', 'visits', 'demands', 'collections', 'targets'].includes(state.section)">
-                <div class="ff_panel_head d-flex align-items-center gap-2 flex-wrap">
-                    <div class="ff_card_head mb-0">
-                        <div class="ff_card_icon">
-                            <i class="fa" t-att-class="sections.find((s) => s.key === state.section).icon"/>
-                        </div>
-                        <div>
-                            <div class="ff_card_title" t-esc="sections.find((s) => s.key === state.section).label"/>
-                            <div class="ff_card_sub">
-                                <t t-esc="state.report ? state.report.period_label : ''"/>
-                                <t t-if="state.report"> · <t t-esc="state.report.employee_ids.length"/> employees</t>
-                            </div>
-                        </div>
+                <div class="ff_panel_head ff_section_head d-flex align-items-center gap-3 flex-wrap">
+                    <div class="ff_section_icon">
+                        <i class="fa" t-att-class="sections.find((s) => s.key === state.section).icon"/>
                     </div>
-                    <button class="ff_chip_btn ms-auto" title="Download this report as Excel"
+                    <div>
+                        <h3 class="ff_section_title mb-0" t-esc="sections.find((s) => s.key === state.section).label"/>
+                        <div class="ff_section_sub" t-esc="sectionSubtitle"/>
+                    </div>
+                    <span class="ff_date_chip ms-auto" t-if="state.report and state.report.period_label">
+                        <i class="fa fa-calendar me-2"/><t t-esc="state.report.period_label"/>
+                    </span>
+                    <button class="ff_outline_btn" title="Download this report as Excel"
+                            t-att-class="state.report and state.report.period_label ? '' : 'ms-auto'"
                             t-att-disabled="state.exporting or !state.report" t-on-click="() => this.exportSection()">
-                        <i class="fa me-1" t-att-class="state.exporting ? 'fa-spinner fa-spin' : 'fa-file-excel-o'"/>Excel
+                        <i class="fa me-1" t-att-class="state.exporting ? 'fa-spinner fa-spin' : 'fa-download'"/>Export
                     </button>
                     <button class="ff_icon_btn" title="Refresh" t-on-click="() => this.refreshSection()">
                         <i class="fa fa-refresh"/>
@@ -969,7 +968,7 @@
                 </div>
 
                 <div class="ff_filter_bar" t-if="state.options">
-                    <span class="ff_filter_label"><i class="fa fa-calendar me-1"/>Period</span>
+                    <span class="ff_filter_label">Period</span>
                     <select class="form-select form-select-sm ff_mini_select" t-on-change="choosePeriod">
                         <option t-foreach="periodChoices" t-as="choice" t-key="choice.key"
                                 t-att-value="choice.key" t-att-selected="state.period === choice.key"
@@ -987,7 +986,7 @@
                     <span class="ff_chip" t-if="state.report and state.report.period_label"
                           t-esc="state.report.period_label"/>
 
-                    <span class="ff_filter_label ms-2"><i class="fa fa-filter me-1"/>Filter</span>
+                    <span class="ff_filter_label ms-2">Employee</span>
                     <select class="form-select form-select-sm ff_mini_select"
                             t-on-change="(ev) => this.setFilter('employee_id', ev)">
                         <option value="">All employees</option>
@@ -996,6 +995,7 @@
                             <t t-esc="row.name"/><t t-if="row.code"> (<t t-esc="row.code"/>)</t>
                         </option>
                     </select>
+                    <span class="ff_filter_label ms-2">Department</span>
                     <select class="form-select form-select-sm ff_mini_select"
                             t-on-change="(ev) => this.setFilter('department_id', ev)">
                         <option value="">All departments</option>
@@ -1003,6 +1003,7 @@
                                 t-att-value="row.id" t-att-selected="state.filters.department_id === row.id"
                                 t-esc="row.name"/>
                     </select>
+                    <span class="ff_filter_label ms-2">Team</span>
                     <select class="form-select form-select-sm ff_mini_select"
                             t-on-change="(ev) => this.setFilter('team_id', ev)">
                         <option value="">All teams</option>
@@ -1013,9 +1014,7 @@
                     <button class="ff_chip_btn" t-if="filterCount" t-on-click="clearFilters">
                         <i class="fa fa-times me-1"/>Clear <t t-esc="filterCount"/>
                     </button>
-                    <span class="ms-auto small text-muted" t-if="state.report">
-                        <t t-esc="state.report.employee_ids.length"/> employees in this report
-                    </span>
+                    <button class="ff_btn_primary ms-auto" t-on-click="() => this.refreshSection()">Apply</button>
                 </div>
 
                 <t t-if="state.reportLoading">
@@ -1107,7 +1106,7 @@
 
                     <!-- Attendance -->
                     <t t-if="state.section === 'attendance' and state.report.series">
-                        <div class="d-flex align-items-center gap-2 mt-3">
+                        <div class="d-flex align-items-center gap-2 mt-3" t-if="state.attendanceView === 'calendar'">
                             <div class="ff_seg">
                                 <button class="ff_seg_btn"
                                         t-att-class="state.attendanceView === 'summary' ? 'ff_seg_btn_active' : ''"
@@ -1265,31 +1264,50 @@
                         </t>
 
                         <t t-else="">
-                        <div class="row g-3 mt-0">
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#1a56db" t-on-click="() => this.openModel('hr.employee', 'Employees', [['id', 'in', reportEmployeeIds]])" role="button">
-                                <div class="ff_card_title">Headcount</div>
-                                <div class="ff_big" t-esc="state.report.kpis.headcount"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#16a34a" t-on-click="() => this.drillAttendance([['check_in', '>=', state.report.end + ' 00:00:00']])" role="button">
-                                <div class="ff_card_title">Present today</div>
-                                <div class="ff_big text-success" t-esc="state.report.kpis.present_today"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#f59e0b" t-on-click="() => this.drillAttendance([['ff_late_minutes', '>', 0]])" role="button">
-                                <div class="ff_card_title">Late punches</div>
-                                <div class="ff_big text-warning" t-esc="state.report.kpis.late"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#7c5cfc" t-on-click="() => this.drillAttendance()" role="button">
-                                <div class="ff_card_title">Punches</div>
-                                <div class="ff_big" t-esc="state.report.kpis.punches"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#14d3c0" t-on-click="() => this.drillAttendance()" role="button">
-                                <div class="ff_card_title">Hours worked</div>
-                                <div class="ff_big" t-esc="state.report.kpis.hours"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#1e90ff" t-on-click="() => this.drillAttendance()" role="button">
-                                <div class="ff_card_title">Avg per punch</div>
-                                <div class="ff_big"><t t-esc="state.report.kpis.avg_hours"/> h</div></div></div>
+                        <!-- Five figures, each with its own line through the period -->
+                        <div class="ff_att_kpis mt-3">
+                            <t t-foreach="attendanceKpis" t-as="kpi" t-key="kpi.key">
+                                <div class="ff_card ff_att_kpi" t-attf-style="--tile: {{kpi.color}}" role="button"
+                                     t-on-click="kpi.open">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="ff_att_kpi_icon"><i class="fa" t-att-class="kpi.icon"/></div>
+                                        <div class="min-width-0">
+                                            <div class="ff_att_kpi_label" t-esc="kpi.label"/>
+                                            <div class="ff_att_kpi_value" t-esc="kpi.value"/>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-end mt-2">
+                                        <span t-if="kpi.change !== null" class="ff_trend"
+                                              t-att-class="kpi.change > 0 ? (kpi.bad ? 'ff_trend_down' : 'ff_trend_up') : kpi.change &lt; 0 ? (kpi.bad ? 'ff_trend_up' : 'ff_trend_down') : 'ff_trend_flat'">
+                                            <i class="fa" t-att-class="kpi.change > 0 ? 'fa-arrow-up' : kpi.change &lt; 0 ? 'fa-arrow-down' : 'fa-minus'"/>
+                                            <t t-esc="Math.abs(kpi.change)"/>%
+                                        </span>
+                                        <svg t-if="kpi.series" class="ff_spark ms-auto" viewBox="0 0 100 40" preserveAspectRatio="none">
+                                            <path t-att-d="spark(kpi.series)" fill="none" t-attf-stroke="{{kpi.color}}"
+                                                  stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                        <i t-else="" class="fa ff_counter_ghost ms-auto" t-att-class="kpi.icon"/>
+                                    </div>
+                                </div>
+                            </t>
                         </div>
 
                         <div class="ff_card mt-3">
-                            <div class="ff_card_head">
-                                <div class="ff_card ff_centered_icon"><i class="fa fa-bar-chart"/></div>
-                                <div class="ff_card_title">Present each day</div>
+                            <div class="d-flex align-items-center gap-3 flex-wrap mb-2">
+                                <div class="ff_card_icon"><i class="fa fa-bar-chart"/></div>
+                                <div>
+                                    <div class="ff_card_title">Attendance Overview</div>
+                                    <div class="ff_card_sub">Present, late and absent count for each day</div>
+                                </div>
+                                <div class="ff_chart_legend mx-auto">
+                                    <span><span class="ff_dot" style="background:#16A34A"/>Present</span>
+                                    <span><span class="ff_dot" style="background:#F59E0B"/>Late</span>
+                                    <span><span class="ff_dot" style="background:#DC2626"/>Absent</span>
+                                </div>
+                                <div class="ff_seg">
+                                    <button class="ff_seg_btn ff_seg_btn_active">Summary</button>
+                                    <button class="ff_seg_btn" t-on-click="() => this.setAttendanceView('calendar')">Calendar</button>
+                                </div>
                             </div>
                             <FfChart type="'bar'"
                                      labels="chartLabels(state.report.series)"
@@ -1297,50 +1315,72 @@
                                         {label: 'Present', data: chartValues(state.report.series, 'present'), color: '#16a34a'},
                                         {label: 'Late', data: chartValues(state.report.series, 'late'), color: '#f59e0b'},
                                         {label: 'Absent', data: chartValues(state.report.series, 'absent'), color: '#dc2626'}]"
-                                     stacked="true"
-                                     height="240"/>
+                                     stacked="true" legend="false"
+                                     height="260"/>
                         </div>
 
                         <div class="ff_card mt-3 mb-3">
-                            <div class="ff_card_head">
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
                                 <div class="ff_card_icon"><i class="fa fa-list"/></div>
-                                <div class="ff_card_title">Muster</div>
+                                <div class="ff_card_title">Employee Attendance</div>
+                                <div class="ff_search_box ms-auto">
+                                    <i class="fa fa-search"/>
+                                    <input type="text" class="form-control form-control-sm" placeholder="Search employee..."
+                                           t-att-value="state.rowSearch" t-on-input="searchRows"/>
+                                </div>
+                                <button class="ff_outline_btn" t-on-click="() => this.exportSection()">
+                                    <i class="fa fa-download me-1"/>Export
+                                </button>
                             </div>
-                            <div class="ff_table_scroll"><table class="table ff_table align-middle mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Employee</th>
-                                        <th class="text-end">Present</th>
-                                        <th class="text-end">Absent</th>
-                                        <th class="text-end">Late</th>
-                                        <th class="text-end">Hours</th>
-                                        <th class="text-end">Avg / day</th>
-                                        <th>Last punch</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr t-foreach="pagedRows" t-as="row" t-key="row.id" class="ff_row"
-                                        t-on-click="() => this.openEmployee(row)">
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <img class="ff_avatar" t-att-src="row.avatar" alt=""/>
-                                                <div>
-                                                    <div class="fw-bold" t-esc="row.name"/>
-                                                    <div class="small text-muted" t-if="row.code" t-esc="row.code"/>
+                            <div class="ff_table_scroll">
+                                <table class="table ff_table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 44px;">#</th>
+                                            <th>Employee</th>
+                                            <th class="text-center">Present</th>
+                                            <th class="text-center">Absent</th>
+                                            <th class="text-center">Late</th>
+                                            <th class="text-center">Hours</th>
+                                            <th class="text-center">Avg / Day</th>
+                                            <th>Last Punch</th>
+                                            <th class="text-center" style="width: 60px;"/>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="pagedRows" t-as="row" t-key="row.id" class="ff_row"
+                                            t-on-click="() => this.openEmployee(row)">
+                                            <td class="text-muted" t-esc="pageInfo.from + row_index"/>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <img class="ff_avatar ff_avatar_round" t-att-src="row.avatar" alt=""/>
+                                                    <div>
+                                                        <div class="fw-bold" t-esc="row.name"/>
+                                                        <div class="small text-muted" t-if="row.code" t-esc="row.code"/>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td class="text-end fw-bold text-success" t-esc="row.present"/>
-                                        <td class="text-end" t-att-class="row.absent ? 'text-danger' : 'text-muted'"
-                                            t-esc="row.absent"/>
-                                        <td class="text-end" t-att-class="row.late ? 'text-warning' : 'text-muted'"
-                                            t-esc="row.late"/>
-                                        <td class="text-end" t-esc="row.hours"/>
-                                        <td class="text-end" t-esc="row.avg_hours"/>
-                                        <td class="small text-muted" t-esc="row.last_in ? ago(row.last_in) : '-'"/>
-                                    </tr>
-                                </tbody>
-                            </table></div>
+                                            </td>
+                                            <td class="text-center fw-bold text-success" t-esc="row.present"/>
+                                            <td class="text-center fw-bold" t-att-class="row.absent ? 'text-danger' : 'text-muted'"
+                                                t-esc="row.absent"/>
+                                            <td class="text-center" t-att-class="row.late ? 'text-warning fw-bold' : 'text-muted'"
+                                                t-esc="row.late"/>
+                                            <td class="text-center fw-bold" t-esc="row.hours"/>
+                                            <td class="text-center" t-esc="row.avg_hours"/>
+                                            <td class="small text-muted" t-esc="row.last_in ? ago(row.last_in) : '-'"/>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm ff_more" title="Open"
+                                                        t-on-click.stop="() => this.openEmployee(row)">
+                                                    <i class="fa fa-ellipsis-h"/>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr t-if="!pagedRows.length">
+                                            <td colspan="9" class="text-muted">Nobody matches this search.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                             <t t-call="ff_dashboard.Pager"/>
                         </div>
                         </t>

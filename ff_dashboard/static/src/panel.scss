@@ -1981,4 +1981,115 @@
             opacity: 0.4;
         }
     }
+
+    // ---- section header and attendance -------------------------------------
+    .ff_section_head {
+        padding: 16px 20px;
+    }
+
+    .ff_section_icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+        color: var(--ff-primary);
+        background: var(--ff-primary-soft);
+    }
+
+    .ff_section_title {
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: -0.4px;
+    }
+
+    .ff_section_sub {
+        font-size: 13px;
+        color: var(--ff-muted);
+    }
+
+    .ff_date_chip {
+        font-size: 13px;
+        font-weight: 600;
+        padding: 8px 14px;
+        border-radius: 12px;
+        border: 1px solid var(--ff-line);
+        background: #fff;
+    }
+
+    .ff_outline_btn {
+        font-size: 13px;
+        font-weight: 700;
+        padding: 7px 14px;
+        border-radius: 12px;
+        color: var(--ff-primary);
+        background: #fff;
+        border: 1.5px solid color-mix(in srgb, var(--ff-primary) 35%, #fff);
+
+        &:hover:not(:disabled) {
+            background: var(--ff-primary-soft);
+        }
+    }
+
+    .ff_filter_label {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--ff-muted);
+    }
+
+    .ff_att_kpis {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 14px;
+
+        @media (max-width: 1400px) {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        @media (max-width: 800px) {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    .ff_att_kpi {
+        cursor: pointer;
+        padding: 16px;
+    }
+
+    .ff_att_kpi_icon {
+        width: 44px;
+        height: 44px;
+        flex: none;
+        border-radius: 13px;
+        display: grid;
+        place-items: center;
+        font-size: 17px;
+        color: var(--tile);
+        background: color-mix(in srgb, var(--tile) 13%, #fff);
+    }
+
+    .ff_att_kpi_label {
+        font-size: 12.5px;
+        color: var(--ff-muted);
+        font-weight: 600;
+    }
+
+    .ff_att_kpi_value {
+        font-size: 26px;
+        font-weight: 800;
+        line-height: 1.1;
+    }
+
+    .ff_trend_flat {
+        color: var(--ff-muted);
+        background: #eef1f7;
+    }
+
+    .ff_chart_legend {
+        display: flex;
+        gap: 18px;
+        font-size: 12.5px;
+        color: var(--ff-muted);
+    }
 }
