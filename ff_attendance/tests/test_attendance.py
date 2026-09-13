@@ -104,3 +104,15 @@ class TestFieldAttendance(TransactionCase):
         self.assertEqual(request.state, 'approved')
         self.assertEqual(request.attendance_id.check_in, datetime(2026, 1, 8, 9, 0))
         self.assertEqual(request.attendance_id.ff_source, 'regularisation')
+
+    def test_offline_punch_is_idempotent_and_keeps_time(self):
+        from datetime import datetime, timedelta, timezone
+        started = (datetime.now(timezone.utc) - timedelta(hours=4)).replace(microsecond=0)
+        data = dict(self.gps, uuid='punch-in-1', at=started.isoformat())
+        attendance = self.employee._ff_punch('in', data)
+        self.assertTrue(attendance.ff_offline)
+        self.assertEqual(attendance.check_in, started.replace(tzinfo=None))
+        self.assertEqual(self.employee._ff_punch('in', data), attendance)
+        out = self.employee._ff_punch('out', dict(self.gps, uuid='punch-out-1', at=(started + timedelta(hours=3)).isoformat()))
+        self.assertEqual(out, attendance)
+        self.assertAlmostEqual(attendance.worked_hours, 3.0, delta=0.05)
