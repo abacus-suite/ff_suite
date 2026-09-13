@@ -3,7 +3,11 @@
 A message sent from the phone is posted as the employee's Odoo user, so it shows
 up in Discuss for everyone else - and replies from Odoo show up in the app.
 """
+import base64
+import hashlib
+import hmac
 import re
+import time as clock
 from html import escape
 
 from markupsafe import Markup
@@ -47,6 +51,9 @@ def _member(channel, user):
 def _channel_data(channel, user):
     member = _member(channel, user)
     last = channel.message_ids.filtered(lambda m: m.message_type in ('comment', 'email'))[:1]
+    preview = None
+    if last:
+        preview = _text(last.body) or ('📎 %s' % last.attachment_ids[:1].name if last.attachment_ids else '')
     others = channel.channel_member_ids.partner_id - user.partner_id
     name = channel.name
     if channel.channel_type == 'chat':
@@ -59,11 +66,27 @@ def _channel_data(channel, user):
         'name': name,
         'type': channel.channel_type,
         'members': len(channel.channel_member_ids),
-        'last_message': _text(last.body)[:120] if last else None,
+        'last_message': preview[:120] if preview else None,
         'last_author': last.author_id.name if last else None,
         'last_at': to_iso(last.date) if last else None,
         'unread': unread,
     }
+
+
+MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
+LINK_SECONDS = 3600
+
+
+def _sign(attachment_id):
+    secret = request.env['ir.config_parameter'].sudo().get_param('database.secret').encode()
+    expires = int(clock.time()) + LINK_SECONDS
+    digest = hmac.new(secret, ('%s.%s' % (attachment_id, expires)).encode(), hashlib.sha256).hexdigest()
+    return '/api/v1/chat/file/%s?e=%s&s=%s' % (attachment_id, expires, digest)
+
+
+def _attachment_data(attachment):
+    return {'id': attachment.id, 'name': attachment.name, 'mimetype': attachment.mimetype or '',
+            'size': attachment.file_size, 'url': _sign(attachment.id)}
 
 
 def _message_data(message, user):
@@ -74,7 +97,7 @@ def _message_data(message, user):
         'mine': message.author_id == user.partner_id,
         'body': _text(message.body),
         'at': to_iso(message.date),
-        'attachments': [{'id': a.id, 'name': a.name} for a in message.attachment_ids],
+        'attachments': [_attachment_data(a) for a in message.attachment_ids],
     }
 
 
@@ -143,13 +166,49 @@ class FieldForceChatApi(http.Controller):
     def post(self, employee, channel_id, **kw):
         user = _user(employee)
         channel = _channel(user, channel_id)
-        text = (body().get('body') or '').strip()
-        if not text:
-            raise ApiError('Write a message first.')
-        html = Markup('<br/>').join(Markup(escape(line)) for line in text[:4000].split('\n'))
+        data = body()
+        text = (data.get('body') or '').strip()
+        files = [f for f in (data.get('attachments') or []) if isinstance(f, dict) and f.get('data')][:10]
+        if not text and not files:
+            raise ApiError('Write a message or add a file.')
+        attachments = request.env['ir.attachment'].sudo()
+        for item in files:
+            raw = item['data'].split(',', 1)[1] if ',' in item['data'][:100] else item['data']
+            try:
+                content = base64.b64decode(raw, validate=True)
+            except ValueError:
+                raise ApiError('A file could not be read.')
+            if len(content) > MAX_ATTACHMENT_BYTES:
+                raise ApiError('Files must be under 25 MB.')
+            attachments |= attachments.create({
+                'name': (item.get('name') or 'file')[:200], 'raw': content,
+                'mimetype': item.get('mimetype') or 'application/octet-stream',
+                'res_model': 'discuss.channel', 'res_id': channel.id,
+            })
+        html = Markup('<br/>').join(Markup(escape(line)) for line in text[:4000].split('\n')) if text else ''
         message = channel.sudo().with_context(mail_create_nosubscribe=True).message_post(
-            body=html, author_id=user.partner_id.id, message_type='comment', subtype_xmlid='mail.mt_comment')
+            body=html, author_id=user.partner_id.id, message_type='comment', subtype_xmlid='mail.mt_comment',
+            attachment_ids=attachments.ids)
         return ok(_message_data(message.sudo(), user), status=201)
+
+    @http.route('/api/v1/chat/file/<int:attachment_id>', type='http', auth='public', methods=['GET'],
+                csrf=False, save_session=False)
+    def file(self, attachment_id, e=None, s=None, **kw):
+        """A chat file, opened by a signed link the app got from a message (images, video, documents)."""
+        secret = request.env['ir.config_parameter'].sudo().get_param('database.secret').encode()
+        expected = hmac.new(secret, ('%s.%s' % (attachment_id, e)).encode(), hashlib.sha256).hexdigest()
+        if not s or not e or not hmac.compare_digest(expected, s) or int(e) < clock.time():
+            return request.make_response('This link has expired.', status=410)
+        attachment = request.env['ir.attachment'].sudo().browse(attachment_id).exists()
+        if not attachment or attachment.res_model != 'discuss.channel':
+            return request.not_found()
+        name = (attachment.name or 'file').replace('"', '')
+        disposition = 'inline' if (attachment.mimetype or '').startswith(('image/', 'video/')) else 'attachment'
+        return request.make_response(attachment.raw or b'', headers=[
+            ('Content-Type', attachment.mimetype or 'application/octet-stream'),
+            ('Content-Disposition', '%s; filename="%s"' % (disposition, name)),
+            ('Cache-Control', 'private, max-age=3600'),
+        ])
 
     @api_route('/api/v1/chat/channels/<int:channel_id>/seen', methods=('POST',))
     def seen(self, employee, channel_id, **kw):
