@@ -49,25 +49,25 @@ class MetricTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final (icon, colour) = metricLook(metric);
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: colour.withValues(alpha: 0.07),
+        color: colour.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(color: colour.withValues(alpha: 0.14), shape: BoxShape.circle),
-            child: Icon(icon, color: colour, size: 20),
+            child: Icon(icon, color: colour, size: 18),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontSize: 11.5, color: AixoloColors.muted)),
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AixoloColors.muted)),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
@@ -83,7 +83,7 @@ class MetricTile extends StatelessWidget {
   }
 }
 
-/// Small figure inside an employee card: icon, value, caption.
+/// Small figure inside a summary card: icon in a soft circle, value over caption.
 class _Mini extends StatelessWidget {
   const _Mini(this.metric, this.value, this.caption);
 
@@ -94,32 +94,41 @@ class _Mini extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, colour) = metricLook(metric);
-    return Row(
-      children: [
-        Icon(icon, color: colour, size: 20),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-              ),
-              Text(caption,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10.5, color: AixoloColors.muted)),
-            ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(color: colour.withValues(alpha: 0.12), shape: BoxShape.circle),
+            child: Icon(icon, color: colour, size: 18),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                ),
+                Text(caption,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: AixoloColors.muted)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-/// One person in the summary: name, value and eleven figures; tap for their report.
+/// One line of the summary (a person, a day, or everyone): header and ten figures.
 class EmployeeSummaryCard extends StatelessWidget {
   const EmployeeSummaryCard({
     super.key,
@@ -128,6 +137,8 @@ class EmployeeSummaryCard extends StatelessWidget {
     required this.saleWord,
     this.onTap,
     this.highlight = false,
+    this.subtitle,
+    this.badge,
   });
 
   final Map<String, dynamic> row;
@@ -135,6 +146,10 @@ class EmployeeSummaryCard extends StatelessWidget {
   final String saleWord;
   final VoidCallback? onTap;
   final bool highlight;
+  final String? subtitle;
+
+  /// Text in the round badge (defaults to the name's initials).
+  final String? badge;
 
   static const _tints = [
     AixoloColors.primary,
@@ -147,48 +162,69 @@ class EmployeeSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = '${row['employee'] ?? ''}';
-    final initials = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).take(2).map((p) => p[0]).join().toUpperCase();
+    final initials = badge ??
+        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).take(2).map((p) => p[0]).join().toUpperCase();
     final tint = _tints[name.hashCode.abs() % _tints.length];
     String n(String k) => '${(row[k] as num?)?.toInt() ?? 0}';
     return Card(
+      margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: highlight ? AixoloColors.primary : AixoloColors.border, width: highlight ? 1.5 : 1),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
           child: Column(
             children: [
               Row(
                 children: [
                   CircleAvatar(
-                    radius: 22,
+                    radius: 26,
                     backgroundColor: tint.withValues(alpha: 0.12),
-                    child: Text(initials, style: TextStyle(color: tint, fontWeight: FontWeight.w800)),
+                    child: Text(initials,
+                        style: TextStyle(color: tint, fontWeight: FontWeight.w800, fontSize: 17)),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16.5)),
+                        if (subtitle != null)
+                          Text(subtitle!, style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+                      ],
+                    ),
                   ),
-                  Text(_money(row['sales'] as num?, currency),
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AixoloColors.primary)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(_money(row['sales'] as num?, currency),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w900, fontSize: 16.5, color: AixoloColors.primary)),
+                      const Text('Total value', style: TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                    ],
+                  ),
                   if (onTap != null) const Icon(Icons.chevron_right_rounded, color: AixoloColors.muted),
                 ],
               ),
               const SizedBox(height: 12),
-              _grid([
+              _row([
                 _Mini('days', n('days'), 'Days worked'),
                 _Mini('hours', fmtHours(row['hours'] as num?), 'Hours'),
                 _Mini('late', n('late'), 'Late days'),
+              ]),
+              _row([
                 _Mini('visits', n('visits'), 'Visits'),
                 _Mini('offsite', n('offsite'), 'Offsite'),
                 _Mini('orders', n('orders'), saleWord),
+              ]),
+              _row([
                 _Mini('collections', _money(row['collections'] as num?, currency), 'Collected'),
                 _Mini('expenses', _money(row['expenses'] as num?, currency), 'Expenses'),
                 _Mini('customers', n('customers'), 'New customers'),
@@ -201,17 +237,21 @@ class EmployeeSummaryCard extends StatelessWidget {
     );
   }
 
-  Widget _grid(List<Widget> items) {
-    // Rows of three, then a last row of four for money and distance.
-    final rows = [items.sublist(0, 3), items.sublist(3, 6), items.sublist(6)];
-    return Column(
-      children: [
-        for (final r in rows)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: Row(children: [for (final w in r) Expanded(child: w)]),
-          ),
-      ],
+  /// Equal columns with thin dividers between them, all rows the same height.
+  Widget _row(List<Widget> items) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const VerticalDivider(width: 1, thickness: 1, color: AixoloColors.border),
+              Expanded(child: Center(child: items[i])),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

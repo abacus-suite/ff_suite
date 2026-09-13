@@ -489,6 +489,8 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
               currency: currency,
               saleWord: saleWord,
               highlight: i == 0 && rows.length > 1,
+              subtitle: _by == 'overall' ? 'Team summary' : 'Tap for the full report',
+              badge: _by == 'overall' ? '${RegExp(r'd+').firstMatch('${row['employee']}')?.group(0) ?? ''}E' : null,
               onTap: _by == 'overall'
                   ? null
                   : () {
@@ -516,6 +518,8 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
               row: {...row, 'employee': _prettyDate('${row['date']}')},
               currency: currency,
               saleWord: saleWord,
+              subtitle: _weekdayOf('${row['date']}'),
+              badge: '${DateTime.tryParse('${row['date']}')?.day ?? ''}',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => VisitDetailsScreen(
                   memberId: _member,
@@ -528,6 +532,11 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
       );
     }
     return _list(((_data?['columns'] as List?) ?? []).cast<Map<String, dynamic>>(), rows);
+  }
+
+  static String _weekdayOf(String iso) {
+    final d = DateTime.tryParse(iso);
+    return d == null ? '' : const ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][d.weekday - 1];
   }
 
   static IconData _viewIcon(_View v) => switch (v) {
@@ -711,19 +720,25 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
       for (final c in columns)
         if (totals.containsKey(c['key'])) ('${c['key']}', '${c['label']}', _format(c, totals[c['key']])),
     ];
-    return SizedBox(
-      height: 82,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-        children: [
-          for (final item in items)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: SizedBox(width: 150, child: MetricTile(metric: item.$1, label: item.$2, value: item.$3)),
-            ),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, box) {
+        // Exactly three tiles fill the width; more slide in from the right.
+        final width = (box.maxWidth - 24 - 16) / 3;
+        return SizedBox(
+          height: 84,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+            children: [
+              for (final (i, item) in items.indexed)
+                Padding(
+                  padding: EdgeInsets.only(right: i == items.length - 1 ? 0 : 8),
+                  child: SizedBox(width: width, child: MetricTile(metric: item.$1, label: item.$2, value: item.$3)),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
