@@ -74,10 +74,10 @@ class FieldForceReportsApi(http.Controller):
         })
 
     @api_route('/api/v1/reports/<string:key>', methods=('GET',))
-    def run(self, employee, key, start=None, end=None, member=None, **kw):
+    def run(self, employee, key, start=None, end=None, member=None, by=None, **kw):
         employees, _who = _scope(employee, member)
         low, high = _dates(employee, start, end)
-        data = request.env['ff.app.report'].ff_run(key, employee, employees, low, high)
+        data = request.env['ff.app.report'].ff_run(key, employee, employees, low, high, by=by)
         if data is None:
             raise ApiError('Unknown report.', 404, 'not_found')
         return ok(data)
@@ -89,7 +89,7 @@ class FieldForceReportsApi(http.Controller):
         _scope(employee, member)
         low, high = _dates(employee, start, end)
         token = _sign({'e': employee.id, 'k': key, 's': low.isoformat(), 'n': high.isoformat(),
-                       'm': member or 'me', 'x': int(clock.time()) + LINK_SECONDS})
+                       'm': member or 'me', 'b': data.get('by'), 'x': int(clock.time()) + LINK_SECONDS})
         # A path: the app puts it on the server address it already talks to.
         return ok({'path': '/api/v1/reports/download?t=%s' % token, 'expires_in': LINK_SECONDS})
 
@@ -110,7 +110,7 @@ class FieldForceReportsApi(http.Controller):
             return request.not_found()
         low, high = fields.Date.to_date(payload['s']), fields.Date.to_date(payload['n'])
         Report = request.env['ff.app.report'].sudo()
-        data = Report.ff_run(payload['k'], employee, employees, low, high)
+        data = Report.ff_run(payload['k'], employee, employees, low, high, by=payload.get('b'))
         if data is None:
             return request.not_found()
         content = Report.ff_xlsx(data, who)

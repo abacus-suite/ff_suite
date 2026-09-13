@@ -76,6 +76,8 @@ class FfLeaderReports(models.AbstractModel):
                 col('visits', 'Visits', NUMBER, True), col('orders', '%s count' % sale_word, NUMBER, True),
                 col('sales', sale_word, MONEY, True), col('collections', 'Collected', MONEY, True),
                 col('expenses', 'Expenses', MONEY, True), col('km', 'Distance', KM, True)], self._daily_summary),
+            'summary': ('Summary report', 'Overall, or by employee, day, week, month, customer, product or route',
+                        'summarize', 'hr.attendance', self._summary_columns(sale_word), self._summary),
             'route_plans': ('Route plans', 'Planned routes per person and how they went', 'alt_route', 'ff.beat.plan', [
                 col('date', 'Date', DATE), col('employee', 'Employee'), col('route', 'Route'),
                 col('planned', 'Planned', NUMBER, True), col('visited', 'Visited', NUMBER, True),
@@ -362,6 +364,100 @@ class FfLeaderReports(models.AbstractModel):
                 'expenses': total['expenses'], 'customers': int(total['customers']), 'km': total['km'],
             }))
         return sorted(rows, key=lambda r: -r['sales'])
+
+    # One summary, split the way the reader picks (the app sends ``by``)
+    SUMMARY_BY = [('overall', 'Overall'), ('employee', 'Employee'), ('day', 'Day'), ('week', 'Week'),
+                  ('month', 'Month'), ('customer', 'Customer'), ('product', 'Product'), ('route', 'Route')]
+
+    def _summary_by(self):
+        by = self.env.context.get('ff_report_by') or 'overall'
+        return by if by in dict(self.SUMMARY_BY) else 'overall'
+
+    def _summary_columns(self, sale_word):
+        by = self._summary_by()
+        if by == 'customer':
+            return [col('customer', 'Customer'), col('city', 'City'), col('orders', 'Orders', NUMBER, True),
+                    col('sales', sale_word, MONEY, True), col('collected', 'Collected', MONEY, True),
+                    col('difference', 'Not collected', MONEY, True), col('last_visit', 'Last visit', DATE)]
+        if by == 'product':
+            return [col('product', 'Product'), col('sku', 'SKU'), col('quantity', 'Quantity', NUMBER, True),
+                    col('outlets', 'Outlets', NUMBER), col('amount', 'Value', MONEY, True)]
+        if by == 'route':
+            return [col('route', 'Route'), col('days', 'Days planned', NUMBER, True),
+                    col('planned', 'Planned', NUMBER, True), col('visited', 'Visited', NUMBER, True),
+                    col('missed', 'Missed', NUMBER, True), col('completion', 'Done %', NUMBER),
+                    col('km', 'Actual km', KM, True)]
+        first = {'overall': col('employee', 'People'), 'employee': col('employee', 'Employee'),
+                 'day': col('date', 'Date', DATE), 'week': col('date', 'Week of', DATE),
+                 'month': col('date', 'Month', DATE)}[by]
+        return [first, col('days', 'Days worked', NUMBER, True), col('hours', 'Hours', HOURS, True),
+                col('late', 'Late days', NUMBER, True), col('visits', 'Visits', NUMBER, True),
+                col('offsite', 'Offsite', NUMBER, True), col('orders', '%s count' % sale_word, NUMBER, True),
+                col('sales', sale_word, MONEY, True), col('collections', 'Collected', MONEY, True),
+                col('expenses', 'Expenses', MONEY, True), col('customers', 'New customers', NUMBER, True),
+                col('km', 'Distance', KM, True)]
+
+    def _summary(self, employees, start, end):
+        by = self._summary_by()
+        if by == 'customer':
+            return self._customer_sales(employees, start, end)
+        if by == 'product':
+            return self._product_sales(employees, start, end)
+        if by == 'route':
+            rows = {}
+            for plan in self._route_plans(employees, start, end):
+                row = rows.setdefault(plan['route'], {'route': plan['route'], 'days': 0, 'planned': 0,
+                                                      'visited': 0, 'missed': 0, 'km': 0.0})
+                row['days'] += 1
+                for key in ('planned', 'visited', 'missed', 'km'):
+                    row[key] += plan[key]
+            for row in rows.values():
+                row['completion'] = round(row['visited'] * 100.0 / row['planned'], 1) if row['planned'] else 0.0
+                row['km'] = round(row['km'], 1)
+            return sorted(rows.values(), key=lambda r: -r['visited'])
+        facts = self._summary_facts(employees, start, end)
+        names = {e.id: e.name for e in employees}
+
+        def bucket(employee_id, day):
+            if by == 'overall':
+                return 'all'
+            if by == 'employee':
+                return names.get(employee_id, '')
+            if by == 'week':
+                return (day - timedelta(days=day.weekday())).isoformat()
+            if by == 'month':
+                return day.replace(day=1).isoformat()
+            return day.isoformat()
+
+        totals = defaultdict(lambda: defaultdict(float))
+        for (employee_id, day), values in facts.items():
+            total = totals[bucket(employee_id, day)]
+            for key, value in values.items():
+                total[key] += value
+        if by == 'overall':
+            keys = ['all']
+        elif by == 'employee':
+            keys = sorted(names.values())  # everyone, even with nothing to show
+        else:
+            keys = sorted(totals, reverse=True)
+        rows = []
+        for key in keys:
+            total = totals[key]
+            row = {'days': int(total['present']), 'hours': total['hours'], 'late': int(total['late']),
+                   'visits': int(total['visits']), 'offsite': int(total['offsite']),
+                   'orders': int(total['orders']), 'sales': total['sales'],
+                   'collections': total['collections'], 'expenses': total['expenses'],
+                   'customers': int(total['customers']), 'km': total['km']}
+            if by == 'overall':
+                row['employee'] = '%s employee%s' % (len(employees), '' if len(employees) == 1 else 's')
+            elif by == 'employee':
+                row['employee'] = key
+            else:
+                row['date'] = key
+            rows.append(self._round_row(row))
+        if by == 'employee':
+            rows.sort(key=lambda r: -r['sales'])
+        return rows
 
     def _daily_summary(self, employees, start, end):
         facts = self._summary_facts(employees, start, end)

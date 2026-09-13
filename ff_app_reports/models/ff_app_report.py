@@ -78,19 +78,23 @@ class FfAppReport(models.AbstractModel):
     @api.model
     def ff_catalogue(self):
         # The app lists the one the company works with; both still run for the panel.
-        hide = 'orders' if self._order_flow() == 'demand' and 'ff.demand' in self.env else 'demands'
-        return [{'key': key, 'title': d[0], 'description': d[1], 'icon': d[2]}
-                for key, d in self._definitions().items() if key != hide]
+        hide = {'orders' if self._order_flow() == 'demand' and 'ff.demand' in self.env else 'demands',
+                # Folded into the one summary report, which is split inside.
+                'team_summary', 'daily_summary'}
+        split = [{'key': k, 'label': v} for k, v in getattr(self, 'SUMMARY_BY', [])]
+        return [dict({'key': key, 'title': d[0], 'description': d[1], 'icon': d[2]},
+                     **({'by': split} if key == 'summary' else {}))
+                for key, d in self._definitions().items() if key not in hide]
 
     @api.model
-    def ff_run(self, key, viewer, employees, start, end):
+    def ff_run(self, key, viewer, employees, start, end, by=None):
         """Rows of report ``key`` for ``employees``, local dates ``start``..``end`` inclusive.
 
         ``viewer`` is the app user; their timezone decides where a day begins.
         """
         # The viewer goes into the context before the builders are bound:
         # each one reads it to know where the viewer's day starts and ends.
-        report = self.with_context(ff_report_viewer=viewer.id)
+        report = self.with_context(ff_report_viewer=viewer.id, ff_report_by=by)
         definition = report._definitions().get(key)
         if not definition:
             return None
@@ -164,6 +168,19 @@ class FfAppReport(models.AbstractModel):
                 'km': round(tracks.get((att.employee_id.id, day), 0.0), 1) if first_of_day else 0.0,
                 'status': 'Checked out' if att.check_out else 'On duty',
             })
+        # Approved time off, one row a day, so a calendar shows leave next to work.
+        if 'hr.leave' in self.env:
+            for leave in self.env['hr.leave'].sudo().search([
+                    ('employee_id', 'in', employees.ids), ('state', '=', 'validate'),
+                    ('request_date_from', '<=', end), ('request_date_to', '>=', start)]):
+                day = max(leave.request_date_from, start)
+                while day <= min(leave.request_date_to, end):
+                    if (leave.employee_id.id, day) not in seen:
+                        rows.append({'date': day.isoformat(), 'employee': leave.employee_id.name,
+                                     'check_in': None, 'check_out': None, 'hours': 0.0, 'km': 0.0,
+                                     'status': 'On leave'})
+                    day += timedelta(days=1)
+            rows.sort(key=lambda r: (r['date'], r['check_in'] or ''))
         rows.reverse()
         return rows
 
