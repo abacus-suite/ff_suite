@@ -6,8 +6,9 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/group_kit.dart';
+import 'report_views.dart';
 
-enum _View { list, table }
+enum _View { list, table, chart, pivot, map }
 
 /// One report: pick the period and whose rows, read it as cards or a table,
 /// and download it as an Excel sheet.
@@ -334,7 +335,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
             }),
           ),
           if (!_collapsed.contains(g.$1))
-            _view == _View.list
+            _view != _View.table
                 ? _list(columns, g.$3, nested: true)
                 : _table(columns, g.$3, _sumOf(columns, g.$3), nested: true),
         ],
@@ -360,13 +361,23 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
       appBar: AppBar(
         title: Text('${widget.report['title']}'),
         actions: [
-          IconButton(
-            tooltip: _view == _View.list ? 'Table view' : 'List view',
-            icon: Icon(_view == _View.list
-                ? Icons.table_chart_rounded
-                : Icons.view_agenda_rounded),
-            onPressed: () => setState(
-                () => _view = _view == _View.list ? _View.table : _View.list),
+          PopupMenuButton<_View>(
+            tooltip: 'Change view',
+            initialValue: _view,
+            icon: Icon(_viewIcon(_view)),
+            onSelected: (v) => setState(() => _view = v),
+            itemBuilder: (_) => [
+              for (final v in _View.values)
+                if (v != _View.map || reportHasPlaces(allRows))
+                  PopupMenuItem(
+                    value: v,
+                    child: Row(children: [
+                      Icon(_viewIcon(v), size: 20, color: AixoloColors.primary),
+                      const SizedBox(width: 10),
+                      Text(_viewLabel(v)),
+                    ]),
+                  ),
+            ],
           ),
           IconButton(
             tooltip: 'Download Excel',
@@ -399,7 +410,19 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
                                 style: TextStyle(color: AixoloColors.muted)))
                         : RefreshIndicator(
                             onRefresh: _load,
-                            child: _groupBy != 'none'
+                            child: _view == _View.chart
+                                ? ReportChartView(
+                                    key: ValueKey('chart$_groupBy'),
+                                    columns: columns,
+                                    rows: rows,
+                                    currency: data?['currency'] as String?,
+                                    initialDimension: _groupBy)
+                                : _view == _View.pivot
+                                ? ReportPivotView(columns: columns, rows: rows, currency: data?['currency'] as String?)
+                                : _view == _View.map
+                                ? ReportMapView(
+                                    columns: columns, rows: rows, currency: data?['currency'] as String?, format: _format)
+                                : _groupBy != 'none'
                                 ? _grouped(columns, rows)
                                 : _view == _View.list
                                     ? _list(columns, rows)
@@ -410,6 +433,22 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
       ),
     );
   }
+
+  static IconData _viewIcon(_View v) => switch (v) {
+        _View.list => Icons.view_agenda_rounded,
+        _View.table => Icons.table_chart_rounded,
+        _View.chart => Icons.bar_chart_rounded,
+        _View.pivot => Icons.pivot_table_chart_rounded,
+        _View.map => Icons.map_rounded,
+      };
+
+  static String _viewLabel(_View v) => switch (v) {
+        _View.list => 'List',
+        _View.table => 'Table',
+        _View.chart => 'Chart',
+        _View.pivot => 'Pivot',
+        _View.map => 'Map',
+      };
 
   Widget _refine(List<Map<String, dynamic>> columns, List<Map<String, dynamic>> rows) {
     final status = columns.where((c) => c['type'] == 'status').firstOrNull;
