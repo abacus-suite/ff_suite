@@ -32,7 +32,7 @@ class FieldForceVisitsApi(http.Controller):
         except (TypeError, ValueError):
             raise ApiError('partner_id is required.')
         partner = visible_client(employee, partner_id)
-        require_punched_in(employee, 'check in at a customer')
+        require_punched_in(employee, 'check in at a customer', data)
         try:
             visit = request.env['ff.visit'].ff_check_in(employee, partner, data)
         except OffsiteConfirmation as far:
@@ -40,6 +40,23 @@ class FieldForceVisitsApi(http.Controller):
             raise ApiError('%s is %s from where you are. Check in as an offsite visit?' % (far.client, away),
                            409, 'offsite_confirm')
         return ok(visit_data(visit))
+
+    @api_route('/api/v1/visits/check-out', methods=('POST',))
+    def check_out_open(self, employee, **kw):
+        """Check out without knowing the visit id - a check-in queued offline has none yet.
+
+        ``visit_uuid`` names the visit; without it the open visit is closed.
+        """
+        data = body()
+        Visit = request.env['ff.visit'].sudo()
+        visit = Visit.browse()
+        if data.get('visit_uuid'):
+            visit = Visit.search([('client_uuid', '=', data['visit_uuid']), ('employee_id', '=', employee.id)], limit=1)
+        if not visit:
+            visit = Visit.search([('employee_id', '=', employee.id), ('state', '=', 'ongoing')], limit=1)
+        if not visit:
+            raise ApiError('You are not checked in anywhere.', 404, 'not_found')
+        return ok(visit_data(visit.ff_check_out(data)))
 
     @api_route('/api/v1/visits/<int:visit_id>/check-out', methods=('POST',))
     def check_out(self, employee, visit_id, **kw):

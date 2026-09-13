@@ -7,6 +7,7 @@ request - the record of who asked for what - and the quotation that follows is
 addressed to somebody else entirely.
 """
 from odoo import api, fields, models
+from odoo.addons.ff_base.tools import parse_client_dt
 from odoo.exceptions import UserError
 
 DEMAND_STATES = [
@@ -137,6 +138,7 @@ class FfDemand(models.Model):
         ], limit=1)
         routes = partner.sudo().ff_route_ids if 'ff_route_ids' in partner._fields else False
         demand = Demand.create({
+            'date': parse_client_dt(data.get('at')) or fields.Datetime.now(),
             'employee_id': employee.id,
             'partner_id': partner.id,
             'visit_id': visit.id or False,

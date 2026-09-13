@@ -14,6 +14,7 @@
                 <field name="visit_type" optional="show" widget="badge"
                        decoration-success="visit_type == 'onsite'" decoration-warning="visit_type == 'offsite'"/>
                 <field name="inside_geofence" optional="hide"/>
+                <field name="ff_offline" optional="hide"/>
                 <field name="outcome_id" optional="show"/>
                 <field name="productive" optional="hide"/>
                 <field name="photo_count" optional="show"/>
@@ -47,6 +48,7 @@
                             <field name="visit_type" readonly="1"/>
                             <field name="offsite_reason" readonly="1" invisible="visit_type != 'offsite'"/>
                             <field name="inside_geofence" readonly="1"/>
+                            <field name="ff_offline" readonly="1" invisible="not ff_offline"/>
                             <field name="distance_m" readonly="1"/>
                             <field name="location_captured" readonly="1" invisible="not location_captured"/>
                             <field name="check_in_lat" readonly="1"/>

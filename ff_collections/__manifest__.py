@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Payment Collection',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.0.1',
     'category': 'Human Resources/Field Force',
     'summary': 'Collect money at the customer (cash, online, cheque, PDC), deposit it to the office, '
                'with limits by amount and by days that block further check-ins',

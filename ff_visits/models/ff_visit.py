@@ -3,7 +3,7 @@ from datetime import timedelta
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
-from odoo.addons.ff_base.tools import get_settings, haversine_m
+from odoo.addons.ff_base.tools import get_settings, haversine_m, client_time
 
 OUTCOMES = [
     ('met', 'Met client'),
@@ -63,6 +63,8 @@ class FfVisit(models.Model):
                                   required=True, index=True, tracking=True,
                                   help='Offsite: checked in away from the client, after confirming it in the app.')
     offsite_reason = fields.Char()
+    ff_offline = fields.Boolean(string='Recorded Offline', readonly=True,
+                                help='Checked in without network; synced later with the real times.')
     outcome = fields.Selection(OUTCOMES, string='Outcome Code')
     outcome_id = fields.Many2one('ff.visit.outcome', string='Outcome', index=True)
     productive = fields.Boolean(related='outcome_id.productive', store=True)
@@ -114,11 +116,17 @@ class FfVisit(models.Model):
             raise UserError(self.env._('A fake GPS app was detected. Disable it to check in.'))
 
         partner = partner.sudo()
-        offsite = bool(data.get('offsite'))
+        try:
+            at, offline = client_time(data)
+        except ValueError as error:
+            raise UserError(str(error))
+        # Offline there was nobody to ask "offsite?": far away simply is offsite.
+        offsite = bool(data.get('offsite')) or offline
         vals = {
             'employee_id': employee.id,
             'partner_id': partner.id,
-            'check_in_at': fields.Datetime.now(),
+            'check_in_at': at,
+            'ff_offline': offline,
             'check_in_lat': lat,
             'check_in_lng': lng,
             'check_in_accuracy': _num(data.get('accuracy')) or 0.0,
@@ -138,7 +146,8 @@ class FfVisit(models.Model):
                 raise OffsiteConfirmation(int(distance), radius, partner.name)
             vals.update(distance_m=int(distance), inside_geofence=inside,
                         visit_type='onsite' if inside else 'offsite',
-                        offsite_reason=False if inside else (data.get('offsite_reason') or False))
+                        offsite_reason=False if inside else (
+                            data.get('offsite_reason') or (offline and self.env._('Checked in without network')) or False))
         else:
             # First visit of a client without coordinates: learn its location.
             partner.write({'partner_latitude': lat, 'partner_longitude': lng,
@@ -153,7 +162,7 @@ class FfVisit(models.Model):
         return visit
 
     @api.model
-    def ff_require_visit(self, employee, partner):
+    def ff_require_visit(self, employee, partner, at=None):
         """Orders, demands and payments are taken at the customer.
 
         Refused while checked in somewhere else. With no visit open, a visit at
@@ -168,7 +177,8 @@ class FfVisit(models.Model):
                     'You are checked in at %(here)s. Check out there before working on %(there)s.',
                     here=ongoing.partner_id.display_name, there=partner.display_name))
             return ongoing
-        start, end = employee._ff_day_bounds(employee._ff_today())
+        day = employee._ff_to_local(at).date() if at else employee._ff_today()
+        start, end = employee._ff_day_bounds(day)
         today = Visit.search([('employee_id', '=', employee.id), ('check_in_at', '>=', start),
                               ('check_in_at', '<', end),
                               ('partner_id.commercial_partner_id', '=', partner.commercial_partner_id.id)],
@@ -191,9 +201,14 @@ class FfVisit(models.Model):
         if outcome.requires_photo and not photos and not visit.photo_count:
             raise UserError(self.env._('Add a photo for "%s".', outcome.name))
         code = outcome.code if outcome else data.get('outcome')
+        try:
+            at, offline = client_time(data)
+        except ValueError as error:
+            raise UserError(str(error))
         visit.write({
             'state': 'done',
-            'check_out_at': fields.Datetime.now(),
+            'check_out_at': max(at, visit.check_in_at),
+            'ff_offline': visit.ff_offline or offline,
             'check_out_lat': lat or 0.0,
             'check_out_lng': lng or 0.0,
             'outcome_id': outcome.id or False,

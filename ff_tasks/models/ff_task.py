@@ -114,6 +114,8 @@ class FfTask(models.Model):
             raise UserError(self.env._('This task is assigned to someone else.'))
         if state not in ('in_progress', 'done'):
             raise UserError(self.env._('A task can only be started or finished from the app.'))
+        if task.state == state or (state == 'in_progress' and task.state == 'done'):
+            return task  # already there: a retry of an action that went through
         if task.state in ('done', 'cancelled'):
             raise UserError(self.env._('This task is already closed.'))
         vals = {'state': state}

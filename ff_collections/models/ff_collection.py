@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from odoo import api, fields, models
+from odoo.addons.ff_base.tools import parse_client_dt
 from odoo.exceptions import AccessError, UserError, ValidationError
 
 MAX_PHOTOS = 3
@@ -170,6 +171,7 @@ class FfCollection(models.Model):
             raise AccessError(self.env._('This visit is not yours.'))
 
         collection = Collection.create({
+            'date': parse_client_dt(data.get('at')) or fields.Datetime.now(),
             'employee_id': employee.id,
             'partner_id': partner.id,
             'visit_id': visit.id or False,

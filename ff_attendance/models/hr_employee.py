@@ -4,7 +4,7 @@ from datetime import date
 from odoo import fields, models
 from odoo.exceptions import UserError
 
-from odoo.addons.ff_base.tools import get_settings, to_iso
+from odoo.addons.ff_base.tools import get_settings, to_iso, client_time
 
 
 def _strip_data_url(image):
@@ -37,10 +37,18 @@ class HrEmployee(models.Model):
         """Punch ``action`` ('in' / 'out') from the mobile app.
 
         ``data`` keys: lat, lng, accuracy, mock, address, selfie (base64),
-        battery. Server time is used for the punch, never the device time.
+        battery, uuid, at. Server time is used, except for a punch queued offline:
+        then ``at`` (the moment it happened) is kept and the record is flagged.
         """
         self.ensure_one()
         employee = self.sudo()
+        uuid = data.get('uuid') or False
+        if uuid:
+            # The same punch sent twice (a retry after a lost answer) is the same punch.
+            field = 'ff_in_uuid' if action == 'in' else 'ff_out_uuid'
+            existing = self.env['hr.attendance'].sudo().search([(field, '=', uuid)], limit=1)
+            if existing:
+                return existing
         settings = get_settings(self.env)
         lat, lng = data.get('lat'), data.get('lng')
         if lat in (None, '') or lng in (None, ''):
@@ -54,7 +62,10 @@ class HrEmployee(models.Model):
         if settings['selfie_required'] and not selfie:
             raise UserError(self.env._('A selfie is required to punch.'))
 
-        now = fields.Datetime.now()
+        try:
+            now, offline = client_time(data)
+        except ValueError as error:
+            raise UserError(str(error))
         accuracy = float(data.get('accuracy') or 0.0)
         address = (data.get('address') or '')[:250] or False
         attendance = employee._ff_open_attendance()
@@ -71,6 +82,8 @@ class HrEmployee(models.Model):
                 'ff_in_is_mock': is_mock,
                 'ff_in_selfie': selfie,
                 'ff_source': 'app',
+                'ff_in_uuid': uuid,
+                'ff_offline': offline,
             })
         elif action == 'out':
             if not attendance:
@@ -83,16 +96,18 @@ class HrEmployee(models.Model):
                 'ff_out_accuracy': accuracy,
                 'ff_out_is_mock': is_mock,
                 'ff_out_selfie': selfie,
+                'ff_out_uuid': uuid,
+                'ff_offline': attendance.ff_offline or offline,
             })
         else:
             raise UserError(self.env._('Unknown punch action.'))
 
         self.env['ff.location.ping'].ff_ingest(employee, [{
             'lat': lat, 'lng': lng, 'accuracy': accuracy, 'battery': data.get('battery'),
-            'mock': is_mock, 'source': 'punch',
+            'mock': is_mock, 'source': 'punch', 'ts': fields.Datetime.to_string(now),
         }])
         if action == 'out':
-            self.env['ff.daily.track']._ff_compute(employee, employee._ff_today())
+            self.env['ff.daily.track']._ff_compute(employee, employee._ff_to_local(now).date())
         return attendance
 
     def _ff_attendance_month(self, year, month):

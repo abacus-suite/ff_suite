@@ -17,6 +17,10 @@ class HrAttendance(models.Model):
     ], string='Source', default='web')
     ff_shift_id = fields.Many2one('ff.shift', string='Shift')
     ff_in_address = fields.Char(string='Punch-in Address')
+    ff_offline = fields.Boolean(string='Recorded Offline', readonly=True,
+                                help='Punched without network; the app sent it later with the real time.')
+    ff_in_uuid = fields.Char(index=True, copy=False)
+    ff_out_uuid = fields.Char(index=True, copy=False)
     ff_out_address = fields.Char(string='Punch-out Address')
     ff_in_selfie = fields.Image(string='Punch-in Selfie', max_width=1024, max_height=1024)
     ff_out_selfie = fields.Image(string='Punch-out Selfie', max_width=1024, max_height=1024)

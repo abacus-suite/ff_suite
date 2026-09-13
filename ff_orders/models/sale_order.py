@@ -1,4 +1,5 @@
 from odoo import api, fields, models
+from odoo.addons.ff_base.tools import parse_client_dt
 from odoo.exceptions import UserError
 
 
@@ -57,6 +58,7 @@ class SaleOrder(models.Model):
             ('employee_id', '=', employee.id), ('partner_id', '=', partner.id), ('state', '=', 'ongoing'),
         ], limit=1)
         order = Order.create({
+            'date_order': parse_client_dt(data.get('at')) or fields.Datetime.now(),
             'partner_id': partner.id,
             'user_id': employee.user_id.id or False,
             'company_id': employee.company_id.id,

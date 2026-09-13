@@ -4,7 +4,7 @@ from odoo.http import request
 
 from odoo.addons.ff_base.tools import to_iso
 from odoo.addons.ff_mobile_api.controllers.clients import to_int, visible_client
-from odoo.addons.ff_mobile_api.controllers.common import ApiError, api_route, body, ok, ref, require_punched_in
+from odoo.addons.ff_mobile_api.controllers.common import ApiError, action_time, api_route, body, ok, ref, require_punched_in
 
 from ..models.ff_demand import order_flow
 
@@ -51,8 +51,8 @@ class FieldForceDemandApi(http.Controller):
     def create_demand(self, employee, **kw):
         data = body()
         partner = visible_client(employee, to_int(data.get('partner_id')))
-        require_punched_in(employee, 'add a demand')
-        request.env['ff.visit'].ff_require_visit(employee, partner)
+        require_punched_in(employee, 'add a demand', data)
+        request.env['ff.visit'].ff_require_visit(employee, partner, action_time(data) if data.get('at') else None)
         demand = request.env['ff.demand'].ff_create_from_app(employee, partner, data)
         return ok(demand_data(demand, with_lines=True), status=201)
 

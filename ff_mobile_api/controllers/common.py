@@ -15,7 +15,7 @@ from odoo import http
 from odoo.exceptions import AccessDenied, AccessError, UserError, ValidationError
 from odoo.http import request
 
-from odoo.addons.ff_base.tools import get_settings, google_maps_key, to_iso
+from odoo.addons.ff_base.tools import get_settings, google_maps_key, to_iso, client_time
 
 _logger = logging.getLogger(__name__)
 
@@ -28,16 +28,33 @@ class ApiError(Exception):
         self.code = code
 
 
-def require_punched_in(employee, action):
-    """Field work happens on the clock: refuse ``action`` before the day's punch-in.
+def action_time(data):
+    """The moment of the action (see ff_base.tools.client_time), as an API error when too old."""
+    try:
+        return client_time(data)[0]
+    except ValueError as error:
+        raise ApiError(str(error), 422, 'too_old')
 
+
+def require_punched_in(employee, action, data=None):
+    """Field work happens on the clock: refuse ``action`` outside a punch-in.
+
+    For work queued offline the question is whether they were punched in *then*.
     Skipped when the employee's app profile has attendance switched off.
     """
     app = request.env['ff.app.profile'].ff_for_employee(employee).ff_payload()
     if not app['features'].get('attendance', True):
         return
-    if not employee._ff_open_attendance():
-        raise ApiError('Check in for the day (attendance) before you %s.' % action, 409, 'not_punched_in')
+    if data and data.get('at'):
+        at = action_time(data)
+        covering = request.env['hr.attendance'].sudo().search_count([
+            ('employee_id', '=', employee.id), ('check_in', '<=', at),
+            '|', ('check_out', '=', False), ('check_out', '>=', at)])
+        if covering:
+            return
+    elif employee._ff_open_attendance():
+        return
+    raise ApiError('Check in for the day (attendance) before you %s.' % action, 409, 'not_punched_in')
 
 
 def body():

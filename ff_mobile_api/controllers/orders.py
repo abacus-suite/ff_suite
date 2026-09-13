@@ -7,7 +7,7 @@ from odoo.http import request
 from odoo.addons.ff_base.tools import to_iso
 
 from .clients import visible_client
-from .common import ApiError, api_route, body, ok, ref, require_punched_in
+from .common import ApiError, action_time, api_route, body, ok, ref, require_punched_in
 
 MAX_LIMIT = 300
 STATE_LABELS = {'draft': 'Submitted', 'sent': 'Submitted', 'sale': 'Confirmed', 'cancel': 'Cancelled'}
@@ -106,8 +106,8 @@ class FieldForceOrdersApi(http.Controller):
         except (TypeError, ValueError):
             raise ApiError('partner_id is required.')
         partner = visible_client(employee, partner_id)
-        require_punched_in(employee, 'take an order')
-        request.env['ff.visit'].ff_require_visit(employee, partner)
+        require_punched_in(employee, 'take an order', data)
+        request.env['ff.visit'].ff_require_visit(employee, partner, action_time(data) if data.get('at') else None)
         # Companies that sell through distributors collect demand instead of
         # quoting the outlet; the app posts the same body either way.
         flow = request.env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct'

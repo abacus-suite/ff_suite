@@ -92,6 +92,31 @@ def parse_client_dt(value):
     return dt
 
 
+# How far back a queued offline action may be dated.
+OFFLINE_MAX_AGE_DAYS = 7
+
+
+def client_time(data):
+    """When an action really happened: ``data['at']`` for work queued offline, else now.
+
+    A device clock ahead of the server is clamped to now; anything older than
+    OFFLINE_MAX_AGE_DAYS is refused rather than silently back-dated.
+    Returns (naive UTC datetime, is_offline).
+    """
+    from datetime import timedelta
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
+    at = parse_client_dt((data or {}).get('at'))
+    if not at:
+        return now, False
+    if at > now:
+        return now, True
+    if now - at > timedelta(days=OFFLINE_MAX_AGE_DAYS):
+        raise ValueError('This was recorded more than %d days ago and can no longer be synced.'
+                         % OFFLINE_MAX_AGE_DAYS)
+    return at.replace(microsecond=0), True
+
+
 def to_iso(value):
     """Odoo naive-UTC datetime (or date) -> ISO string for the API."""
     if not value:
