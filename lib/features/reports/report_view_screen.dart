@@ -823,15 +823,22 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
   }
 
   Widget _list(List<Map<String, dynamic>> columns, List<Map<String, dynamic>> rows, {bool nested = false}) {
-    // The first text-like columns make the card title; the rest are label/value pairs.
+    // Every report as the summary's cards: a headline, one value on the right,
+    // a status pill, and the other columns as figures three to a row.
     final status = columns.where((c) => c['type'] == 'status').firstOrNull;
-    final money = columns.where((c) => c['type'] == 'money').firstOrNull;
+    final money = columns.where((c) => c['type'] == 'money' && c['total'] == true).firstOrNull ??
+        columns.where((c) => c['type'] == 'money').firstOrNull;
     final headline = columns.firstWhere((c) => c['key'] == 'customer',
-        orElse: () => columns.firstWhere((c) => c['key'] == 'employee',
+        orElse: () => columns.firstWhere((c) => const {'employee', 'product', 'route'}.contains(c['key']),
             orElse: () => columns.first));
-    final rest = columns
-        .where((c) => c != status && c != money && c != headline)
+    final second = columns
+        .where((c) => c != headline && (c['key'] == 'employee' || c['key'] == 'date'))
         .toList();
+    final figures = columns
+        .where((c) => c != status && c != money && c != headline && !second.contains(c))
+        .toList();
+    final saleWord = (Services.auth.profile?.isDemandFlow ?? false) ? 'Demand' : 'Orders';
+    final currency = _data?['currency'] as String?;
     return ListView.builder(
       shrinkWrap: nested,
       physics: nested ? const NeverScrollableScrollPhysics() : null,
@@ -839,67 +846,22 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
       itemCount: rows.length,
       itemBuilder: (context, i) {
         final row = rows[i];
-        final statusText =
-            status == null ? null : row[status['key']] as String?;
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(_format(headline, row[headline['key']]),
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w800, fontSize: 15)),
-                    ),
-                    if (money != null)
-                      Text(_format(money, row[money['key']]),
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                              color: AixoloColors.primary)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 14,
-                  runSpacing: 6,
-                  children: [
-                    for (final c in rest)
-                      if (row[c['key']] != null && row[c['key']] != '')
-                        Text.rich(TextSpan(children: [
-                          TextSpan(
-                              text: '${c['label']}: ',
-                              style: const TextStyle(
-                                  color: AixoloColors.muted, fontSize: 12.5)),
-                          TextSpan(
-                              text: _format(c, row[c['key']]),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 12.5)),
-                        ])),
-                  ],
-                ),
-                if (statusText != null && statusText.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: _statusColour(statusText).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(statusText,
-                        style: TextStyle(
-                            color: _statusColour(statusText),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ],
-            ),
-          ),
+        final statusText = status == null ? null : '${row[status['key']] ?? ''}';
+        final shown = [
+          for (final c in figures)
+            if (row[c['key']] != null && row[c['key']] != '')
+              ('${c['key']}', _format(c, row[c['key']]), '${c['label']}'),
+        ];
+        return EmployeeSummaryCard(
+          row: {'employee': _format(headline, row[headline['key']])},
+          currency: currency,
+          saleWord: saleWord,
+          subtitle: second.isEmpty ? null : second.map((c) => _format(c, row[c['key']])).join(' · '),
+          value: money == null ? '' : _format(money, row[money['key']]),
+          valueCaption: money == null ? '' : '${money['label']}',
+          status: statusText,
+          statusColour: statusText == null ? null : _statusColour(statusText),
+          figures: shown,
         );
       },
     );

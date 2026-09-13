@@ -24,6 +24,18 @@ import '../../widgets/common.dart';
       'planned' => (Icons.event_note_rounded, AixoloColors.primary),
       'visited' => (Icons.task_alt_rounded, AixoloColors.success),
       'last_visit' => (Icons.history_rounded, AixoloColors.purple),
+      'check_in' || 'check_out' || 'time' || 'first' || 'last' || 'minutes' => (Icons.schedule_rounded, AixoloColors.purple),
+      'mode' || 'cash' || 'online' || 'cheque' || 'pending' => (Icons.payments_rounded, AixoloColors.success),
+      'category' || 'type' || 'band' || 'visit_type' => (Icons.label_rounded, AixoloColors.warning),
+      'route' || 'city' => (Icons.route_rounded, AixoloColors.primary),
+      'number' || 'reference' || 'sku' => (Icons.tag_rounded, AixoloColors.muted),
+      'distributor' => (Icons.local_shipping_rounded, AixoloColors.purple),
+      'outcome' || 'note' => (Icons.notes_rounded, AixoloColors.muted),
+      'approved' => (Icons.verified_rounded, AixoloColors.success),
+      'waiting' => (Icons.hourglass_top_rounded, AixoloColors.warning),
+      'score' || 'rank' || 'share' || 'completion' => (Icons.emoji_events_rounded, AixoloColors.warning),
+      'phone' => (Icons.call_rounded, AixoloColors.success),
+      'date' || 'date_to' || 'days' => (Icons.event_rounded, AixoloColors.primary),
       _ => (Icons.insights_rounded, AixoloColors.primary),
     };
 
@@ -148,7 +160,13 @@ class EmployeeSummaryCard extends StatelessWidget {
     this.figures,
     this.value,
     this.valueCaption = 'Total value',
+    this.status,
+    this.statusColour,
   });
+
+  /// A small coloured pill under the headline value (e.g. Approved, On duty).
+  final String? status;
+  final Color? statusColour;
 
   /// (metric, value, caption) shown under the header, three to a row.
   /// Default: visits, offsite, demand, collected, expenses, new customers.
@@ -233,7 +251,22 @@ class EmployeeSummaryCard extends StatelessWidget {
                       Text(value ?? _money(row['sales'] as num?, currency),
                           style: const TextStyle(
                               fontWeight: FontWeight.w900, fontSize: 16.5, color: AixoloColors.primary)),
-                      Text(valueCaption, style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                      if (valueCaption.isNotEmpty)
+                        Text(valueCaption, style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                      if (status != null && status!.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: (statusColour ?? AixoloColors.primary).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(status!,
+                              style: TextStyle(
+                                  color: statusColour ?? AixoloColors.primary,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700)),
+                        ),
                     ],
                   ),
                   if (onTap != null) const Icon(Icons.chevron_right_rounded, color: AixoloColors.muted),
