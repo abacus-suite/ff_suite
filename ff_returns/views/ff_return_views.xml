@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_return_view_list" model="ir.ui.view">
+        <field name="name">ff.return.list</field>
+        <field name="model">ff.return</field>
+        <field name="arch" type="xml">
+            <list decoration-warning="state == 'submitted'" decoration-muted="state == 'rejected'">
+                <field name="name"/>
+                <field name="date"/>
+                <field name="employee_id" widget="many2one_avatar_employee"/>
+                <field name="partner_id"/>
+                <field name="reason"/>
+                <field name="quantity_total" sum="Units"/>
+                <field name="amount_total" sum="Value"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="state" widget="badge" decoration-success="state in ('approved', 'credited')"
+                       decoration-warning="state == 'submitted'" decoration-danger="state == 'rejected'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_return_view_form" model="ir.ui.view">
+        <field name="name">ff.return.form</field>
+        <field name="model">ff.return</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_approve" type="object" string="Approve" class="btn-primary"
+                            invisible="state != 'submitted'"/>
+                    <button name="action_reject" type="object" string="Reject" invisible="state != 'submitted'"/>
+                    <button name="action_create_credit_note" type="object" string="Create Credit Note"
+                            class="btn-primary" invisible="state != 'approved'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="submitted,approved,credited"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_credit_note" type="object" class="oe_stat_button"
+                                icon="fa-file-text-o" invisible="not credit_note_id" string="Credit Note"/>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="reason"/>
+                            <field name="date"/>
+                            <field name="visit_id"/>
+                        </group>
+                        <group>
+                            <field name="employee_id" widget="many2one_avatar_employee"/>
+                            <field name="team_id"/>
+                            <field name="approver_id" invisible="not approver_id"/>
+                            <field name="decided_at" invisible="not decided_at"/>
+                            <field name="credit_note_id" invisible="not credit_note_id"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Products" name="lines">
+                            <field name="line_ids">
+                                <list editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="batch" optional="show"/>
+                                    <field name="expiry_date" optional="show"/>
+                                    <field name="quantity"/>
+                                    <field name="price_unit"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="subtotal" sum="Total"/>
+                                </list>
+                            </field>
+                            <group class="oe_subtotal_footer">
+                                <field name="quantity_total"/>
+                                <field name="amount_total"/>
+                            </group>
+                        </page>
+                        <page string="Note" name="note">
+                            <field name="note" placeholder="What the outlet said"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_return_view_search" model="ir.ui.view">
+        <field name="name">ff.return.search</field>
+        <field name="model">ff.return</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="employee_id"/>
+                <field name="line_ids" string="Product" filter_domain="[('line_ids.product_id', 'ilike', self)]"/>
+                <filter name="to_approve" string="Waiting Approval" domain="[('state', '=', 'submitted')]"/>
+                <filter name="approved" string="Approved, Not Credited" domain="[('state', '=', 'approved')]"/>
+                <filter name="damaged" string="Damaged / Expired" domain="[('reason', 'in', ('damaged', 'expired', 'near_expiry'))]"/>
+                <group>
+                    <filter name="group_reason" string="Reason" context="{'group_by': 'reason'}"/>
+                    <filter name="group_partner" string="Outlet" context="{'group_by': 'partner_id'}"/>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_return_action" model="ir.actions.act_window">
+        <field name="name">Returns &amp; Damaged</field>
+        <field name="res_model">ff.return</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_to_approve': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No returns waiting</p>
+            <p>Field staff report returned, damaged or expired goods from the outlet with photos.
+               Approve them here, then create the credit note.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_ff_returns" name="Returns" parent="ff_base.menu_ff_root"
+              action="ff_return_action" sequence="58"/>
+</odoo>
