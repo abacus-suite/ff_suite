@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_task_view_list" model="ir.ui.view">
+        <field name="name">ff.task.list</field>
+        <field name="model">ff.task</field>
+        <field name="arch" type="xml">
+            <list decoration-danger="is_overdue" decoration-muted="state in ('done', 'cancelled')">
+                <field name="priority" widget="priority" nolabel="1"/>
+                <field name="name"/>
+                <field name="employee_id" widget="many2one_avatar_employee"/>
+                <field name="partner_id" optional="show"/>
+                <field name="date_deadline"/>
+                <field name="team_id" optional="hide"/>
+                <field name="done_at" optional="show"/>
+                <field name="is_overdue" column_invisible="1"/>
+                <field name="state" widget="badge" decoration-success="state == 'done'"
+                       decoration-info="state == 'in_progress'" decoration-danger="state == 'cancelled'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_task_view_kanban" model="ir.ui.view">
+        <field name="name">ff.task.kanban</field>
+        <field name="model">ff.task</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" group_create="0" group_delete="0" quick_create="0">
+                <field name="is_overdue"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex align-items-start">
+                            <field name="name" class="fw-bold flex-grow-1"/>
+                            <field name="priority" widget="priority"/>
+                        </div>
+                        <field name="partner_id" class="text-muted small"/>
+                        <div class="d-flex align-items-center mt-2">
+                            <field name="date_deadline" class="small"/>
+                            <field name="employee_id" widget="many2one_avatar_employee" class="ms-auto"/>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="ff_task_view_form" model="ir.ui.view">
+        <field name="name">ff.task.form</field>
+        <field name="model">ff.task</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_start" type="object" string="Start" invisible="state != 'todo'"/>
+                    <button name="action_done" type="object" string="Mark Done" class="btn-primary"
+                            invisible="state not in ('todo', 'in_progress')"/>
+                    <button name="action_cancel" type="object" string="Cancel"
+                            invisible="state not in ('todo', 'in_progress')"/>
+                    <button name="action_reopen" type="object" string="Reopen"
+                            invisible="state not in ('done', 'cancelled')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="todo,in_progress,done"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Overdue" bg_color="text-bg-danger" invisible="not is_overdue"/>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="What needs doing?"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="employee_id" widget="many2one_avatar_employee"/>
+                            <field name="partner_id"/>
+                            <field name="date_deadline"/>
+                            <field name="priority" widget="priority"/>
+                            <field name="requires_photo"/>
+                            <field name="is_overdue" invisible="1"/>
+                        </group>
+                        <group>
+                            <field name="assigned_by_id"/>
+                            <field name="assigned_by_employee_id" invisible="not assigned_by_employee_id"/>
+                            <field name="started_at" invisible="not started_at"/>
+                            <field name="done_at" invisible="not done_at"/>
+                            <field name="visit_id" invisible="not visit_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Details" name="details">
+                            <field name="description" placeholder="Anything the person needs to know"/>
+                        </page>
+                        <page string="Completion" name="completion" invisible="state != 'done'">
+                            <group>
+                                <field name="done_note"/>
+                                <field name="done_lat"/>
+                                <field name="done_lng"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_task_view_search" model="ir.ui.view">
+        <field name="name">ff.task.search</field>
+        <field name="model">ff.task</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="partner_id"/>
+                <field name="team_id"/>
+                <filter name="open" string="Open" domain="[('state', 'in', ('todo', 'in_progress'))]"/>
+                <filter name="overdue" string="Overdue" domain="[('is_overdue', '=', True)]"/>
+                <filter name="done" string="Done" domain="[('state', '=', 'done')]"/>
+                <group>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_task_action" model="ir.actions.act_window">
+        <field name="name">Tasks</field>
+        <field name="res_model">ff.task</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Give your field team a task</p>
+            <p>It shows up in their app with a notification. They start it, finish it
+               with a note (and a photo when you ask for one), and you see it here.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_ff_tasks" name="Tasks" parent="ff_base.menu_ff_root"
+              action="ff_task_action" sequence="55"/>
+</odoo>
