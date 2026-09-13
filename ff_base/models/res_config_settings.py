@@ -9,6 +9,12 @@ class ResConfigSettings(models.TransientModel):
         _tz_get, string='Field Timezone', config_parameter='ff_base.default_tz',
         help='Used wherever an employee or user has no timezone (or only the UTC default), '
              'so "today" and every punch time match the local day.')
+    ff_idle_logout_hours = fields.Integer(
+        string='Log Out Unused App After (hours)', config_parameter='ff_base.idle_logout_hours', default=0,
+        help='The app asks for the password again after this long without being opened. 0 = never.')
+    ff_max_clock_skew = fields.Integer(
+        string='Allowed Phone Clock Difference (min)', config_parameter='ff_base.max_clock_skew', default=5,
+        help='A punch or check-in from a phone whose clock is further off than this is refused and logged.')
     ff_ping_interval = fields.Integer(
         string='Ping Interval (sec)', config_parameter='ff_base.ping_interval', default=120)
     ff_distance_filter = fields.Integer(

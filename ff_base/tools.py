@@ -21,6 +21,8 @@ PARAM_DEFAULTS = {
     'visit_steps': False,          # guided step-by-step visits
     'stock_count': False,          # stock count step and history
     'payment_collection': False,   # collect money at the customer
+    'idle_logout_hours': 0,        # log the app out after this long unused (0 = never)
+    'max_clock_skew': 5,           # minutes a phone clock may differ from the server's
 }
 
 
@@ -115,6 +117,15 @@ def client_time(data):
         raise ValueError('This was recorded more than %d days ago and can no longer be synced.'
                          % OFFLINE_MAX_AGE_DAYS)
     return at.replace(microsecond=0), True
+
+
+def clock_skew_minutes(data):
+    """How far the phone's clock (``data['device_time']``) is from the server's, in minutes; None if not sent."""
+    device = parse_client_dt((data or {}).get('device_time'))
+    if not device:
+        return None
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    return abs((device - now).total_seconds()) / 60.0
 
 
 def to_iso(value):

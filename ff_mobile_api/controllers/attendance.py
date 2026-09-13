@@ -4,7 +4,7 @@ from odoo.http import request
 from odoo.addons.ff_attendance.models.ff_regularisation import REASONS
 from odoo.addons.ff_base.tools import parse_client_dt
 
-from .common import ApiError, api_route, attendance_data, body, ok, regularisation_data
+from .common import ApiError, api_route, attendance_data, body, ok, regularisation_data, check_device_clock
 
 
 class FieldForceAttendanceApi(http.Controller):
@@ -27,11 +27,15 @@ class FieldForceAttendanceApi(http.Controller):
 
     @api_route('/api/v1/attendance/punch-in', methods=('POST',))
     def punch_in(self, employee, **kw):
-        return ok(attendance_data(employee._ff_punch('in', body())))
+        data = body()
+        check_device_clock(employee, data, 'punch in')
+        return ok(attendance_data(employee._ff_punch('in', data)))
 
     @api_route('/api/v1/attendance/punch-out', methods=('POST',))
     def punch_out(self, employee, **kw):
-        return ok(attendance_data(employee._ff_punch('out', body())))
+        data = body()
+        check_device_clock(employee, data, 'punch out')
+        return ok(attendance_data(employee._ff_punch('out', data)))
 
     @api_route('/api/v1/attendance/month', methods=('GET',))
     def month(self, employee, year=None, month=None, **kw):

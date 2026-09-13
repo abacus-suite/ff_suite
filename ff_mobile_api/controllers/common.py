@@ -15,7 +15,7 @@ from odoo import http
 from odoo.exceptions import AccessDenied, AccessError, UserError, ValidationError
 from odoo.http import request
 
-from odoo.addons.ff_base.tools import get_settings, google_maps_key, to_iso, client_time
+from odoo.addons.ff_base.tools import get_settings, google_maps_key, to_iso, client_time, clock_skew_minutes
 
 _logger = logging.getLogger(__name__)
 
@@ -34,6 +34,21 @@ def action_time(data):
         return client_time(data)[0]
     except ValueError as error:
         raise ApiError(str(error), 422, 'too_old')
+
+
+def check_device_clock(employee, data, action):
+    """Refuse ``action`` from a phone whose clock was moved - unless it is queued offline work."""
+    if not data or data.get('at'):
+        return
+    skew = clock_skew_minutes(data)
+    allowed = get_settings(request.env)['max_clock_skew'] or 0
+    if skew is None or not allowed or skew <= allowed:
+        return
+    request.env['ff.compliance.log'].sudo().ff_log(employee, [{
+        'type': 'time_tampered', 'detail': 'Phone clock %d min off at %s' % (round(skew), action)}])
+    request.env.cr.commit()  # keep the log even though the action is refused
+    raise ApiError("Your phone's date or time is wrong by %d minutes. Set it to automatic and try again." % round(skew),
+                   409, 'clock_skew')
 
 
 def require_punched_in(employee, action, data=None):
@@ -182,6 +197,8 @@ def employee_profile(employee):
             'visit_steps': settings['visit_steps'],
             'stock_count': settings['stock_count'],
             'payment_collection': settings['payment_collection'],
+            'idle_logout_hours': settings['idle_logout_hours'],
+            'max_clock_skew': settings['max_clock_skew'],
             'google_maps_key': google_maps_key(request.env),
             'order_flow': request.env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct',
         },

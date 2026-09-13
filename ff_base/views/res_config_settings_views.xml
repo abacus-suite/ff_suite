@@ -90,6 +90,14 @@
                             </div>
                         </setting>
                     </block>
+                    <block title="App Security" name="ff_security_settings">
+                        <setting string="Log out unused app" help="Hours without opening the app before it asks for the password again. 0 keeps people logged in.">
+                            <field name="ff_idle_logout_hours"/>
+                        </setting>
+                        <setting string="Phone clock check" help="Minutes a phone's clock may differ from the server. Further off, punches and check-ins are refused and logged as time tampering.">
+                            <field name="ff_max_clock_skew"/>
+                        </setting>
+                    </block>
                     <block title="Client Visits" name="ff_visit_settings">
                         <setting string="Client geofence" help="Default radius (metres) around a client inside which a visit counts as on-site. Can be overridden per client.">
                             <field name="ff_geofence_radius"/>

@@ -4,7 +4,7 @@ from odoo.http import request
 from .clients import to_float, visible_client
 from odoo.addons.ff_visits.models.ff_visit import OffsiteConfirmation
 
-from .common import ApiError, api_route, body, ok, ref, require_punched_in
+from .common import ApiError, api_route, body, check_device_clock, ok, ref, require_punched_in
 from .field_data import client_data, plan_data, visit_data
 
 
@@ -32,6 +32,7 @@ class FieldForceVisitsApi(http.Controller):
         except (TypeError, ValueError):
             raise ApiError('partner_id is required.')
         partner = visible_client(employee, partner_id)
+        check_device_clock(employee, data, 'check in')
         require_punched_in(employee, 'check in at a customer', data)
         try:
             visit = request.env['ff.visit'].ff_check_in(employee, partner, data)
