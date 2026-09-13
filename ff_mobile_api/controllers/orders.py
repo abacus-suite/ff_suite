@@ -121,13 +121,24 @@ class FieldForceOrdersApi(http.Controller):
         return ok(order_data(order, with_lines=True), status=201)
 
     @api_route('/api/v1/orders', methods=('GET',))
-    def orders(self, employee, partner_id=None, limit=None, member=None, **kw):
+    def orders(self, employee, partner_id=None, limit=None, member=None, start=None, end=None, q=None, **kw):
         people, _label = scope_members(employee, member)
         domain = [('ff_employee_id', 'in', people.ids), ('ff_source', '=', 'app')]
         if partner_id:
             domain.append(('partner_id', '=', int(partner_id)))
+        if q:
+            domain += ['|', '|', ('name', 'ilike', q), ('partner_id.name', 'ilike', q),
+                       ('order_line.product_id.name', 'ilike', q)]
+        if start or end:
+            try:
+                first = fields.Date.to_date(start) if start else fields.Date.to_date(end)
+                last = fields.Date.to_date(end) if end else first
+            except ValueError:
+                raise ApiError('Dates must be YYYY-MM-DD.')
+            domain += [('date_order', '>=', employee._ff_day_bounds(min(first, last))[0]),
+                       ('date_order', '<', employee._ff_day_bounds(max(first, last))[1])]
         orders = request.env['sale.order'].sudo().search(domain, order='date_order desc',
-                                                         limit=min(int(limit or 50), 200))
+                                                         limit=min(int(limit or 200), 1000))
         return ok([order_data(o) for o in orders])
 
     @api_route('/api/v1/orders/<int:order_id>', methods=('GET',))
