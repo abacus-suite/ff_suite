@@ -140,11 +140,29 @@ class FieldForceOrdersApi(http.Controller):
     @api_route('/api/v1/orders/summary', methods=('GET',))
     def summary(self, employee, **kw):
         start, end = employee._ff_day_bounds(employee._ff_today())
-        orders = request.env['sale.order'].sudo().search([
+        env = request.env
+        flow = env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct'
+        if flow == 'demand' and 'ff.demand' in env:
+            # Demands carry no tax: their value is what the outlet asked for at PTR.
+            demands = env['ff.demand'].sudo().search([
+                ('employee_id', '=', employee.id), ('date', '>=', start), ('date', '<', end),
+                ('state', '!=', 'cancelled')])
+            total = sum(demands.mapped('amount_total'))
+            return ok({
+                'date': employee._ff_today().isoformat(),
+                'flow': 'demand',
+                'count': len(demands),
+                'amount_untaxed': total,
+                'amount_total': total,
+                'currency': demands[:1].currency_id.name or employee.company_id.currency_id.name,
+                'server_time': to_iso(fields.Datetime.now()),
+            })
+        orders = env['sale.order'].sudo().search([
             ('ff_employee_id', '=', employee.id), ('ff_source', '=', 'app'),
             ('date_order', '>=', start), ('date_order', '<', end), ('state', '!=', 'cancel'),
         ])
         return ok({
+            'flow': 'direct',
             'date': employee._ff_today().isoformat(),
             'count': len(orders),
             'amount_untaxed': sum(orders.mapped('amount_untaxed')),
