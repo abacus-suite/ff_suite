@@ -57,6 +57,8 @@ def order_data(order, with_lines=False):
             'price_unit': line.price_unit,
             'discount': line.discount,
             'subtotal': line.price_subtotal,
+            'foc': bool(getattr(line, 'ff_is_foc', False)),
+            'foc_note': (line.ff_foc_scheme_id.name or line.ff_foc_reason or None) if getattr(line, 'ff_is_foc', False) else None,
         } for line in order.order_line if line.product_id]
     return data
 

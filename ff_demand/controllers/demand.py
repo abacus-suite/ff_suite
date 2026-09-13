@@ -41,6 +41,8 @@ def demand_data(demand, with_lines=False):
             'quoted_qty': line.quoted_quantity,
             'price_unit': line.price_unit,
             'subtotal': line.subtotal,
+            'foc': bool(getattr(line, 'is_foc', False)),
+            'foc_note': (line.foc_scheme_id.name or line.foc_reason or None) if getattr(line, 'is_foc', False) else None,
         } for line in demand.line_ids]
     return data
 
