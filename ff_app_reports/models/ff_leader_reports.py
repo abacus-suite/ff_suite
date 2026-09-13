@@ -153,6 +153,8 @@ class FfLeaderReports(models.AbstractModel):
         def row_for(partner):
             family = partner.commercial_partner_id
             return rows.setdefault(family.id, {'customer': family.display_name, 'city': family.city or '',
+                                               '_lat': family.partner_latitude or None,
+                                               '_lng': family.partner_longitude or None,
                                                'orders': 0, 'sales': 0.0, 'collected': 0.0,
                                                'last_visit': family.ff_last_visit_at.date().isoformat()
                                                if family.ff_last_visit_at else None})

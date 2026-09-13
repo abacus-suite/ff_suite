@@ -185,6 +185,8 @@ class FfAppReport(models.AbstractModel):
                 'visit_type': self._label(visit, 'visit_type') if 'visit_type' in visit._fields else '',
                 'distance': visit.distance_m,
                 'outcome': visit.outcome_id.name or '',
+                '_lat': visit.check_in_lat or visit.partner_id.partner_latitude or None,
+                '_lng': visit.check_in_lng or visit.partner_id.partner_longitude or None,
             })
         return rows
 
@@ -215,6 +217,7 @@ class FfAppReport(models.AbstractModel):
             'units': demand.quantity_total,
             'amount': 0.0 if demand.state == 'cancelled' else demand.amount_total,
             'status': self._label(demand, 'state'),
+            '_lat': demand.partner_id.partner_latitude or None, '_lng': demand.partner_id.partner_longitude or None,
         } for demand in demands]
 
     def _collections(self, employees, start, end):
@@ -227,6 +230,8 @@ class FfAppReport(models.AbstractModel):
             'mode': rec.mode_id.name, 'reference': rec.reference or '',
             'amount': 0.0 if rec.state == 'cancelled' else rec.amount,
             'status': self._label(rec, 'state'),
+            '_lat': rec.latitude or rec.partner_id.partner_latitude or None,
+            '_lng': rec.longitude or rec.partner_id.partner_longitude or None,
         } for rec in records]
 
     def _expenses(self, employees, start, end):
@@ -280,6 +285,7 @@ class FfAppReport(models.AbstractModel):
             'employee': partner.ff_created_by_employee_id.name, 'customer': partner.display_name,
             'category': partner.ff_category_id.name or '', 'city': partner.city or '',
             'phone': partner.phone or '', 'status': self._label(partner, 'ff_approval_state'),
+            '_lat': partner.partner_latitude or None, '_lng': partner.partner_longitude or None,
         } for partner in partners]
 
     # ------------------------------------------------------------------
