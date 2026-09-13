@@ -9,6 +9,7 @@ import '../clients/add_client_screen.dart';
 import '../collections/collect_payment_screen.dart';
 import '../leaves/leaves_screen.dart';
 import '../orders/catalog_screen.dart';
+import '../chat/chat_screen.dart';
 import '../tasks/tasks_screen.dart';
 import '../visits/visit_gate.dart';
 import '../clients/clients_screen.dart';
@@ -38,6 +39,18 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   String _current = 'home';
+
+  @override
+  void initState() {
+    super.initState();
+    ChatBadge.start();
+  }
+
+  @override
+  void dispose() {
+    ChatBadge.stop();
+    super.dispose();
+  }
 
   void _open(String key) {
     setState(() => _current = key);
@@ -184,7 +197,17 @@ class _AppShellState extends State<AppShell> {
             ],
           );
         },
-        child: IndexedStack(index: index, children: [for (final tab in tabs) tab.screen]),
+        child: Stack(
+          children: [
+            IndexedStack(index: index, children: [for (final tab in tabs) tab.screen]),
+            // Pull-up chat, tucked against the bottom bar so it never covers content.
+            Positioned(
+              right: 14,
+              bottom: MediaQuery.of(context).padding.bottom + 66,
+              child: const ChatDock(),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: Container(
         width: 58,

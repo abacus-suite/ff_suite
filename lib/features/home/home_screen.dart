@@ -19,7 +19,6 @@ import '../../widgets/dashboard.dart';
 import '../../widgets/home_kit.dart';
 import '../../widgets/member_picker.dart';
 import '../notifications/notifications_screen.dart';
-import '../chat/chat_screen.dart';
 import '../more/profile_screen.dart';
 import 'month_target_card.dart';
 import 'my_requests_card.dart';
@@ -201,18 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               HomeHeader(
                 name: profile.name,
-                bell: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      tooltip: 'Chat',
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.forum_outlined),
-                      onPressed: () => _push(const ChatListScreen()),
-                    ),
-                    const NotificationBell(),
-                  ],
-                ),
+                bell: const NotificationBell(),
                 onAvatar: () => _push(const ProfileScreen()),
               ),
               const SizedBox(height: 14),

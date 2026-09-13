@@ -15,7 +15,10 @@ import '../../widgets/common.dart';
 
 /// Conversations from Odoo Discuss: channels and direct chats.
 class ChatListScreen extends StatefulWidget {
-  const ChatListScreen({super.key});
+  const ChatListScreen({super.key, this.inSheet = false});
+
+  /// Shown in the pull-up chat panel rather than as a full page.
+  final bool inSheet;
 
   @override
   State<ChatListScreen> createState() => _ChatListScreenState();
@@ -30,6 +33,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
   @override
   void initState() {
     super.initState();
+    // Show the last list straight away, then refresh it.
+    Services.queue.readCache(ApiClient.cacheKey('/api/v1/chat/channels', null)).then((cached) {
+      final data = cached?.$1;
+      if (!mounted || data is! Map || _channels.isNotEmpty) return;
+      setState(() => _channels = ((data['channels'] as List?) ?? []).cast<Map<String, dynamic>>());
+    });
     _load();
     _poll =
         Timer.periodic(const Duration(seconds: 20), (_) => _load(quiet: true));
@@ -52,6 +61,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
               ((data['channels'] as List?) ?? []).cast<Map<String, dynamic>>();
           _error = null;
         });
+        ChatBadge.unread.value = (data['unread'] as num? ?? 0).toInt();
       }
     } catch (e) {
       if (mounted && !quiet) setState(() => _error = e.toString());
@@ -130,14 +140,28 @@ class _ChatListScreenState extends State<ChatListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Chat')),
+      appBar: widget.inSheet
+          ? AppBar(
+              title: const Text('Chat'),
+              automaticallyImplyLeading: false,
+              actions: [
+                IconButton(
+                  tooltip: 'Close',
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            )
+          : AppBar(title: const Text('Chat')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _newChat,
         icon: const Icon(Icons.chat_rounded),
         label: const Text('New chat'),
       ),
-      body: _error != null
+      body: _error != null && _channels.isEmpty
           ? ErrorView(message: _error!, onRetry: _load)
+          : _channels.isEmpty && _loading
+          ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
               child: _channels.isEmpty && !_loading
@@ -614,6 +638,93 @@ class _ConversationScreenState extends State<ConversationScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Unread chat messages, for the pull-up chat button.
+class ChatBadge {
+  static final ValueNotifier<int> unread = ValueNotifier(0);
+  static Timer? _timer;
+
+  static void start() {
+    _timer ??= Timer.periodic(const Duration(seconds: 60), (_) => refresh());
+    refresh();
+  }
+
+  static void stop() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  static Future<void> refresh() async {
+    try {
+      final data = await Services.api.get('/api/v1/chat/channels') as Map<String, dynamic>;
+      unread.value = (data['unread'] as num? ?? 0).toInt();
+    } catch (_) {
+      // No Odoo user or offline: keep the last count.
+    }
+  }
+}
+
+/// A small tab at the bottom edge: tap to pull the chat panel up.
+class ChatDock extends StatelessWidget {
+  const ChatDock({super.key});
+
+  Future<void> _open(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheet) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, controller) => ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          child: const ChatListScreen(inSheet: true),
+        ),
+      ),
+    );
+    ChatBadge.refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: ChatBadge.unread,
+      builder: (context, unread, _) => Material(
+        color: AixoloColors.primary,
+        elevation: 6,
+        shadowColor: AixoloColors.primary.withValues(alpha: 0.4),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+        child: InkWell(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+          onTap: () => _open(context),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 5, 12, 5),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.keyboard_arrow_up_rounded, color: Colors.white, size: 18),
+                const SizedBox(width: 2),
+                const Icon(Icons.forum_rounded, color: Colors.white, size: 16),
+                if (unread > 0) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(color: AixoloColors.danger, borderRadius: BorderRadius.circular(10)),
+                    child: Text(unread > 99 ? '99+' : '$unread',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/group_kit.dart';
 
 enum _View { list, table }
 
@@ -29,6 +30,10 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
   late DateTimeRange _range;
   String _period = 'month';
   String _member = 'me';
+  String _groupBy = 'none';
+  String _status = 'all';
+  String _find = '';
+  final Set<String> _collapsed = {};
   _View _view = _View.list;
   Map<String, dynamic>? _data;
   String? _error;
@@ -238,6 +243,106 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
   }
 
   // ------------------------------------------------------------------
+  // Filter and group (on the rows already loaded)
+  // ------------------------------------------------------------------
+
+  List<Map<String, dynamic>> _filtered(List<Map<String, dynamic>> columns, List<Map<String, dynamic>> rows) {
+    final status = columns.where((c) => c['type'] == 'status').firstOrNull;
+    final needle = _find.trim().toLowerCase();
+    return rows.where((row) {
+      if (_status != 'all' && status != null && '${row[status['key']]}' != _status) return false;
+      if (needle.isEmpty) return true;
+      return row.values.any((v) => v != null && '$v'.toLowerCase().contains(needle));
+    }).toList();
+  }
+
+  Map<String, dynamic> _sumOf(List<Map<String, dynamic>> columns, List<Map<String, dynamic>> rows) => {
+        for (final c in columns)
+          if (c['total'] == true)
+            c['key'] as String: rows.fold<double>(0, (sum, r) => sum + ((r[c['key']] as num?) ?? 0).toDouble()),
+      };
+
+  List<GroupOption> _groupOptions(List<Map<String, dynamic>> columns) {
+    final keys = columns.map((c) => c['key']).toSet();
+    const icons = {
+      'employee': Icons.person_rounded,
+      'customer': Icons.storefront_rounded,
+      'route': Icons.route_rounded,
+      'product': Icons.inventory_2_rounded,
+      'category': Icons.category_rounded,
+      'mode': Icons.payments_rounded,
+      'city': Icons.location_city_rounded,
+    };
+    return [
+      if (keys.contains('date')) ...dateGroups,
+      for (final c in columns)
+        if ((c['type'] == 'text' || c['type'] == 'status') &&
+            !const {'number', 'reference', 'sku', 'phone', 'note', 'check_in', 'check_out', 'time'}.contains(c['key']))
+          GroupOption('col:${c['key']}', '${c['label']}', icons[c['key']] ?? Icons.label_rounded),
+    ];
+  }
+
+  List<(String, String, List<Map<String, dynamic>>)> _groups(List<Map<String, dynamic>> rows) {
+    final titles = <String, String>{};
+    final members = <String, List<Map<String, dynamic>>>{};
+    for (final row in rows) {
+      String key;
+      String title;
+      if (_groupBy.startsWith('col:')) {
+        final value = row[_groupBy.substring(4)];
+        title = (value == null || '$value'.isEmpty) ? '—' : '$value';
+        key = title;
+      } else {
+        final date = DateTime.tryParse('${row['date']}');
+        if (date == null) {
+          key = '~';
+          title = 'No date';
+        } else {
+          (key, title) = dateBucket(date, _groupBy);
+        }
+      }
+      titles[key] = title;
+      members.putIfAbsent(key, () => []).add(row);
+    }
+    final keys = titles.keys.toList();
+    if (_groupBy.startsWith('col:')) {
+      keys.sort((a, b) => members[b]!.length.compareTo(members[a]!.length));
+    } else {
+      keys.sort((a, b) => b.compareTo(a));
+    }
+    return [for (final k in keys) (k, titles[k]!, members[k]!)];
+  }
+
+  Widget _grouped(List<Map<String, dynamic>> columns, List<Map<String, dynamic>> rows) {
+    final groups = _groups(rows);
+    final money = columns.where((c) => c['total'] == true && c['type'] == 'money').toList();
+    final counted = columns.where((c) => c['total'] == true && c['type'] != 'money').take(1).toList();
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      children: [
+        for (final g in groups) ...[
+          GroupHeader(
+            title: g.$2,
+            count: g.$3.length,
+            totals: [
+              for (final c in [...money.take(1), ...counted])
+                _format(c, _sumOf([c], g.$3)[c['key']]),
+            ],
+            expanded: !_collapsed.contains(g.$1),
+            onTap: () => setState(() {
+              if (!_collapsed.remove(g.$1)) _collapsed.add(g.$1);
+            }),
+          ),
+          if (!_collapsed.contains(g.$1))
+            _view == _View.list
+                ? _list(columns, g.$3, nested: true)
+                : _table(columns, g.$3, _sumOf(columns, g.$3), nested: true),
+        ],
+      ],
+    );
+  }
+
+  // ------------------------------------------------------------------
   // Build
   // ------------------------------------------------------------------
   @override
@@ -245,9 +350,12 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
     final data = _data;
     final columns =
         ((data?['columns'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final rows = ((data?['rows'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final totals =
-        (data?['totals'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final allRows = ((data?['rows'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final rows = _filtered(columns, allRows);
+    final filtering = _status != 'all' || _find.trim().isNotEmpty;
+    final totals = filtering
+        ? _sumOf(columns, rows)
+        : (data?['totals'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.report['title']}'),
@@ -275,6 +383,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
       body: Column(
         children: [
           _filters(),
+          if (columns.isNotEmpty) _refine(columns, allRows),
           if (_loading) const LinearProgressIndicator(minHeight: 2),
           if (totals.isNotEmpty && rows.isNotEmpty)
             _totals(columns, totals, rows.length),
@@ -290,10 +399,68 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
                                 style: TextStyle(color: AixoloColors.muted)))
                         : RefreshIndicator(
                             onRefresh: _load,
-                            child: _view == _View.list
-                                ? _list(columns, rows)
-                                : _table(columns, rows, totals),
+                            child: _groupBy != 'none'
+                                ? _grouped(columns, rows)
+                                : _view == _View.list
+                                    ? _list(columns, rows)
+                                    : _table(columns, rows, totals),
                           ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _refine(List<Map<String, dynamic>> columns, List<Map<String, dynamic>> rows) {
+    final status = columns.where((c) => c['type'] == 'status').firstOrNull;
+    final values = status == null
+        ? <String>[]
+        : rows.map((r) => '${r[status['key']] ?? ''}').where((v) => v.isNotEmpty).toSet().toList();
+    final options = _groupOptions(columns);
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: Column(
+        children: [
+          TextField(
+            onChanged: (v) => setState(() => _find = v),
+            decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.filter_list_rounded), hintText: 'Filter rows', isDense: true),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                if (options.isNotEmpty)
+                  GroupByChip(
+                    value: _groupBy,
+                    options: options,
+                    onChanged: (v) => setState(() {
+                      _groupBy = v;
+                      _collapsed.clear();
+                    }),
+                  ),
+                if (values.length > 1) ...[
+                  const SizedBox(width: 6),
+                  ChoiceChip(
+                    label: const Text('All'),
+                    selected: _status == 'all',
+                    onSelected: (_) => setState(() => _status = 'all'),
+                  ),
+                  for (final v in values)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: ChoiceChip(
+                        label: Text(v),
+                        selected: _status == v,
+                        onSelected: (_) => setState(() => _status = v),
+                      ),
+                    ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -406,8 +573,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
     );
   }
 
-  Widget _list(
-      List<Map<String, dynamic>> columns, List<Map<String, dynamic>> rows) {
+  Widget _list(List<Map<String, dynamic>> columns, List<Map<String, dynamic>> rows, {bool nested = false}) {
     // The first text-like columns make the card title; the rest are label/value pairs.
     final status = columns.where((c) => c['type'] == 'status').firstOrNull;
     final money = columns.where((c) => c['type'] == 'money').firstOrNull;
@@ -418,7 +584,9 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
         .where((c) => c != status && c != money && c != headline)
         .toList();
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+      shrinkWrap: nested,
+      physics: nested ? const NeverScrollableScrollPhysics() : null,
+      padding: nested ? EdgeInsets.zero : const EdgeInsets.fromLTRB(12, 8, 12, 24),
       itemCount: rows.length,
       itemBuilder: (context, i) {
         final row = rows[i];
@@ -488,12 +656,14 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
     );
   }
 
-  Widget _table(List<Map<String, dynamic>> columns,
-      List<Map<String, dynamic>> rows, Map<String, dynamic> totals) {
+  Widget _table(List<Map<String, dynamic>> columns, List<Map<String, dynamic>> rows, Map<String, dynamic> totals,
+      {bool nested = false}) {
     bool numeric(Map<String, dynamic> c) =>
         const {'money', 'hours', 'km', 'number'}.contains(c['type']);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+      shrinkWrap: nested,
+      physics: nested ? const NeverScrollableScrollPhysics() : null,
+      padding: nested ? EdgeInsets.zero : const EdgeInsets.fromLTRB(12, 8, 12, 24),
       children: [
         Card(
           clipBehavior: Clip.antiAlias,

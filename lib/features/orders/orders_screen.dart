@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/group_kit.dart';
 import '../../widgets/member_picker.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -21,6 +24,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
   bool _loading = true;
   String? _error;
   String _member = 'me';
+  String _period = 'today';
+  DateTimeRange _range = Periods.range('today');
+  String _groupBy = 'none';
+  String _status = 'all';
+  final _search = TextEditingController();
+  Timer? _debounce;
+  final Set<String> _collapsed = {};
 
   @override
   void initState() {
@@ -28,23 +38,37 @@ class _OrdersScreenState extends State<OrdersScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _search.dispose();
+    super.dispose();
+  }
+
   bool get _demandFlow => Services.auth.profile?.isDemandFlow ?? false;
+
+  Map<String, dynamic> get _query => {
+        'member': _member,
+        'start': fmtDate(_range.start),
+        'end': fmtDate(_range.end),
+        if (_search.text.trim().isNotEmpty) 'q': _search.text.trim(),
+      };
 
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      // On the demand flow the outlet's request is a demand, not a quotation.
       final results = await Future.wait([
-        Services.api.get(_demandFlow ? '/api/v1/demands' : '/api/v1/orders', query: {'member': _member}),
-        Services.api.get('/api/v1/orders/summary', query: {'member': _member}),
+        Services.api.get(_demandFlow ? '/api/v1/demands' : '/api/v1/orders', query: {..._query, 'limit': 1000}),
+        Services.api.get('/api/v1/orders/summary', query: _query),
       ]);
+      if (!mounted) return;
       setState(() {
         _orders = (results[0] as List).cast<Map<String, dynamic>>();
         _summary = results[1] as Map<String, dynamic>;
         _error = null;
       });
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -59,77 +83,228 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 
+  List<GroupOption> get _groupOptions => [
+        ...dateGroups,
+        if (_member != 'me') const GroupOption('employee', 'Employee', Icons.person_rounded),
+        const GroupOption('customer', 'Customer', Icons.storefront_rounded),
+        if (_demandFlow) const GroupOption('route', 'Beat', Icons.route_rounded),
+        if (_demandFlow) const GroupOption('product', 'Product', Icons.inventory_2_rounded),
+      ];
+
+  List<Map<String, dynamic>> get _visible =>
+      _status == 'all' ? _orders : _orders.where((o) => o['state'] == _status).toList();
+
+  /// (sortable key, title, rows, value) per group; one untitled section when not grouped.
+  List<(String, String, List<Map<String, dynamic>>, double)> _sections() {
+    final rows = _visible;
+    if (_groupBy == 'none') return [('', '', rows, 0)];
+    final titles = <String, String>{};
+    final members = <String, List<Map<String, dynamic>>>{};
+    final values = <String, double>{};
+    void add(String key, String title, Map<String, dynamic> row, double value) {
+      titles[key] = title;
+      members.putIfAbsent(key, () => []).add(row);
+      values[key] = (values[key] ?? 0) + value;
+    }
+
+    for (final o in rows) {
+      final amount = (o['amount_total'] as num? ?? 0).toDouble();
+      switch (_groupBy) {
+        case 'employee':
+          final e = o['employee'] as Map?;
+          add('${e?['id']}', '${e?['name'] ?? '—'}', o, amount);
+        case 'customer':
+          final c = o['client'] as Map?;
+          add('${c?['name']}', '${c?['name'] ?? '—'}', o, amount);
+        case 'route':
+          final r = o['route'] as Map?;
+          add('${r?['name'] ?? '~'}', '${r?['name'] ?? 'No beat'}', o, amount);
+        case 'product':
+          for (final p in ((o['products'] as List?) ?? []).cast<Map<String, dynamic>>()) {
+            add('${p['name']}', '${p['name']}', o, (p['subtotal'] as num? ?? 0).toDouble());
+          }
+        default:
+          final date = parseServerTime(o['date']);
+          if (date == null) continue;
+          final bucket = dateBucket(date.toLocal(), _groupBy);
+          add(bucket.$1, bucket.$2, o, amount);
+      }
+    }
+    final keys = titles.keys.toList();
+    if (dateGroups.any((g) => g.key == _groupBy)) {
+      keys.sort((a, b) => b.compareTo(a));
+    } else {
+      keys.sort((a, b) => values[b]!.compareTo(values[a]!));
+    }
+    return [for (final k in keys) (k, titles[k]!, members[k]!, values[k]!)];
+  }
+
+  Widget _row(Map<String, dynamic> o) {
+    final products = ((o['products'] as List?) ?? []).length;
+    return Card(
+      child: ListTile(
+        title: Text('${o['name']} · ${(o['client'] as Map?)?['name'] ?? ''}'),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text([
+              '${fmtDate(parseServerTime(o['date'])!)} ${fmtTime(o['date'])}',
+              if (products > 0) '$products products' else if (o['line_count'] != null) '${o['line_count']} products',
+              if (_member != 'me' && (o['employee'] as Map?)?['name'] != null) '${(o['employee'] as Map)['name']}',
+              if ((o['route'] as Map?)?['name'] != null) '${(o['route'] as Map)['name']}',
+            ].join(' · ')),
+            Row(
+              children: [
+                StatusBadge('${o['state']}', label: '${o['state_label']}'),
+                if ((o['quoted_percent'] as num? ?? 0) > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: Text('${(o['quoted_percent'] as num).round()}% quoted',
+                        style: const TextStyle(fontSize: 11, color: AixoloColors.muted)),
+                  ),
+              ],
+            ),
+          ],
+        ),
+        isThreeLine: true,
+        trailing: Text(fmtMoney(o['amount_total'] as num?, o['currency'] as String?),
+            style: const TextStyle(fontWeight: FontWeight.w700)),
+        onTap: () => _showOrder(o['id'] as int),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final summary = _summary;
+    final word = _demandFlow ? 'demands' : 'orders';
+    final statuses = <String, String>{
+      for (final o in _orders) '${o['state']}': '${o['state_label'] ?? o['state']}',
+    };
+    final sections = _sections();
+    final periodLabel = Periods.choices.firstWhere((p) => p.$1 == _period).$2;
     return Scaffold(
       appBar: AppBar(
-          automaticallyImplyLeading: !widget.embedded,
-          title: Text(_demandFlow ? 'My Demands' : 'My Orders')),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.all(12),
-          children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: MemberPicker(
-                value: _member,
-                onChanged: (value) {
-                  setState(() => _member = value);
-                  _load();
-                },
-              ),
-            ),
-            if (_loading) const LinearProgressIndicator(),
-            if (_error != null) Text(_error!),
-            if (summary != null)
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.today),
-                  title: Text('Today: ${summary['count']} ${_demandFlow ? 'demands' : 'orders'}'),
-                  subtitle: Text('${fmtMoney(summary['amount_total'] as num?, summary['currency'] as String?)}'
-                      '${_demandFlow ? ' at PTR' : ' incl. tax'}'),
+          automaticallyImplyLeading: !widget.embedded, title: Text(_demandFlow ? 'My Demands' : 'My Orders')),
+      body: Column(
+        children: [
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              children: [
+                PeriodChips(
+                  period: _period,
+                  range: _range,
+                  onChanged: (period, range) {
+                    setState(() {
+                      _period = period;
+                      _range = range;
+                    });
+                    _load();
+                  },
                 ),
-              ),
-            if (_orders.isEmpty && !_loading)
-              Padding(
-                padding: const EdgeInsets.all(32),
-                child: Center(child: Text(_demandFlow ? 'No demands yet' : 'No orders yet')),
-              ),
-            for (final o in _orders)
-              Card(
-                child: ListTile(
-                  title: Text('${o['name']} · ${(o['client'] as Map?)?['name'] ?? ''}'),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: TextField(
+                    controller: _search,
+                    onChanged: (_) {
+                      _debounce?.cancel();
+                      _debounce = Timer(const Duration(milliseconds: 450), _load);
+                    },
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search_rounded),
+                      hintText: 'Search number, customer or product',
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 40,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     children: [
-                      Text('${fmtDate(parseServerTime(o['date'])!)} ${fmtTime(o['date'])}'
-                          '${o['line_count'] != null ? ' · ${o['line_count']} products' : ''}'
-                          '${_member != 'me' && (o['employee'] as Map?)?['name'] != null ? ' · ${(o['employee'] as Map)['name']}' : ''}'),
-                      Row(
-                        children: [
-                          StatusBadge('${o['state']}', label: '${o['state_label']}'),
-                          // How much of what the outlet asked for has reached
-                          // the distributor.
-                          if ((o['quoted_percent'] as num? ?? 0) > 0)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 6),
-                              child: Text('${(o['quoted_percent'] as num).round()}% quoted',
-                                  style: const TextStyle(fontSize: 11, color: AixoloColors.muted)),
-                            ),
-                        ],
+                      MemberPicker(
+                        value: _member,
+                        dense: true,
+                        onChanged: (value) {
+                          setState(() {
+                            _member = value;
+                            if (value == 'me' && _groupBy == 'employee') _groupBy = 'none';
+                          });
+                          _load();
+                        },
                       ),
+                      const SizedBox(width: 6),
+                      GroupByChip(
+                          value: _groupBy, options: _groupOptions, onChanged: (v) => setState(() => _groupBy = v)),
+                      if (statuses.length > 1) ...[
+                        const SizedBox(width: 6),
+                        ChoiceChip(
+                          label: const Text('All'),
+                          selected: _status == 'all',
+                          onSelected: (_) => setState(() => _status = 'all'),
+                        ),
+                        for (final entry in statuses.entries)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: ChoiceChip(
+                              label: Text(entry.value),
+                              selected: _status == entry.key,
+                              onSelected: (_) => setState(() => _status = entry.key),
+                            ),
+                          ),
+                      ],
                     ],
                   ),
-                  isThreeLine: true,
-                  trailing: Text(fmtMoney(o['amount_total'] as num?, o['currency'] as String?),
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                  onTap: () => _showOrder(o['id'] as int),
                 ),
+              ],
+            ),
+          ),
+          if (_loading) const LinearProgressIndicator(minHeight: 2),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
+                children: [
+                  if (_error != null) Text(_error!),
+                  if (summary != null)
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.today),
+                        title: Text('$periodLabel: ${summary['count']} $word'),
+                        subtitle: Text('${fmtMoney(summary['amount_total'] as num?, summary['currency'] as String?)}'
+                            '${_demandFlow ? ' at PTR' : ' incl. tax'}'
+                            '${_period == 'custom' ? ' · ${prettyDay(_range.start)} – ${prettyDay(_range.end)}' : ''}'),
+                      ),
+                    ),
+                  if (_visible.isEmpty && !_loading)
+                    Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Center(child: Text('No $word in this period')),
+                    ),
+                  for (final section in sections) ...[
+                    if (_groupBy != 'none')
+                      GroupHeader(
+                        title: section.$2,
+                        count: section.$3.length,
+                        totals: [fmtMoney(section.$4, summary?['currency'] as String?)],
+                        expanded: !_collapsed.contains(section.$1),
+                        onTap: () => setState(() {
+                          if (!_collapsed.remove(section.$1)) _collapsed.add(section.$1);
+                        }),
+                      ),
+                    if (_groupBy == 'none' || !_collapsed.contains(section.$1))
+                      for (final o in section.$3) _row(o),
+                  ],
+                ],
               ),
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
