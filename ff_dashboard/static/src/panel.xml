@@ -59,7 +59,7 @@
                         <button class="ff_icon_btn" title="Refresh" t-on-click="() => this.load()">
                             <i class="fa fa-refresh"/>
                         </button>
-                        <button class="ff_btn_primary" t-on-click="openLiveMap">
+                        <button class="ff_btn_primary" t-on-click="() => this.openSection('live')">
                             <i class="fa fa-map-marker me-1"/>Live Map
                         </button>
                     </div>
@@ -159,7 +159,7 @@
                                 <div class="ff_promo_text">
                                     <div class="ff_promo_title">Track Your<br/>Team in Real Time</div>
                                     <div class="ff_promo_sub">Field visibility<br/>for better decisions.</div>
-                                    <button class="ff_promo_btn" t-on-click="openLiveMap">
+                                    <button class="ff_promo_btn" t-on-click="() => this.openSection('live')">
                                         View Live Map <i class="fa fa-arrow-right ms-1"/>
                                     </button>
                                 </div>
@@ -305,7 +305,7 @@
                     <!-- Row 5: hours and visits -->
                     <div class="row g-3 mt-0">
                         <div class="col-xl-6">
-                            <div class="ff_card h-100">
+                            <div class="ff_card h-100 ff_centered">
                                 <div class="ff_card_head">
                                     <div class="ff_card_icon"><i class="fa fa-clock-o"/></div>
                                     <div class="ff_card_title">Daily Average Working Hours</div>
@@ -321,7 +321,7 @@
                         </div>
 
                         <div class="col-xl-6">
-                            <div class="ff_card h-100">
+                            <div class="ff_card h-100 ff_centered">
                                 <div class="ff_card_head">
                                     <div class="ff_card_icon"><i class="fa fa-flag"/></div>
                                     <div class="ff_card_title">Visit Status Overview</div>
@@ -366,7 +366,7 @@
                     <!-- Row 6: money -->
                     <div class="row g-3 mt-0 pb-3">
                         <div class="col-xl-4" t-if="state.data.expenses">
-                            <div class="ff_card h-100">
+                            <div class="ff_card h-100 ff_centered">
                                 <div class="ff_card_head">
                                     <div class="ff_card_icon"><i class="fa fa-credit-card"/></div>
                                     <div class="ff_card_title">Expense Overview</div>
@@ -409,7 +409,7 @@
                         </div>
 
                         <div class="col-xl-4" t-if="state.data.collections">
-                            <div class="ff_card h-100">
+                            <div class="ff_card h-100 ff_centered">
                                 <div class="ff_card_head">
                                     <div class="ff_card_icon"><i class="fa fa-database"/></div>
                                     <div class="ff_card_title">Collections</div>
@@ -436,7 +436,7 @@
                         </div>
 
                         <div class="col-xl-4" t-if="state.data.orders">
-                            <div class="ff_card h-100">
+                            <div class="ff_card h-100 ff_centered">
                                 <div class="ff_card_head">
                                     <div class="ff_card_icon"><i class="fa fa-trophy"/></div>
                                     <div class="ff_card_title">Top 5 Sellers</div>

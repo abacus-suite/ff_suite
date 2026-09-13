@@ -1846,4 +1846,18 @@
             color: var(--tile);
         }
     }
+
+    // Content sits in the middle of a stretched card, not stuck to the top.
+    .ff_centered {
+        display: flex;
+        flex-direction: column;
+
+        > .ff_card_head + * {
+            margin-top: auto;
+        }
+
+        > :last-child {
+            margin-bottom: auto;
+        }
+    }
 }

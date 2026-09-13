@@ -313,22 +313,20 @@ class FfDashboard(models.AbstractModel):
                 'series': [round(by_day.get(day, 0.0) or 0.0, 1) for day in days],
             }
 
-        # Open work is a count of right now, compared with what was open a day ago.
+        # Open work raised in the period and still waiting, against the period before.
         if self._ff_demand_flow():
             Demand = self.env['ff.demand'].sudo()
             open_domain = [('employee_id', 'in', employees.ids), ('state', 'in', ('submitted', 'partial'))]
             counters['pending_demands'] = {
-                'today': Demand.search_count(open_domain),
-                'yesterday': Demand.search_count(open_domain + [('date', '<', self._ff_day_range(today)[0])]),
-                'compare': 'yesterday',
+                'today': Demand.search_count(open_domain + between('date', start, end)),
+                'yesterday': Demand.search_count(open_domain + between('date', prev_start, prev_end)),
             }
         if 'ff.expense.claim' in self.env:
             Claim = self.env['ff.expense.claim'].sudo()
             open_domain = [('employee_id', 'in', employees.ids), ('state', '=', 'submitted')]
             counters['open_claims'] = {
-                'today': Claim.search_count(open_domain),
-                'yesterday': Claim.search_count(open_domain + [('date', '<', today)]),
-                'compare': 'yesterday',
+                'today': Claim.search_count(open_domain + [('date', '>=', start), ('date', '<=', end)]),
+                'yesterday': Claim.search_count(open_domain + [('date', '>=', prev_start), ('date', '<=', prev_end)]),
             }
         for row in counters.values():
             row['change'] = pct_change(row['today'], row['yesterday'])
