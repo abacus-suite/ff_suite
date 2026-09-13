@@ -279,7 +279,7 @@
                                     <div class="d-flex align-items-end">
                                         <div>
                                             <div class="d-flex align-items-center gap-2">
-                                                <span class="ff_big" t-esc="card.display"/>
+                                                <span class="ff_big text-nowrap" t-esc="card.display"/>
                                                 <span class="ff_trend"
                                                       t-att-class="card.change >= 0 ? 'ff_trend_up' : 'ff_trend_down'">
                                                     <i class="fa" t-att-class="card.change >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'"/>
@@ -287,7 +287,7 @@
                                                 </span>
                                             </div>
                                             <div class="mt-2">
-                                                <span class="ff_chip"><t t-esc="card.yesterdayText"/> yesterday</span>
+                                                <span class="ff_chip"><t t-esc="card.yesterdayText"/> <t t-esc="card.compare"/></span>
                                             </div>
                                         </div>
                                         <svg t-if="card.series" class="ff_spark ms-auto" viewBox="0 0 100 40" preserveAspectRatio="none">
@@ -373,8 +373,12 @@
                                     <span class="ff_period_chip ms-auto" t-esc="periodName"/>
                                 </div>
                                 <div class="d-flex align-items-center gap-3">
-                                    <div style="width: 150px; flex: none;">
-                                        <FfChart type="'doughnut'"
+                                    <div class="ff_ring" style="width: 150px; flex: none;">
+                                        <div class="ff_ring_center">
+                                            <div class="ff_ring_label">Total</div>
+                                            <div class="ff_ring_value" t-esc="money(state.data.expenses.total)"/>
+                                        </div>
+                                        <FfChart type="'doughnut'" legend="false"
                                                  labels="['Approved', 'Pending', 'Draft', 'Rejected']"
                                                  datasets="[{data: [
                                                     state.data.expenses.approved.amount,
@@ -386,14 +390,13 @@
                                                  height="150"/>
                                     </div>
                                     <div class="flex-grow-1 small">
-                                        <div class="fw-bold fs-6 mb-2">Total <t t-esc="money(state.data.expenses.total)"/></div>
+                                        <div class="text-muted mb-1"><t t-esc="state.data.expenses.count"/> claims</div>
                                         <t t-foreach="expenseRows" t-as="line" t-key="line.label">
                                             <div class="d-flex align-items-center py-1">
                                                 <span class="ff_dot" t-attf-style="background: {{line.color}}"/>
                                                 <span t-esc="line.label"/>
-                                                <span class="ms-auto text-muted">
-                                                    <t t-esc="line.count"/> (<t t-esc="money(line.amount)"/>)
-                                                </span>
+                                                <span class="ms-auto text-muted me-2"><t t-esc="line.count"/></span>
+                                                <b class="ff_amount" t-esc="money(line.amount)"/>
                                             </div>
                                         </t>
                                     </div>
@@ -417,17 +420,14 @@
                                     <t t-esc="state.data.collections.count"/> collections in
                                     <t t-esc="state.data.period_label"/>
                                 </div>
-                                <div class="d-flex gap-2 flex-wrap">
-                                    <span class="ff_money_chip" style="--tile:#d97706">
-                                        With staff <t t-esc="money(state.data.collections.with_staff.amount)"/>
-                                    </span>
-                                    <span class="ff_money_chip" style="--tile:#7c5cfc">
-                                        Submitted <t t-esc="money(state.data.collections.submitted.amount)"/>
-                                    </span>
-                                    <span class="ff_money_chip" style="--tile:#16a34a">
-                                        Received <t t-esc="money(state.data.collections.received.amount)"/>
-                                    </span>
-                                </div>
+                                <t t-foreach="collectionRows" t-as="line" t-key="line.label">
+                                    <div class="ff_coll_row" t-attf-style="--tile: {{line.color}}">
+                                        <span class="ff_dot" t-attf-style="background: {{line.color}}"/>
+                                        <span t-esc="line.label"/>
+                                        <span class="ms-auto text-muted me-3 small"><t t-esc="line.count"/></span>
+                                        <b class="ff_amount" t-esc="money(line.amount)"/>
+                                    </div>
+                                </t>
                                 <button class="btn btn-link btn-sm p-0 mt-3"
                                         t-on-click="() => this.openModel('ff.collection', 'Collections')">
                                     View collections <i class="fa fa-arrow-right ms-1"/>
@@ -439,7 +439,7 @@
                             <div class="ff_card h-100">
                                 <div class="ff_card_head">
                                     <div class="ff_card_icon"><i class="fa fa-trophy"/></div>
-                                    <div class="ff_card_title">Top Sellers</div>
+                                    <div class="ff_card_title">Top 5 Sellers</div>
                                     <span class="ff_period_chip ms-auto" t-esc="periodName"/>
                                 </div>
                                 <div class="ff_big" t-esc="money(state.data.orders.total)"/>

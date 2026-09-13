@@ -487,7 +487,7 @@ export class AixoloPanel extends Component {
         const counters = this.state.data.counters;
         const demandWord = this.state.data.orders && this.state.data.orders.word === "demands";
         const meta = {
-            visits: { label: "Visits Today", icon: "fa-map-marker", color: "#1a56db",
+            visits: { label: this.state.period === "today" ? "Visits Today" : "Visits", icon: "fa-map-marker", color: "#1a56db",
                       open: () => this.openModel("ff.visit", "Visits") },
             orders: { label: demandWord ? "Demands Submitted" : "Orders Submitted", icon: "fa-shopping-cart",
                       color: "#14b8a6", open: () => this.openSection("orders") },
@@ -535,6 +535,15 @@ export class AixoloPanel extends Component {
             { key: "ongoing", label: "Ongoing", pct: share.ongoing, icon: "fa-map-marker", color: "#1a56db" },
             { key: "planned", label: "Planned", pct: share.planned, icon: "fa-calendar", color: "#f59e0b" },
             { key: "missed", label: "Missed", pct: share.missed, icon: "fa-times-circle", color: "#dc2626" },
+        ];
+    }
+
+    get collectionRows() {
+        const c = this.state.data.collections;
+        return [
+            { label: "With staff", color: "#d97706", ...c.with_staff },
+            { label: "Submitted", color: "#7c5cfc", ...c.submitted },
+            { label: "Received", color: "#16a34a", ...c.received },
         ];
     }
 

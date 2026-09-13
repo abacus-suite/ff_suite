@@ -1801,4 +1801,49 @@
         color: var(--ff-primary);
         background: var(--ff-primary-soft);
     }
+
+    .ff_ring {
+        position: relative;
+    }
+
+    .ff_ring_center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+    }
+
+    .ff_ring_label {
+        font-size: 11px;
+        color: var(--ff-muted);
+    }
+
+    .ff_ring_value {
+        font-size: 15px;
+        font-weight: 800;
+    }
+
+    .ff_amount {
+        font-weight: 800;
+        min-width: 5.5rem;
+        text-align: right;
+    }
+
+    .ff_coll_row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 12px;
+        margin-bottom: 8px;
+        border-radius: 12px;
+        font-size: 13px;
+        background: color-mix(in srgb, var(--tile) 8%, #fff);
+
+        .ff_amount {
+            color: var(--tile);
+        }
+    }
 }

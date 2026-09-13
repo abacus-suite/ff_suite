@@ -112,7 +112,7 @@ class FfDashboard(models.AbstractModel):
             'realtime': self._realtime(employees),
             'teams': self._teamwise(employees),
             'people': self._people(employees),
-            'counters': self._counters(employees, today, yesterday),
+            'counters': self._counters(employees, start, end, period),
             'working_hours': self._working_hours(employees, start, end),
             'visits': self._visit_status(employees, start),
             'expenses': self._expenses(employees, start),
@@ -244,62 +244,83 @@ class FfDashboard(models.AbstractModel):
         people.sort(key=lambda row: (not row['punched_in'], row['name'] or ''))
         return people
 
-    def _counters(self, employees, today, yesterday):
-        """Today against yesterday, with the last seven days for the small trend lines."""
+    def _counters(self, employees, start, end, period='month'):
+        """The chosen period against the one just before it, with a daily line.
+
+        Today is compared with yesterday, this week with last week and this
+        month with the same number of days of last month.
+        """
+        today = self._ff_today()
+        length = (end - start).days + 1
+        prev_start = start - timedelta(days=length)
+        prev_end = start - timedelta(days=1)
+        if period == 'month' or (start.day == 1 and period != 'week' and length > 7):
+            first = (start - timedelta(days=1)).replace(day=1)
+            prev_start, prev_end = first, min(first + timedelta(days=length - 1), start - timedelta(days=1))
+        # The line: every day of the period (the last seven days when it is one day).
+        line_start = start if length > 1 else end - timedelta(days=6)
+        days = [line_start + timedelta(days=n) for n in range((end - line_start).days + 1)]
+        compare = {'today': 'yesterday', 'week': 'last week', 'month': 'last month'}.get(period, 'previous period')
+
         Visit = self.env['ff.visit'].sudo()
         Partner = self.env['res.partner'].sudo()
-        days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
-
-        def in_day(date_field, day):
-            start, end = self._ff_day_range(day)
-            return [(date_field, '>=', start), (date_field, '<', end)]
-
-        counts = {
-            'visits': lambda day: Visit.search_count(
-                [('employee_id', 'in', employees.ids)] + in_day('check_in_at', day)),
-            'new_clients': lambda day: Partner.search_count(
-                [('ff_is_client', '=', True), ('ff_created_by_employee_id', 'in', employees.ids)]
-                + in_day('create_date', day)),
-        }
+        sources = [
+            ('visits', Visit, 'check_in_at', [('employee_id', 'in', employees.ids)], True),
+            ('new_clients', Partner, 'create_date',
+             [('ff_is_client', '=', True), ('ff_created_by_employee_id', 'in', employees.ids)], True),
+        ]
         if self._ff_demand_flow():
-            Demand = self.env['ff.demand'].sudo()
-            counts['orders'] = lambda day: Demand.search_count(
-                [('employee_id', 'in', employees.ids), ('state', '!=', 'cancelled')] + in_day('date', day))
+            sources.append(('orders', self.env['ff.demand'].sudo(), 'date',
+                            [('employee_id', 'in', employees.ids), ('state', '!=', 'cancelled')], True))
         elif 'sale.order' in self.env:
-            Order = self.env['sale.order'].sudo()
-            counts['orders'] = lambda day: Order.search_count(
-                [('ff_employee_id', 'in', employees.ids)] + in_day('date_order', day))
+            sources.append(('orders', self.env['sale.order'].sudo(), 'date_order',
+                            [('ff_employee_id', 'in', employees.ids)], True))
         if 'ff.form.response' in self.env:
-            Response = self.env['ff.form.response'].sudo()
-            counts['forms'] = lambda day: Response.search_count(
-                [('employee_id', 'in', employees.ids)] + in_day('submitted_at', day)
-                if 'employee_id' in Response._fields else in_day('submitted_at', day))
-        Attachment = self.env['ir.attachment'].sudo()
-        counts['photos'] = lambda day: Attachment.search_count(
-            [('res_model', 'in', ['ff.visit', 'ff.visit.step.record', 'ff.expense.claim'])]
-            + in_day('create_date', day))
+            sources.append(('forms', self.env['ff.form.response'].sudo(), 'submitted_at',
+                            [('employee_id', 'in', employees.ids)], True))
+        sources.append(('photos', self.env['ir.attachment'].sudo(), 'create_date',
+                        [('res_model', 'in', ['ff.visit', 'ff.visit.step.record', 'ff.expense.claim'])], True))
+
+        def between(field, low, high):
+            return [(field, '>=', self._ff_day_range(low)[0]), (field, '<', self._ff_day_range(high)[1])]
 
         counters = {}
-        for key, count in counts.items():
-            series = [count(day) for day in days]
-            counters[key] = {'today': series[-1], 'yesterday': series[-2], 'series': series}
+        for key, Model, field, domain, _datetime in sources:
+            groups = Model._read_group(domain + between(field, days[0], end), ['%s:day' % field], ['__count'])
+            by_day = {fields.Date.to_date(day): count for day, count in groups}
+            counters[key] = {
+                'today': Model.search_count(domain + between(field, start, end)),
+                'yesterday': Model.search_count(domain + between(field, prev_start, prev_end)),
+                'series': [by_day.get(day, 0) for day in days],
+            }
 
         if 'ff.daily.track' in self.env:
             Track = self.env['ff.daily.track'].sudo()
-            groups = dict(Track._read_group(
-                [('employee_id', 'in', employees.ids), ('date', '>=', days[0]), ('date', '<=', today)],
-                ['date:day'], ['distance_km:sum']))
-            by_day = {fields.Date.to_date(day): km for day, km in groups.items()}
-            series = [round(by_day.get(day, 0.0) or 0.0, 1) for day in days]
-            counters['distance'] = {'today': series[-1], 'yesterday': series[-2], 'series': series}
 
-        # Waiting work: what is open now against what was open by yesterday.
+            def km(low, high):
+                total = Track._read_group(
+                    [('employee_id', 'in', employees.ids), ('date', '>=', low), ('date', '<=', high)],
+                    [], ['distance_km:sum'])
+                return round((total[0][0] if total else 0.0) or 0.0, 1)
+
+            groups = Track._read_group(
+                [('employee_id', 'in', employees.ids), ('date', '>=', days[0]), ('date', '<=', end)],
+                ['date:day'], ['distance_km:sum'])
+            by_day = {fields.Date.to_date(day): value for day, value in groups}
+            counters['distance'] = {
+                'today': km(start, end),
+                'yesterday': km(prev_start, prev_end),
+                'series': [round(by_day.get(day, 0.0) or 0.0, 1) for day in days],
+            }
+
+        # Open work is a count of right now, compared with what was open a day ago.
         if self._ff_demand_flow():
             Demand = self.env['ff.demand'].sudo()
             open_domain = [('employee_id', 'in', employees.ids), ('state', 'in', ('submitted', 'partial'))]
             counters['pending_demands'] = {
                 'today': Demand.search_count(open_domain),
                 'yesterday': Demand.search_count(open_domain + [('date', '<', self._ff_day_range(today)[0])]),
+                'compare': 'yesterday',
             }
         if 'ff.expense.claim' in self.env:
             Claim = self.env['ff.expense.claim'].sudo()
@@ -307,9 +328,11 @@ class FfDashboard(models.AbstractModel):
             counters['open_claims'] = {
                 'today': Claim.search_count(open_domain),
                 'yesterday': Claim.search_count(open_domain + [('date', '<', today)]),
+                'compare': 'yesterday',
             }
         for row in counters.values():
             row['change'] = pct_change(row['today'], row['yesterday'])
+            row.setdefault('compare', compare)
         return counters
 
     def _ff_demand_flow(self):
@@ -398,7 +421,7 @@ class FfDashboard(models.AbstractModel):
             return {
                 'total': round(sum(row['amount'] for row in rows), 2),
                 'count': sum(row['count'] for row in rows),
-                'top': rows[:6],
+                'top': rows[:5],
                 'word': 'demands',
             }
         if 'sale.order' not in self.env:
@@ -411,7 +434,7 @@ class FfDashboard(models.AbstractModel):
         top = sorted(
             [{'id': employee.id, 'name': employee.display_name, 'amount': round(amount or 0.0, 2), 'count': count}
              for employee, amount, count in groups],
-            key=lambda row: -row['amount'])[:6]
+            key=lambda row: -row['amount'])[:5]
         return {
             'total': round(sum(row['amount'] for row in top), 2),
             'count': sum(row['count'] for row in top),
