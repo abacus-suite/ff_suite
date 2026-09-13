@@ -1,0 +1,349 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../../core/api_client.dart';
+import '../../core/format.dart';
+import '../../core/services.dart';
+import '../../core/theme.dart';
+import '../../widgets/common.dart';
+
+/// Conversations from Odoo Discuss: channels and direct chats.
+class ChatListScreen extends StatefulWidget {
+  const ChatListScreen({super.key});
+
+  @override
+  State<ChatListScreen> createState() => _ChatListScreenState();
+}
+
+class _ChatListScreenState extends State<ChatListScreen> {
+  List<Map<String, dynamic>> _channels = [];
+  String? _error;
+  bool _loading = true;
+  Timer? _poll;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _poll = Timer.periodic(const Duration(seconds: 20), (_) => _load(quiet: true));
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load({bool quiet = false}) async {
+    if (!quiet) setState(() => _loading = true);
+    try {
+      final data = await Services.api.get('/api/v1/chat/channels') as Map<String, dynamic>;
+      if (mounted) {
+        setState(() {
+          _channels = ((data['channels'] as List?) ?? []).cast<Map<String, dynamic>>();
+          _error = null;
+        });
+      }
+    } catch (e) {
+      if (mounted && !quiet) setState(() => _error = e.toString());
+    } finally {
+      if (mounted && !quiet) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _open(Map<String, dynamic> channel) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ConversationScreen(channel: channel)));
+    _load(quiet: true);
+  }
+
+  Future<void> _newChat() async {
+    List<Map<String, dynamic>> people;
+    try {
+      people = ((await Services.api.get('/api/v1/chat/people')) as List).cast<Map<String, dynamic>>();
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+      return;
+    }
+    if (!mounted) return;
+    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheet) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        builder: (context, controller) => ListView(
+          controller: controller,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text('Chat with', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            ),
+            if (people.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('Nobody in your team has an Odoo user yet.', style: TextStyle(color: AixoloColors.muted)),
+              ),
+            for (final p in people)
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFFE8EFFF),
+                  child: Text('${p['name']}'.isNotEmpty ? '${p['name']}'[0] : '?',
+                      style: const TextStyle(color: AixoloColors.primary, fontWeight: FontWeight.w800)),
+                ),
+                title: Text('${p['name']}'),
+                subtitle: Text([p['job'], p['team']].whereType<String>().join(' · ')),
+                onTap: () => Navigator.pop(sheet, p),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    try {
+      final channel = await Services.api.post('/api/v1/chat/direct', {'employee_id': picked['employee_id']})
+          as Map<String, dynamic>;
+      if (mounted) _open(channel);
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Chat')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _newChat,
+        icon: const Icon(Icons.chat_rounded),
+        label: const Text('New chat'),
+      ),
+      body: _error != null
+          ? ErrorView(message: _error!, onRetry: _load)
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: _channels.isEmpty && !_loading
+                  ? ListView(children: const [
+                      SizedBox(height: 120),
+                      Icon(Icons.forum_rounded, size: 56, color: AixoloColors.muted),
+                      SizedBox(height: 10),
+                      Center(child: Text('No conversations yet', style: TextStyle(color: AixoloColors.muted))),
+                    ])
+                  : ListView.separated(
+                      padding: const EdgeInsets.only(bottom: 90),
+                      itemCount: _channels.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
+                      itemBuilder: (context, i) {
+                        final c = _channels[i];
+                        final unread = (c['unread'] as num? ?? 0).toInt();
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: c['type'] == 'chat' ? const Color(0xFFE8EFFF) : const Color(0xFFE6F7EE),
+                            child: c['type'] == 'chat'
+                                ? Text('${c['name']}'.isNotEmpty ? '${c['name']}'[0] : '?',
+                                    style: const TextStyle(color: AixoloColors.primary, fontWeight: FontWeight.w800))
+                                : const Icon(Icons.tag_rounded, color: AixoloColors.success),
+                          ),
+                          title: Text('${c['name']}',
+                              style: TextStyle(fontWeight: unread > 0 ? FontWeight.w800 : FontWeight.w600)),
+                          subtitle: Text(
+                            c['last_message'] == null
+                                ? 'No messages yet'
+                                : '${c['type'] == 'chat' ? '' : '${c['last_author']}: '}${c['last_message']}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (c['last_at'] != null)
+                                Text(fmtTime(c['last_at']), style: const TextStyle(fontSize: 11.5, color: AixoloColors.muted)),
+                              if (unread > 0)
+                                Container(
+                                  margin: const EdgeInsets.only(top: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                      color: AixoloColors.primary, borderRadius: BorderRadius.circular(20)),
+                                  child: Text('$unread',
+                                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                                ),
+                            ],
+                          ),
+                          onTap: () => _open(c),
+                        );
+                      },
+                    ),
+            ),
+    );
+  }
+}
+
+/// One conversation; new messages arrive every few seconds while it is open.
+class ConversationScreen extends StatefulWidget {
+  const ConversationScreen({super.key, required this.channel});
+
+  final Map<String, dynamic> channel;
+
+  @override
+  State<ConversationScreen> createState() => _ConversationScreenState();
+}
+
+class _ConversationScreenState extends State<ConversationScreen> {
+  final List<Map<String, dynamic>> _messages = [];
+  final _input = TextEditingController();
+  final _scroll = ScrollController();
+  Timer? _poll;
+  bool _sending = false;
+  String? _error;
+
+  int get _id => widget.channel['id'] as int;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _poll = Timer.periodic(const Duration(seconds: 5), (_) => _load(newer: true));
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    _input.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load({bool newer = false}) async {
+    try {
+      final data = await Services.api.get('/api/v1/chat/channels/$_id/messages', query: {
+        if (newer && _messages.isNotEmpty) 'after_id': _messages.last['id'],
+      }) as Map<String, dynamic>;
+      final incoming = ((data['messages'] as List?) ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      if (incoming.isNotEmpty || !newer) {
+        final known = _messages.map((m) => m['id']).toSet();
+        setState(() {
+          _messages.addAll(incoming.where((m) => !known.contains(m['id'])));
+          _error = null;
+        });
+        _toBottom();
+        Services.api.post('/api/v1/chat/channels/$_id/seen').catchError((_) => null);
+      }
+    } on ApiException catch (e) {
+      if (mounted && !newer) setState(() => _error = e.message);
+    }
+  }
+
+  void _toBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) _scroll.animateTo(_scroll.position.maxScrollExtent, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+    });
+  }
+
+  Future<void> _send() async {
+    final text = _input.text.trim();
+    if (text.isEmpty) return;
+    setState(() => _sending = true);
+    try {
+      final message = await Services.api.post('/api/v1/chat/channels/$_id/messages', {'body': text})
+          as Map<String, dynamic>;
+      _input.clear();
+      if (mounted) setState(() => _messages.add(message));
+      _toBottom();
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('${widget.channel['name']}')),
+      body: Column(
+        children: [
+          Expanded(
+            child: _error != null
+                ? ErrorView(message: _error!, onRetry: _load)
+                : ListView.builder(
+                    controller: _scroll,
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, i) {
+                      final m = _messages[i];
+                      final mine = m['mine'] == true;
+                      final showAuthor = !mine && (i == 0 || _messages[i - 1]['author_id'] != m['author_id']);
+                      return Align(
+                        alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+                          margin: const EdgeInsets.symmetric(vertical: 3),
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+                          decoration: BoxDecoration(
+                            color: mine ? AixoloColors.primary : Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: const Radius.circular(16),
+                              topRight: const Radius.circular(16),
+                              bottomLeft: Radius.circular(mine ? 16 : 4),
+                              bottomRight: Radius.circular(mine ? 4 : 16),
+                            ),
+                            border: mine ? null : Border.all(color: AixoloColors.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (showAuthor)
+                                Text('${m['author']}',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AixoloColors.primary)),
+                              Text('${m['body']}', style: TextStyle(color: mine ? Colors.white : AixoloColors.text, height: 1.3)),
+                              for (final a in ((m['attachments'] as List?) ?? []).cast<Map<String, dynamic>>())
+                                Text('📎 ${a['name']}',
+                                    style: TextStyle(fontSize: 12, color: mine ? Colors.white70 : AixoloColors.muted)),
+                              const SizedBox(height: 2),
+                              Align(
+                                alignment: Alignment.bottomRight,
+                                child: Text(fmtTime(m['at']),
+                                    style: TextStyle(fontSize: 10.5, color: mine ? Colors.white70 : AixoloColors.muted)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          SafeArea(
+            top: false,
+            child: Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _input,
+                      minLines: 1,
+                      maxLines: 4,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: const InputDecoration(hintText: 'Message', isDense: true),
+                    ),
+                  ),
+                  IconButton.filled(
+                    onPressed: _sending ? null : _send,
+                    icon: _sending
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.send_rounded),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -16,6 +16,8 @@ import '../leaves/leaves_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../reports/reports_screen.dart';
 import '../forms/forms_screen.dart';
+import '../chat/chat_screen.dart';
+import '../receivables/receivables_screen.dart';
 import '../tasks/tasks_screen.dart';
 import 'profile_screen.dart';
 
@@ -31,6 +33,8 @@ class MoreScreen extends StatelessWidget {
     final menu = <(IconData, String, Color, Widget)>[
       (Icons.bar_chart_rounded, 'Reports', AixoloColors.primary, const ReportsScreen()),
       (Icons.task_alt_rounded, 'Tasks', AixoloColors.success, const TasksScreen()),
+      (Icons.forum_rounded, 'Chat', AixoloColors.primary, const ChatListScreen()),
+      (Icons.account_balance_wallet_rounded, 'Receivables', AixoloColors.danger, const ReceivablesScreen()),
       if (profile.feature('routes')) ...[
         (Icons.calendar_month_rounded, 'My ${profile.routeLabel} Plan', AixoloColors.primary, const BeatTodayScreen()),
         (Icons.edit_calendar_rounded, 'Plan a ${profile.routeLabel} Day', AixoloColors.sky, const PlanDayScreen()),

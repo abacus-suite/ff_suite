@@ -4,6 +4,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/member_picker.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key, this.embedded = false});
@@ -19,6 +20,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Map<String, dynamic>? _summary;
   bool _loading = true;
   String? _error;
+  String _member = 'me';
 
   @override
   void initState() {
@@ -33,8 +35,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
     try {
       // On the demand flow the outlet's request is a demand, not a quotation.
       final results = await Future.wait([
-        Services.api.get(_demandFlow ? '/api/v1/demands' : '/api/v1/orders'),
-        Services.api.get('/api/v1/orders/summary'),
+        Services.api.get(_demandFlow ? '/api/v1/demands' : '/api/v1/orders', query: {'member': _member}),
+        Services.api.get('/api/v1/orders/summary', query: {'member': _member}),
       ]);
       setState(() {
         _orders = (results[0] as List).cast<Map<String, dynamic>>();
@@ -69,6 +71,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
         child: ListView(
           padding: const EdgeInsets.all(12),
           children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: MemberPicker(
+                value: _member,
+                onChanged: (value) {
+                  setState(() => _member = value);
+                  _load();
+                },
+              ),
+            ),
             if (_loading) const LinearProgressIndicator(),
             if (_error != null) Text(_error!),
             if (summary != null)
@@ -93,7 +105,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('${fmtDate(parseServerTime(o['date'])!)} ${fmtTime(o['date'])}'
-                          '${o['line_count'] != null ? ' · ${o['line_count']} products' : ''}'),
+                          '${o['line_count'] != null ? ' · ${o['line_count']} products' : ''}'
+                          '${_member != 'me' && (o['employee'] as Map?)?['name'] != null ? ' · ${(o['employee'] as Map)['name']}' : ''}'),
                       Row(
                         children: [
                           StatusBadge('${o['state']}', label: '${o['state_label']}'),

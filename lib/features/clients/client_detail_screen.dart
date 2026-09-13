@@ -12,6 +12,7 @@ import '../visits/step_screen.dart';
 import '../../core/local_state.dart';
 import '../visits/visit_gate.dart';
 import '../visits/stock_count_screen.dart';
+import '../receivables/receivables_screen.dart';
 import '../returns/return_screen.dart';
 import 'client_extras.dart';
 import 'visit_checkout_screen.dart';
@@ -233,6 +234,12 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         title: Text(asText(client?['name']) ?? Services.auth.profile!.label('client', 'Client')),
         actions: [
           if (client != null) ...[
+            IconButton(
+              tooltip: 'Statement of account',
+              icon: const Icon(Icons.request_quote_rounded),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => StatementScreen(partnerId: widget.clientId, name: '${client['name']}'))),
+            ),
             IconButton(
               tooltip: 'History',
               icon: const Icon(Icons.history_rounded),

@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../team/team_live_screen.dart';
 import '../team/timeline_screen.dart';
+import '../receivables/receivables_screen.dart';
 import '../targets/targets_screen.dart';
 import 'report_view_screen.dart';
 
@@ -33,6 +34,8 @@ const _icons = <String, IconData>{
   'receipt_long': Icons.receipt_long_rounded,
   'alt_route': Icons.alt_route_rounded,
   'redeem': Icons.redeem_rounded,
+  'summarize': Icons.summarize_rounded,
+  'calendar_month': Icons.calendar_month_rounded,
 };
 
 const _tones = [
@@ -163,6 +166,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 subtitle: Text(canTeam ? 'Top performers · split your targets' : 'Where you stand this month'),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => _open(const TargetsScreen()),
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFFDECEC),
+                  child: Icon(Icons.account_balance_wallet_rounded, color: AixoloColors.danger),
+                ),
+                title: const Text('Receivables & statements', style: TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: const Text('Invoices due and overdue, ageing, customer SOA'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _open(const ReceivablesScreen()),
               ),
             ),
             if (reports.isNotEmpty) _Section(canTeam ? 'Reports · me or my team' : 'My reports'),

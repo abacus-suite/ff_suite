@@ -17,7 +17,9 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/dashboard.dart';
 import '../../widgets/home_kit.dart';
+import '../../widgets/member_picker.dart';
 import '../notifications/notifications_screen.dart';
+import '../chat/chat_screen.dart';
 import '../more/profile_screen.dart';
 import 'month_target_card.dart';
 import 'my_requests_card.dart';
@@ -45,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _travel;
   List<Map<String, dynamic>> _visits = [];
   String _period = 'today';
+  String _member = 'me';
   bool _loading = true;
   bool _punching = false;
   String? _error;
@@ -83,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
             : Future<dynamic>.value(null),
         profile.feature('orders')
             ? _optional(Services.api
-                .get('/api/v1/orders/dashboard', query: {'period': _period}))
+                .get('/api/v1/orders/dashboard', query: {'period': _period, 'member': _member}))
             : Future<dynamic>.value(null),
         _optional(Services.api.get('/api/v1/tracking/my-day')),
         _optional(Services.api.get('/api/v1/visits')),
@@ -116,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _reloadSales(String period) async {
     setState(() => _period = period);
     final data = await _optional(Services.api
-        .get('/api/v1/orders/dashboard', query: {'period': period}));
+        .get('/api/v1/orders/dashboard', query: {'period': period, 'member': _member}));
     if (mounted) setState(() => _sales = data as Map<String, dynamic>?);
   }
 
@@ -198,7 +201,18 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               HomeHeader(
                 name: profile.name,
-                bell: const NotificationBell(),
+                bell: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Chat',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.forum_outlined),
+                      onPressed: () => _push(const ChatListScreen()),
+                    ),
+                    const NotificationBell(),
+                  ],
+                ),
                 onAvatar: () => _push(const ProfileScreen()),
               ),
               const SizedBox(height: 14),
@@ -502,6 +516,17 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.bar_chart_rounded,
               title: 'Sales Summary',
               trailing: PeriodSelector(value: _period, onChanged: _reloadSales),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: MemberPicker(
+                value: _member,
+                dense: true,
+                onChanged: (value) {
+                  setState(() => _member = value);
+                  _reloadSales(_period);
+                },
+              ),
             ),
             const SizedBox(height: 12),
             Row(
