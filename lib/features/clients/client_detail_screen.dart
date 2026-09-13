@@ -15,6 +15,7 @@ import '../visits/stock_count_screen.dart';
 import '../receivables/receivables_screen.dart';
 import '../returns/return_screen.dart';
 import 'client_extras.dart';
+import 'product_history_screen.dart';
 import 'visit_checkout_screen.dart';
 
 class ClientDetailScreen extends StatefulWidget {
@@ -359,6 +360,17 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             },
             icon: const Icon(Icons.assignment_return_rounded),
             label: const Text('Return / damaged goods'),
+          ),
+        ],
+        // Checked in here: what this customer has taken from us, product by product.
+        if (profile.feature('orders') && _atThisClient) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => ProductHistoryScreen(clientId: widget.clientId, clientName: '${c['name']}'),
+            )),
+            icon: const Icon(Icons.inventory_2_rounded),
+            label: const Text('Product history'),
           ),
         ],
         if (profile.paymentCollection && !_elsewhere) ...[
