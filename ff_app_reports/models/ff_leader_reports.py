@@ -62,6 +62,20 @@ class FfLeaderReports(models.AbstractModel):
                 col('employee', 'Employee'), col('category', 'Type'), col('count', 'Claims', NUMBER, True),
                 col('amount', 'Claimed', MONEY, True), col('approved', 'Approved', MONEY, True),
                 col('waiting', 'Waiting', MONEY, True)], self._expense_summary),
+            'team_summary': ('Summary by employee', 'One line per person: days, hours, visits, sales, collections, km',
+                             'summarize', 'hr.attendance', [
+                col('employee', 'Employee'), col('days', 'Days worked', NUMBER, True), col('hours', 'Hours', HOURS, True),
+                col('late', 'Late days', NUMBER, True), col('visits', 'Visits', NUMBER, True),
+                col('offsite', 'Offsite', NUMBER, True), col('orders', '%s count' % sale_word, NUMBER, True),
+                col('sales', sale_word, MONEY, True), col('collections', 'Collected', MONEY, True),
+                col('expenses', 'Expenses', MONEY, True), col('customers', 'New customers', NUMBER, True),
+                col('km', 'Distance', KM, True)], self._team_summary),
+            'daily_summary': ('Summary by day', 'One line per day for the people chosen', 'calendar_month',
+                              'hr.attendance', [
+                col('date', 'Date', DATE), col('present', 'Present', NUMBER, True), col('hours', 'Hours', HOURS, True),
+                col('visits', 'Visits', NUMBER, True), col('orders', '%s count' % sale_word, NUMBER, True),
+                col('sales', sale_word, MONEY, True), col('collections', 'Collected', MONEY, True),
+                col('expenses', 'Expenses', MONEY, True), col('km', 'Distance', KM, True)], self._daily_summary),
             'route_plans': ('Route plans', 'Planned routes per person and how they went', 'alt_route', 'ff.beat.plan', [
                 col('date', 'Date', DATE), col('employee', 'Employee'), col('route', 'Route'),
                 col('planned', 'Planned', NUMBER, True), col('visited', 'Visited', NUMBER, True),
@@ -281,3 +295,86 @@ class FfLeaderReports(models.AbstractModel):
             'planned': plan.planned_count, 'visited': plan.completed_count, 'missed': plan.missed_count,
             'completion': round(plan.completion_pct, 1), 'km': round(plan.actual_km or 0.0, 1),
         } for plan in plans]
+
+    # ------------------------------------------------------------------
+    # Summaries
+    # ------------------------------------------------------------------
+    def _summary_facts(self, employees, start, end):
+        """(employee id, local day) -> counters for everything a summary adds up."""
+        facts = defaultdict(lambda: defaultdict(float))
+        low, high = self._utc_bounds(start, end)
+        for att in self.env['hr.attendance'].sudo().search([
+                ('employee_id', 'in', employees.ids), ('check_in', '>=', low), ('check_in', '<', high)]):
+            key = (att.employee_id.id, self._local(att.employee_id, att.check_in).date())
+            facts[key]['present'] = 1
+            facts[key]['hours'] += att.worked_hours or 0.0
+            if 'ff_day_status' in att._fields and att.ff_day_status == 'late':
+                facts[key]['late'] = 1
+        for visit in self.env['ff.visit'].sudo().search([
+                ('employee_id', 'in', employees.ids), ('check_in_at', '>=', low), ('check_in_at', '<', high)]):
+            key = (visit.employee_id.id, self._local(visit.employee_id, visit.check_in_at).date())
+            facts[key]['visits'] += 1
+            if 'visit_type' in visit._fields and visit.visit_type == 'offsite':
+                facts[key]['offsite'] += 1
+        for employee, _partner, date, _number, amount, _lines in self._sales_docs(employees, start, end):
+            key = (employee.id, self._local(employee, date).date())
+            facts[key]['orders'] += 1
+            facts[key]['sales'] += amount
+        if 'ff.collection' in self.env:
+            for c in self.env['ff.collection'].sudo().search([
+                    ('employee_id', 'in', employees.ids), ('date', '>=', low), ('date', '<', high),
+                    ('state', '!=', 'cancelled')]):
+                facts[(c.employee_id.id, self._local(c.employee_id, c.date).date())]['collections'] += c.amount
+        if 'ff.expense.claim' in self.env:
+            for claim in self.env['ff.expense.claim'].sudo().search([
+                    ('employee_id', 'in', employees.ids), ('date', '>=', start), ('date', '<=', end),
+                    ('state', '!=', 'rejected')]):
+                facts[(claim.employee_id.id, claim.date)]['expenses'] += claim.amount
+        for partner in self.env['res.partner'].sudo().with_context(active_test=False).search([
+                ('ff_created_by_employee_id', 'in', employees.ids), ('create_date', '>=', low),
+                ('create_date', '<', high)]):
+            employee = partner.ff_created_by_employee_id
+            facts[(employee.id, self._local(employee, partner.create_date).date())]['customers'] += 1
+        for track in self.env['ff.daily.track'].sudo().search([
+                ('employee_id', 'in', employees.ids), ('date', '>=', start), ('date', '<=', end)]):
+            facts[(track.employee_id.id, track.date)]['km'] += track.distance_km
+        return facts
+
+    @staticmethod
+    def _round_row(row):
+        return {k: (round(v, 2) if isinstance(v, float) else v) for k, v in row.items()}
+
+    def _team_summary(self, employees, start, end):
+        facts = self._summary_facts(employees, start, end)
+        rows = []
+        for employee in employees.sorted('name'):
+            total = defaultdict(float)
+            for (employee_id, _day), values in facts.items():
+                if employee_id == employee.id:
+                    for key, value in values.items():
+                        total[key] += value
+            rows.append(self._round_row({
+                'employee': employee.name, 'days': int(total['present']), 'hours': total['hours'],
+                'late': int(total['late']), 'visits': int(total['visits']), 'offsite': int(total['offsite']),
+                'orders': int(total['orders']), 'sales': total['sales'], 'collections': total['collections'],
+                'expenses': total['expenses'], 'customers': int(total['customers']), 'km': total['km'],
+            }))
+        return sorted(rows, key=lambda r: -r['sales'])
+
+    def _daily_summary(self, employees, start, end):
+        facts = self._summary_facts(employees, start, end)
+        rows = []
+        day = end
+        while day >= start:
+            total = defaultdict(float)
+            for (_employee_id, fact_day), values in facts.items():
+                if fact_day == day:
+                    for key, value in values.items():
+                        total[key] += value
+            rows.append(self._round_row({
+                'date': day.isoformat(), 'present': int(total['present']), 'hours': total['hours'],
+                'visits': int(total['visits']), 'orders': int(total['orders']), 'sales': total['sales'],
+                'collections': total['collections'], 'expenses': total['expenses'], 'km': total['km'],
+            }))
+            day -= timedelta(days=1)
+        return rows
