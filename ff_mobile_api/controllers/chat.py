@@ -107,9 +107,23 @@ class FieldForceChatApi(http.Controller):
         target = request.env['hr.employee'].sudo().browse(to_int(body().get('employee_id')) or []).exists()
         if not target or not target.user_id:
             raise ApiError('That person has no Odoo user to chat with.', 404, 'not_found')
-        channel = request.env['discuss.channel'].with_user(user).sudo(False)._get_or_create_chat(
-            target.user_id.partner_id.ids)
-        return ok(_channel_data(channel.sudo(), user))
+        # The app talks to Odoo as the public user, so Discuss helpers that read the
+        # "current user" from the request cannot be used: find or make the chat directly.
+        pair = user.partner_id | target.user_id.partner_id
+        Channel = request.env['discuss.channel'].sudo()
+        channel = Channel.browse()
+        for candidate in Channel.search([('channel_type', '=', 'chat'),
+                                         ('channel_member_ids.partner_id', '=', user.partner_id.id)]):
+            if candidate.channel_member_ids.partner_id == pair:
+                channel = candidate
+                break
+        if not channel:
+            channel = Channel.create({
+                'name': ', '.join(pair.mapped('name')),
+                'channel_type': 'chat',
+                'channel_member_ids': [(0, 0, {'partner_id': partner.id}) for partner in pair],
+            })
+        return ok(_channel_data(channel, user))
 
     @api_route('/api/v1/chat/channels/<int:channel_id>/messages', methods=('GET',))
     def messages(self, employee, channel_id, before_id=None, after_id=None, limit=None, **kw):
@@ -133,8 +147,8 @@ class FieldForceChatApi(http.Controller):
         if not text:
             raise ApiError('Write a message first.')
         html = Markup('<br/>').join(Markup(escape(line)) for line in text[:4000].split('\n'))
-        message = channel.with_user(user).sudo(False).message_post(
-            body=html, message_type='comment', subtype_xmlid='mail.mt_comment')
+        message = channel.sudo().with_context(mail_create_nosubscribe=True).message_post(
+            body=html, author_id=user.partner_id.id, message_type='comment', subtype_xmlid='mail.mt_comment')
         return ok(_message_data(message.sudo(), user), status=201)
 
     @api_route('/api/v1/chat/channels/<int:channel_id>/seen', methods=('POST',))
