@@ -7,7 +7,7 @@ from odoo.http import request
 from odoo.addons.ff_base.tools import to_iso
 
 from .clients import visible_client
-from .common import ApiError, action_time, api_route, body, ok, ref, require_punched_in
+from .common import ApiError, action_time, api_route, body, ok, ref, require_punched_in, scope_members
 
 MAX_LIMIT = 300
 STATE_LABELS = {'draft': 'Submitted', 'sent': 'Submitted', 'sale': 'Confirmed', 'cancel': 'Cancelled'}
@@ -47,6 +47,7 @@ def order_data(order, with_lines=False):
         'currency': order.currency_id.name,
         'line_count': len(order.order_line),
         'visit_id': order.ff_visit_id.id or None,
+        'employee': ref(order.ff_employee_id),
     }
     if with_lines:
         data['note'] = order.note and str(order.note) or None
@@ -120,8 +121,9 @@ class FieldForceOrdersApi(http.Controller):
         return ok(order_data(order, with_lines=True), status=201)
 
     @api_route('/api/v1/orders', methods=('GET',))
-    def orders(self, employee, partner_id=None, limit=None, **kw):
-        domain = [('ff_employee_id', '=', employee.id), ('ff_source', '=', 'app')]
+    def orders(self, employee, partner_id=None, limit=None, member=None, **kw):
+        people, _label = scope_members(employee, member)
+        domain = [('ff_employee_id', 'in', people.ids), ('ff_source', '=', 'app')]
         if partner_id:
             domain.append(('partner_id', '=', int(partner_id)))
         orders = request.env['sale.order'].sudo().search(domain, order='date_order desc',
@@ -138,14 +140,15 @@ class FieldForceOrdersApi(http.Controller):
         return ok(order_data(order, with_lines=True))
 
     @api_route('/api/v1/orders/summary', methods=('GET',))
-    def summary(self, employee, **kw):
+    def summary(self, employee, member=None, **kw):
+        people, _label = scope_members(employee, member)
         start, end = employee._ff_day_bounds(employee._ff_today())
         env = request.env
         flow = env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct'
         if flow == 'demand' and 'ff.demand' in env:
             # Demands carry no tax: their value is what the outlet asked for at PTR.
             demands = env['ff.demand'].sudo().search([
-                ('employee_id', '=', employee.id), ('date', '>=', start), ('date', '<', end),
+                ('employee_id', 'in', people.ids), ('date', '>=', start), ('date', '<', end),
                 ('state', '!=', 'cancelled')])
             total = sum(demands.mapped('amount_total'))
             return ok({
@@ -158,7 +161,7 @@ class FieldForceOrdersApi(http.Controller):
                 'server_time': to_iso(fields.Datetime.now()),
             })
         orders = env['sale.order'].sudo().search([
-            ('ff_employee_id', '=', employee.id), ('ff_source', '=', 'app'),
+            ('ff_employee_id', 'in', people.ids), ('ff_source', '=', 'app'),
             ('date_order', '>=', start), ('date_order', '<', end), ('state', '!=', 'cancel'),
         ])
         return ok({
@@ -185,13 +188,14 @@ class FieldForceOrdersApi(http.Controller):
         } for hour, amount in sorted(buckets.items())]
 
     @api_route('/api/v1/orders/dashboard', methods=('GET',))
-    def dashboard(self, employee, period='today', **kw):
+    def dashboard(self, employee, period='today', member=None, **kw):
         """Sales totals, a 7-day series and the top moved products.
 
         On the demand flow the field takes demands, not sale orders, so the
         figures come from demands; otherwise from the orders taken in the app.
         """
         env = request.env
+        people, _label = scope_members(employee, member)
         today = employee._ff_today()
         first = {
             'week': today - timedelta(days=today.weekday()),
@@ -203,10 +207,10 @@ class FieldForceOrdersApi(http.Controller):
         demand = flow == 'demand' and 'ff.demand' in env
         if demand:
             Model, date_field = env['ff.demand'].sudo(), 'date'
-            base_domain = [('employee_id', '=', employee.id), ('state', '!=', 'cancelled')]
+            base_domain = [('employee_id', 'in', people.ids), ('state', '!=', 'cancelled')]
         else:
             Model, date_field = env['sale.order'].sudo(), 'date_order'
-            base_domain = [('ff_employee_id', '=', employee.id), ('ff_source', '=', 'app'), ('state', '!=', 'cancel')]
+            base_domain = [('ff_employee_id', 'in', people.ids), ('ff_source', '=', 'app'), ('state', '!=', 'cancel')]
 
         def between(low, high):
             return Model.search(base_domain + [(date_field, '>=', low), (date_field, '<', high)])

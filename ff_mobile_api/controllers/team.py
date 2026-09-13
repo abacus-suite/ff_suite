@@ -26,6 +26,16 @@ def _member(employee, employee_id):
 
 class FieldForceTeamApi(http.Controller):
 
+    @api_route('/api/v1/team/members', methods=('GET',))
+    def members(self, employee, **kw):
+        """People this employee may pick on any screen (their Data Access), for the me / team / person picker."""
+        team = _team(employee)
+        return ok({
+            'can_team': bool(team),
+            'members': [dict(ref(member), code=member.ff_employee_code or None, team=ref(member.ff_team_id))
+                        for member in team.sorted('name')],
+        })
+
     @api_route('/api/v1/team/live', methods=('GET',), manager=True)
     def live(self, employee, **kw):
         team = _team(employee)

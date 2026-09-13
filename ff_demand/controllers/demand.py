@@ -4,7 +4,8 @@ from odoo.http import request
 
 from odoo.addons.ff_base.tools import to_iso
 from odoo.addons.ff_mobile_api.controllers.clients import to_int, visible_client
-from odoo.addons.ff_mobile_api.controllers.common import ApiError, action_time, api_route, body, ok, ref, require_punched_in
+from odoo.addons.ff_mobile_api.controllers.common import (
+    ApiError, action_time, api_route, body, ok, ref, require_punched_in, scope_members)
 
 from ..models.ff_demand import order_flow
 
@@ -24,6 +25,7 @@ def demand_data(demand, with_lines=False):
         'name': demand.name,
         'kind': 'demand',
         'client': ref(demand.partner_id),
+        'employee': ref(demand.employee_id),
         'distributor': ref(demand.distributor_id),
         'date': to_iso(demand.date),
         'amount_total': demand.amount_total,
@@ -59,8 +61,9 @@ class FieldForceDemandApi(http.Controller):
         return ok(demand_data(demand, with_lines=True), status=201)
 
     @api_route('/api/v1/demands', methods=('GET',))
-    def demands(self, employee, partner_id=None, limit=None, **kw):
-        domain = [('employee_id', '=', employee.id)]
+    def demands(self, employee, partner_id=None, limit=None, member=None, **kw):
+        people, _label = scope_members(employee, member)
+        domain = [('employee_id', 'in', people.ids)]
         if partner_id:
             domain.append(('partner_id', '=', to_int(partner_id)))
         demands = request.env['ff.demand'].sudo().search(

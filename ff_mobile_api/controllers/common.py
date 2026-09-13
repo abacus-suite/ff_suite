@@ -73,6 +73,23 @@ def require_punched_in(employee, action, data=None):
     raise ApiError('Check in for the day (attendance) before you %s.' % action, 409, 'not_punched_in')
 
 
+def scope_members(employee, member=None):
+    """Whose data a screen shows: 'me' (default), 'team' (me and everyone my Data Access covers),
+    or one employee id inside that scope. Returns (employees, label)."""
+    if member in (None, '', 'me'):
+        return employee, employee.name
+    team = employee._ff_subordinates()
+    if member == 'team':
+        return employee | team, '%s and team' % employee.name
+    try:
+        target = request.env['hr.employee'].sudo().browse(int(member)).exists()
+    except (TypeError, ValueError):
+        target = None
+    if not target or (target != employee and target not in team):
+        raise ApiError('Employee not found in your team.', 404, 'not_found')
+    return target, target.name
+
+
 def body():
     data = request.httprequest.get_json(force=True, silent=True)
     return data if isinstance(data, dict) else {}
