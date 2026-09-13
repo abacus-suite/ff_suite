@@ -191,6 +191,11 @@ class FieldForceChatApi(http.Controller):
         message = channel.sudo().with_context(mail_create_nosubscribe=True).message_post(
             body=html, author_id=user.partner_id.id, message_type='comment', subtype_xmlid='mail.mt_comment',
             attachment_ids=attachments.ids)
+        # message_post only adopts attachments it considers the poster's own; these were
+        # created on the app's behalf, so link them to the message explicitly.
+        if attachments and not (attachments <= message.sudo().attachment_ids):
+            message.sudo().attachment_ids = [(4, attachment.id) for attachment in attachments]
+            attachments.write({'res_model': 'discuss.channel', 'res_id': channel.id})
         return ok(_message_data(message.sudo(), user), status=201)
 
     @http.route('/api/v1/chat/file/<int:attachment_id>', type='http', auth='public', methods=['GET'],
