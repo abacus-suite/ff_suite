@@ -113,11 +113,16 @@ class FfDashboardReports(models.AbstractModel):
             and fields.Date.to_date(leave.date_from) <= today <= fields.Date.to_date(leave.date_to))
 
         by_type = {}
-        for leave in leaves.filtered(lambda l: l.state in ('confirm', 'validate1', 'validate')):
+        for leave in leaves.filtered(lambda l: l.state in ('confirm', 'validate1', 'validate', 'refuse')):
             key = leave.holiday_status_id
-            row = by_type.setdefault(key.id, {'id': key.id, 'name': key.name, 'days': 0.0, 'count': 0})
+            row = by_type.setdefault(key.id, {'id': key.id, 'name': key.name, 'days': 0.0, 'count': 0,
+                                              'approved': 0, 'pending': 0, 'refused': 0})
+            if leave.state == 'refuse':
+                row['refused'] += 1
+                continue
             row['days'] += leave.number_of_days
             row['count'] += 1
+            row['approved' if leave.state == 'validate' else 'pending'] += 1
 
         rows = [{
             'id': leave.id,

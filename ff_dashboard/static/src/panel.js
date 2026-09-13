@@ -927,6 +927,29 @@ export class AixoloPanel extends Component {
         ];
     }
 
+    get leaveKpis() {
+        const k = this.state.report.kpis;
+        const all = (k.pending || 0) + (k.approved || 0) + (k.refused || 0);
+        const share = (n) => `${all ? Math.round((n / all) * 100) : 0}% of total requests`;
+        return [
+            { key: "pending", label: "To approve", value: k.pending, icon: "fa-hourglass-half", ghost: "fa-clock-o",
+              color: "#f59e0b", note: share(k.pending),
+              open: () => this.drillLeaves([["state", "in", ["confirm", "validate1"]]]) },
+            { key: "approved", label: "Approved", value: k.approved, icon: "fa-check", ghost: "fa-file-text-o",
+              color: "#16a34a", note: share(k.approved), open: () => this.drillLeaves([["state", "=", "validate"]]) },
+            { key: "refused", label: "Refused", value: k.refused, icon: "fa-times", ghost: "fa-file-o",
+              color: "#dc2626", note: share(k.refused), open: () => this.drillLeaves([["state", "=", "refuse"]]) },
+            { key: "off", label: "Off today", value: k.off_today, icon: "fa-suitcase", ghost: "fa-plane",
+              color: "#1a56db", note: "Employees on leave today", open: () => this.drillLeaves([["state", "=", "validate"]]) },
+        ];
+    }
+
+    get offToday() {
+        const total = (this.state.report.employee_ids || []).length;
+        const off = this.state.report.kpis.off_today || 0;
+        return { total, off, working: Math.max(total - off, 0), pct: total ? Math.round((off / total) * 100) : 0 };
+    }
+
     get pageInfo() {
         const total = this.filteredRows.length;
         const pages = Math.max(1, Math.ceil(total / this.state.pageSize));
