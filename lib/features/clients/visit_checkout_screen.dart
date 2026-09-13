@@ -76,7 +76,7 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
       _outcomes = (results[0] as List).cast<Map<String, dynamic>>();
       _missingForms = (results[1] as List)
           .cast<Map<String, dynamic>>()
-          .where((f) => f['mandatory'] == true && f['filled'] != true)
+          .where((f) => (f['mandatory'] == true || f['at_checkout'] == true) && f['filled'] != true)
           .toList();
       _loading = false;
     });
@@ -98,7 +98,7 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
 
   Future<void> _submit() async {
     final outcome = _selected;
-    if (_missingForms.isNotEmpty) {
+    if (_missingForms.any((f) => f['mandatory'] == true)) {
       showSnack(context, 'Fill the required forms first.');
       return;
     }
@@ -164,12 +164,15 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Required before check-out', style: TextStyle(fontWeight: FontWeight.w700)),
+                          const Text('Forms for this check-out', style: TextStyle(fontWeight: FontWeight.w700)),
                           for (final form in _missingForms)
                             ListTile(
                               contentPadding: EdgeInsets.zero,
-                              leading: const Icon(Icons.assignment_late_rounded, color: AixoloColors.warning),
+                              leading: Icon(
+                                  form['mandatory'] == true ? Icons.assignment_late_rounded : Icons.assignment_rounded,
+                                  color: form['mandatory'] == true ? AixoloColors.warning : AixoloColors.primary),
                               title: Text('${form['name']}'),
+                              subtitle: Text(form['mandatory'] == true ? 'Required' : 'Optional'),
                               trailing: TextButton(onPressed: () => _fillForm(form), child: const Text('Fill now')),
                             ),
                         ],

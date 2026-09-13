@@ -34,6 +34,16 @@ class _FormFillScreenState extends State<FormFillScreen> {
   final String _uuid = const Uuid().v4();
   bool _busy = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Questions linked to a customer field start from what the customer record says.
+    for (final q in _questions) {
+      final value = q['value'];
+      if (value != null && q['type'] != 'photo') _answers['${q['key']}'] = value;
+    }
+  }
+
   List<Map<String, dynamic>> get _questions =>
       ((widget.form['questions'] as List?) ?? []).cast<Map<String, dynamic>>();
 
@@ -149,7 +159,22 @@ class _FormFillScreenState extends State<FormFillScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${q['label']}${q['required'] == true ? ' *' : ''}', style: const TextStyle(fontWeight: FontWeight.w700)),
+            Row(
+              children: [
+                Flexible(
+                  child: Text('${q['label']}${q['required'] == true ? ' *' : ''}',
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+                if (q['customer_field'] == true)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 6),
+                    child: Tooltip(
+                      message: 'Saved on the customer',
+                      child: Icon(Icons.storefront_rounded, size: 16, color: AixoloColors.success),
+                    ),
+                  ),
+              ],
+            ),
             if (q['hint'] != null)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
