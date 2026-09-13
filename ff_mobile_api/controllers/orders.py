@@ -140,9 +140,17 @@ class FieldForceOrdersApi(http.Controller):
         return ok(order_data(order, with_lines=True))
 
     @api_route('/api/v1/orders/summary', methods=('GET',))
-    def summary(self, employee, member=None, **kw):
+    def summary(self, employee, member=None, start=None, end=None, **kw):
         people, _label = scope_members(employee, member)
-        start, end = employee._ff_day_bounds(employee._ff_today())
+        today = employee._ff_today()
+        try:
+            first = fields.Date.to_date(start) if start else today
+            last = fields.Date.to_date(end) if end else first
+        except ValueError:
+            raise ApiError('Dates must be YYYY-MM-DD.')
+        first, last = min(first, last), max(first, last)
+        start, _unused = employee._ff_day_bounds(first)
+        _unused2, end = employee._ff_day_bounds(last)
         env = request.env
         flow = env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct'
         if flow == 'demand' and 'ff.demand' in env:

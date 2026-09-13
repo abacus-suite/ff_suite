@@ -49,18 +49,20 @@ def _member(channel, user):
 
 
 def _channel_data(channel, user):
+    """One row of the chat list. Reads one message and a count, never the whole history."""
+    Message = request.env['mail.message'].sudo()
     member = _member(channel, user)
-    last = channel.message_ids.filtered(lambda m: m.message_type in ('comment', 'email'))[:1]
-    preview = None
-    if last:
-        preview = _text(last.body) or ('📎 %s' % last.attachment_ids[:1].name if last.attachment_ids else '')
+    base = [('model', '=', 'discuss.channel'), ('res_id', '=', channel.id), ('message_type', 'in', ('comment', 'email'))]
+    last = Message.search(base, order='id desc', limit=1)
     others = channel.channel_member_ids.partner_id - user.partner_id
     name = channel.name
     if channel.channel_type == 'chat':
         name = ', '.join(others.mapped('name')) or channel.name
     seen = member.seen_message_id.id if member and member.seen_message_id else 0
-    unread = len(channel.message_ids.filtered(
-        lambda m: m.id > seen and m.author_id != user.partner_id and m.message_type in ('comment', 'email')))
+    unread = Message.search_count(base + [('id', '>', seen), ('author_id', '!=', user.partner_id.id)]) if last else 0
+    preview = None
+    if last:
+        preview = _text(last.body) or ('📎 %s' % last.attachment_ids[:1].name if last.attachment_ids else '')
     return {
         'id': channel.id,
         'name': name,

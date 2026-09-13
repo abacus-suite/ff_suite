@@ -34,8 +34,14 @@ def demand_data(demand, with_lines=False):
         'state_label': STATE_LABELS.get(demand.state, demand.state),
         'quoted_percent': demand.quoted_ratio,
         'note': demand.note or None,
+        'route': ref(demand.route_id),
     }
-    if with_lines:
+    if with_lines == 'brief':
+        # Just enough for grouping by product in the list.
+        data['products'] = [{'id': line.product_id.id, 'name': line.product_id.display_name,
+                             'qty': line.quantity, 'subtotal': line.subtotal}
+                            for line in demand.line_ids if line.product_id]
+    elif with_lines:
         data['lines'] = [{
             'product': ref(line.product_id),
             'sku': line.product_id.product_tmpl_id.ff_sku_code or None,
@@ -61,14 +67,30 @@ class FieldForceDemandApi(http.Controller):
         return ok(demand_data(demand, with_lines=True), status=201)
 
     @api_route('/api/v1/demands', methods=('GET',))
-    def demands(self, employee, partner_id=None, limit=None, member=None, **kw):
+    def demands(self, employee, partner_id=None, limit=None, member=None, start=None, end=None,
+                state=None, q=None, route_id=None, **kw):
         people, _label = scope_members(employee, member)
         domain = [('employee_id', 'in', people.ids)]
         if partner_id:
             domain.append(('partner_id', '=', to_int(partner_id)))
+        if route_id:
+            domain.append(('route_id', '=', to_int(route_id)))
+        if state:
+            domain.append(('state', 'in', state.split(',')))
+        if q:
+            domain += ['|', '|', ('name', 'ilike', q), ('partner_id.name', 'ilike', q),
+                       ('line_ids.product_id.name', 'ilike', q)]
+        if start or end:
+            try:
+                low_day = fields.Date.to_date(start) if start else fields.Date.to_date(end)
+                high_day = fields.Date.to_date(end) if end else low_day
+            except ValueError:
+                raise ApiError('Dates must be YYYY-MM-DD.')
+            domain += [('date', '>=', employee._ff_day_bounds(min(low_day, high_day))[0]),
+                       ('date', '<', employee._ff_day_bounds(max(low_day, high_day))[1])]
         demands = request.env['ff.demand'].sudo().search(
-            domain, order='date desc', limit=min(to_int(limit) or 50, 200))
-        return ok([demand_data(demand) for demand in demands])
+            domain, order='date desc', limit=min(to_int(limit) or 200, 1000))
+        return ok([demand_data(demand, with_lines='brief') for demand in demands])
 
     @api_route('/api/v1/demands/<int:demand_id>', methods=('GET',))
     def demand(self, employee, demand_id, **kw):
