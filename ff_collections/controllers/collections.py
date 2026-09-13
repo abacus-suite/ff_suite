@@ -7,7 +7,7 @@ from odoo.http import request
 
 from odoo.addons.ff_base.tools import get_param, to_iso
 from odoo.addons.ff_mobile_api.controllers.clients import to_int
-from odoo.addons.ff_mobile_api.controllers.common import ApiError, api_route, body, ok, ref
+from odoo.addons.ff_mobile_api.controllers.common import ApiError, api_route, body, ok, ref, require_punched_in
 
 
 def collection_data(collection):
@@ -89,6 +89,7 @@ class FieldForceCollectionsApi(http.Controller):
         data = body()
         partner = request.env['res.partner'].sudo().browse(to_int(data.get('partner_id'))).exists()
         if partner:
+            require_punched_in(employee, 'collect a payment')
             request.env['ff.visit'].ff_require_visit(employee, partner)
         collection = request.env['ff.collection'].ff_create_from_app(employee, data)
         return ok(collection_data(collection), status=201)

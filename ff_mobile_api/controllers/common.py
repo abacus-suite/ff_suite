@@ -28,6 +28,18 @@ class ApiError(Exception):
         self.code = code
 
 
+def require_punched_in(employee, action):
+    """Field work happens on the clock: refuse ``action`` before the day's punch-in.
+
+    Skipped when the employee's app profile has attendance switched off.
+    """
+    app = request.env['ff.app.profile'].ff_for_employee(employee).ff_payload()
+    if not app['features'].get('attendance', True):
+        return
+    if not employee._ff_open_attendance():
+        raise ApiError('Check in for the day (attendance) before you %s.' % action, 409, 'not_punched_in')
+
+
 def body():
     data = request.httprequest.get_json(force=True, silent=True)
     return data if isinstance(data, dict) else {}
