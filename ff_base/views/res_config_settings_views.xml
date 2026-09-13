@@ -81,6 +81,15 @@
                             <field name="ff_payment_collection"/>
                         </setting>
                     </block>
+                    <block title="Time" name="ff_time_settings">
+                        <setting string="Field timezone" help="The local time of your field team. Used for anyone whose timezone is empty or left at UTC, so today, punch times and reports match the real day.">
+                            <field name="ff_default_tz"/>
+                            <div class="mt-2">
+                                <button name="action_ff_apply_timezone" type="object" class="btn-link" icon="fa-clock-o"
+                                        string="Set it on everyone still on UTC"/>
+                            </div>
+                        </setting>
+                    </block>
                     <block title="Client Visits" name="ff_visit_settings">
                         <setting string="Client geofence" help="Default radius (metres) around a client inside which a visit counts as on-site. Can be overridden per client.">
                             <field name="ff_geofence_radius"/>

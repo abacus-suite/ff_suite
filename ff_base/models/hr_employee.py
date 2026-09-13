@@ -170,8 +170,20 @@ class HrEmployee(models.Model):
     # Timezone helpers: Odoo stores naive UTC, the field day is local.
     # ------------------------------------------------------------------
     def _ff_tz(self):
+        """The employee's local timezone.
+
+        An empty timezone, or the UTC that Odoo fills in by default, would put
+        an Indian morning on the previous day - so those fall back to the
+        field timezone in Aixolo settings, then the company's.
+        """
         self.ensure_one()
-        return pytz.timezone(self.tz or 'UTC')
+        name = self.tz if self.tz and self.tz != 'UTC' else (
+            self.env['ir.config_parameter'].sudo().get_param('ff_base.default_tz')
+            or self.company_id.partner_id.tz or self.tz or 'UTC')
+        try:
+            return pytz.timezone(name)
+        except pytz.UnknownTimeZoneError:
+            return pytz.utc
 
     def _ff_today(self):
         return datetime.now(pytz.utc).astimezone(self._ff_tz()).date()

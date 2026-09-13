@@ -50,10 +50,9 @@ class FfDashboard(models.AbstractModel):
         then their employee record, then the company's.
         """
         user = self.env.user
-        name = (user.tz
-                or user.employee_id.tz
-                or self.env.company.partner_id.tz
-                or 'UTC')
+        field_tz = self.env['ir.config_parameter'].sudo().get_param('ff_base.default_tz')
+        candidates = [user.tz, user.employee_id.tz, field_tz, self.env.company.partner_id.tz]
+        name = next((tz for tz in candidates if tz and tz != 'UTC'), 'UTC')
         return pytz.timezone(name)
 
     @api.model

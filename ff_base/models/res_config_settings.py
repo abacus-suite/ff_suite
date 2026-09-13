@@ -1,9 +1,14 @@
 from odoo import fields, models
+from odoo.addons.base.models.res_partner import _tz_get
 
 
 class ResConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
 
+    ff_default_tz = fields.Selection(
+        _tz_get, string='Field Timezone', config_parameter='ff_base.default_tz',
+        help='Used wherever an employee or user has no timezone (or only the UTC default), '
+             'so "today" and every punch time match the local day.')
     ff_ping_interval = fields.Integer(
         string='Ping Interval (sec)', config_parameter='ff_base.ping_interval', default=120)
     ff_distance_filter = fields.Integer(
@@ -40,3 +45,20 @@ class ResConfigSettings(models.TransientModel):
         string='Google Maps API Key', config_parameter='ff_base.google_maps_key',
         help='Key from your Google Cloud project. Odoo uses it for the live map; the app receives '
              'it at login and uses it for its maps. Leave empty to use the free OpenStreetMap basemap.')
+
+    def action_ff_apply_timezone(self):
+        """Give the field timezone to every employee and user still on UTC or none."""
+        self.ensure_one()
+        tz = self.ff_default_tz or self.env['ir.config_parameter'].sudo().get_param('ff_base.default_tz')
+        if not tz:
+            return False
+        employees = self.env['hr.employee'].sudo().search(['|', ('tz', '=', False), ('tz', '=', 'UTC')])
+        employees.write({'tz': tz})
+        users = self.env['res.users'].sudo().search([('share', '=', False), '|', ('tz', '=', False), ('tz', '=', 'UTC')])
+        users.write({'tz': tz})
+        return {
+            'type': 'ir.actions.client', 'tag': 'display_notification',
+            'params': {'type': 'success', 'sticky': False,
+                       'message': self.env._('Timezone set on %(e)s employees and %(u)s users.',
+                                             e=len(employees), u=len(users))},
+        }
