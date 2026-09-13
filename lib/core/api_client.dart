@@ -119,6 +119,12 @@ class ApiClient {
       final error = data['error'] as Map;
       throw ApiException(res.statusCode, '${error['code'] ?? 'error'}', '${error['message'] ?? 'Error'}');
     }
+    if (const {502, 503, 504}.contains(res.statusCode)) {
+      // Odoo.sh answers 502-504 while it rebuilds or restarts: treat it like a dead zone,
+      // so reads fall back to the saved copy and actions wait in the queue.
+      online.value = false;
+      throw ApiException(res.statusCode, 'network', 'The server is restarting. Try again in a minute.');
+    }
     throw ApiException(res.statusCode, 'http_${res.statusCode}', 'Unexpected server response (${res.statusCode}).');
   }
 }
