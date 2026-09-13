@@ -9,6 +9,7 @@ Authentication uses the employee's own app login (not an Odoo user):
 the "Data Access" scope on their employee record.
 """
 import functools
+import hashlib
 import logging
 
 from odoo import http
@@ -164,6 +165,7 @@ def employee_profile(employee):
             'code': employee.ff_employee_code or None,
             'job_title': employee.job_title or None,
             'phone': employee.mobile_phone or employee.work_phone or None,
+            'photo_version': hashlib.sha1(employee.sudo().image_128).hexdigest()[:12] if employee.sudo().image_128 else None,
             'email': employee.work_email or None,
             'team': ref(employee.ff_team_id),
             'designation': ref(employee.ff_designation_id),
