@@ -289,7 +289,22 @@ export class AixoloPanel extends Component {
         }
     }
 
-    async drawLive() {
+    drawLive() {
+        if (this.drawing) {
+            this.redrawAfter = true;
+            return this.drawing;
+        }
+        this.drawing = this._drawLive().finally(() => {
+            this.drawing = null;
+            if (this.redrawAfter) {
+                this.redrawAfter = false;
+                this.drawLive();
+            }
+        });
+        return this.drawing;
+    }
+
+    async _drawLive() {
         const live = this.state.live;
         if (!live || !live.google_maps_key) {
             return;
@@ -342,6 +357,9 @@ export class AixoloPanel extends Component {
             const position = { lat: person.lat, lng: person.lng };
             let marker = this.markers.get(person.id);
             if (marker) {
+                if (marker.getMap() !== this.liveMap) {
+                    marker.setMap(this.liveMap);
+                }
                 marker.setPosition(position);
                 marker.setIcon(pinIcon(this.stateColor(person.state), this.google.core));
             } else {
@@ -388,6 +406,10 @@ export class AixoloPanel extends Component {
         for (const client of wanted) {
             shown.add(client.id);
             if (this.clientMarkers.has(client.id)) {
+                const existing = this.clientMarkers.get(client.id);
+                if (existing.getMap() !== this.liveMap) {
+                    existing.setMap(this.liveMap);
+                }
                 continue;
             }
             const marker = new this.google.Marker({
