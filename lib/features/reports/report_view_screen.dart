@@ -490,7 +490,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
               saleWord: saleWord,
               highlight: i == 0 && rows.length > 1,
               subtitle: _by == 'overall' ? 'Team summary' : 'Tap for the full report',
-              badge: _by == 'overall' ? '${RegExp(r'd+').firstMatch('${row['employee']}')?.group(0) ?? ''}E' : null,
+              badge: _by == 'overall' ? '${RegExp(r'\d+').firstMatch('${row['employee']}')?.group(0) ?? ''}E' : null,
               onTap: _by == 'overall'
                   ? null
                   : () {
