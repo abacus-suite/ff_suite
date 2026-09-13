@@ -2179,4 +2179,45 @@
         border-radius: 50%;
         border: 22px solid #eaeff8;
     }
+
+    // ---- orders ------------------------------------------------------------
+    .ff_kpi .ff_kpi_value + .ff_kpi_chip_row,
+    .ff_kpi_chip_row {
+        margin-left: 60px;
+    }
+
+    .ff_bar_row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 9px 0;
+        font-size: 13px;
+
+        & + .ff_bar_row {
+            border-top: 1px solid var(--ff-line);
+        }
+    }
+
+    .ff_bar_name {
+        width: 9.5rem;
+        flex: none;
+        font-weight: 600;
+    }
+
+    .ff_avatar_sm {
+        width: 30px;
+        height: 30px;
+    }
+
+    .ff_prod_icon {
+        width: 30px;
+        height: 30px;
+        flex: none;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        font-size: 13px;
+        color: var(--tile);
+        background: color-mix(in srgb, var(--tile) 13%, #fff);
+    }
 }

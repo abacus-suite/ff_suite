@@ -233,9 +233,17 @@ class FfDashboardReports(models.AbstractModel):
         end_dt = self._ff_day_range(end)[1]
         flow = self.env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct'
 
-        if flow == 'demand' and 'ff.demand' in self.env:
-            return self._demand_report(employees, start, start_dt, end, end_dt, period, flow)
-        return self._sale_report(employees, start, start_dt, end, end_dt, period, flow)
+        build = self._demand_report if flow == 'demand' and 'ff.demand' in self.env else self._sale_report
+        report = build(employees, start, start_dt, end, end_dt, period, flow)
+        # The same length of time just before, for the "vs last period" chips.
+        length = (end - start).days + 1
+        prev_end = start - timedelta(days=1)
+        prev_start = start - timedelta(days=length)
+        previous = build(employees, prev_start, self._ff_day_range(prev_start)[0],
+                         prev_end, self._ff_day_range(prev_end)[1], period, flow)
+        report['previous'] = previous['kpis']
+        report['period_label'] = self.ff_period_label(period, filters)
+        return report
 
     def _sale_report(self, employees, start, start_dt, end, end_dt, period, flow):
         orders = self.env['sale.order'].sudo().search([
@@ -316,14 +324,20 @@ class FfDashboardReports(models.AbstractModel):
     # -- little helpers the reports share --------------------------------
     def _daily_series(self, start, end, records, day_of, amount_of):
         totals = {}
+        counts = {}
+        outlets = {}
         for record in records:
             day = day_of(record)
             totals[day] = totals.get(day, 0.0) + amount_of(record)
+            counts[day] = counts.get(day, 0) + 1
+            if 'partner_id' in record._fields and record.partner_id:
+                outlets.setdefault(day, set()).add(record.partner_id.id)
         series = []
         for index in range((end - start).days + 1):
             day = start + timedelta(days=index)
             series.append({'day': day.isoformat(), 'label': day.strftime('%d-%m'),
-                           'amount': round(totals.get(day, 0.0), 2)})
+                           'amount': round(totals.get(day, 0.0), 2), 'count': counts.get(day, 0),
+                           'outlets': len(outlets.get(day, ()))})
         return series
 
     def _group_amounts(self, records, key_of, amount_of, limit=8):

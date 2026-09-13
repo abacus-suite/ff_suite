@@ -98,6 +98,7 @@ export class AixoloPanel extends Component {
             pageSize: 10,
             rowSearch: "",
             topN: 5,
+            orderMeasure: "amount",
             calendarMonth: null,
             attendanceView: "summary",
             openDay: null,
@@ -925,6 +926,33 @@ export class AixoloPanel extends Component {
               open: () => this.drillAttendance() },
             { key: "punches", label: "Total Punches", value: report.kpis.punches, icon: "fa-hourglass-half",
               color: "#7c5cfc", change: change(punches), series: punches, open: () => this.drillAttendance() },
+        ];
+    }
+
+    get orderKpis() {
+        const report = this.state.report;
+        const k = report.kpis;
+        const prev = report.previous || {};
+        const series = report.series || [];
+        const pick = (key) => series.map((row) => row[key] || 0);
+        const change = (now, before) => (before ? Math.round(((now - before) / before) * 100) : now ? 100 : 0);
+        const demand = report.flow === "demand";
+        const amounts = pick("amount");
+        const counts = pick("count");
+        const waiting = demand ? k.pending : k.confirmed;
+        const waitingBefore = demand ? prev.pending : prev.confirmed;
+        return [
+            { key: "total", label: demand ? "Total Demand Value" : "Total Order Value", value: this.money(k.total),
+              icon: "fa-shopping-cart", color: "#1a56db", change: change(k.total, prev.total), series: amounts,
+              open: () => this.drillOrders() },
+            { key: "average", label: demand ? "Average Demand Value" : "Average Order Value", value: this.money(k.average),
+              icon: "fa-file-text", color: "#16a34a", change: change(k.average, prev.average),
+              series: amounts.map((v, i) => (counts[i] ? v / counts[i] : 0)), open: () => this.drillOrders() },
+            { key: "waiting", label: demand ? "Waiting to Quote" : "Confirmed", value: waiting,
+              icon: "fa-clock-o", color: "#f59e0b", change: change(waiting, waitingBefore), series: counts,
+              open: () => this.drillOrders(demand ? [["state", "in", ["submitted", "partial"]]] : [["state", "=", "sale"]]) },
+            { key: "outlets", label: "Outlets", value: k.outlets, icon: "fa-building", color: "#7c5cfc",
+              change: change(k.outlets, prev.outlets), series: pick("outlets"), open: () => this.drillOrders() },
         ];
     }
 
