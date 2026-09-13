@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/group_kit.dart';
 import 'report_views.dart';
+import 'summary_drill.dart';
 
 enum _View { list, table, chart, pivot, calendar, map }
 
@@ -32,7 +33,11 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
   String _period = 'month';
   String _member = 'me';
   String _groupBy = 'none';
-  late String _by = _splits.isEmpty ? '' : '${_splits.first['key']}';
+  late String _by = _splits.isEmpty
+      ? ''
+      : widget.canTeam && _splits.any((x) => x['key'] == 'employee')
+          ? 'employee'
+          : '${_splits.first['key']}';
   String _status = 'all';
   String _find = '';
   final Set<String> _collapsed = {};
@@ -449,6 +454,8 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
                                 : _view == _View.map
                                 ? ReportMapView(
                                     columns: columns, rows: rows, currency: data?['currency'] as String?, format: _format)
+                                : _groupBy == 'none' && _view == _View.list && widget.report['key'] == 'summary'
+                                ? _summaryCards(rows, data?['currency'] as String?)
                                 : _groupBy != 'none'
                                 ? _grouped(columns, rows)
                                 : _view == _View.list
@@ -459,6 +466,68 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
         ],
       ),
     );
+  }
+
+  // ------------------------------------------------------------------
+  // Summary report as cards, with a way down to each person and day
+  // ------------------------------------------------------------------
+  String _memberIdFor(String name) {
+    final profile = Services.auth.profile;
+    if (profile != null && profile.name == name) return '${profile.employeeId}';
+    return '${widget.members.where((m) => m['name'] == name).firstOrNull?['id'] ?? ''}';
+  }
+
+  Widget _summaryCards(List<Map<String, dynamic>> rows, String? currency) {
+    final saleWord = (Services.auth.profile?.isDemandFlow ?? false) ? 'Demand' : 'Orders';
+    if (_by == 'employee' || _by == 'overall') {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+        children: [
+          for (final (i, row) in rows.indexed)
+            EmployeeSummaryCard(
+              row: row,
+              currency: currency,
+              saleWord: saleWord,
+              highlight: i == 0 && rows.length > 1,
+              onTap: _by == 'overall'
+                  ? null
+                  : () {
+                      final id = _memberIdFor('${row['employee']}');
+                      if (id.isEmpty) return;
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => EmployeeReportScreen(
+                          memberId: id,
+                          name: '${row['employee']}',
+                          start: _range.start,
+                          end: _range.end,
+                        ),
+                      ));
+                    },
+            ),
+        ],
+      );
+    }
+    if (_by == 'day') {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+        children: [
+          for (final row in rows)
+            EmployeeSummaryCard(
+              row: {...row, 'employee': _prettyDate('${row['date']}')},
+              currency: currency,
+              saleWord: saleWord,
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => VisitDetailsScreen(
+                  memberId: _member,
+                  name: _memberLabel,
+                  date: DateTime.parse('${row['date']}'),
+                ),
+              )),
+            ),
+        ],
+      );
+    }
+    return _list(((_data?['columns'] as List?) ?? []).cast<Map<String, dynamic>>(), rows);
   }
 
   static IconData _viewIcon(_View v) => switch (v) {
@@ -636,42 +705,22 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
     );
   }
 
-  Widget _totals(List<Map<String, dynamic>> columns,
-      Map<String, dynamic> totals, int count) {
+  Widget _totals(List<Map<String, dynamic>> columns, Map<String, dynamic> totals, int count) {
     final items = [
-      ('Records', '$count'),
+      ('records', 'Records', '$count'),
       for (final c in columns)
-        if (totals.containsKey(c['key']))
-          ('${c['label']}', _format(c, totals[c['key']])),
+        if (totals.containsKey(c['key'])) ('${c['key']}', '${c['label']}', _format(c, totals[c['key']])),
     ];
     return SizedBox(
-      height: 74,
+      height: 82,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
         children: [
           for (final item in items)
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                    color: AixoloColors.border.withValues(alpha: 0.7)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(item.$1,
-                      style: const TextStyle(
-                          fontSize: 11, color: AixoloColors.muted)),
-                  Text(item.$2,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w800)),
-                ],
-              ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: SizedBox(width: 150, child: MetricTile(metric: item.$1, label: item.$2, value: item.$3)),
             ),
         ],
       ),
