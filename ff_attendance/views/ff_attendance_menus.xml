@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_ff_attendance" name="Attendance" parent="ff_base.menu_ff_group_team" sequence="20"/>
+    <menuitem id="menu_ff_attendance" name="Attendance &amp; Leave" parent="ff_base.menu_ff_group_team" sequence="20"/>
     <menuitem id="menu_ff_attendance_list" name="Attendance" parent="menu_ff_attendance"
               action="ff_attendance_action" sequence="10"/>
     <menuitem id="menu_ff_regularisation" name="Regularisation Requests" parent="menu_ff_attendance"

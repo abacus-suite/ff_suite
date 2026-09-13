@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_ff_clients" name="Contacts" parent="ff_base.menu_ff_group_field" sequence="10"/>
+    <menuitem id="menu_ff_clients" name="Customers" parent="ff_base.menu_ff_group_field" sequence="10"/>
     <menuitem id="menu_ff_client_list" name="Contacts" parent="menu_ff_clients"
               action="ff_client_server_action" sequence="10"/>
     <menuitem id="menu_ff_client_pending" name="To Approve" parent="menu_ff_clients"

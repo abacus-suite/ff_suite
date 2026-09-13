@@ -8,6 +8,8 @@
     <menuitem id="menu_ff_group_field" name="Field Work" parent="menu_ff_root" sequence="20"/>
     <menuitem id="menu_ff_group_sales" name="Sales" parent="menu_ff_root" sequence="30"/>
     <menuitem id="menu_ff_group_claims" name="Claims" parent="menu_ff_root" sequence="40"/>
+    <menuitem id="menu_ff_section_followup" name="Tasks &amp; Alerts" parent="menu_ff_group_team" sequence="40"/>
+    <menuitem id="menu_ff_section_claims" name="Claims" parent="menu_ff_group_claims" sequence="10"/>
 
     <menuitem id="menu_ff_organisation" name="Organisation" parent="menu_ff_root" sequence="80"/>
     <menuitem id="menu_ff_employees" name="Field Staff" parent="menu_ff_organisation"

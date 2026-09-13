@@ -128,6 +128,6 @@
         </field>
     </record>
 
-    <menuitem id="menu_ff_tasks" name="Tasks" parent="ff_base.menu_ff_group_team"
-              action="ff_task_action" sequence="40"/>
+    <menuitem id="menu_ff_tasks" name="Tasks" parent="ff_base.menu_ff_section_followup"
+              action="ff_task_action" sequence="10"/>
 </odoo>

@@ -117,6 +117,7 @@
         </field>
     </record>
 
-    <menuitem id="menu_ff_returns" name="Returns" parent="ff_base.menu_ff_group_sales"
-              action="ff_return_action" sequence="40"/>
+    <menuitem id="menu_ff_returns_section" name="Returns" parent="ff_base.menu_ff_group_sales" sequence="40"/>
+    <menuitem id="menu_ff_returns" name="Returns &amp; Damaged" parent="menu_ff_returns_section"
+              action="ff_return_action" sequence="10"/>
 </odoo>

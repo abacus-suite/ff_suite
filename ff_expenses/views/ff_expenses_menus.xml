@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_ff_expenses" name="Expenses" parent="ff_base.menu_ff_group_claims"
+    <menuitem id="menu_ff_expenses" name="Expenses" parent="ff_base.menu_ff_section_claims"
               action="ff_expense_claim_action" sequence="10"/>
     <menuitem id="menu_ff_expense_categories" name="Expense Types" parent="ff_base.menu_ff_config"
               action="ff_expense_category_action" sequence="65"/>

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_ff_visits" name="Visits" parent="ff_base.menu_ff_group_field"
-              action="ff_visit_action" sequence="20"/>
+    <menuitem id="menu_ff_visits_section" name="Visits" parent="ff_base.menu_ff_group_field" sequence="20"/>
+    <menuitem id="menu_ff_visits" name="Visits" parent="menu_ff_visits_section"
+              action="ff_visit_action" sequence="10"/>
 </odoo>

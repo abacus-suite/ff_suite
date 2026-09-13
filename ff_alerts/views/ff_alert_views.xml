@@ -51,5 +51,5 @@
         </field>
     </record>
 
-    <menuitem id="menu_ff_alerts" name="Alerts" parent="ff_base.menu_ff_group_team" action="ff_alert_action" sequence="50"/>
+    <menuitem id="menu_ff_alerts" name="Alerts" parent="ff_base.menu_ff_section_followup" action="ff_alert_action" sequence="20"/>
 </odoo>
