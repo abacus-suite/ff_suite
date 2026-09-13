@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_ff_collections" name="Collections" parent="ff_base.menu_ff_root" sequence="37"/>
+    <menuitem id="menu_ff_collections" name="Collections" parent="ff_base.menu_ff_group_sales" sequence="30"/>
     <menuitem id="menu_ff_collection_list" name="Collections" parent="menu_ff_collections"
               action="ff_collection_action" sequence="10"/>
     <menuitem id="menu_ff_collection_deposits" name="Deposits" parent="menu_ff_collections"

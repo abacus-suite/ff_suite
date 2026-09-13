@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_ff_orders" name="Orders" parent="ff_base.menu_ff_root" sequence="32"
+    <menuitem id="menu_ff_orders" name="Orders" parent="ff_base.menu_ff_group_sales" sequence="10"
               groups="sales_team.group_sale_salesman"/>
     <menuitem id="menu_ff_order_list" name="Field Orders" parent="menu_ff_orders"
               action="ff_order_action" sequence="10"/>

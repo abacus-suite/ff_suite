@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_ff_demand_root" name="Demands" parent="ff_base.menu_ff_root" sequence="46"/>
+    <menuitem id="menu_ff_demand_root" name="Demands" parent="ff_base.menu_ff_group_sales" sequence="20"/>
     <menuitem id="menu_ff_demand" name="Outlet Demands" parent="menu_ff_demand_root"
               action="ff_demand_action" sequence="10"/>
     <menuitem id="menu_ff_demand_products" name="Demand by Product" parent="menu_ff_demand_root"

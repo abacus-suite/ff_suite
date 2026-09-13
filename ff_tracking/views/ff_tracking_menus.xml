@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_ff_tracking" name="Tracking" parent="ff_base.menu_ff_root" sequence="10"/>
+    <menuitem id="menu_ff_tracking" name="Tracking" parent="ff_base.menu_ff_group_team" sequence="10"/>
     <menuitem id="menu_ff_live_status" name="Live Status" parent="menu_ff_tracking"
               action="ff_employee_status_action" sequence="10"/>
     <menuitem id="menu_ff_daily_track" name="Daily Distance" parent="menu_ff_tracking"

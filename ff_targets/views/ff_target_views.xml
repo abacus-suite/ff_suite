@@ -201,7 +201,7 @@
         <field name="view_mode">list,form</field>
     </record>
 
-    <menuitem id="menu_ff_targets_root" name="Targets" parent="ff_base.menu_ff_root" sequence="60"/>
+    <menuitem id="menu_ff_targets_root" name="Targets" parent="ff_base.menu_ff_group_sales" sequence="50"/>
     <menuitem id="menu_ff_targets" name="Targets" parent="menu_ff_targets_root" action="ff_target_action" sequence="10"/>
     <menuitem id="menu_ff_incentive_rules" name="Incentive Rules" parent="menu_ff_targets_root"
               action="ff_incentive_rule_action" sequence="20"/>

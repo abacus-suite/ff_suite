@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_ff_stock" name="Stock Counts" parent="ff_base.menu_ff_root" sequence="27"/>
+    <menuitem id="menu_ff_stock" name="Stock Counts" parent="ff_base.menu_ff_group_field" sequence="40"/>
     <menuitem id="menu_ff_stock_counts" name="Counts" parent="menu_ff_stock"
               action="ff_stock_count_action" sequence="10"/>
     <menuitem id="menu_ff_stock_movement" name="Stock Movement" parent="menu_ff_stock"

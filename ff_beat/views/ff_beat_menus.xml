@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_ff_beat" name="Routes" parent="ff_base.menu_ff_root" sequence="28"/>
+    <menuitem id="menu_ff_beat" name="Routes" parent="ff_base.menu_ff_group_field" sequence="30"/>
     <menuitem id="menu_ff_route_plans_monthly" name="Monthly Plans" parent="menu_ff_beat"
               action="ff_route_plan_action" sequence="5"/>
     <menuitem id="menu_ff_beat_plans" name="Daily Plans" parent="menu_ff_beat"
