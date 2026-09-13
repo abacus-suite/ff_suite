@@ -151,11 +151,11 @@ class FieldForceOrdersApi(http.Controller):
             'server_time': to_iso(fields.Datetime.now()),
         })
 
-    def _hourly(self, employee, orders):
+    def _hourly(self, employee, orders, date_field='date_order'):
         """Order value by hour of the working day, in the employee's timezone."""
         buckets = {hour: 0.0 for hour in range(9, 20, 2)}
         for order in orders:
-            local = employee._ff_to_local(order.date_order)
+            local = employee._ff_to_local(order[date_field])
             hour = min(max(local.hour - (local.hour % 2), 9), 19)
             buckets[hour] = buckets.get(hour, 0.0) + order.amount_total
         return [{
@@ -166,7 +166,12 @@ class FieldForceOrdersApi(http.Controller):
 
     @api_route('/api/v1/orders/dashboard', methods=('GET',))
     def dashboard(self, employee, period='today', **kw):
-        """Order totals, a 7-day bar series and the top moved products."""
+        """Sales totals, a 7-day series and the top moved products.
+
+        On the demand flow the field takes demands, not sale orders, so the
+        figures come from demands; otherwise from the orders taken in the app.
+        """
+        env = request.env
         today = employee._ff_today()
         first = {
             'week': today - timedelta(days=today.weekday()),
@@ -174,15 +179,24 @@ class FieldForceOrdersApi(http.Controller):
         }.get(period, today)
         start, _unused_end = employee._ff_day_bounds(first)
         _unused_start, end = employee._ff_day_bounds(today)
-        Order = request.env['sale.order'].sudo()
-        base_domain = [('ff_employee_id', '=', employee.id), ('ff_source', '=', 'app'), ('state', '!=', 'cancel')]
-        orders = Order.search(base_domain + [('date_order', '>=', start), ('date_order', '<', end)])
+        flow = env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct'
+        demand = flow == 'demand' and 'ff.demand' in env
+        if demand:
+            Model, date_field = env['ff.demand'].sudo(), 'date'
+            base_domain = [('employee_id', '=', employee.id), ('state', '!=', 'cancelled')]
+        else:
+            Model, date_field = env['sale.order'].sudo(), 'date_order'
+            base_domain = [('ff_employee_id', '=', employee.id), ('ff_source', '=', 'app'), ('state', '!=', 'cancel')]
+
+        def between(low, high):
+            return Model.search(base_domain + [(date_field, '>=', low), (date_field, '<', high)])
+
+        orders = between(start, end)
 
         series = []
         for offset in range(6, -1, -1):
             day = today - timedelta(days=offset)
-            day_start, day_end = employee._ff_day_bounds(day)
-            day_orders = Order.search(base_domain + [('date_order', '>=', day_start), ('date_order', '<', day_end)])
+            day_orders = between(*employee._ff_day_bounds(day))
             series.append({
                 'date': day.isoformat(),
                 'label': day.strftime('%a'),
@@ -190,39 +204,41 @@ class FieldForceOrdersApi(http.Controller):
                 'amount': sum(day_orders.mapped('amount_total')),
             })
 
-        groups = request.env['sale.order.line'].sudo()._read_group(
-            [('order_id', 'in', orders.ids), ('product_id', '!=', False)],
-            ['product_id'], ['product_uom_qty:sum'])
+        if demand:
+            groups = env['ff.demand.line'].sudo()._read_group(
+                [('demand_id', 'in', orders.ids), ('product_id', '!=', False)], ['product_id'], ['quantity:sum'])
+        else:
+            groups = env['sale.order.line'].sudo()._read_group(
+                [('order_id', 'in', orders.ids), ('product_id', '!=', False)], ['product_id'], ['product_uom_qty:sum'])
         top = sorted(groups, key=lambda g: g[1], reverse=True)[:5]
 
         # The same stretch of time, one period earlier, so the app can say
         # "+28% against yesterday" rather than showing a number with no scale.
         span = (today - first).days + 1
-        previous_end = first
-        previous_start = first - timedelta(days=span)
-        prev_from, _unused = employee._ff_day_bounds(previous_start)
-        prev_to, _unused2 = employee._ff_day_bounds(previous_end)
-        previous = Order.search(base_domain + [('date_order', '>=', prev_from), ('date_order', '<', prev_to)])
+        prev_from, _unused = employee._ff_day_bounds(first - timedelta(days=span))
+        prev_to, _unused2 = employee._ff_day_bounds(first)
+        previous = between(prev_from, prev_to)
 
         def change(now, before):
             if not before:
                 return 100.0 if now else 0.0
             return round((now - before) / float(before) * 100.0, 1)
 
+        total = sum(orders.mapped('amount_total'))
         return ok({
             'period': period if period in ('today', 'week', 'month') else 'today',
+            'flow': 'demand' if demand else 'direct',
             'count': len(orders),
-            'amount_untaxed': sum(orders.mapped('amount_untaxed')),
-            'amount_total': sum(orders.mapped('amount_total')),
+            'amount_untaxed': total if demand else sum(orders.mapped('amount_untaxed')),
+            'amount_total': total,
             'currency': orders[:1].currency_id.name or employee.company_id.currency_id.name,
             'previous': {
                 'count': len(previous),
                 'amount_total': sum(previous.mapped('amount_total')),
                 'count_change': change(len(orders), len(previous)),
-                'amount_change': change(sum(orders.mapped('amount_total')),
-                                        sum(previous.mapped('amount_total'))),
+                'amount_change': change(total, sum(previous.mapped('amount_total'))),
             },
-            'hours': self._hourly(employee, orders),
+            'hours': self._hourly(employee, orders, date_field),
             'series': series,
             'top_products': [{
                 'id': product.id,
