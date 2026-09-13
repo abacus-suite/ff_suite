@@ -7,6 +7,7 @@ import 'google_tiles.dart';
 import 'location_tracker.dart';
 import 'notifications.dart';
 import 'offline_queue.dart';
+import 'security_guard.dart';
 import 'outbox.dart';
 import 'storage.dart';
 
@@ -43,6 +44,7 @@ class Services {
     if (auth.profile != null) {
       notifications.start();
       await outbox.start();
+      await SecurityGuard.instance.start();
     }
   }
 
@@ -55,6 +57,7 @@ class Services {
       await tracker.stop(flushFirst: false);
       notifications.stop();
       outbox.stop();
+      SecurityGuard.instance.stop();
       await queue.clearCache();
       await auth.clearLocal();
       navigatorKey.currentState?.pushAndRemoveUntil(

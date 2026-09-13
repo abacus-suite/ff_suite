@@ -72,6 +72,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
       'accuracy': pos.accuracy,
       'mock': pos.isMocked,
       'uuid': const Uuid().v4(),
+      'device_time': DateTime.now().toUtc().toIso8601String(),
     };
     try {
       return await _checkIn(context, payload, client);

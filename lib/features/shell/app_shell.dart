@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../core/format.dart';
+import '../../core/security_guard.dart';
 import '../../widgets/sync_status.dart';
 import '../clients/add_client_screen.dart';
 import '../collections/collect_payment_screen.dart';
@@ -164,11 +165,19 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       extendBody: true,
       body: ListenableBuilder(
-        listenable: Listenable.merge([Services.api.online, Services.outbox.failed]),
+        listenable: Listenable.merge([
+          Services.api.online,
+          Services.outbox.failed,
+          SecurityGuard.instance.gpsOn,
+          Services.tracker.active,
+        ]),
         builder: (context, child) {
-          final banner = !Services.api.online.value || Services.outbox.failed.value > 0;
+          final banner = !Services.api.online.value ||
+              Services.outbox.failed.value > 0 ||
+              (!SecurityGuard.instance.gpsOn.value && Services.tracker.active.value);
           return Column(
             children: [
+              const GpsOffBanner(),
               const OfflineBanner(),
               // The banner already sits under the status bar; the screens below should not pad for it again.
               Expanded(child: MediaQuery.removePadding(context: context, removeTop: banner, child: child!)),

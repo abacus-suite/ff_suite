@@ -26,6 +26,8 @@ class Profile {
     required this.paymentCollection,
     this.googleMapsKey = '',
     this.orderFlow = 'direct',
+    this.photoVersion,
+    this.idleLogoutHours = 0,
     this.code,
     this.team,
     this.manager,
@@ -65,6 +67,12 @@ class Profile {
   /// 'direct' books a sale order at the outlet; 'demand' collects demand for
   /// the office to consolidate into distributor quotations.
   final String orderFlow;
+
+  /// Changes when the profile photo does; null when there is none.
+  final String? photoVersion;
+
+  /// Log the app out after this many hours unused (0 = never).
+  final int idleLogoutHours;
 
   bool get isDemandFlow => orderFlow == 'demand';
 
@@ -115,6 +123,8 @@ class Profile {
       paymentCollection: settings['payment_collection'] == true,
       googleMapsKey: '${settings['google_maps_key'] ?? ''}',
       orderFlow: '${settings['order_flow'] ?? 'direct'}',
+      photoVersion: employee['photo_version'] as String?,
+      idleLogoutHours: (settings['idle_logout_hours'] as num? ?? 0).toInt(),
       routeLabel: employee['route_label'] as String? ?? 'Beat',
       routes: ((employee['routes'] as List?) ?? []).map(IdName.from).whereType<IdName>().toList(),
       features: ((app?['features'] as Map?) ?? {}).map((k, v) => MapEntry('$k', v == true)),

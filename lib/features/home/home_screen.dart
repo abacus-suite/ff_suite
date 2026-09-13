@@ -148,6 +148,8 @@ class _HomeScreenState extends State<HomeScreen> {
         'mock': pos.isMocked,
         'battery': battery,
         if (selfie != null) 'selfie': selfie,
+        // The server compares it with its own clock (queued offline work is exempt).
+        'device_time': DateTime.now().toUtc().toIso8601String(),
       };
       var queued = false;
       if (punchIn) {

@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+
+import 'package:image_picker/image_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../core/format.dart';
+import '../../core/photos.dart';
+import '../../core/security_guard.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
+import '../../widgets/avatar.dart';
 import '../../widgets/common.dart';
 import '../../widgets/sync_status.dart';
 import '../auth/login_screen.dart';
@@ -39,6 +46,7 @@ class ProfileScreen extends StatelessWidget {
     if (confirm != true) return;
     await Services.tracker.stop();
     Services.outbox.stop();
+    SecurityGuard.instance.stop();
     await Services.queue.clearCache();
     await Services.auth.logout();
     if (!context.mounted) return;
@@ -70,12 +78,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 34,
-                  backgroundColor: Colors.white,
-                  child: Text(profile.name.isNotEmpty ? profile.name[0].toUpperCase() : '?',
-                      style: const TextStyle(color: AixoloColors.primary, fontWeight: FontWeight.w800, fontSize: 28)),
-                ),
+                const _ChangeablePhoto(),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -152,6 +155,79 @@ class ProfileScreen extends StatelessWidget {
             icon: Icons.logout_rounded,
             gradient: AixoloColors.dangerGradient,
             onPressed: () => _logout(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The profile photo; tap to take a new one or pick from the gallery.
+class _ChangeablePhoto extends StatefulWidget {
+  const _ChangeablePhoto();
+
+  @override
+  State<_ChangeablePhoto> createState() => _ChangeablePhotoState();
+}
+
+class _ChangeablePhotoState extends State<_ChangeablePhoto> {
+  bool _busy = false;
+
+  Future<void> _change() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_rounded),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(sheet, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(sheet, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+    final bytes = await takePhoto(source, selfie: true);
+    if (bytes == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await Services.api.post('/api/v1/me/photo', {'image': base64Encode(bytes)});
+      await Services.auth.refreshProfile();
+      Services.refresh.value++;
+      if (mounted) showSnack(context, 'Photo updated');
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _busy ? null : _change,
+      child: Stack(
+        children: [
+          MyAvatar(key: ValueKey(Services.auth.profile?.photoVersion), size: 68, border: true),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: const BoxDecoration(color: AixoloColors.primary, shape: BoxShape.circle),
+              child: _busy
+                  ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.camera_alt_rounded, size: 12, color: Colors.white),
+            ),
           ),
         ],
       ),

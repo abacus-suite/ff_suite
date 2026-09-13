@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
+import 'avatar.dart';
 
 /// The pieces the home screen is built from.
 ///
@@ -82,24 +83,7 @@ class HomeHeader extends StatelessWidget {
         bell,
         GestureDetector(
           onTap: onAvatar,
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [Color(0xFF4C7BF4), Color(0xFF7C5CFC)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            alignment: Alignment.center,
-            child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18)),
-          ),
+          child: const MyAvatar(size: 44),
         ),
       ],
     );
