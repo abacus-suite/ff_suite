@@ -3,6 +3,8 @@
 The panel draws this as a list on the left and a route on the right, so the
 payload is one ordered list of events plus the path they were recorded along.
 """
+from datetime import datetime
+
 from odoo import api, fields, models
 
 from odoo.addons.ff_base.tools import haversine_m, path_distance_km, to_iso
@@ -218,9 +220,16 @@ class FfDashboardTimeline(models.AbstractModel):
             previous = event
         return told
 
+    @staticmethod
+    def _parse_iso(value):
+        """API timestamp -> naive UTC datetime. Punches carry microseconds, pings do not."""
+        if not value:
+            return None
+        text = value.replace('Z', '').split('+')[0]
+        return datetime.fromisoformat(text).replace(microsecond=0)
+
     def _minutes_between(self, first, second):
-        start = fields.Datetime.to_datetime(first.replace('T', ' ').split('+')[0].replace('Z', ''))
-        end = fields.Datetime.to_datetime(second.replace('T', ' ').split('+')[0].replace('Z', ''))
+        start, end = self._parse_iso(first), self._parse_iso(second)
         return int((end - start).total_seconds() // 60) if start and end else 0
 
     def _straight_km(self, first, second):
