@@ -36,7 +36,6 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   bool _busy = false;
   String? _error;
 
-  bool get _elsewhere => _current != null && !_atThisClient;
   /// Demand, returns and payments only once checked in here (or when visits are not used at all).
   bool get _canAct => _atThisClient || !(Services.auth.profile?.feature('visits') ?? false);
 
