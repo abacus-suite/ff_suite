@@ -905,7 +905,7 @@
 
             <!-- Report sections: attendance, leaves, expenses, orders -->
             <div class="ff_panel_main flex-grow-1 overflow-auto"
-                 t-if="['attendance', 'leaves', 'expenses', 'orders'].includes(state.section)">
+                 t-if="['attendance', 'leaves', 'expenses', 'orders', 'visits', 'demands', 'collections', 'targets'].includes(state.section)">
                 <div class="ff_panel_head d-flex align-items-center gap-2 flex-wrap">
                     <div class="ff_card_head mb-0">
                         <div class="ff_card_icon">
@@ -919,7 +919,11 @@
                             </div>
                         </div>
                     </div>
-                    <button class="ff_icon_btn ms-auto" title="Refresh" t-on-click="() => this.refreshSection()">
+                    <button class="ff_chip_btn ms-auto" title="Download this report as Excel"
+                            t-att-disabled="state.exporting or !state.report" t-on-click="() => this.exportSection()">
+                        <i class="fa me-1" t-att-class="state.exporting ? 'fa-spinner fa-spin' : 'fa-file-excel-o'"/>Excel
+                    </button>
+                    <button class="ff_icon_btn" title="Refresh" t-on-click="() => this.refreshSection()">
                         <i class="fa fa-refresh"/>
                     </button>
                 </div>
@@ -984,6 +988,73 @@
                     </div>
                 </t>
                 <t t-else="">
+
+                    <!-- Visits, demands, collections: one generic layout -->
+                    <t t-if="state.report.generic">
+                        <div class="d-flex align-items-center mt-3">
+                            <button class="ff_chip_btn ms-auto" t-on-click="() => this.drillGeneric()">
+                                <i class="fa fa-external-link me-1"/>Open in Odoo
+                            </button>
+                        </div>
+                        <div class="row g-3 mt-0">
+                            <div class="col-xl-3 col-6" t-foreach="state.report.tiles" t-as="tile" t-key="tile_index">
+                                <div class="ff_card ff_tile h-100" t-att-style="'--tile:' + tile.color" role="button"
+                                     t-on-click="() => this.drillGeneric(tile.domain)">
+                                    <div class="ff_card_title" t-esc="tile.label"/>
+                                    <div class="ff_big" t-esc="tile.money ? money(tile.value) : tile.value"/>
+                                    <span class="ff_chip" t-if="tile.sub" t-esc="tile.sub"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-3 mt-0">
+                            <div t-foreach="state.report.charts" t-as="chart" t-key="chart_index"
+                                 t-att-class="chart.type === 'line' ? 'col-12' : 'col-xl-6'">
+                                <div class="ff_card h-100">
+                                    <div class="ff_card_head">
+                                        <div class="ff_card_icon"><i class="fa" t-att-class="chart.icon"/></div>
+                                        <div class="ff_card_title" t-esc="chart.title"/>
+                                    </div>
+                                    <div t-if="!chart.values.length" class="text-muted small py-4 text-center">Nothing in this period.</div>
+                                    <FfChart t-else="" type="chart.type" horizontal="chart.horizontal"
+                                             labels="genericChart(chart).labels"
+                                             datasets="genericChart(chart).datasets"
+                                             money="chart.money" currency="state.report.currency" legend="false"
+                                             height="chart.type === 'line' ? 240 : 220"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ff_card mt-3 mb-3">
+                            <div class="ff_card_head">
+                                <div class="ff_card_icon"><i class="fa fa-list"/></div>
+                                <div class="ff_card_title">Records</div>
+                                <span class="ms-auto small text-muted" t-if="state.report.rows.length === 200">first 200 · use Excel for all</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th t-foreach="state.report.columns" t-as="column" t-key="column.key"
+                                                t-att-class="column.end ? 'text-end' : ''" t-esc="column.label"/>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="state.report.rows" t-as="row" t-key="row.id" class="ff_row"
+                                            t-on-click="() => this.openGenericRow(row)">
+                                            <td t-foreach="state.report.columns" t-as="column" t-key="column.key"
+                                                t-att-class="(column.end ? 'text-end ' : '') + (column.bold ? 'fw-bold' : '')">
+                                                <span t-if="column.pill" class="ff_pill" t-att-class="stateBadge(row[column.key])"
+                                                      t-esc="stateWord(row[column.key])"/>
+                                                <t t-else="" t-esc="cell(column, row)"/>
+                                            </td>
+                                        </tr>
+                                        <tr t-if="!state.report.rows.length">
+                                            <td t-att-colspan="state.report.columns.length" class="text-muted">Nothing in this period.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </t>
 
                     <!-- Attendance -->
                     <t t-if="state.section === 'attendance' and state.report.series">

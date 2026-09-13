@@ -26,17 +26,14 @@ class FfAppReport(models.AbstractModel):
     # ------------------------------------------------------------------
     def _definitions(self):
         """key -> (title, description, icon, needed model, columns, builder)."""
-        demand = self._order_flow() == 'demand' and 'ff.demand' in self.env
-        if demand:
-            orders = ('Demands', 'Demands taken from outlets', 'shopping_basket', 'ff.demand', [
-                col('date', 'Date', DATE), col('employee', 'Employee'), col('number', 'Number'),
-                col('customer', 'Outlet'), col('distributor', 'Distributor'), col('units', 'Units', NUMBER, True),
-                col('amount', 'Value', MONEY, True), col('status', 'Status', STATUS)], self._demands)
-        else:
-            orders = ('Orders', 'Sale orders taken in the app', 'shopping_cart', 'sale.order', [
-                col('date', 'Date', DATE), col('employee', 'Employee'), col('number', 'Number'),
-                col('customer', 'Customer'), col('amount', 'Amount', MONEY, True),
-                col('status', 'Status', STATUS)], self._orders)
+        orders = ('Orders', 'Sale orders taken in the app', 'shopping_cart', 'sale.order', [
+            col('date', 'Date', DATE), col('employee', 'Employee'), col('number', 'Number'),
+            col('customer', 'Customer'), col('amount', 'Amount', MONEY, True),
+            col('status', 'Status', STATUS)], self._orders)
+        demands = ('Demands', 'Demands taken from outlets', 'shopping_basket', 'ff.demand', [
+            col('date', 'Date', DATE), col('employee', 'Employee'), col('number', 'Number'),
+            col('customer', 'Outlet'), col('distributor', 'Distributor'), col('units', 'Units', NUMBER, True),
+            col('amount', 'Value', MONEY, True), col('status', 'Status', STATUS)], self._demands)
         defs = {
             'attendance': ('Attendance', 'Punch in / out and hours worked per day', 'fingerprint', 'hr.attendance', [
                 col('date', 'Date', DATE), col('employee', 'Employee'), col('check_in', 'In', TIME),
@@ -48,6 +45,7 @@ class FfAppReport(models.AbstractModel):
                 col('visit_type', 'Type', STATUS), col('distance', 'Away (m)', NUMBER),
                 col('outcome', 'Outcome')], self._visits),
             'orders': orders,
+            'demands': demands,
             'collections': ('Payment collections', 'Cash, online, cheque and PDC collected', 'payments',
                             'ff.collection', [
                 col('date', 'Date', DATE), col('employee', 'Employee'), col('customer', 'Customer'),
@@ -79,8 +77,10 @@ class FfAppReport(models.AbstractModel):
 
     @api.model
     def ff_catalogue(self):
+        # The app lists the one the company works with; both still run for the panel.
+        hide = 'orders' if self._order_flow() == 'demand' and 'ff.demand' in self.env else 'demands'
         return [{'key': key, 'title': d[0], 'description': d[1], 'icon': d[2]}
-                for key, d in self._definitions().items()]
+                for key, d in self._definitions().items() if key != hide]
 
     @api.model
     def ff_run(self, key, viewer, employees, start, end):

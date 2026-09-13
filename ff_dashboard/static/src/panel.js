@@ -17,6 +17,9 @@ const SECTIONS = [
     { key: "leaves", label: "Leaves", icon: "fa-plane" },
     { key: "expenses", label: "Expenses", icon: "fa-credit-card" },
     { key: "orders", label: "Orders", icon: "fa-shopping-cart" },
+    { key: "visits", label: "Visits", icon: "fa-map-signs" },
+    { key: "demands", label: "Demands", icon: "fa-shopping-basket" },
+    { key: "collections", label: "Collections", icon: "fa-money" },
 ];
 
 /** Which model method feeds each report section. */
@@ -25,6 +28,9 @@ const REPORTS = {
     leaves: "ff_leaves_report",
     expenses: "ff_expense_report",
     orders: "ff_order_report",
+    visits: "ff_visit_report",
+    demands: "ff_demand_section_report",
+    collections: "ff_collection_report",
 };
 
 /** Colour and wording for what somebody is doing right now. */
@@ -59,6 +65,7 @@ export class AixoloPanel extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
+        this.notification = useService("notification");
         this.sections = SECTIONS;
         this.mapRef = useRef("liveMap");
         this.markers = new Map();
@@ -80,6 +87,7 @@ export class AixoloPanel extends Component {
             collapsedNodes: [],
             report: null,
             reportLoading: false,
+            exporting: false,
             options: null,
             filters: { employee_id: null, department_id: null, team_id: null,
                        date_from: null, date_to: null },
@@ -683,6 +691,60 @@ export class AixoloPanel extends Component {
         );
     }
 
+    /** Records behind a generic section, narrowed by a tile's own domain. */
+    drillGeneric(extra) {
+        const report = this.state.report;
+        if (!report || !report.model) {
+            return;
+        }
+        const label = this.sections.find((s) => s.key === this.state.section).label;
+        this.openModel(
+            report.model,
+            label,
+            [[report.employee_field, "in", report.employee_ids]]
+                .concat(this.periodLeaf(report.date_field))
+                .concat(extra || [])
+        );
+    }
+
+    openGenericRow(row) {
+        const report = this.state.report;
+        this.openModel(report.model, this.sections.find((s) => s.key === this.state.section).label, [
+            ["id", "=", row.id],
+        ]);
+    }
+
+    genericChart(chart) {
+        return { labels: chart.labels, datasets: [{ label: chart.title, data: chart.values }] };
+    }
+
+    cell(column, row) {
+        const value = row[column.key];
+        if (column.money) {
+            return this.money(value);
+        }
+        return value === null || value === undefined || value === "" ? "–" : value;
+    }
+
+    /** The section, as an Excel file with the same period and filters. */
+    async exportSection() {
+        this.state.exporting = true;
+        try {
+            const url = await this.orm.call("ff.dashboard", "ff_panel_export", [
+                this.state.section,
+                this.state.period,
+                this.activeFilters,
+            ]);
+            if (url) {
+                window.location.href = url;
+            } else {
+                this.notification.add("Nothing to export for this section.", { type: "warning" });
+            }
+        } finally {
+            this.state.exporting = false;
+        }
+    }
+
     // -- the report sections ----------------------------------------------
     async loadReport() {
         const method = REPORTS[this.state.section];
@@ -737,6 +799,13 @@ export class AixoloPanel extends Component {
                 rejected: "ff_pill_red",
                 cancel: "ff_pill_red",
                 cancelled: "ff_pill_red",
+                onsite: "ff_pill_green",
+                offsite: "ff_pill_red",
+                collected: "ff_pill_amber",
+                received: "ff_pill_green",
+                in_progress: "ff_pill_blue",
+                done: "ff_pill_green",
+                todo: "ff_pill_grey",
             }[state] || "ff_pill_grey"
         );
     }
@@ -758,6 +827,13 @@ export class AixoloPanel extends Component {
                 supplied: "Supplied",
                 cancelled: "Cancelled",
                 cancel: "Cancelled",
+                onsite: "Onsite",
+                offsite: "Offsite",
+                collected: "With employee",
+                received: "Received",
+                in_progress: "In progress",
+                done: "Done",
+                todo: "To do",
             }[state] || state
         );
     }
