@@ -211,6 +211,8 @@ class FfDashboardReports(models.AbstractModel):
                 'id': claim.id,
                 'date': claim.date.isoformat(),
                 'employee': claim.employee_id.name,
+                'employee_id': claim.employee_id.id,
+                'avatar': '/web/image/hr.employee/%s/avatar_128' % claim.employee_id.id,
                 'category': claim.category_id.name or '',
                 'partner': claim.partner_id.display_name or '',
                 'amount': round(claim.amount, 2),

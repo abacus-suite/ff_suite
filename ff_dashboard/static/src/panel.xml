@@ -1548,84 +1548,154 @@
 
                     <!-- Expenses -->
                     <t t-if="state.section === 'expenses' and state.report.by_category">
-                        <div class="d-flex align-items-center mt-3">
-                            <button class="ff_chip_btn ms-auto" t-on-click="() => this.drillExpenses()">
-                                <i class="fa fa-external-link me-1"/>Open in Odoo
-                            </button>
-                        </div>
                         <div class="row g-3 mt-0">
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#1a56db" t-on-click="() => this.drillExpenses()" role="button">
-                                <div class="ff_card_title">Claimed</div>
-                                <div class="ff_big" t-esc="money(state.report.kpis.total)"/>
-                                <span class="ff_chip"><t t-esc="state.report.kpis.count"/> claims</span></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#f59e0b" t-on-click="() => this.drillExpenses([['state', '=', 'submitted']])" role="button">
-                                <div class="ff_card_title">Waiting</div>
-                                <div class="ff_big text-warning" t-esc="money(state.report.kpis.submitted.amount)"/>
-                                <span class="ff_chip"><t t-esc="state.report.kpis.submitted.count"/> to approve</span></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#16a34a" t-on-click="() => this.drillExpenses([['state', '=', 'approved']])" role="button">
-                                <div class="ff_card_title">Approved</div>
-                                <div class="ff_big text-success" t-esc="money(state.report.kpis.approved.amount)"/>
-                                <span class="ff_chip"><t t-esc="state.report.kpis.approved.count"/> claims</span></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#7c5cfc" t-on-click="() => this.drillExpenses()" role="button">
-                                <div class="ff_card_title">Per head</div>
-                                <div class="ff_big" t-esc="money(state.report.kpis.per_head)"/></div></div>
+                            <t t-foreach="expenseKpis" t-as="kpi" t-key="kpi.key">
+                                <div class="col-xl-3 col-md-6">
+                                    <div class="ff_kpi h-100" t-attf-style="--tile: {{kpi.color}}" role="button"
+                                         t-on-click="kpi.open">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="ff_kpi_icon"><i class="fa" t-att-class="kpi.icon"/></div>
+                                            <div class="ff_kpi_label" t-esc="kpi.label"/>
+                                        </div>
+                                        <div class="ff_kpi_value" t-esc="kpi.value"/>
+                                        <div class="mt-1"><span class="ff_kpi_chip" t-if="kpi.chip" t-esc="kpi.chip"/></div>
+                                        <div class="ff_kpi_note" t-if="kpi.note" t-esc="kpi.note"/>
+                                        <i class="fa ff_kpi_ghost" t-att-class="kpi.ghost"/>
+                                    </div>
+                                </div>
+                            </t>
                         </div>
 
                         <div class="row g-3 mt-0">
                             <div class="col-xl-6">
                                 <div class="ff_card h-100">
                                     <div class="ff_card_head">
-                                        <div class="ff_card ff_centered_icon"><i class="fa fa-tags"/></div>
-                                        <div class="ff_card_title">By category</div>
+                                        <div class="ff_card_icon"><i class="fa fa-tags"/></div>
+                                        <div class="ff_card_title">Expenses by Category</div>
+                                        <span class="ff_period_chip ms-auto" t-esc="state.report.period_label"/>
                                     </div>
-                                    <FfChart type="'bar'" horizontal="true"
-                                             labels="topChart(state.report.by_category, 'amount').labels"
-                                             datasets="topChart(state.report.by_category, 'amount').datasets"
-                                             money="true" currency="state.report.currency" legend="false" height="220"/>
-                                                                    </div>
+                                    <div class="d-flex align-items-center gap-4 flex-wrap">
+                                        <div style="width: 190px; flex: none;" class="ff_ring">
+                                            <t t-if="state.report.kpis.total">
+                                                <div class="ff_ring_center">
+                                                    <div class="ff_ring_label">Total</div>
+                                                    <div class="ff_ring_value" t-esc="money(state.report.kpis.total)"/>
+                                                </div>
+                                                <FfChart type="'doughnut'" legend="false"
+                                                         labels="expenseCategories.map((row) => row.name)"
+                                                         datasets="[{data: expenseCategories.map((row) => row.amount), colors: expenseCategories.map((row) => row.color)}]"
+                                                         money="true" currency="state.report.currency" height="190"/>
+                                            </t>
+                                            <div t-else="" class="ff_empty py-2">
+                                                <div class="ff_ring_empty"/>
+                                                <div class="fw-bold">No data to display</div>
+                                                <div class="small text-muted">No expense claims in this period.</div>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="ff_off_row" t-foreach="expenseCategories" t-as="row" t-key="row.name">
+                                                <span class="ff_dot" t-attf-style="background: {{row.color}}"/>
+                                                <span class="text-truncate" t-esc="row.name"/>
+                                                <span class="ms-auto text-muted small me-3"><t t-esc="row.pct"/>%</span>
+                                                <b class="ff_amount" t-esc="money(row.amount)"/>
+                                            </div>
+                                            <div t-if="!expenseCategories.length" class="text-muted small">No categories yet.</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+
                             <div class="col-xl-6">
                                 <div class="ff_card h-100">
                                     <div class="ff_card_head">
-                                        <div class="ff_card ff_centered_icon"><i class="fa fa-user"/></div>
-                                        <div class="ff_card_title">Who claimed most</div>
+                                        <div class="ff_card_icon"><i class="fa fa-user"/></div>
+                                        <div class="ff_card_title">Who Claimed Most</div>
+                                        <select class="form-select form-select-sm ff_pager_size ms-auto" t-on-change="(ev) => this.state.topN = parseInt(ev.target.value, 10)">
+                                            <option value="5" t-att-selected="state.topN === 5">Top 5</option>
+                                            <option value="10" t-att-selected="state.topN === 10">Top 10</option>
+                                        </select>
                                     </div>
-                                    <FfChart type="'bar'" horizontal="true"
-                                             labels="topChart(state.report.by_employee, 'amount').labels"
-                                             datasets="topChart(state.report.by_employee, 'amount').datasets"
-                                             money="true" currency="state.report.currency" legend="false" height="220"/>
-                                                                    </div>
+                                    <t t-if="state.report.by_employee.length">
+                                        <div t-foreach="state.report.by_employee.slice(0, state.topN)" t-as="row" t-key="row.id"
+                                             class="ff_seller_row d-flex align-items-center gap-2">
+                                            <span class="ff_rank" t-esc="row_index + 1"/>
+                                            <span class="text-truncate fw-bold" t-esc="row.name"/>
+                                            <div class="ff_progress flex-grow-1 mx-2 mt-0">
+                                                <div t-attf-style="width: {{Math.round(row.amount * 100 / (state.report.by_employee[0].amount || 1))}}%; background: linear-gradient(90deg, #7c5cfc, #a78bfa);"/>
+                                            </div>
+                                            <span class="small text-muted"><t t-esc="row.count"/> claims</span>
+                                            <b class="ff_amount" t-esc="money(row.amount)"/>
+                                        </div>
+                                    </t>
+                                    <div t-else="" class="ff_empty">
+                                        <i class="fa fa-users"/>
+                                        <div class="fw-bold">No data to display</div>
+                                        <div class="small text-muted">No expense claims in this period.</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <div class="ff_card mt-3 mb-3">
-                            <div class="ff_card_head">
-                                <div class="ff_card_icon"><i class="fa fa-list"/></div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+                                <div class="ff_card_icon"><i class="fa fa-file-text"/></div>
                                 <div class="ff_card_title">Claims</div>
+                                <div class="ff_search_box ms-auto">
+                                    <i class="fa fa-search"/>
+                                    <input type="text" class="form-control form-control-sm" placeholder="Search employee, category..."
+                                           t-att-value="state.rowSearch" t-on-input="searchRows"/>
+                                </div>
+                                <button class="ff_outline_btn" t-on-click="() => this.drillExpenses()">
+                                    <i class="fa fa-filter me-1"/>Open in Odoo
+                                </button>
                             </div>
-                            <div class="ff_table_scroll"><table class="table ff_table align-middle mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th><th>Employee</th><th>Category</th><th>Contact</th>
-                                        <th class="text-end">Amount</th><th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr t-foreach="pagedRows" t-as="row" t-key="row.id" class="ff_row"
-                                        t-on-click="() => this.openModel('ff.expense.claim', 'Expense Claims', [['id', '=', row.id]])">
-                                        <td t-esc="row.date"/>
-                                        <td class="fw-bold" t-esc="row.employee"/>
-                                        <td t-esc="row.category"/>
-                                        <td class="text-muted" t-esc="row.partner"/>
-                                        <td class="text-end fw-bold" t-esc="money(row.amount)"/>
-                                        <td><span class="ff_pill" t-att-class="stateBadge(row.state)"
-                                                  t-esc="stateWord(row.state)"/></td>
-                                    </tr>
-                                    <tr t-if="!state.report.rows.length">
-                                        <td colspan="6" class="text-muted">No claims in this period.</td>
-                                    </tr>
-                                </tbody>
-                            </table></div>
+                            <div class="ff_table_scroll">
+                                <table class="table ff_table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 44px;">#</th>
+                                            <th>Date</th><th>Employee</th><th>Category</th><th>Description</th>
+                                            <th class="text-end">Amount</th><th>Status</th>
+                                            <th class="text-center" style="width: 70px;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="pagedRows" t-as="row" t-key="row.id" class="ff_row"
+                                            t-on-click="() => this.openModel('ff.expense.claim', 'Expense Claims', [['id', '=', row.id]])">
+                                            <td class="text-muted" t-esc="pageInfo.from + row_index"/>
+                                            <td class="text-nowrap" t-esc="row.date"/>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <img t-if="row.avatar" class="ff_avatar ff_avatar_round" t-att-src="row.avatar" alt=""/>
+                                                    <span class="fw-bold" t-esc="row.employee"/>
+                                                </div>
+                                            </td>
+                                            <td t-esc="row.category"/>
+                                            <td class="text-muted small ff_address">
+                                                <t t-esc="row.note or row.partner or '—'"/>
+                                            </td>
+                                            <td class="text-end fw-bold text-nowrap" t-esc="money(row.amount)"/>
+                                            <td><span class="ff_pill" t-att-class="stateBadge(row.state)"
+                                                      t-esc="stateWord(row.state)"/></td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm ff_more" title="Open"
+                                                        t-on-click.stop="() => this.openModel('ff.expense.claim', 'Expense Claims', [['id', '=', row.id]])">
+                                                    <i class="fa fa-ellipsis-h"/>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr t-if="!pagedRows.length">
+                                            <td colspan="8">
+                                                <div class="ff_empty">
+                                                    <i class="fa fa-file-text-o"/>
+                                                    <div class="fw-bold">No claims in this period.</div>
+                                                    <div class="small text-muted">When employees raise expense claims, they will appear here.</div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                             <t t-call="ff_dashboard.Pager"/>
                         </div>
                     </t>

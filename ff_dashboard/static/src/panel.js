@@ -97,6 +97,7 @@ export class AixoloPanel extends Component {
             page: 1,
             pageSize: 10,
             rowSearch: "",
+            topN: 5,
             calendarMonth: null,
             attendanceView: "summary",
             openDay: null,
@@ -925,6 +926,34 @@ export class AixoloPanel extends Component {
             { key: "punches", label: "Total Punches", value: report.kpis.punches, icon: "fa-hourglass-half",
               color: "#7c5cfc", change: change(punches), series: punches, open: () => this.drillAttendance() },
         ];
+    }
+
+    get expenseKpis() {
+        const k = this.state.report.kpis;
+        const people = (this.state.report.employee_ids || []).length;
+        return [
+            { key: "total", label: "Total Claimed", value: this.money(k.total), icon: "fa-file-text", ghost: "fa-file-text-o",
+              color: "#1a56db", chip: `${k.count} claims`, open: () => this.drillExpenses() },
+            { key: "waiting", label: "Waiting for Approval", value: this.money(k.submitted.amount), icon: "fa-hourglass-half",
+              ghost: "fa-clock-o", color: "#f59e0b", chip: `${k.submitted.count} claims`,
+              open: () => this.drillExpenses([["state", "=", "submitted"]]) },
+            { key: "approved", label: "Approved", value: this.money(k.approved.amount), icon: "fa-check", ghost: "fa-line-chart",
+              color: "#16a34a", chip: `${k.approved.count} claims`,
+              open: () => this.drillExpenses([["state", "=", "approved"]]) },
+            { key: "head", label: "Average per Head", value: this.money(k.per_head), icon: "fa-users", ghost: "fa-bar-chart",
+              color: "#7c5cfc", note: `Based on ${people} employees`, open: () => this.drillExpenses() },
+        ];
+    }
+
+    get expenseCategories() {
+        const palette = ["#1a56db", "#16a34a", "#f59e0b", "#7c5cfc", "#0ea5e9", "#e11d48", "#94a3b8"];
+        const rows = this.state.report.by_category || [];
+        const total = rows.reduce((sum, row) => sum + (row.amount || 0), 0);
+        return rows.map((row, index) => ({
+            ...row,
+            color: palette[index % palette.length],
+            pct: total ? Math.round((row.amount / total) * 100) : 0,
+        }));
     }
 
     get leaveKpis() {

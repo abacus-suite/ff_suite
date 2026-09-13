@@ -2171,4 +2171,12 @@
             color: var(--ff-primary);
         }
     }
+
+    .ff_ring_empty {
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 10px;
+        border-radius: 50%;
+        border: 22px solid #eaeff8;
+    }
 }
