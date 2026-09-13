@@ -2,7 +2,7 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { Component, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
+import { Component, onPatched, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
 import { loadGoogleMaps, pinIcon } from "@ff_live_map/google";
 import { FfChart } from "./chart";
 
@@ -125,6 +125,13 @@ export class AixoloPanel extends Component {
         });
 
         onWillStart(() => this.load());
+        // Leaving Live Location removes its map element; coming back needs a new map on the new element.
+        onPatched(() => {
+            if (this.state.section === "live" && this.state.live && this.mapRef.el &&
+                (!this.liveMap || this.liveMap.getDiv() !== this.mapRef.el)) {
+                this.drawLive();
+            }
+        });
         this.timer = setInterval(() => this.load(), REFRESH_MS);
         onWillUnmount(() => {
             clearInterval(this.timer);
@@ -298,6 +305,18 @@ export class AixoloPanel extends Component {
         }
         if (!this.mapRef.el) {
             return;  // the section is not on screen yet
+        }
+        if (this.liveMap && this.liveMap.getDiv() !== this.mapRef.el) {
+            // The old map sat on an element that is gone: start again on the current one.
+            for (const marker of this.markers.values()) {
+                marker.setMap(null);
+            }
+            for (const marker of this.clientMarkers.values()) {
+                marker.setMap(null);
+            }
+            this.markers.clear();
+            this.clientMarkers.clear();
+            this.liveMap = null;
         }
         if (!this.liveMap) {
             this.state.usage = await this.orm.call("ff.map.usage", "ff_record_web_map", []);
