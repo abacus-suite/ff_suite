@@ -88,13 +88,15 @@ class FfAppReport(models.AbstractModel):
 
         ``viewer`` is the app user; their timezone decides where a day begins.
         """
-        definition = self._definitions().get(key)
+        # The viewer goes into the context before the builders are bound:
+        # each one reads it to know where the viewer's day starts and ends.
+        report = self.with_context(ff_report_viewer=viewer.id)
+        definition = report._definitions().get(key)
         if not definition:
             return None
         title, _description, _icon, _model, columns, builder = definition
         if end < start:
             start, end = end, start
-        self = self.with_context(ff_report_viewer=viewer.id)
         rows = builder(employees.sudo(), start, end) if employees else []
         totals = {column['key']: round(sum(row.get(column['key']) or 0 for row in rows), 2)
                   for column in columns if column['total']}
