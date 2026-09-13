@@ -3,6 +3,8 @@ import math
 from odoo import http
 from odoo.http import request
 
+from odoo.addons.ff_base.tools import haversine_m, to_iso
+
 from .common import ApiError, api_route, body, ok, ref
 from .field_data import client_data, visit_data
 
@@ -95,6 +97,125 @@ class FieldForceClientsApi(http.Controller):
             allow_orders=bool(partner.ff_category_id.allow_orders),
         )
         return ok(data)
+
+    @api_route('/api/v1/clients/<int:partner_id>/history', methods=('GET',))
+    def client_history(self, employee, partner_id, limit=None, **kw):
+        """What happened at this customer lately: visits, orders or demands, payments."""
+        partner = visible_client(employee, partner_id)
+        family = partner.commercial_partner_id
+        size = min(to_int(limit) or 20, 100)
+        env = request.env
+
+        def label(record, field):
+            return dict(record._fields[field]._description_selection(env)).get(record[field])
+
+        visits = env['ff.visit'].sudo().search(
+            [('partner_id', 'child_of', family.id)], order='check_in_at desc', limit=size)
+        orders = env['sale.order'].sudo().search(
+            [('partner_id', 'child_of', family.id)], order='date_order desc', limit=size)
+        data = {
+            'visits': [visit_data(v) for v in visits],
+            'orders': [{
+                'id': o.id, 'name': o.name, 'date': to_iso(o.date_order), 'amount': round(o.amount_total, 2),
+                'currency': o.currency_id.name, 'state': o.state, 'state_label': label(o, 'state'),
+                'employee': ref(o.ff_employee_id),
+            } for o in orders],
+            'demands': [],
+            'collections': [],
+        }
+        if 'ff.demand' in env:
+            demands = env['ff.demand'].sudo().search(
+                [('partner_id', 'child_of', family.id)], order='date desc', limit=size)
+            data['demands'] = [{
+                'id': d.id, 'name': d.name, 'date': to_iso(d.date), 'amount': round(d.amount_total, 2),
+                'currency': d.currency_id.name, 'state': d.state, 'state_label': label(d, 'state'),
+                'employee': ref(d.employee_id), 'distributor': ref(d.distributor_id),
+            } for d in demands]
+        if 'ff.collection' in env:
+            collections = env['ff.collection'].sudo().search(
+                [('partner_id', 'child_of', family.id)], order='date desc', limit=size)
+            data['collections'] = [{
+                'id': c.id, 'date': to_iso(c.date), 'amount': round(c.amount, 2), 'currency': c.currency_id.name,
+                'mode': c.mode_id.name, 'reference': c.reference or None, 'state': c.state,
+                'state_label': label(c, 'state'), 'employee': ref(c.employee_id),
+            } for c in collections]
+        return ok(data)
+
+    @api_route('/api/v1/clients/<int:partner_id>/balance', methods=('GET',))
+    def client_balance(self, employee, partner_id, **kw):
+        """What the customer owes: open invoices, how much is overdue, cash not yet deposited."""
+        partner = visible_client(employee, partner_id)
+        family = partner.commercial_partner_id
+        env = request.env
+        company = employee.company_id
+        today = employee._ff_today()
+        rows, due, overdue = [], 0.0, 0.0
+        if 'account.move' in env:
+            moves = env['account.move'].sudo().search([
+                ('partner_id', 'child_of', family.id), ('move_type', 'in', ('out_invoice', 'out_refund')),
+                ('state', '=', 'posted'), ('payment_state', 'in', ('not_paid', 'partial')),
+                ('company_id', '=', company.id),
+            ], order='invoice_date_due asc, id asc')
+            for move in moves:
+                # amount_residual_signed is in company currency, negative for refunds.
+                residual = move.amount_residual_signed
+                due += residual
+                late = bool(move.invoice_date_due and move.invoice_date_due < today and residual > 0)
+                if late:
+                    overdue += residual
+                rows.append({
+                    'id': move.id, 'name': move.name, 'date': to_iso(move.invoice_date),
+                    'due_date': to_iso(move.invoice_date_due), 'amount': round(move.amount_total_signed, 2),
+                    'residual': round(residual, 2), 'overdue': late,
+                    'days_overdue': (today - move.invoice_date_due).days if late else 0,
+                })
+        with_staff = 0.0
+        if 'ff.collection' in env:
+            pending = env['ff.collection'].sudo().search([
+                ('partner_id', 'child_of', family.id), ('state', 'in', ('collected', 'submitted'))])
+            with_staff = round(sum(pending.mapped('amount')), 2)
+        return ok({
+            'currency': company.currency_id.name,
+            'due': round(due, 2),
+            'overdue': round(overdue, 2),
+            'credit_limit': round(family.credit_limit, 2) if 'credit_limit' in family._fields else 0.0,
+            'collected_not_deposited': with_staff,
+            'invoices': rows[:50],
+        })
+
+    @api_route('/api/v1/clients/<int:partner_id>/update', methods=('POST',))
+    def update_client(self, employee, partner_id, **kw):
+        """Correct a customer's contact details, or move its pin to where the employee stands."""
+        partner = visible_client(employee, partner_id).sudo()
+        data = body()
+        vals = {}
+        for field in ('phone', 'email', 'street', 'street2', 'city', 'zip'):
+            if field in data:
+                vals[field] = (data.get(field) or '').strip() or False
+        if (data.get('name') or '').strip():
+            vals['name'] = data['name'].strip()
+        notes = []
+        if data.get('set_location'):
+            lat, lng = to_float(data.get('lat')), to_float(data.get('lng'))
+            if lat is None or lng is None:
+                raise ApiError('Location is required to move the customer pin.')
+            if data.get('mock'):
+                raise ApiError('A fake GPS app was detected. Disable it to update the location.', 403, 'forbidden')
+            old_lat, old_lng = partner.partner_latitude, partner.partner_longitude
+            vals.update(partner_latitude=lat, partner_longitude=lng)
+            if old_lat or old_lng:
+                moved = int(haversine_m(old_lat, old_lng, lat, lng))
+                notes.append('Location moved %d m by %s (was %.6f, %.6f).' % (moved, employee.name, old_lat, old_lng))
+            else:
+                notes.append('Location set by %s.' % employee.name)
+        if not vals:
+            raise ApiError('Nothing to change.')
+        changed = [partner._fields[f].string for f in vals if f not in ('partner_latitude', 'partner_longitude')]
+        partner.write(vals)
+        if changed:
+            notes.insert(0, '%s updated from the app by %s.' % (', '.join(changed), employee.name))
+        partner.message_post(body='<br/>'.join(notes))
+        return ok(client_data(partner))
 
     @api_route('/api/v1/clients', methods=('POST',))
     def create_client(self, employee, **kw):
