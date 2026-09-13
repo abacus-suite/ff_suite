@@ -51,6 +51,12 @@ class FfFormResponse(models.Model):
             return [('form_id', '=', form.id), ('visit_id', '=', visit.id)] if visit else None
         if form.frequency == 'contact':
             return [('form_id', '=', form.id), ('partner_id', '=', partner.id)] if partner else None
+        if form.frequency == 'month':
+            if not partner:
+                return None
+            today = employee._ff_today()
+            start, _unused = employee._ff_day_bounds(today.replace(day=1))
+            return [('form_id', '=', form.id), ('partner_id', '=', partner.id), ('submitted_at', '>=', start)]
         if form.frequency == 'day':
             start, end = employee._ff_day_bounds(employee._ff_today())
             return [('form_id', '=', form.id), ('employee_id', '=', employee.id),
@@ -127,7 +133,29 @@ class FfFormResponse(models.Model):
                                              'value_number': len(images)})]
         if stored != answers:
             response.answers = stored
+        response._ff_update_partner(answers)
         return response
+
+    def _ff_update_partner(self, answers):
+        """Write linked answers onto the customer, and say so in its chatter."""
+        self.ensure_one()
+        partner = self.partner_id.sudo()
+        if not partner:
+            return
+        vals, changed = {}, []
+        for question in self.form_id.field_ids.filtered(lambda q: q.partner_field_id and q.write_to_partner):
+            if question.key not in answers or answers[question.key] is None:
+                continue
+            try:
+                vals[question.partner_field_id.name] = question._ff_partner_write_value(answers[question.key])
+                changed.append(question.partner_field_id.field_description)
+            except (TypeError, ValueError):
+                continue
+        if vals:
+            partner.write(vals)
+            partner.message_post(body=self.env._('%(fields)s updated from the form "%(form)s" by %(who)s.',
+                                                 fields=', '.join(changed), form=self.form_id.name,
+                                                 who=self.employee_id.name))
 
     @api.model
     def _ff_line_vals(self, form, answers):

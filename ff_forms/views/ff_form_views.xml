@@ -22,6 +22,11 @@
         <field name="model">ff.form</field>
         <field name="arch" type="xml">
             <form>
+                <header>
+                    <button name="action_download_responses" type="object" string="Download Answers (Excel)" icon="fa-file-excel-o"/>
+                    <button name="action_download_customers" type="object" string="Download Customer Sheet (Excel)"
+                            icon="fa-file-excel-o" invisible="trigger not in ('visit', 'contact')"/>
+                </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_responses" type="object" class="oe_stat_button" icon="fa-list-alt">
@@ -36,6 +41,7 @@
                         <group string="When">
                             <field name="trigger" widget="radio"/>
                             <field name="frequency"/>
+                            <field name="at_checkout" invisible="trigger != 'visit'"/>
                             <field name="mandatory"/>
                         </group>
                         <group string="Who">
@@ -55,6 +61,7 @@
                                     <field name="name"/>
                                     <field name="field_type"/>
                                     <field name="required"/>
+                                    <field name="partner_field_id" optional="show"/>
                                     <field name="visible_if_field_id" optional="show"/>
                                     <field name="visible_if_value" optional="show"/>
                                     <field name="key" optional="hide"/>
@@ -75,6 +82,13 @@
                                             <field name="min_value" invisible="field_type not in ('number', 'decimal')"/>
                                             <field name="max_value" invisible="field_type not in ('number', 'decimal')"/>
                                         </group>
+                                    </group>
+                                    <group string="Customer field (optional)">
+                                        <field name="partner_field_id" options="{'no_create': True, 'no_open': True}"/>
+                                        <field name="write_to_partner" invisible="not partner_field_id"/>
+                                        <div colspan="2" class="text-muted" invisible="not partner_field_id">
+                                            The app shows the customer's current value; the answer is saved back to the customer.
+                                        </div>
                                     </group>
                                     <group string="Conditional (optional)">
                                         <field name="visible_if_field_id" domain="[('form_id', '=', parent.id)]"

@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Form Builder',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'category': 'Human Resources/Field Force',
     'summary': 'No-code forms for field staff: surveys, audits, contact profiles, mandatory visit checklists',
     'author': 'Field Force Suite',

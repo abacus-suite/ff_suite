@@ -88,3 +88,21 @@ class TestForms(TransactionCase):
         self.assertEqual(payload['labels']['client'], 'Doctor')
         default = self.env['ff.app.profile'].ff_for_employee(self.employee).ff_payload()
         self.assertTrue(default['features']['orders'])
+
+    def test_customer_field_prefill_writeback_and_sheets(self):
+        website = self.env['ir.model.fields']._get('res.partner', 'website')
+        profile = self.env['ff.form'].create({
+            'name': 'Shop Profile', 'trigger': 'visit', 'frequency': 'contact', 'at_checkout': True,
+            'field_ids': [(0, 0, {'name': 'Website', 'field_type': 'text', 'partner_field_id': website.id})],
+        })
+        question = profile.field_ids
+        self.shop.website = 'https://old.example.com'
+        self.assertEqual(question._ff_partner_value(self.shop), 'https://old.example.com')
+        visit = self.env['ff.visit'].ff_check_in(self.employee, self.shop, {'lat': 10.0, 'lng': 76.0})
+        self.env['ff.form.response'].ff_submit(self.employee, profile, {
+            'visit_id': visit.id, 'answers': {question.key: 'https://new.example.com'}})
+        self.assertEqual(self.shop.website, 'https://new.example.com')
+        # One time per contact: filled now, not asked again at the next visit.
+        self.assertTrue(self.env['ff.form.response'].ff_is_filled(self.employee, profile, self.shop, visit))
+        self.assertEqual(profile.ff_export_responses()[:2], b'PK')
+        self.assertEqual(profile.ff_export_customers()[:2], b'PK')

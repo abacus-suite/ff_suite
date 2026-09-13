@@ -11,10 +11,16 @@ TRIGGERS = [
 ]
 FREQUENCIES = [
     ('any', 'Any number of times'),
-    ('visit', 'Once per visit'),
-    ('contact', 'Once per contact'),
+    ('visit', 'Every visit (each check-out)'),
+    ('contact', 'One time per contact'),
+    ('month', 'Once a month per contact'),
     ('day', 'Once per day'),
 ]
+# Customer fields a question can read from and write back to.
+PARTNER_FIELD_TYPES = {
+    'char': 'text', 'text': 'textarea', 'html': 'textarea', 'integer': 'number', 'float': 'decimal',
+    'monetary': 'decimal', 'boolean': 'checkbox', 'date': 'date', 'selection': 'select',
+}
 DEFAULT_FREQUENCY = {'visit': 'visit', 'contact': 'contact', 'standalone': 'any', 'punch_in': 'day'}
 FIELD_TYPES = [
     ('text', 'Short text'),
@@ -49,6 +55,10 @@ class FfForm(models.Model):
     sequence = fields.Integer(default=10)
     trigger = fields.Selection(TRIGGERS, required=True, default='visit', tracking=True)
     frequency = fields.Selection(FREQUENCIES, required=True, default='visit', tracking=True)
+    at_checkout = fields.Boolean(
+        string='Ask at Check-out', tracking=True,
+        help='The app shows this form on the check-out screen. With "Every visit" it is asked at each check-out; '
+             'with "One time per contact" only until it has been filled once for that customer.')
     mandatory = fields.Boolean(tracking=True,
                                help='Visit forms must be filled before check-out; punch-in forms before punching in.')
     department_ids = fields.Many2many('hr.department', string='Departments', help='Leave empty for every department.')
@@ -68,8 +78,8 @@ class FfForm(models.Model):
         for form in self:
             if form.frequency == 'visit' and form.trigger != 'visit':
                 raise ValidationError(self.env._('"Once per visit" is only for visit forms.'))
-            if form.frequency == 'contact' and form.trigger not in ('visit', 'contact'):
-                raise ValidationError(self.env._('"Once per contact" needs a visit or contact form.'))
+            if form.frequency in ('contact', 'month') and form.trigger not in ('visit', 'contact'):
+                raise ValidationError(self.env._('"Per contact" frequencies need a visit or contact form.'))
 
     def _compute_response_count(self):
         counts = dict(self.env['ff.form.response']._read_group([('form_id', 'in', self.ids)], ['form_id'], ['__count']))
@@ -140,6 +150,13 @@ class FfFormField(models.Model):
     help_text = fields.Char(string='Hint', translate=True)
     min_value = fields.Float(string='Minimum', help='0 = no minimum (numbers only).')
     max_value = fields.Float(string='Maximum', help='0 = no maximum (numbers only).')
+    partner_field_id = fields.Many2one(
+        'ir.model.fields', string='Customer Field', ondelete='set null',
+        domain="[('model', '=', 'res.partner'), ('store', '=', True), ('readonly', '=', False), "
+               "('ttype', 'in', ['char', 'text', 'html', 'integer', 'float', 'monetary', 'boolean', 'date', 'selection'])]",
+        help='Link the question to a field on the customer. The app shows the current value, and the answer is '
+             'written back to the customer when the form is sent.')
+    write_to_partner = fields.Boolean(string='Save Answer on Customer', default=True)
     visible_if_field_id = fields.Many2one('ff.form.field', string='Show Only When', ondelete='set null',
                                           help='Show this question only when another question has a given answer.')
     visible_if_value = fields.Char(string='Has Answer', help='For Yes / No questions use "yes" or "no".')
@@ -191,6 +208,52 @@ class FfFormField(models.Model):
             truthy = actual in (True, 'true', 'True', 1, '1', 'yes', 'Yes')
             return expected in ('yes', 'true', '1') if truthy else expected in ('no', 'false', '0')
         return str(actual if actual is not None else '').strip().lower() == expected
+
+    @api.onchange('partner_field_id')
+    def _onchange_partner_field(self):
+        field = self.partner_field_id
+        if not field:
+            return
+        self.field_type = PARTNER_FIELD_TYPES.get(field.ttype, self.field_type)
+        if not self.name:
+            self.name = field.field_description
+        if field.ttype == 'selection':
+            selection = self.env['res.partner']._fields[field.name]._description_selection(self.env)
+            self.options = '\n'.join(label for _value, label in selection)
+
+    def _ff_partner_value(self, partner):
+        """The customer's current value, shaped like an answer; None when not linked or empty."""
+        self.ensure_one()
+        field = self.partner_field_id
+        if not field or not partner or field.name not in partner._fields:
+            return None
+        value = partner.sudo()[field.name]
+        if field.ttype == 'boolean':
+            return bool(value)
+        if value in (False, None, ''):
+            return None
+        if field.ttype == 'date':
+            return value.isoformat()
+        if field.ttype == 'selection':
+            return dict(partner._fields[field.name]._description_selection(self.env)).get(value)
+        if field.ttype == 'html':
+            return re.sub(r'<[^>]+>', ' ', str(value)).strip() or None
+        return value
+
+    def _ff_partner_write_value(self, answer):
+        """The answer converted for the customer field."""
+        self.ensure_one()
+        field = self.partner_field_id
+        if field.ttype == 'selection':
+            selection = self.env['res.partner']._fields[field.name]._description_selection(self.env)
+            return next((value for value, label in selection if label == answer or value == answer), False)
+        if field.ttype == 'boolean':
+            return bool(answer)
+        if field.ttype == 'integer':
+            return int(float(answer))
+        if field.ttype in ('float', 'monetary'):
+            return float(answer)
+        return answer
 
     def _ff_check_range(self, value):
         if self.min_value and value < self.min_value:

@@ -11,7 +11,8 @@ class FfVisit(models.Model):
         self.ensure_one()
         visit = self.sudo()
         required = self.env['ff.form']._ff_applicable(visit.employee_id, 'visit', visit.partner_id).filtered('mandatory')
-        return required - visit.form_response_ids.form_id
+        Response = self.env['ff.form.response']
+        return required.filtered(lambda form: not Response.ff_is_filled(visit.employee_id, form, visit.partner_id, visit))
 
     def ff_check_out(self, data):
         self.ensure_one()

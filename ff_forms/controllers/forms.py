@@ -8,9 +8,11 @@ from odoo.addons.ff_mobile_api.controllers.common import ApiError, api_route, bo
 from ..models.ff_form import CHOICE_TYPES, NUMERIC_TYPES, TRIGGERS
 
 
-def question_data(question):
+def question_data(question, partner=None):
     condition = question.visible_if_field_id
     return {
+        'value': question._ff_partner_value(partner) if partner else None,
+        'customer_field': bool(question.partner_field_id),
         'key': question.key,
         'label': question.name,
         'type': question.field_type,
@@ -23,8 +25,9 @@ def question_data(question):
     }
 
 
-def form_data(form, filled):
+def form_data(form, filled, partner=None):
     return {
+        'at_checkout': form.at_checkout,
         'id': form.id,
         'name': form.name,
         'description': form.description or None,
@@ -32,7 +35,7 @@ def form_data(form, filled):
         'frequency': form.frequency,
         'mandatory': form.mandatory,
         'filled': filled,
-        'questions': [question_data(q) for q in form.field_ids.sorted('sequence')],
+        'questions': [question_data(q, partner) for q in form.field_ids.sorted('sequence')],
     }
 
 
@@ -65,7 +68,7 @@ class FieldForceFormsApi(http.Controller):
         scoped_partner = partner if trigger in ('visit', 'contact') else None
         forms = request.env['ff.form']._ff_applicable(employee, trigger, scoped_partner)
         Response = request.env['ff.form.response']
-        return ok([form_data(f, Response.ff_is_filled(employee, f, partner, visit)) for f in forms])
+        return ok([form_data(f, Response.ff_is_filled(employee, f, partner, visit), partner) for f in forms])
 
     @api_route('/api/v1/forms/<int:form_id>/responses', methods=('POST',))
     def submit(self, employee, form_id, **kw):
@@ -87,3 +90,20 @@ class FieldForceFormsApi(http.Controller):
             domain.append(('form_id', '=', to_int(form_id)))
         responses = request.env['ff.form.response'].sudo().search(domain, limit=min(to_int(limit) or 50, 200))
         return ok([response_data(r) for r in responses])
+
+
+class FieldForceFormsExport(http.Controller):
+
+    @http.route('/ff_forms/<int:form_id>/export/<string:kind>', type='http', auth='user', methods=['GET'])
+    def export(self, form_id, kind, **kw):
+        if not request.env.user.has_group('ff_base.group_ff_manager'):
+            return request.not_found()
+        form = request.env['ff.form'].browse(form_id).exists()
+        if not form or kind not in ('responses', 'customers'):
+            return request.not_found()
+        content = form.ff_export_responses() if kind == 'responses' else form.ff_export_customers()
+        name = '%s_%s.xlsx' % (form.name.replace(' ', '_').replace('/', '_'), kind)
+        return request.make_response(content, headers=[
+            ('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+            ('Content-Disposition', 'attachment; filename="%s"' % name),
+        ])
