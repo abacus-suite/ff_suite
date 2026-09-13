@@ -36,6 +36,8 @@ flutter_launcher_icons:
   image_path: "assets/images/app_icon.png"
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
+  # The foreground PNG already has its safe-zone padding; no extra shrink.
+  adaptive_icon_foreground_inset: 0
 
 flutter:
   uses-material-design: true
