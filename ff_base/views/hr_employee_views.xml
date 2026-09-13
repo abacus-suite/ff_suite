@@ -36,20 +36,22 @@
                                 confirm="Log this employee out of the mobile app on every device?"
                                 invisible="not ff_app_token_ids"/>
                     </div>
-                    <field name="ff_app_token_ids" readonly="1" groups="ff_base.group_ff_admin">
+                    <separator string="Signed-in sessions" groups="ff_base.group_ff_admin"/>
+                    <field name="ff_app_token_ids" readonly="1" nolabel="1" groups="ff_base.group_ff_admin">
                         <list>
-                            <field name="name"/>
-                            <field name="device_uid"/>
-                            <field name="last_used_at"/>
-                            <field name="expires_at"/>
+                            <field name="name" string="Device"/>
+                            <field name="device_uid" optional="hide"/>
+                            <field name="last_used_at" width="150px"/>
+                            <field name="expires_at" width="150px"/>
                         </list>
                     </field>
-                    <field name="ff_device_ids" readonly="1">
+                    <separator string="Registered devices"/>
+                    <field name="ff_device_ids" readonly="1" nolabel="1">
                         <list>
-                            <field name="name"/>
-                            <field name="device_uid"/>
-                            <field name="app_version"/>
-                            <field name="last_seen"/>
+                            <field name="name" string="Device"/>
+                            <field name="device_uid" optional="hide"/>
+                            <field name="app_version" width="110px"/>
+                            <field name="last_seen" width="150px"/>
                         </list>
                     </field>
                 </page>
