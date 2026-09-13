@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../team/team_live_screen.dart';
 import '../team/timeline_screen.dart';
+import '../targets/targets_screen.dart';
 import 'report_view_screen.dart';
 
 /// Icons for the report keys the server sends (Material names, as strings).
@@ -22,6 +23,15 @@ const _icons = <String, IconData>{
   'flag': Icons.flag_rounded,
   'task_alt': Icons.task_alt_rounded,
   'assignment_return': Icons.assignment_return_rounded,
+  'leaderboard': Icons.leaderboard_rounded,
+  'account_balance_wallet': Icons.account_balance_wallet_rounded,
+  'inventory_2': Icons.inventory_2_rounded,
+  'star': Icons.star_rounded,
+  'groups': Icons.groups_rounded,
+  'emoji_events': Icons.emoji_events_rounded,
+  'sort': Icons.sort_rounded,
+  'receipt_long': Icons.receipt_long_rounded,
+  'alt_route': Icons.alt_route_rounded,
 };
 
 const _tones = [
@@ -142,6 +152,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ),
               const SizedBox(height: 8),
             ],
+            Card(
+              child: ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFFFF4D6),
+                  child: Icon(Icons.emoji_events_rounded, color: Color(0xFFF5B301)),
+                ),
+                title: const Text('Leaderboard & targets', style: TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: Text(canTeam ? 'Top performers · split your targets' : 'Where you stand this month'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _open(const TargetsScreen()),
+              ),
+            ),
             if (reports.isNotEmpty) _Section(canTeam ? 'Reports · me or my team' : 'My reports'),
             for (var i = 0; i < reports.length; i++)
               Card(

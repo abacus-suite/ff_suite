@@ -4,6 +4,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/dashboard.dart';
+import '../targets/targets_screen.dart';
 import '../tasks/tasks_screen.dart';
 
 /// This month's targets against what is done so far. Hidden until the office
@@ -70,7 +71,9 @@ class _MonthTargetCardState extends State<MonthTargetCard> {
               CardHeader(
                 icon: Icons.flag_rounded,
                 title: 'My targets${month == null ? '' : ' · ${months[month.month - 1]}'}',
-                trailing: Container(
+                trailing: InkWell(
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TargetsScreen())),
+                  child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: (achievement >= 100 ? AixoloColors.success : AixoloColors.primary).withValues(alpha: 0.12),
@@ -80,6 +83,7 @@ class _MonthTargetCardState extends State<MonthTargetCard> {
                       style: TextStyle(
                           fontWeight: FontWeight.w800,
                           color: achievement >= 100 ? AixoloColors.success : AixoloColors.primary)),
+                ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -105,6 +109,18 @@ class _MonthTargetCardState extends State<MonthTargetCard> {
                 ),
                 const SizedBox(height: 12),
               ],
+              if (me['incentive'] != null)
+                Row(
+                  children: [
+                    const Icon(Icons.card_giftcard_rounded, size: 18, color: AixoloColors.success),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: Text('${(me['incentive'] as Map)['status'] ?? 'Incentive'}',
+                            style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5))),
+                    Text(fmtMoney((me['incentive'] as Map)['earned'] as num?, currency),
+                        style: const TextStyle(fontWeight: FontWeight.w800, color: AixoloColors.success)),
+                  ],
+                ),
             ],
           ),
         ),
