@@ -105,7 +105,7 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
       } catch (_) {
         // Location is a nice-to-have on a receipt.
       }
-      final saved = await Services.api.post('/api/v1/collections', {
+      final result = await Services.outbox.submit('/api/v1/collections', {
         'partner_id': widget.client['id'],
         'mode_id': mode['id'],
         'amount': double.tryParse(_amount.text.trim()) ?? 0,
@@ -117,10 +117,17 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
         'lat': pos?.latitude,
         'lng': pos?.longitude,
         'uuid': _uuid,
-      }) as Map<String, dynamic>;
+      }, label: 'Payment · ${widget.client['name']}');
+      final saved = result.queued
+          ? <String, dynamic>{'amount': double.tryParse(_amount.text.trim()) ?? 0, 'currency': null}
+          : result.map;
       Services.refresh.value++;
       if (!mounted) return;
-      showSnack(context, 'Received ${fmtMoney(saved['amount'] as num?, saved['currency'] as String?)}');
+      showSnack(
+          context,
+          result.queued
+              ? 'Payment of ${fmtMoney(saved['amount'] as num?, null)} saved on the phone · it will sync when you are back online'
+              : 'Received ${fmtMoney(saved['amount'] as num?, saved['currency'] as String?)}');
       Navigator.of(context).pop(saved);
     } catch (e) {
       if (mounted) showSnack(context, e.toString());

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../core/format.dart';
+import '../../widgets/sync_status.dart';
 import '../clients/add_client_screen.dart';
 import '../collections/collect_payment_screen.dart';
 import '../leaves/leaves_screen.dart';
@@ -162,8 +163,20 @@ class _AppShellState extends State<AppShell> {
     final half = tabs.length ~/ 2;
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(
-          index: index, children: [for (final tab in tabs) tab.screen]),
+      body: ListenableBuilder(
+        listenable: Listenable.merge([Services.api.online, Services.outbox.failed]),
+        builder: (context, child) {
+          final banner = !Services.api.online.value || Services.outbox.failed.value > 0;
+          return Column(
+            children: [
+              const OfflineBanner(),
+              // The banner already sits under the status bar; the screens below should not pad for it again.
+              Expanded(child: MediaQuery.removePadding(context: context, removeTop: banner, child: child!)),
+            ],
+          );
+        },
+        child: IndexedStack(index: index, children: [for (final tab in tabs) tab.screen]),
+      ),
       floatingActionButton: Container(
         width: 58,
         height: 58,

@@ -48,6 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await Services.auth.login(_server.text, _login.text, _password.text);
       Services.notifications.start();
+      await Services.outbox.start();
       if (!mounted) return;
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const AppShell()));
     } catch (e) {

@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/format.dart';
+import '../../core/local_state.dart';
 import '../../core/geo.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
@@ -121,13 +122,20 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
       } catch (_) {
         // Check-out still works without a fresh fix.
       }
-      await Services.api.post('/api/v1/visits/${widget.visit['id']}/check-out', {
+      final result = await Services.outbox.submit('/api/v1/visits/check-out', {
+        if (widget.visit['id'] != null) 'visit_id': widget.visit['id'],
+        if (widget.visit['uuid'] != null) 'visit_uuid': widget.visit['uuid'],
         'lat': pos?.latitude,
         'lng': pos?.longitude,
         if (outcome != null) 'outcome_id': outcome['id'] else 'outcome': _legacy,
         'note': _note.text.trim(),
         'photos': _photos.map(base64Encode).toList(),
-      });
+      }, label: 'Check out · ${(widget.visit['client'] as Map)['name']}');
+      if (result.queued) {
+        await LocalState.visitClosed();
+        if (mounted) showSnack(context, 'Checked out · Saved on the phone · it will sync when you are back online');
+      }
+      Services.refresh.value++;
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) showSnack(context, e.toString());

@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/format.dart';
 import '../../core/geo.dart';
 import '../../core/services.dart';
+import '../../core/theme.dart';
 
 class OrderReviewScreen extends StatefulWidget {
   const OrderReviewScreen({super.key, required this.client, required this.lines});
@@ -42,7 +43,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
       } catch (_) {
         // Orders are accepted without a fresh GPS fix.
       }
-      final order = await Services.api.post('/api/v1/orders', {
+      final result = await Services.outbox.submit('/api/v1/orders', {
         'partner_id': widget.client['id'],
         'lines': [
           for (final l in widget.lines) {'product_id': l['id'], 'qty': l['qty']},
@@ -51,8 +52,22 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
         'lat': pos?.latitude,
         'lng': pos?.longitude,
         'uuid': _uuid,
-      }) as Map<String, dynamic>;
+      }, label: '${demandFlow ? 'Demand' : 'Order'} · ${widget.client['name']}');
+      final order = result.map;
       if (!mounted) return;
+      if (result.queued) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.cloud_off_rounded, color: AixoloColors.warning, size: 48),
+            title: Text('${demandFlow ? 'Demand' : 'Order'} saved offline'),
+            content: const Text('It is kept on this phone and goes to the office as soon as you have network.'),
+            actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+          ),
+        );
+        if (mounted) Navigator.of(context).pop(true);
+        return;
+      }
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(

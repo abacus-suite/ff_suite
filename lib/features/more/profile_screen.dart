@@ -19,11 +19,17 @@ class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   Future<void> _logout(BuildContext context) async {
+    await Services.outbox.flush();
+    final unsent = Services.outbox.pending.value + Services.outbox.failed.value;
+    if (!context.mounted) return;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Log out?'),
-        content: const Text('Tracking stops and unsent locations are uploaded first.'),
+        content: Text(unsent == 0
+            ? 'Tracking stops and unsent locations are uploaded first.'
+            : '$unsent action${unsent == 1 ? ' has' : 's have'} not reached the server yet and will be lost. '
+                'Connect to the internet and wait for them to sync first.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Log out')),
@@ -32,6 +38,8 @@ class ProfileScreen extends StatelessWidget {
     );
     if (confirm != true) return;
     await Services.tracker.stop();
+    Services.outbox.stop();
+    await Services.queue.clearCache();
     await Services.auth.logout();
     if (!context.mounted) return;
     Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);

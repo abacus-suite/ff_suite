@@ -5,7 +5,10 @@ import '../../core/api_client.dart';
 import '../../core/geo.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
+import 'package:geolocator/geolocator.dart';
+
 import '../../core/format.dart';
+import '../../core/local_state.dart';
 
 /// Demands, orders and payments are taken at a customer, so they start with a
 /// check-in there. Returns the open visit, or null when the person backed out.
@@ -71,7 +74,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
       'uuid': const Uuid().v4(),
     };
     try {
-      return await _checkIn(context, payload);
+      return await _checkIn(context, payload, client);
     } on ApiException catch (e) {
       if (e.code != 'offsite_confirm' || !context.mounted) rethrow;
       final reason = TextEditingController();
@@ -99,7 +102,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
         ),
       );
       if (offsite != true || !context.mounted) return null;
-      return await _checkIn(context, {...payload, 'offsite': true, 'offsite_reason': reason.text.trim()});
+      return await _checkIn(context, {...payload, 'offsite': true, 'offsite_reason': reason.text.trim()}, client);
     }
   } catch (e) {
     if (context.mounted) showSnack(context, e.toString());
@@ -107,8 +110,30 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
   }
 }
 
-Future<Map<String, dynamic>> _checkIn(BuildContext context, Map<String, dynamic> payload) async {
-  final visit = await Services.api.post('/api/v1/visits/check-in', payload) as Map<String, dynamic>;
+Future<Map<String, dynamic>> _checkIn(
+    BuildContext context, Map<String, dynamic> payload, Map<String, dynamic> client) async {
+  final result = await Services.outbox.submit('/api/v1/visits/check-in', payload, label: 'Check in · ${client['name']}');
+  if (result.queued) {
+    // Nobody to ask "offsite?" - judge it from the customer's saved location.
+    final lat = (client['lat'] as num?)?.toDouble();
+    final lng = (client['lng'] as num?)?.toDouble();
+    final radius = (client['geofence_radius'] as num?)?.toDouble() ?? 150;
+    final away = lat == null || lng == null
+        ? null
+        : Geolocator.distanceBetween(payload['lat'] as double, payload['lng'] as double, lat, lng);
+    final offsite = away != null && away > radius;
+    final visit = await LocalState.visitOpened(client, payload['uuid'] as String, visitType: offsite ? 'offsite' : 'onsite');
+    if (context.mounted) {
+      showSnack(
+          context,
+          offsite
+              ? 'Checked in offline · ${fmtDistance(away)} away, it will be saved as an offsite visit'
+              : 'Checked in offline · it will sync when you are back online');
+    }
+    Services.refresh.value++;
+    return visit;
+  }
+  final visit = result.map;
   if (context.mounted) {
     showSnack(
       context,

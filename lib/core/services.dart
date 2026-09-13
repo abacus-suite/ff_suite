@@ -7,6 +7,7 @@ import 'google_tiles.dart';
 import 'location_tracker.dart';
 import 'notifications.dart';
 import 'offline_queue.dart';
+import 'outbox.dart';
 import 'storage.dart';
 
 /// Simple app-wide service holder, initialised once in main().
@@ -19,6 +20,7 @@ class Services {
   static late final ApiClient api;
   static late final AuthRepository auth;
   static late final OfflineQueue queue;
+  static late final Outbox outbox;
   static late final LocationTracker tracker;
   static late final GoogleTiles googleTiles;
   static late final NotificationsService notifications;
@@ -27,13 +29,21 @@ class Services {
     storage = AppStorage();
     api = ApiClient(storage);
     queue = OfflineQueue();
+    api.store = queue;
+    outbox = Outbox(api, queue);
+    api.beforeRead = () async {
+      if (outbox.pending.value > 0) await outbox.flush();
+    };
     auth = AuthRepository(api, storage);
     tracker = LocationTracker(api, queue);
     googleTiles = GoogleTiles(storage);
     notifications = NotificationsService();
     await auth.restore();
     api.onUnauthorized = _sessionExpired;
-    if (auth.profile != null) notifications.start();
+    if (auth.profile != null) {
+      notifications.start();
+      await outbox.start();
+    }
   }
 
   static bool _handlingExpiry = false;
@@ -44,6 +54,8 @@ class Services {
     try {
       await tracker.stop(flushFirst: false);
       notifications.stop();
+      outbox.stop();
+      await queue.clearCache();
       await auth.clearLocal();
       navigatorKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginScreen(message: 'Session expired. Please log in again.')),

@@ -148,7 +148,11 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   }
 
   Future<void> _openStep(Map<String, dynamic> step) async {
-    final visitId = _current!['id'] as int;
+    final visitId = _current!['id'] as int?;
+    if (visitId == null) {
+      showSnack(context, 'Visit steps open once your offline check-in has synced.');
+      return;
+    }
     final type = step['type'] as String;
     bool? done;
     switch (type) {

@@ -100,7 +100,7 @@ class _NewExpenseScreenState extends State<NewExpenseScreen> {
       } catch (_) {
         // Location is optional for a claim.
       }
-      await Services.api.post('/api/v1/expenses', {
+      final result = await Services.outbox.submit('/api/v1/expenses', {
         'category_id': category['id'],
         'amount': double.tryParse(_amount.text.trim()) ?? 0,
         'date': fmtDate(_date),
@@ -111,9 +111,9 @@ class _NewExpenseScreenState extends State<NewExpenseScreen> {
         'lat': pos?.latitude,
         'lng': pos?.longitude,
         'uuid': _uuid,
-      });
+      }, label: 'Expense · ${category['name']}');
       if (!mounted) return;
-      showSnack(context, 'Claim sent for approval');
+      showSnack(context, result.queued ? 'Claim saved on the phone · it will sync when you are back online' : 'Claim sent for approval');
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) showSnack(context, e.toString());

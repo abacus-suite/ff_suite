@@ -282,13 +282,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           // Location is a nice-to-have on a finished task, not a blocker.
         }
       }
-      final task = await Services.api.post('/api/v1/tasks/${_task['id']}/$action', body) as Map<String, dynamic>;
+      final result = await Services.outbox.submit('/api/v1/tasks/${_task['id']}/$action', body,
+          label: '${action == 'done' ? 'Finish' : 'Start'} task · ${_task['name']}');
+      final task = result.queued
+          ? {..._task, 'state': action == 'done' ? 'done' : 'in_progress', 'is_overdue': false}
+          : result.map;
       if (!mounted) return;
       setState(() {
         _task = task;
         _changed = true;
       });
-      showSnack(context, action == 'done' ? 'Task finished' : 'Task started');
+      final word = action == 'done' ? 'Task finished' : 'Task started';
+      showSnack(context, result.queued ? '$word · Saved on the phone · it will sync when you are back online' : word);
       Services.refresh.value++;
     } catch (e) {
       if (mounted) showSnack(context, e.toString());

@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/format.dart';
+import '../../core/local_state.dart';
 import '../../core/models.dart';
 import '../../core/permissions.dart';
 import '../../core/services.dart';
@@ -152,8 +153,11 @@ class _HomeScreenState extends State<HomeScreen> {
         'battery': battery,
         if (selfie != null) 'selfie': selfie,
       };
+      var queued = false;
       if (punchIn) {
-        await Services.api.post('/api/v1/attendance/punch-in', body);
+        final result = await Services.outbox.submit('/api/v1/attendance/punch-in', body, label: 'Punch in');
+        queued = result.queued;
+        if (queued) await LocalState.punched(true);
         final background = await PermissionsHelper.ensureBackgroundTracking();
         await Services.tracker.start(_profile);
         if (!background && mounted) {
@@ -162,10 +166,14 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       } else {
         await Services.tracker.flush();
-        await Services.api.post('/api/v1/attendance/punch-out', body);
+        final result = await Services.outbox.submit('/api/v1/attendance/punch-out', body, label: 'Punch out');
+        queued = result.queued;
+        if (queued) await LocalState.punched(false);
         await Services.tracker.stop();
       }
-      if (mounted) showSnack(context, punchIn ? 'Checked in' : 'Checked out');
+      if (mounted) {
+        showSnack(context, queued ? '${punchIn ? 'Checked in' : 'Checked out'} · Saved on the phone · it will sync when you are back online' : (punchIn ? 'Checked in' : 'Checked out'));
+      }
       await _load();
     } catch (e) {
       if (mounted) showSnack(context, e.toString());
