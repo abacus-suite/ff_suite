@@ -20,6 +20,7 @@ const SECTIONS = [
     { key: "visits", label: "Visits", icon: "fa-map-signs" },
     { key: "demands", label: "Demands", icon: "fa-shopping-basket" },
     { key: "collections", label: "Collections", icon: "fa-money" },
+    { key: "targets", label: "Targets", icon: "fa-bullseye" },
 ];
 
 /** Which model method feeds each report section. */
@@ -31,6 +32,7 @@ const REPORTS = {
     visits: "ff_visit_report",
     demands: "ff_demand_section_report",
     collections: "ff_collection_report",
+    targets: "ff_target_report",
 };
 
 /** Colour and wording for what somebody is doing right now. */

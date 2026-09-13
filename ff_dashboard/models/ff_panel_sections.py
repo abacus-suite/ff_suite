@@ -255,6 +255,11 @@ class FfDashboardSections(models.AbstractModel):
         })
         return report
 
+    @api.model
+    def ff_target_report(self, period='month', filters=None):
+        """Filled in by the Targets module; without it the section says so."""
+        return None
+
     # ------------------------------------------------------------------
     # Excel
     # ------------------------------------------------------------------

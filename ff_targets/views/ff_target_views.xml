@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_target_view_list" model="ir.ui.view">
+        <field name="name">ff.target.list</field>
+        <field name="model">ff.target</field>
+        <field name="arch" type="xml">
+            <list editable="bottom" decoration-success="achievement &gt;= 100" decoration-warning="achievement &lt; 50">
+                <field name="month" widget="date"/>
+                <field name="employee_id"/>
+                <field name="team_id" optional="hide"/>
+                <field name="visit_target"/>
+                <field name="visit_actual" optional="show"/>
+                <field name="customer_target"/>
+                <field name="customer_actual" optional="show"/>
+                <field name="sales_target"/>
+                <field name="sales_actual" optional="show"/>
+                <field name="collection_target"/>
+                <field name="collection_actual" optional="show"/>
+                <field name="achievement" widget="progressbar"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_target_view_form" model="ir.ui.view">
+        <field name="name">ff.target.form</field>
+        <field name="model">ff.target</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="employee_id" placeholder="Employee"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="month" help="Any day in the month; it is saved as the first day."/>
+                            <field name="team_id"/>
+                            <field name="department_id"/>
+                        </group>
+                        <group>
+                            <field name="achievement" widget="progressbar"/>
+                            <field name="note"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group string="Target and done so far">
+                        <group>
+                            <field name="visit_target"/>
+                            <field name="customer_target"/>
+                            <field name="sales_target"/>
+                            <field name="collection_target"/>
+                        </group>
+                        <group>
+                            <field name="visit_actual"/>
+                            <field name="customer_actual"/>
+                            <field name="sales_actual"/>
+                            <field name="collection_actual"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_target_view_search" model="ir.ui.view">
+        <field name="name">ff.target.search</field>
+        <field name="model">ff.target</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="team_id"/>
+                <field name="department_id"/>
+                <filter name="this_month" string="This Month"
+                        domain="[('month', '=', context_today().strftime('%Y-%m-01'))]"/>
+                <group>
+                    <filter name="group_month" string="Month" context="{'group_by': 'month:month'}"/>
+                    <filter name="group_team" string="Team" context="{'group_by': 'team_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_target_action" model="ir.actions.act_window">
+        <field name="name">Targets</field>
+        <field name="res_model">ff.target</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_this_month': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Set this month's targets</p>
+            <p>One line per employee: visits, new customers, sales and collections.
+               Achievement fills in from what they do in the app.</p>
+        </field>
+    </record>
+
+    <record id="ff_target_action_copy_next" model="ir.actions.server">
+        <field name="name">Copy to next month</field>
+        <field name="model_id" ref="model_ff_target"/>
+        <field name="binding_model_id" ref="model_ff_target"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_copy_to_next_month()</field>
+    </record>
+
+    <menuitem id="menu_ff_targets" name="Targets" parent="ff_base.menu_ff_root"
+              action="ff_target_action" sequence="60"/>
+</odoo>
