@@ -94,6 +94,8 @@ export class AixoloPanel extends Component {
             filters: { employee_id: null, department_id: null, team_id: null,
                        date_from: null, date_to: null },
             calendar: null,
+            page: 1,
+            pageSize: 25,
             calendarMonth: null,
             attendanceView: "summary",
             openDay: null,
@@ -850,12 +852,42 @@ export class AixoloPanel extends Component {
             return;
         }
         this.state.reportLoading = true;
+        this.state.page = 1;
         await this.loadOptions();
         this.state.report = await this.orm.call("ff.dashboard", method, [
             this.state.period,
             this.activeFilters,
         ]);
         this.state.reportLoading = false;
+    }
+
+    // -- pages for the records tables -------------------------------------
+    get pageInfo() {
+        const total = (this.state.report && this.state.report.rows || []).length;
+        const pages = Math.max(1, Math.ceil(total / this.state.pageSize));
+        const page = Math.min(Math.max(1, this.state.page), pages);
+        return {
+            total,
+            pages,
+            page,
+            from: total ? (page - 1) * this.state.pageSize + 1 : 0,
+            to: Math.min(page * this.state.pageSize, total),
+        };
+    }
+
+    get pagedRows() {
+        const rows = (this.state.report && this.state.report.rows) || [];
+        const { page } = this.pageInfo;
+        return rows.slice((page - 1) * this.state.pageSize, page * this.state.pageSize);
+    }
+
+    setPage(page) {
+        this.state.page = page;
+    }
+
+    setPageSize(ev) {
+        this.state.pageSize = parseInt(ev.target.value, 10) || 25;
+        this.state.page = 1;
     }
 
     // -- what the charts are drawn from ------------------------------------

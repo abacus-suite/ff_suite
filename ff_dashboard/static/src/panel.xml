@@ -1038,7 +1038,7 @@
                         </div>
                         <div class="row g-3 mt-0">
                             <div class="col-xl-3 col-6" t-foreach="state.report.tiles" t-as="tile" t-key="tile_index">
-                                <div class="ff_card ff_tile h-100" t-att-style="'--tile:' + tile.color" role="button"
+                                <div class="ff_card ff_tile ff_stat h-100" t-att-style="'--tile:' + tile.color" role="button"
                                      t-on-click="() => this.drillGeneric(tile.domain)">
                                     <div class="ff_card_title" t-esc="tile.label"/>
                                     <div class="ff_big" t-esc="tile.money ? money(tile.value) : tile.value"/>
@@ -1067,10 +1067,10 @@
                             <div class="ff_card_head">
                                 <div class="ff_card_icon"><i class="fa fa-list"/></div>
                                 <div class="ff_card_title">Records</div>
-                                <span class="ms-auto small text-muted" t-if="state.report.rows.length === 200">first 200 · use Excel for all</span>
+                                <span class="ms-auto small text-muted" t-if="state.report.rows.length === 200">latest 200 · Excel has all</span>
                             </div>
-                            <div class="table-responsive">
-                                <table class="table table-sm align-middle mb-0">
+                            <div>
+                                <div class="ff_table_scroll"><table class="table ff_table align-middle mb-0">
                                     <thead>
                                         <tr>
                                             <th t-foreach="state.report.columns" t-as="column" t-key="column.key"
@@ -1078,7 +1078,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr t-foreach="state.report.rows" t-as="row" t-key="row.id" class="ff_row"
+                                        <tr t-foreach="pagedRows" t-as="row" t-key="row.id" class="ff_row"
                                             t-on-click="() => this.openGenericRow(row)">
                                             <td t-foreach="state.report.columns" t-as="column" t-key="column.key"
                                                 t-att-class="(column.end ? 'text-end ' : '') + (column.bold ? 'fw-bold' : '')">
@@ -1099,7 +1099,8 @@
                                             <td t-att-colspan="state.report.columns.length" class="text-muted">Nothing in this period.</td>
                                         </tr>
                                     </tbody>
-                                </table>
+                                </table></div>
+                            <t t-call="ff_dashboard.Pager"/>
                             </div>
                         </div>
                     </t>
@@ -1265,29 +1266,29 @@
 
                         <t t-else="">
                         <div class="row g-3 mt-0">
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db" t-on-click="() => this.openModel('hr.employee', 'Employees', [['id', 'in', reportEmployeeIds]])" role="button">
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#1a56db" t-on-click="() => this.openModel('hr.employee', 'Employees', [['id', 'in', reportEmployeeIds]])" role="button">
                                 <div class="ff_card_title">Headcount</div>
                                 <div class="ff_big" t-esc="state.report.kpis.headcount"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#16a34a" t-on-click="() => this.drillAttendance([['check_in', '>=', state.report.end + ' 00:00:00']])" role="button">
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#16a34a" t-on-click="() => this.drillAttendance([['check_in', '>=', state.report.end + ' 00:00:00']])" role="button">
                                 <div class="ff_card_title">Present today</div>
                                 <div class="ff_big text-success" t-esc="state.report.kpis.present_today"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b" t-on-click="() => this.drillAttendance([['ff_late_minutes', '>', 0]])" role="button">
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#f59e0b" t-on-click="() => this.drillAttendance([['ff_late_minutes', '>', 0]])" role="button">
                                 <div class="ff_card_title">Late punches</div>
                                 <div class="ff_big text-warning" t-esc="state.report.kpis.late"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#7c5cfc" t-on-click="() => this.drillAttendance()" role="button">
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#7c5cfc" t-on-click="() => this.drillAttendance()" role="button">
                                 <div class="ff_card_title">Punches</div>
                                 <div class="ff_big" t-esc="state.report.kpis.punches"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#14d3c0" t-on-click="() => this.drillAttendance()" role="button">
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#14d3c0" t-on-click="() => this.drillAttendance()" role="button">
                                 <div class="ff_card_title">Hours worked</div>
                                 <div class="ff_big" t-esc="state.report.kpis.hours"/></div></div>
-                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1e90ff" t-on-click="() => this.drillAttendance()" role="button">
+                            <div class="col-xl-2 col-md-4 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#1e90ff" t-on-click="() => this.drillAttendance()" role="button">
                                 <div class="ff_card_title">Avg per punch</div>
                                 <div class="ff_big"><t t-esc="state.report.kpis.avg_hours"/> h</div></div></div>
                         </div>
 
                         <div class="ff_card mt-3">
                             <div class="ff_card_head">
-                                <div class="ff_card_icon"><i class="fa fa-bar-chart"/></div>
+                                <div class="ff_card ff_centered_icon"><i class="fa fa-bar-chart"/></div>
                                 <div class="ff_card_title">Present each day</div>
                             </div>
                             <FfChart type="'bar'"
@@ -1305,7 +1306,7 @@
                                 <div class="ff_card_icon"><i class="fa fa-list"/></div>
                                 <div class="ff_card_title">Muster</div>
                             </div>
-                            <table class="table table-sm align-middle mb-0">
+                            <div class="ff_table_scroll"><table class="table ff_table align-middle mb-0">
                                 <thead>
                                     <tr>
                                         <th>Employee</th>
@@ -1318,7 +1319,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr t-foreach="state.report.rows" t-as="row" t-key="row.id" class="ff_row"
+                                    <tr t-foreach="pagedRows" t-as="row" t-key="row.id" class="ff_row"
                                         t-on-click="() => this.openEmployee(row)">
                                         <td>
                                             <div class="d-flex align-items-center gap-2">
@@ -1339,7 +1340,8 @@
                                         <td class="small text-muted" t-esc="row.last_in ? ago(row.last_in) : '-'"/>
                                     </tr>
                                 </tbody>
-                            </table>
+                            </table></div>
+                            <t t-call="ff_dashboard.Pager"/>
                         </div>
                         </t>
                     </t>
@@ -1352,16 +1354,16 @@
                             </button>
                         </div>
                         <div class="row g-3 mt-0">
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b" t-on-click="() => this.drillLeaves([['state', 'in', ['confirm', 'validate1']]])" role="button">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#f59e0b" t-on-click="() => this.drillLeaves([['state', 'in', ['confirm', 'validate1']]])" role="button">
                                 <div class="ff_card_title">To approve</div>
                                 <div class="ff_big text-warning" t-esc="state.report.kpis.pending"/></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#16a34a" t-on-click="() => this.drillLeaves([['state', '=', 'validate']])" role="button">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#16a34a" t-on-click="() => this.drillLeaves([['state', '=', 'validate']])" role="button">
                                 <div class="ff_card_title">Approved</div>
                                 <div class="ff_big text-success" t-esc="state.report.kpis.approved"/></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#dc2626" t-on-click="() => this.drillLeaves([['state', '=', 'refuse']])" role="button">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#dc2626" t-on-click="() => this.drillLeaves([['state', '=', 'refuse']])" role="button">
                                 <div class="ff_card_title">Refused</div>
                                 <div class="ff_big" t-esc="state.report.kpis.refused"/></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db" t-on-click="() => this.drillLeaves([['state', '=', 'validate']])" role="button">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#1a56db" t-on-click="() => this.drillLeaves([['state', '=', 'validate']])" role="button">
                                 <div class="ff_card_title">Off today</div>
                                 <div class="ff_big text-primary" t-esc="state.report.kpis.off_today"/></div></div>
                         </div>
@@ -1370,7 +1372,7 @@
                             <div class="col-xl-5">
                                 <div class="ff_card h-100">
                                     <div class="ff_card_head">
-                                        <div class="ff_card_icon"><i class="fa fa-pie-chart"/></div>
+                                        <div class="ff_card ff_centered_icon"><i class="fa fa-pie-chart"/></div>
                                         <div class="ff_card_title">Days by type</div>
                                     </div>
                                     <FfChart type="'bar'" horizontal="true"
@@ -1382,7 +1384,7 @@
                             <div class="col-xl-7">
                                 <div class="ff_card h-100">
                                     <div class="ff_card_head">
-                                        <div class="ff_card_icon"><i class="fa fa-plane"/></div>
+                                        <div class="ff_card ff_centered_icon"><i class="fa fa-plane"/></div>
                                         <div class="ff_card_title">Who is off today</div>
                                     </div>
                                     <div t-foreach="state.report.off_today" t-as="row" t-key="row.id"
@@ -1403,7 +1405,7 @@
                                 <div class="ff_card_icon"><i class="fa fa-list"/></div>
                                 <div class="ff_card_title">Requests</div>
                             </div>
-                            <table class="table table-sm align-middle mb-0">
+                            <div class="ff_table_scroll"><table class="table ff_table align-middle mb-0">
                                 <thead>
                                     <tr>
                                         <th>Employee</th><th>Type</th><th>From</th><th>To</th>
@@ -1411,7 +1413,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr t-foreach="state.report.rows" t-as="row" t-key="row.id" class="ff_row"
+                                    <tr t-foreach="pagedRows" t-as="row" t-key="row.id" class="ff_row"
                                         t-on-click="() => this.openModel('hr.leave', 'Time Off', [['id', '=', row.id]])">
                                         <td class="fw-bold" t-esc="row.employee"/>
                                         <td t-esc="row.type"/>
@@ -1425,7 +1427,8 @@
                                         <td colspan="6" class="text-muted">No requests in this period.</td>
                                     </tr>
                                 </tbody>
-                            </table>
+                            </table></div>
+                            <t t-call="ff_dashboard.Pager"/>
                         </div>
                     </t>
 
@@ -1437,19 +1440,19 @@
                             </button>
                         </div>
                         <div class="row g-3 mt-0">
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db" t-on-click="() => this.drillExpenses()" role="button">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#1a56db" t-on-click="() => this.drillExpenses()" role="button">
                                 <div class="ff_card_title">Claimed</div>
                                 <div class="ff_big" t-esc="money(state.report.kpis.total)"/>
                                 <span class="ff_chip"><t t-esc="state.report.kpis.count"/> claims</span></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b" t-on-click="() => this.drillExpenses([['state', '=', 'submitted']])" role="button">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#f59e0b" t-on-click="() => this.drillExpenses([['state', '=', 'submitted']])" role="button">
                                 <div class="ff_card_title">Waiting</div>
                                 <div class="ff_big text-warning" t-esc="money(state.report.kpis.submitted.amount)"/>
                                 <span class="ff_chip"><t t-esc="state.report.kpis.submitted.count"/> to approve</span></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#16a34a" t-on-click="() => this.drillExpenses([['state', '=', 'approved']])" role="button">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#16a34a" t-on-click="() => this.drillExpenses([['state', '=', 'approved']])" role="button">
                                 <div class="ff_card_title">Approved</div>
                                 <div class="ff_big text-success" t-esc="money(state.report.kpis.approved.amount)"/>
                                 <span class="ff_chip"><t t-esc="state.report.kpis.approved.count"/> claims</span></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#7c5cfc" t-on-click="() => this.drillExpenses()" role="button">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#7c5cfc" t-on-click="() => this.drillExpenses()" role="button">
                                 <div class="ff_card_title">Per head</div>
                                 <div class="ff_big" t-esc="money(state.report.kpis.per_head)"/></div></div>
                         </div>
@@ -1458,7 +1461,7 @@
                             <div class="col-xl-6">
                                 <div class="ff_card h-100">
                                     <div class="ff_card_head">
-                                        <div class="ff_card_icon"><i class="fa fa-tags"/></div>
+                                        <div class="ff_card ff_centered_icon"><i class="fa fa-tags"/></div>
                                         <div class="ff_card_title">By category</div>
                                     </div>
                                     <FfChart type="'bar'" horizontal="true"
@@ -1470,7 +1473,7 @@
                             <div class="col-xl-6">
                                 <div class="ff_card h-100">
                                     <div class="ff_card_head">
-                                        <div class="ff_card_icon"><i class="fa fa-user"/></div>
+                                        <div class="ff_card ff_centered_icon"><i class="fa fa-user"/></div>
                                         <div class="ff_card_title">Who claimed most</div>
                                     </div>
                                     <FfChart type="'bar'" horizontal="true"
@@ -1486,7 +1489,7 @@
                                 <div class="ff_card_icon"><i class="fa fa-list"/></div>
                                 <div class="ff_card_title">Claims</div>
                             </div>
-                            <table class="table table-sm align-middle mb-0">
+                            <div class="ff_table_scroll"><table class="table ff_table align-middle mb-0">
                                 <thead>
                                     <tr>
                                         <th>Date</th><th>Employee</th><th>Category</th><th>Contact</th>
@@ -1494,7 +1497,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr t-foreach="state.report.rows" t-as="row" t-key="row.id" class="ff_row"
+                                    <tr t-foreach="pagedRows" t-as="row" t-key="row.id" class="ff_row"
                                         t-on-click="() => this.openModel('ff.expense.claim', 'Expense Claims', [['id', '=', row.id]])">
                                         <td t-esc="row.date"/>
                                         <td class="fw-bold" t-esc="row.employee"/>
@@ -1508,7 +1511,8 @@
                                         <td colspan="6" class="text-muted">No claims in this period.</td>
                                     </tr>
                                 </tbody>
-                            </table>
+                            </table></div>
+                            <t t-call="ff_dashboard.Pager"/>
                         </div>
                     </t>
 
@@ -1520,16 +1524,16 @@
                             </button>
                         </div>
                         <div class="row g-3 mt-0">
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#1a56db" t-on-click="() => this.drillOrders()" role="button">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#1a56db" t-on-click="() => this.drillOrders()" role="button">
                                 <div class="ff_card_title">
                                     <t t-esc="state.report.flow === 'demand' ? 'Demand value' : 'Order value'"/>
                                 </div>
                                 <div class="ff_big" t-esc="money(state.report.kpis.total)"/>
                                 <span class="ff_chip"><t t-esc="state.report.kpis.count"/> documents</span></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#14d3c0" t-on-click="() => this.drillOrders()" role="button">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#14d3c0" t-on-click="() => this.drillOrders()" role="button">
                                 <div class="ff_card_title">Average</div>
                                 <div class="ff_big" t-esc="money(state.report.kpis.average)"/></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#f59e0b" role="button"
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#f59e0b" role="button"
                                  t-on-click="() => this.drillOrders(state.report.flow === 'demand' ? [['state', 'in', ['submitted', 'partial']]] : [['state', '=', 'sale']])">
                                 <div class="ff_card_title">
                                     <t t-esc="state.report.flow === 'demand' ? 'Waiting to quote' : 'Confirmed'"/>
@@ -1538,14 +1542,14 @@
                                      t-esc="state.report.flow === 'demand' ? state.report.kpis.pending : state.report.kpis.confirmed"/>
                                 <span class="ff_chip" t-if="state.report.flow === 'demand'"
                                       t-esc="money(state.report.kpis.pending_value)"/></div></div>
-                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile h-100" style="--tile:#7c5cfc" t-on-click="() => this.drillOrders()" role="button">
+                            <div class="col-xl-3 col-6"><div class="ff_card ff_tile ff_stat h-100" style="--tile:#7c5cfc" t-on-click="() => this.drillOrders()" role="button">
                                 <div class="ff_card_title">Outlets</div>
                                 <div class="ff_big" t-esc="state.report.kpis.outlets"/></div></div>
                         </div>
 
                         <div class="ff_card mt-3">
                             <div class="ff_card_head">
-                                <div class="ff_card_icon"><i class="fa fa-line-chart"/></div>
+                                <div class="ff_card ff_centered_icon"><i class="fa fa-line-chart"/></div>
                                 <div class="ff_card_title">Value each day</div>
                             </div>
                             <FfChart type="'line'"
@@ -1559,7 +1563,7 @@
                             <div class="col-xl-6">
                                 <div class="ff_card h-100">
                                     <div class="ff_card_head">
-                                        <div class="ff_card_icon"><i class="fa fa-trophy"/></div>
+                                        <div class="ff_card ff_centered_icon"><i class="fa fa-trophy"/></div>
                                         <div class="ff_card_title">Top sellers</div>
                                     </div>
                                     <FfChart type="'bar'" horizontal="true"
@@ -1571,7 +1575,7 @@
                             <div class="col-xl-6">
                                 <div class="ff_card h-100">
                                     <div class="ff_card_head">
-                                        <div class="ff_card_icon"><i class="fa fa-cube"/></div>
+                                        <div class="ff_card ff_centered_icon"><i class="fa fa-cube"/></div>
                                         <div class="ff_card_title">Top products</div>
                                     </div>
                                     <FfChart type="'bar'" horizontal="true"
@@ -1589,7 +1593,7 @@
                                     <t t-esc="state.report.flow === 'demand' ? 'Outlet demands' : 'Orders'"/>
                                 </div>
                             </div>
-                            <table class="table table-sm align-middle mb-0">
+                            <div class="ff_table_scroll"><table class="table ff_table align-middle mb-0">
                                 <thead>
                                     <tr>
                                         <th>Reference</th><th>Date</th><th>Employee</th><th>Outlet</th>
@@ -1598,7 +1602,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr t-foreach="state.report.rows" t-as="row" t-key="row.id" class="ff_row"
+                                    <tr t-foreach="pagedRows" t-as="row" t-key="row.id" class="ff_row"
                                         t-on-click="() => this.openModel(state.report.flow === 'demand' ? 'ff.demand' : 'sale.order', 'Documents', [['id', '=', row.id]])">
                                         <td class="fw-bold" t-esc="row.name"/>
                                         <td t-esc="clock(row.date)"/>
@@ -1613,11 +1617,35 @@
                                         <td colspan="7" class="text-muted">Nothing in this period.</td>
                                     </tr>
                                 </tbody>
-                            </table>
+                            </table></div>
+                            <t t-call="ff_dashboard.Pager"/>
                         </div>
                     </t>
                 </t>
             </div>
+        </div>
+    </t>
+
+    <!-- Pages for a records table: range, size and previous / next -->
+    <t t-name="ff_dashboard.Pager">
+        <div class="ff_pager" t-if="state.report and state.report.rows.length">
+            <span class="text-muted small">
+                Showing <b t-esc="pageInfo.from"/>–<b t-esc="pageInfo.to"/> of <b t-esc="pageInfo.total"/>
+            </span>
+            <span class="ms-auto small text-muted">Rows</span>
+            <select class="form-select form-select-sm ff_pager_size" t-on-change="setPageSize">
+                <option t-foreach="[10, 25, 50, 100]" t-as="size" t-key="size" t-att-value="size"
+                        t-att-selected="state.pageSize === size" t-esc="size"/>
+            </select>
+            <button class="ff_pager_btn" t-att-disabled="pageInfo.page &lt;= 1" t-on-click="() => this.setPage(1)"
+                    title="First"><i class="fa fa-angle-double-left"/></button>
+            <button class="ff_pager_btn" t-att-disabled="pageInfo.page &lt;= 1"
+                    t-on-click="() => this.setPage(pageInfo.page - 1)" title="Previous"><i class="fa fa-angle-left"/></button>
+            <span class="small fw-bold px-1"><t t-esc="pageInfo.page"/> / <t t-esc="pageInfo.pages"/></span>
+            <button class="ff_pager_btn" t-att-disabled="pageInfo.page &gt;= pageInfo.pages"
+                    t-on-click="() => this.setPage(pageInfo.page + 1)" title="Next"><i class="fa fa-angle-right"/></button>
+            <button class="ff_pager_btn" t-att-disabled="pageInfo.page &gt;= pageInfo.pages"
+                    t-on-click="() => this.setPage(pageInfo.pages)" title="Last"><i class="fa fa-angle-double-right"/></button>
         </div>
     </t>
 
