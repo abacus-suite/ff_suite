@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -23,7 +25,8 @@ class PermissionsHelper {
   static Future<bool> ensureBackgroundTracking() async {
     await Permission.notification.request();
     final always = await Permission.locationAlways.request();
-    if (!await Permission.ignoreBatteryOptimizations.isGranted) {
+    // Battery optimisation is an Android setting; iPhones have nothing to ask.
+    if (Platform.isAndroid && !await Permission.ignoreBatteryOptimizations.isGranted) {
       await Permission.ignoreBatteryOptimizations.request();
     }
     return always.isGranted;

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 
 import 'package:battery_plus/battery_plus.dart';
@@ -33,7 +34,17 @@ class LocationTracker {
 
   Future<void> start(Profile profile) async {
     if (active.value || !profile.trackingEnabled) return;
-    final settings = AndroidSettings(
+    // iPhone: Apple's own background mode, with the blue location bar so the person knows.
+    final LocationSettings settings = Platform.isIOS
+        ? AppleSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: profile.distanceFilter,
+            activityType: ActivityType.otherNavigation,
+            pauseLocationUpdatesAutomatically: false,
+            allowBackgroundLocationUpdates: true,
+            showBackgroundLocationIndicator: true,
+          )
+        : AndroidSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: profile.distanceFilter,
       intervalDuration: Duration(seconds: profile.pingInterval),

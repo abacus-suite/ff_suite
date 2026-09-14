@@ -1,0 +1,37 @@
+# Builds the iPhone app in the cloud (no Mac needed) and uploads it to TestFlight.
+# In Codemagic: connect this repo, pick branch 19_ios, add an App Store Connect API key
+# as integration "app_store_connect", then start the "ios-release" workflow.
+workflows:
+  ios-release:
+    name: Field Force iOS
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: app_store_connect
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.aixomind.fieldforce
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: 19_ios
+    scripts:
+      - name: Get packages
+        script: flutter pub get
+      - name: Install pods
+        script: cd ios && pod install --repo-update
+      - name: Signing
+        script: xcode-project use-profiles
+      - name: Build
+        script: flutter build ipa --release --build-number=$(($(date +%s)/60)) --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
