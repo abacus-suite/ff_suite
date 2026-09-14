@@ -34,10 +34,10 @@ class BrandBanner extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Icon(Icons.directions_walk_rounded, size: 78, color: AixoloColors.primary),
+                  const Icon(Icons.directions_walk_rounded, size: 78, color: AppColors.primary),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 46),
-                    child: Icon(Icons.location_on_rounded, size: 34, color: AixoloColors.sky.withValues(alpha: 0.9)),
+                    child: Icon(Icons.location_on_rounded, size: 34, color: AppColors.sky.withValues(alpha: 0.9)),
                   ),
                 ],
               ),
@@ -49,14 +49,14 @@ class BrandBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(subtitle, style: const TextStyle(color: AixoloColors.muted, fontSize: 13)),
+                Text(subtitle, style: const TextStyle(color: AppColors.muted, fontSize: 13)),
                 const SizedBox(height: 4),
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, height: 1.15, color: AixoloColors.text),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, height: 1.15, color: AppColors.text),
                 ),
                 const SizedBox(height: 8),
-                Container(width: 34, height: 3, color: AixoloColors.teal),
+                Container(width: 34, height: 3, color: AppColors.teal),
               ],
             ),
           ),
@@ -110,7 +110,7 @@ class ActionCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: color)),
-                    Text(subtitle, style: const TextStyle(fontSize: 11, color: AixoloColors.muted), maxLines: 2),
+                    Text(subtitle, style: const TextStyle(fontSize: 11, color: AppColors.muted), maxLines: 2),
                   ],
                 ),
               ),
@@ -124,7 +124,7 @@ class ActionCard extends StatelessWidget {
 
 /// Card header: icon + title + optional trailing (View All / period picker).
 class CardHeader extends StatelessWidget {
-  const CardHeader({super.key, required this.icon, required this.title, this.color = AixoloColors.primary, this.trailing});
+  const CardHeader({super.key, required this.icon, required this.title, this.color = AppColors.primary, this.trailing});
 
   final IconData icon;
   final String title;
@@ -163,7 +163,7 @@ class PeriodSelector extends StatelessWidget {
       ],
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(border: Border.all(color: AixoloColors.border), borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(20)),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -224,7 +224,7 @@ class RankedBar extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: share.clamp(0, 1).toDouble(),
                     minHeight: 6,
-                    backgroundColor: AixoloColors.border,
+                    backgroundColor: AppColors.border,
                     valueColor: AlwaysStoppedAnimation(color),
                   ),
                 ),
@@ -249,13 +249,13 @@ class RouteMiniMap extends StatelessWidget {
     if (points.isEmpty) {
       return Container(
         height: height,
-        decoration: BoxDecoration(color: AixoloColors.background, borderRadius: BorderRadius.circular(14)),
-        child: const Center(child: Text('No movement yet', style: TextStyle(color: AixoloColors.muted, fontSize: 12))),
+        decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
+        child: const Center(child: Text('No movement yet', style: TextStyle(color: AppColors.muted, fontSize: 12))),
       );
     }
     return SizedBox(
       height: height,
-      child: AixoloMap(
+      child: AppMap(
         borderRadius: BorderRadius.circular(14),
         fitPoints: points,
         center: points.first,
@@ -265,13 +265,13 @@ class RouteMiniMap extends StatelessWidget {
         children: [
           PolylineLayer(polylines: travelPath(points)),
           MarkerLayer(markers: [
-            Marker(point: points.first, child: const Icon(Icons.trip_origin_rounded, color: AixoloColors.success, size: 18)),
+            Marker(point: points.first, child: const Icon(Icons.trip_origin_rounded, color: AppColors.success, size: 18)),
             Marker(
               point: points.last,
               width: MapPin.size.width,
               height: MapPin.size.height,
               alignment: Alignment.topCenter,
-              child: const MapPin(color: AixoloColors.danger, icon: Icons.navigation_rounded),
+              child: const MapPin(color: AppColors.danger, icon: Icons.navigation_rounded),
             ),
           ]),
         ],

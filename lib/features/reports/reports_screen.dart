@@ -39,13 +39,13 @@ const _icons = <String, IconData>{
 };
 
 const _tones = [
-  AixoloColors.primary,
-  AixoloColors.success,
-  AixoloColors.purple,
-  AixoloColors.teal,
-  AixoloColors.warning,
-  AixoloColors.danger,
-  AixoloColors.sky,
+  AppColors.primary,
+  AppColors.success,
+  AppColors.purple,
+  AppColors.teal,
+  AppColors.warning,
+  AppColors.danger,
+  AppColors.sky,
 ];
 
 /// Every report in one place. Managers also get their team's live map and
@@ -103,7 +103,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 leading: CircleAvatar(
                   backgroundColor: const Color(0xFFE8EFFF),
                   child: Text('${m['name']}'.isNotEmpty ? '${m['name']}'[0].toUpperCase() : '?',
-                      style: const TextStyle(color: AixoloColors.primary, fontWeight: FontWeight.w800)),
+                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800)),
                 ),
                 title: Text('${m['name']}'),
                 subtitle: m['code'] == null ? null : Text('${m['code']}'),
@@ -142,7 +142,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       icon: Icons.map_rounded,
                       title: 'Live map',
                       subtitle: 'Where everyone is now',
-                      colour: AixoloColors.primary,
+                      colour: AppColors.primary,
                       onTap: () => _open(const TeamLiveScreen()),
                     ),
                   ),
@@ -152,7 +152,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       icon: Icons.timeline_rounded,
                       title: 'Timeline',
                       subtitle: 'Replay anyone\'s day',
-                      colour: AixoloColors.purple,
+                      colour: AppColors.purple,
                       onTap: () => _pickTimeline(members),
                     ),
                   ),
@@ -176,7 +176,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               child: ListTile(
                 leading: const CircleAvatar(
                   backgroundColor: Color(0xFFFDECEC),
-                  child: Icon(Icons.account_balance_wallet_rounded, color: AixoloColors.danger),
+                  child: Icon(Icons.account_balance_wallet_rounded, color: AppColors.danger),
                 ),
                 title: const Text('Receivables & statements', style: TextStyle(fontWeight: FontWeight.w700)),
                 subtitle: const Text('Invoices due and overdue, ageing, customer SOA'),
@@ -222,7 +222,7 @@ class _Section extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
       child: Text(title.toUpperCase(),
-          style: const TextStyle(fontSize: 12, letterSpacing: 1.1, fontWeight: FontWeight.w800, color: AixoloColors.muted)),
+          style: const TextStyle(fontSize: 12, letterSpacing: 1.1, fontWeight: FontWeight.w800, color: AppColors.muted)),
     );
   }
 }
@@ -259,7 +259,7 @@ class _TeamTile extends StatelessWidget {
               CircleAvatar(backgroundColor: colour, child: Icon(icon, color: Colors.white)),
               const SizedBox(height: 10),
               Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-              Text(subtitle, style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+              Text(subtitle, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
             ],
           ),
         ),

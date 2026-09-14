@@ -92,7 +92,7 @@ class _TeamLiveScreenState extends State<TeamLiveScreen> {
     final located = _members.where((m) => m['lat'] != null && m['punched_in'] == true).toList();
     if (located.isEmpty) return const Center(child: Text('Nobody is sharing location right now'));
     final points = located.map((m) => LatLng((m['lat'] as num).toDouble(), (m['lng'] as num).toDouble())).toList();
-    return AixoloMap(
+    return AppMap(
       fitPoints: points,
       center: points.first,
       children: [
@@ -107,7 +107,7 @@ class _TeamLiveScreenState extends State<TeamLiveScreen> {
                 alignment: Alignment.topCenter,
                 child: MapPinWithLabel(
                   label: '${(located[i]['employee'] as Map)['name']}',
-                  color: _alert(located[i]) ? AixoloColors.danger : AixoloColors.success,
+                  color: _alert(located[i]) ? AppColors.danger : AppColors.success,
                   initial: '${(located[i]['employee'] as Map)['name']}'.characters.firstOrNull?.toUpperCase(),
                   onTap: () => _openTimeline(located[i]),
                 ),

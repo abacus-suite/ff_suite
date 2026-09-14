@@ -72,9 +72,9 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  AixoloLogo(height: 78),
+                  AppLogo(height: 78),
                   SizedBox(height: 10),
-                  Text('Field force, simplified', style: TextStyle(color: AixoloColors.muted, fontSize: 15)),
+                  Text('Field force, simplified', style: TextStyle(color: AppColors.muted, fontSize: 15)),
                 ],
               ),
             ),
@@ -87,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     const Text('Welcome back', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 4),
-                    const Text('Log in with the app login given by your admin.', style: TextStyle(color: AixoloColors.muted)),
+                    const Text('Log in with the app login given by your admin.', style: TextStyle(color: AppColors.muted)),
                     const SizedBox(height: 20),
                     TextFormField(
                       controller: _login,
@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                     if (_error != null) ...[
                       const SizedBox(height: 14),
-                      Text(_error!, style: const TextStyle(color: AixoloColors.danger)),
+                      Text(_error!, style: const TextStyle(color: AppColors.danger)),
                     ],
                     const SizedBox(height: 24),
                     GradientButton(label: 'Log in', icon: Icons.login_rounded, busy: _busy, onPressed: _submit),
@@ -132,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(_showServer ? 'Hide server settings' : 'Server settings'),
                     ),
                     const SizedBox(height: 12),
-                    const Center(child: Text('by Aixomind', style: TextStyle(color: AixoloColors.muted, fontSize: 12))),
+                    const Center(child: Text('by ABS', style: TextStyle(color: AppColors.muted, fontSize: 12))),
                   ],
                 ),
               ),

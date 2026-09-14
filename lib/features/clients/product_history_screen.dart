@@ -86,13 +86,13 @@ class _ProductHistoryScreenState extends State<ProductHistoryScreen> {
             if (_data != null)
               Row(
                 children: [
-                  Expanded(child: _Figure(label: 'Products', value: '$all', colour: AixoloColors.primary)),
+                  Expanded(child: _Figure(label: 'Products', value: '$all', colour: AppColors.primary)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: _Figure(
                       label: 'Total value',
                       value: fmtMoney((_data?['total_amount'] as num?) ?? 0, currency),
-                      colour: AixoloColors.success,
+                      colour: AppColors.success,
                     ),
                   ),
                 ],
@@ -144,10 +144,10 @@ class _ProductHistoryScreenState extends State<ProductHistoryScreen> {
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: AixoloColors.primary.withValues(alpha: 0.08),
+                            color: AppColors.primary.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.inventory_2_rounded, color: AixoloColors.primary),
+                          child: const Icon(Icons.inventory_2_rounded, color: AppColors.primary),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -159,7 +159,7 @@ class _ProductHistoryScreenState extends State<ProductHistoryScreen> {
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                               if (p['sku'] != null)
-                                Text('SKU ${p['sku']}', style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                                Text('SKU ${p['sku']}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
                               const SizedBox(height: 6),
                               Wrap(
                                 spacing: 12,
@@ -177,8 +177,8 @@ class _ProductHistoryScreenState extends State<ProductHistoryScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(fmtMoney((p['amount'] as num?) ?? 0, currency),
-                                style: const TextStyle(fontWeight: FontWeight.w800, color: AixoloColors.primary)),
-                            const Icon(Icons.chevron_right_rounded, color: AixoloColors.muted),
+                                style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)),
+                            const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
                           ],
                         ),
                       ],
@@ -241,10 +241,10 @@ class _ProductMovesScreenState extends State<ProductMovesScreen> {
   }
 
   Color _stateColour(String? state) => switch (state) {
-        'supplied' || 'sale' || 'done' => AixoloColors.success,
-        'quoted' || 'partial' || 'sent' => AixoloColors.primary,
-        'draft' => AixoloColors.muted,
-        _ => AixoloColors.warning,
+        'supplied' || 'sale' || 'done' => AppColors.success,
+        'quoted' || 'partial' || 'sent' => AppColors.primary,
+        'draft' => AppColors.muted,
+        _ => AppColors.warning,
       };
 
   @override
@@ -262,32 +262,32 @@ class _ProductMovesScreenState extends State<ProductMovesScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
                 children: [
-                  Text(widget.clientName, style: const TextStyle(color: AixoloColors.muted)),
+                  Text(widget.clientName, style: const TextStyle(color: AppColors.muted)),
                   if (product != null && (product['sku'] != null || product['category'] != null))
                     Text([if (product['sku'] != null) 'SKU ${product['sku']}', if (product['category'] != null) product['category']].join(' · '),
-                        style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+                        style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
                   const SizedBox(height: 10),
                   if (_loading && data == null)
                     const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
                   if (data != null) ...[
                     Row(
                       children: [
-                        Expanded(child: _Figure(label: 'Times', value: '${data['times'] ?? 0}', colour: AixoloColors.purple)),
+                        Expanded(child: _Figure(label: 'Times', value: '${data['times'] ?? 0}', colour: AppColors.purple)),
                         const SizedBox(width: 8),
                         Expanded(
                             child: _Figure(
-                                label: 'Asked', value: fmtQty((data['quantity'] as num?) ?? 0), colour: AixoloColors.warning)),
+                                label: 'Asked', value: fmtQty((data['quantity'] as num?) ?? 0), colour: AppColors.warning)),
                         const SizedBox(width: 8),
                         Expanded(
                             child: _Figure(
-                                label: 'Quoted', value: fmtQty((data['quoted'] as num?) ?? 0), colour: AixoloColors.success)),
+                                label: 'Quoted', value: fmtQty((data['quoted'] as num?) ?? 0), colour: AppColors.success)),
                       ],
                     ),
                     const SizedBox(height: 8),
                     _Figure(
                       label: 'Total value',
                       value: fmtMoney((data['amount'] as num?) ?? 0, currency),
-                      colour: AixoloColors.primary,
+                      colour: AppColors.primary,
                     ),
                     const Padding(
                       padding: EdgeInsets.fromLTRB(4, 16, 4, 6),
@@ -324,7 +324,7 @@ class _ProductMovesScreenState extends State<ProductMovesScreen> {
                               ),
                               Text(
                                 [_day(h['date']), if (h['kind'] == 'order') 'Order' else 'Demand'].join(' · '),
-                                style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5),
+                                style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
                               ),
                               const Divider(height: 18),
                               Wrap(
@@ -370,7 +370,7 @@ class _Figure extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11.5, color: AixoloColors.muted)),
+          Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -390,7 +390,7 @@ class _Pair extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text.rich(TextSpan(children: [
-        TextSpan(text: '$label ', style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+        TextSpan(text: '$label ', style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
         TextSpan(text: value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
       ]));
 }
@@ -406,7 +406,7 @@ class _Stacked extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11.5, color: AixoloColors.muted)),
+          Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
         ],
       );

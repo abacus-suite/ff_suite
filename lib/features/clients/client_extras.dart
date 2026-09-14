@@ -8,10 +8,10 @@ import '../../widgets/common.dart';
 import '../../widgets/dashboard.dart';
 
 Color _stateColour(String? state) => switch (state) {
-      'sale' || 'done' || 'received' || 'supplied' || 'quoted' => AixoloColors.success,
-      'cancel' || 'cancelled' || 'rejected' => AixoloColors.danger,
-      'draft' || 'sent' || 'collected' || 'submitted' || 'partial' => AixoloColors.warning,
-      _ => AixoloColors.muted,
+      'sale' || 'done' || 'received' || 'supplied' || 'quoted' => AppColors.success,
+      'cancel' || 'cancelled' || 'rejected' => AppColors.danger,
+      'draft' || 'sent' || 'collected' || 'submitted' || 'partial' => AppColors.warning,
+      _ => AppColors.muted,
     };
 
 Widget _pill(String? text, String? state) {
@@ -57,7 +57,7 @@ class _ClientBalanceCardState extends State<ClientBalanceCard> {
     if (due == 0 && held == 0) {
       return const Card(
         child: ListTile(
-          leading: Icon(Icons.verified_rounded, color: AixoloColors.success),
+          leading: Icon(Icons.verified_rounded, color: AppColors.success),
           title: Text('Nothing outstanding', style: TextStyle(fontWeight: FontWeight.w700)),
         ),
       );
@@ -72,11 +72,11 @@ class _ClientBalanceCardState extends State<ClientBalanceCard> {
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(child: _figure('Outstanding', fmtMoney(due, currency), AixoloColors.primary)),
+                Expanded(child: _figure('Outstanding', fmtMoney(due, currency), AppColors.primary)),
                 Expanded(
                     child: _figure('Overdue', fmtMoney(overdue, currency),
-                        overdue > 0 ? AixoloColors.danger : AixoloColors.muted)),
-                if (held > 0) Expanded(child: _figure('With staff', fmtMoney(held, currency), AixoloColors.warning)),
+                        overdue > 0 ? AppColors.danger : AppColors.muted)),
+                if (held > 0) Expanded(child: _figure('With staff', fmtMoney(held, currency), AppColors.warning)),
               ],
             ),
             if (invoices.isNotEmpty) ...[
@@ -100,7 +100,7 @@ class _ClientBalanceCardState extends State<ClientBalanceCard> {
                     trailing: Text(fmtMoney(inv['residual'] as num?, currency),
                         style: TextStyle(
                             fontWeight: FontWeight.w800,
-                            color: inv['overdue'] == true ? AixoloColors.danger : AixoloColors.text)),
+                            color: inv['overdue'] == true ? AppColors.danger : AppColors.text)),
                   ),
             ],
           ],
@@ -113,7 +113,7 @@ class _ClientBalanceCardState extends State<ClientBalanceCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+          Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
           const SizedBox(height: 2),
           Text(value, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: colour)),
         ],
@@ -185,7 +185,7 @@ class _ClientHistoryScreenState extends State<ClientHistoryScreen> {
 
   Widget _list(List<Map<String, dynamic>> items, Widget Function(Map<String, dynamic>) tile, String empty) {
     if (items.isEmpty) {
-      return Center(child: Text(empty, style: const TextStyle(color: AixoloColors.muted)));
+      return Center(child: Text(empty, style: const TextStyle(color: AppColors.muted)));
     }
     return RefreshIndicator(
       onRefresh: _load,
@@ -200,7 +200,7 @@ class _ClientHistoryScreenState extends State<ClientHistoryScreen> {
 
   Widget _visitTile(Map<String, dynamic> v) => ListTile(
         leading: Icon(v['visit_type'] == 'offsite' ? Icons.wrong_location_rounded : Icons.storefront_rounded,
-            color: v['visit_type'] == 'offsite' ? AixoloColors.danger : AixoloColors.primary),
+            color: v['visit_type'] == 'offsite' ? AppColors.danger : AppColors.primary),
         title: Text('${fmtTime(v['check_in_at'])}${v['check_out_at'] != null ? ' – ${fmtTime(v['check_out_at'])}' : ''}',
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text([
@@ -212,7 +212,7 @@ class _ClientHistoryScreenState extends State<ClientHistoryScreen> {
       );
 
   Widget _saleTile(Map<String, dynamic> o) => ListTile(
-        leading: const Icon(Icons.receipt_long_rounded, color: AixoloColors.primary),
+        leading: const Icon(Icons.receipt_long_rounded, color: AppColors.primary),
         title: Text('${o['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text([
           fmtTime(o['date']),
@@ -231,7 +231,7 @@ class _ClientHistoryScreenState extends State<ClientHistoryScreen> {
       );
 
   Widget _paymentTile(Map<String, dynamic> c) => ListTile(
-        leading: const Icon(Icons.payments_rounded, color: AixoloColors.teal),
+        leading: const Icon(Icons.payments_rounded, color: AppColors.teal),
         title: Text('${c['mode']}', style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text([fmtTime(c['date']), if (c['reference'] != null) c['reference']].join(' · ')),
         trailing: Column(
@@ -319,7 +319,7 @@ class _EditClientScreenState extends State<EditClientScreen> {
           if (widget.client['address'] != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text('Current address: ${widget.client['address']}', style: const TextStyle(color: AixoloColors.muted)),
+              child: Text('Current address: ${widget.client['address']}', style: const TextStyle(color: AppColors.muted)),
             ),
           _field(_street, 'Street / area', hint: 'Leave empty to keep'),
           _field(_city, 'City', hint: 'Leave empty to keep'),
@@ -328,7 +328,7 @@ class _EditClientScreenState extends State<EditClientScreen> {
             child: SwitchListTile(
               value: _moveLocation,
               onChanged: (v) => setState(() => _moveLocation = v),
-              secondary: const Icon(Icons.my_location_rounded, color: AixoloColors.primary),
+              secondary: const Icon(Icons.my_location_rounded, color: AppColors.primary),
               title: const Text('Put the pin where I am standing'),
               subtitle: Text(widget.client['lat'] == null
                   ? 'This customer has no location yet'

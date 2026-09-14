@@ -61,7 +61,7 @@ class _MyRequestsCardState extends State<MyRequestsCard> {
       lines['leave'] = _RequestLine(
         label: 'Time off',
         icon: Icons.beach_access_rounded,
-        colour: AixoloColors.sky,
+        colour: AppColors.sky,
         waiting: (summary['waiting'] as int?) ?? 0,
         approved: (summary['approved'] as int?) ?? 0,
         detail: _lastState(((leaves['leaves'] as List?) ?? []).cast<Map<String, dynamic>>()),
@@ -74,7 +74,7 @@ class _MyRequestsCardState extends State<MyRequestsCard> {
       lines['expense'] = _RequestLine(
         label: 'Expenses',
         icon: Icons.receipt_long_rounded,
-        colour: AixoloColors.warning,
+        colour: AppColors.warning,
         waiting: rows.where((row) => row['state'] == 'submitted').length,
         approved: rows.where((row) => row['state'] == 'approved').length,
         detail: '${fmtMoney(expenses['total_amount'] as num?, expenses['currency'] as String?)} this month',
@@ -87,7 +87,7 @@ class _MyRequestsCardState extends State<MyRequestsCard> {
       lines['allowance'] = _RequestLine(
         label: 'Travel allowance',
         icon: Icons.local_gas_station_rounded,
-        colour: AixoloColors.purple,
+        colour: AppColors.purple,
         waiting: rows.where((row) => row['state'] == 'submitted').length,
         approved: rows.where((row) => row['state'] == 'approved').length,
         detail: '${fmtMoney(allowances['total_amount'] as num?, allowances['currency'] as String?)} this month',
@@ -124,9 +124,9 @@ class _MyRequestsCardState extends State<MyRequestsCard> {
     return SectionCard(
       title: 'My requests',
       action: waiting == 0
-          ? const Text('All settled', style: TextStyle(fontSize: 12, color: AixoloColors.success))
+          ? const Text('All settled', style: TextStyle(fontSize: 12, color: AppColors.success))
           : Text('$waiting waiting',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AixoloColors.warning)),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.warning)),
       child: Column(
         children: [
           for (final entry in _lines.entries) _tile(entry.key, entry.value),
@@ -152,7 +152,7 @@ class _MyRequestsCardState extends State<MyRequestsCard> {
           if (line.waiting > 0) StatusBadge('submitted', label: '${line.waiting} waiting'),
           if (line.waiting == 0 && line.approved > 0)
             StatusBadge('approved', label: '${line.approved} approved'),
-          const Icon(Icons.chevron_right_rounded, color: AixoloColors.muted),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
         ],
       ),
     );

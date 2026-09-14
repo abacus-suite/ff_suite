@@ -9,11 +9,11 @@ import 'features/shell/app_shell.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Services.init();
-  runApp(const AixoloApp());
+  runApp(const FieldForceApp());
 }
 
-class AixoloApp extends StatelessWidget {
-  const AixoloApp({super.key});
+class FieldForceApp extends StatelessWidget {
+  const FieldForceApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +21,7 @@ class AixoloApp extends StatelessWidget {
       title: 'Field Force',
       debugShowCheckedModeBanner: false,
       navigatorKey: Services.navigatorKey,
-      theme: aixoloTheme(),
+      theme: appTheme(),
       home: IntroScreen(next: Services.auth.profile == null ? const LoginScreen() : const AppShell()),
     );
   }

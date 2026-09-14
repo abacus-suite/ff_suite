@@ -48,18 +48,18 @@ class SyncStatusBar extends StatelessWidget {
                               : Icons.gps_off_rounded,
                   size: 16,
                   color: failed > 0
-                      ? AixoloColors.danger
+                      ? AppColors.danger
                       : !online
-                          ? AixoloColors.warning
+                          ? AppColors.warning
                           : active
-                              ? AixoloColors.success
-                              : AixoloColors.muted,
+                              ? AppColors.success
+                              : AppColors.muted,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: Text(parts.join(' · '), style: const TextStyle(fontSize: 12, color: AixoloColors.muted)),
+                  child: Text(parts.join(' · '), style: const TextStyle(fontSize: 12, color: AppColors.muted)),
                 ),
-                const Icon(Icons.chevron_right_rounded, size: 18, color: AixoloColors.muted),
+                const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.muted),
               ],
             ),
           ),
@@ -82,7 +82,7 @@ class OfflineBanner extends StatelessWidget {
         final waiting = Services.outbox.pending.value;
         final failed = Services.outbox.failed.value;
         if (online && failed == 0) return const SizedBox.shrink();
-        final colour = failed > 0 ? AixoloColors.danger : AixoloColors.warning;
+        final colour = failed > 0 ? AppColors.danger : AppColors.warning;
         final text = failed > 0
             ? '$failed action${failed == 1 ? '' : 's'} could not be saved · tap to review'
             : 'You are offline${waiting > 0 ? ' · $waiting waiting to sync' : ''} · work is saved on the phone';

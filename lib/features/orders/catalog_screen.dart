@@ -227,14 +227,14 @@ class _CatalogScreenState extends State<CatalogScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.redeem_rounded, size: 13, color: AixoloColors.success),
+                                const Icon(Icons.redeem_rounded, size: 13, color: AppColors.success),
                                 const SizedBox(width: 4),
                                 Flexible(
                                   child: Text('${scheme['summary']}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                          fontSize: 11.5, color: AixoloColors.success, fontWeight: FontWeight.w700)),
+                                          fontSize: 11.5, color: AppColors.success, fontWeight: FontWeight.w700)),
                                 ),
                               ],
                             ),
@@ -251,12 +251,12 @@ class _CatalogScreenState extends State<CatalogScreen> {
                             children: [
                               if (p['ptr'] != null) PriceChip(label: 'PTR', value: p['ptr'] as num),
                               if (p['mrp'] != null)
-                                PriceChip(label: 'MRP', value: p['mrp'] as num, tone: AixoloColors.teal),
+                                PriceChip(label: 'MRP', value: p['mrp'] as num, tone: AppColors.teal),
                               if (retailMargin(p) != null)
                                 PriceChip(
                                   label: 'Margin',
                                   text: '${retailMargin(p)!.toStringAsFixed(1)}%',
-                                  tone: AixoloColors.success,
+                                  tone: AppColors.success,
                                 ),
                             ],
                           ),
@@ -323,7 +323,7 @@ double? retailMargin(Map<String, dynamic> product) {
 
 /// A small tinted price tag: "PTR 45".
 class PriceChip extends StatelessWidget {
-  const PriceChip({super.key, required this.label, this.value, this.text, this.tone = AixoloColors.primary});
+  const PriceChip({super.key, required this.label, this.value, this.text, this.tone = AppColors.primary});
 
   final String label;
   final num? value;

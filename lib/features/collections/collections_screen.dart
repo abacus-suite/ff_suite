@@ -120,7 +120,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                                 const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 8),
                                   child: Text('Nothing collected yet this month.',
-                                      style: TextStyle(color: AixoloColors.muted)),
+                                      style: TextStyle(color: AppColors.muted)),
                                 ),
                             ],
                           ),
@@ -149,7 +149,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                             if (_deposits.isEmpty)
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 8),
-                                child: Text('No deposits yet.', style: TextStyle(color: AixoloColors.muted)),
+                                child: Text('No deposits yet.', style: TextStyle(color: AppColors.muted)),
                               ),
                           ],
                         ),
@@ -168,7 +168,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
       return SectionCard(
         title: 'Nothing to hand over',
         child: const Text('All the money you collected has reached the office.',
-            style: TextStyle(color: AixoloColors.muted)),
+            style: TextStyle(color: AppColors.muted)),
       );
     }
     final reason = blocked
@@ -177,7 +177,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
             : 'You have held this money for too many days. Please submit your cash to the office — check-in is blocked until then.')
         : 'Hand this over to the office to keep your check-ins working.';
     return Card(
-      color: (blocked ? AixoloColors.danger : AixoloColors.warning).withValues(alpha: 0.10),
+      color: (blocked ? AppColors.danger : AppColors.warning).withValues(alpha: 0.10),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -186,13 +186,13 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
             Row(
               children: [
                 Icon(blocked ? Icons.block_rounded : Icons.account_balance_wallet_rounded,
-                    color: blocked ? AixoloColors.danger : AixoloColors.warning),
+                    color: blocked ? AppColors.danger : AppColors.warning),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text('With you: ${fmtMoney(amount, _data?['currency'] as String?)}',
                       style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                 ),
-                Text('$count items', style: const TextStyle(color: AixoloColors.muted)),
+                Text('$count items', style: const TextStyle(color: AppColors.muted)),
               ],
             ),
             const SizedBox(height: 8),

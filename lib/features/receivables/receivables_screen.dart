@@ -8,10 +8,10 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 
 const _bucketColours = {
-  'not_due': AixoloColors.success,
-  '1_30': AixoloColors.warning,
+  'not_due': AppColors.success,
+  '1_30': AppColors.warning,
   '31_60': Color(0xFFEA580C),
-  '61_90': AixoloColors.danger,
+  '61_90': AppColors.danger,
   '90_plus': Color(0xFF991B1B),
 };
 
@@ -135,13 +135,13 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
                                     children: [
                                       Expanded(
                                         child: _figure('Outstanding', fmtMoney(data['total'] as num?, currency),
-                                            AixoloColors.primary),
+                                            AppColors.primary),
                                       ),
                                       Expanded(
                                         child: _figure('Overdue', fmtMoney(data['overdue'] as num?, currency),
-                                            AixoloColors.danger),
+                                            AppColors.danger),
                                       ),
-                                      Expanded(child: _figure('Invoices', '${data['count']}', AixoloColors.text)),
+                                      Expanded(child: _figure('Invoices', '${data['count']}', AppColors.text)),
                                     ],
                                   ),
                                   const SizedBox(height: 12),
@@ -170,7 +170,7 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
                         if (data != null && invoices.isEmpty)
                           const Padding(
                             padding: EdgeInsets.all(40),
-                            child: Center(child: Text('Nothing outstanding here', style: TextStyle(color: AixoloColors.muted))),
+                            child: Center(child: Text('Nothing outstanding here', style: TextStyle(color: AppColors.muted))),
                           ),
                         for (final inv in invoices)
                           Card(
@@ -208,7 +208,7 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
                                                 if (widget.partnerId == null) inv['number'],
                                                 'Due ${_prettyDate(inv['due_date'] as String?)}',
                                               ].join(' · '),
-                                              style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+                                              style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
                                         ],
                                       ),
                                     ),
@@ -249,7 +249,7 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+          Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: colour)),
@@ -355,7 +355,7 @@ class _StatementScreenState extends State<StatementScreen> {
                                 Expanded(child: _pair('Received', fmtMoney(data['credit'] as num?, currency))),
                                 Expanded(
                                     child: _pair('Closing', fmtMoney(data['closing'] as num?, currency),
-                                        colour: AixoloColors.primary)),
+                                        colour: AppColors.primary)),
                               ],
                             ),
                         ],
@@ -366,7 +366,7 @@ class _StatementScreenState extends State<StatementScreen> {
                   if (data != null && lines.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(40),
-                      child: Center(child: Text('No entries in this period', style: TextStyle(color: AixoloColors.muted))),
+                      child: Center(child: Text('No entries in this period', style: TextStyle(color: AppColors.muted))),
                     ),
                   if (lines.isNotEmpty)
                     Card(
@@ -406,11 +406,11 @@ class _StatementScreenState extends State<StatementScreen> {
     );
   }
 
-  Widget _pair(String label, String value, {Color colour = AixoloColors.text}) => Column(
+  Widget _pair(String label, String value, {Color colour = AppColors.text}) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: const TextStyle(color: AixoloColors.muted, fontSize: 11.5)),
+          Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 11.5)),
           FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(value, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: colour))),

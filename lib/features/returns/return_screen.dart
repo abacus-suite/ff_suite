@@ -150,7 +150,7 @@ class _ReturnScreenState extends State<ReturnScreen> {
             children: [
               for (final r in _reasons)
                 ChoiceChip(
-                  avatar: Icon(r.$3, size: 18, color: _reason == r.$1 ? AixoloColors.primary : AixoloColors.muted),
+                  avatar: Icon(r.$3, size: 18, color: _reason == r.$1 ? AppColors.primary : AppColors.muted),
                   label: Text(r.$2),
                   selected: _reason == r.$1,
                   onSelected: (_) => setState(() => _reason = r.$1),

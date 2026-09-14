@@ -144,7 +144,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
                     Text(isToday ? 'Today' : _weekdayNames[_day.weekday - 1],
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                     Text('${_day.day} ${monthNames[_day.month - 1]} ${_day.year}',
-                        style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                        style: const TextStyle(color: AppColors.muted, fontSize: 12)),
                   ],
                 ),
               ),
@@ -180,7 +180,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
         for (final visit in adhoc)
           Card(
             child: ListTile(
-              leading: const CircleAvatar(backgroundColor: Color(0xFFEDE8FF), child: Icon(Icons.bolt_rounded, color: AixoloColors.purple)),
+              leading: const CircleAvatar(backgroundColor: Color(0xFFEDE8FF), child: Icon(Icons.bolt_rounded, color: AppColors.purple)),
               title: Text('${(visit['client'] as Map)['name']}'),
               subtitle: Text('${fmtTime(visit['check_in_at'])}–${fmtTime(visit['check_out_at'])}'),
               trailing: StatusBadge(visit['state'] == 'ongoing' ? 'ongoing' : 'visited'),
@@ -224,8 +224,8 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
               child: LinearProgressIndicator(
                 value: pct / 100,
                 minHeight: 8,
-                backgroundColor: AixoloColors.border,
-                valueColor: const AlwaysStoppedAnimation(AixoloColors.teal),
+                backgroundColor: AppColors.border,
+                valueColor: const AlwaysStoppedAnimation(AppColors.teal),
               ),
             ),
             const SizedBox(height: 10),
@@ -233,13 +233,13 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
               spacing: 14,
               runSpacing: 6,
               children: [
-                count(Icons.flag_rounded, AixoloColors.primary, '${plan['planned_count']} planned'),
-                count(Icons.check_circle_rounded, AixoloColors.success, '${plan['completed_count']} visited'),
+                count(Icons.flag_rounded, AppColors.primary, '${plan['planned_count']} planned'),
+                count(Icons.check_circle_rounded, AppColors.success, '${plan['completed_count']} visited'),
                 if ((plan['missed_count'] as num? ?? 0) > 0)
-                  count(Icons.cancel_rounded, AixoloColors.danger, '${plan['missed_count']} missed'),
+                  count(Icons.cancel_rounded, AppColors.danger, '${plan['missed_count']} missed'),
                 if ((plan['adhoc_count'] as num? ?? 0) > 0)
-                  count(Icons.bolt_rounded, AixoloColors.purple, '${plan['adhoc_count']} adhoc'),
-                count(Icons.route_rounded, AixoloColors.muted, '${plan['actual_km']} km'),
+                  count(Icons.bolt_rounded, AppColors.purple, '${plan['adhoc_count']} adhoc'),
+                count(Icons.route_rounded, AppColors.muted, '${plan['actual_km']} km'),
               ],
             ),
           ],
@@ -252,11 +252,11 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     final visitStatus = client['visit_status'] as String?;
     final status = visitStatus == 'ongoing' ? 'ongoing' : (client['plan_status'] as String? ?? 'planned');
     final color = switch (status) {
-      'visited' => AixoloColors.success,
-      'missed' => AixoloColors.danger,
-      'cancelled' => AixoloColors.warning,
-      'ongoing' => AixoloColors.sky,
-      _ => AixoloColors.primary,
+      'visited' => AppColors.success,
+      'missed' => AppColors.danger,
+      'cancelled' => AppColors.warning,
+      'ongoing' => AppColors.sky,
+      _ => AppColors.primary,
     };
     final details = [
       if (showRoute) asText((client['route'] as Map?)?['name']),

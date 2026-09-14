@@ -42,7 +42,7 @@ class HomeHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('assets/images/aixolo_logo.png',
+            Image.asset('assets/images/ff_name_logo.png',
                 height: 30, fit: BoxFit.contain),
             const SizedBox(height: 2),
             const Text('FIELD SALES, SIMPLIFIED',
@@ -50,7 +50,7 @@ class HomeHeader extends StatelessWidget {
                     fontSize: 7.5,
                     letterSpacing: 1.1,
                     fontWeight: FontWeight.w700,
-                    color: AixoloColors.muted)),
+                    color: AppColors.muted)),
           ],
         ),
         const SizedBox(width: 8),
@@ -61,7 +61,7 @@ class HomeHeader extends StatelessWidget {
             children: [
               Text(greeting(),
                   style:
-                      const TextStyle(fontSize: 12, color: AixoloColors.muted)),
+                      const TextStyle(fontSize: 12, color: AppColors.muted)),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -75,7 +75,7 @@ class HomeHeader extends StatelessWidget {
                 ],
               ),
               const Text("Let's make today count!",
-                  style: TextStyle(fontSize: 11, color: AixoloColors.muted)),
+                  style: TextStyle(fontSize: 11, color: AppColors.muted)),
             ],
           ),
         ),
@@ -124,24 +124,24 @@ class HeroBanner extends StatelessWidget {
                         fontSize: 9.5,
                         letterSpacing: 1.6,
                         fontWeight: FontWeight.w800,
-                        color: AixoloColors.muted)),
+                        color: AppColors.muted)),
                 const SizedBox(height: 6),
                 const Text('Stronger Sales',
                     style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                         height: 1.1,
-                        color: AixoloColors.text)),
+                        color: AppColors.text)),
                 const Text('Brighter Tomorrow',
                     style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                         height: 1.1,
-                        color: AixoloColors.sky)),
+                        color: AppColors.sky)),
                 const SizedBox(height: 6),
                 const Text('More Visits · More Opportunities · More Growth',
                     style:
-                        TextStyle(fontSize: 10.5, color: AixoloColors.muted)),
+                        TextStyle(fontSize: 10.5, color: AppColors.muted)),
                 const Spacer(),
                 InkWell(
                   onTap: onExplore,
@@ -151,10 +151,10 @@ class HeroBanner extends StatelessWidget {
                         horizontal: 18, vertical: 10),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(30),
-                      gradient: AixoloColors.brandGradient,
+                      gradient: AppColors.brandGradient,
                       boxShadow: [
                         BoxShadow(
-                            color: AixoloColors.primary.withValues(alpha: 0.3),
+                            color: AppColors.primary.withValues(alpha: 0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 5)),
                       ],
@@ -204,7 +204,7 @@ class _BannerScenery extends CustomPainter {
 
     // The dotted road the pin sits on.
     final road = Paint()
-      ..color = AixoloColors.primary.withValues(alpha: 0.35)
+      ..color = AppColors.primary.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     for (double t = 0; t < 1; t += 0.06) {
@@ -304,7 +304,7 @@ class PunchTile extends StatelessWidget {
                       fontWeight: FontWeight.w800, fontSize: 16)),
               Text(subtitle,
                   style:
-                      const TextStyle(fontSize: 12, color: AixoloColors.muted)),
+                      const TextStyle(fontSize: 12, color: AppColors.muted)),
               const SizedBox(height: 6),
               Row(
                 children: [
@@ -315,7 +315,7 @@ class PunchTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontSize: 10.5, color: AixoloColors.muted)),
+                            fontSize: 10.5, color: AppColors.muted)),
                   ),
                 ],
               ),
@@ -369,7 +369,7 @@ class SummaryTile extends StatelessWidget {
           Text(label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: AixoloColors.muted)),
+              style: const TextStyle(fontSize: 11, color: AppColors.muted)),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -421,7 +421,7 @@ class StatBox extends StatelessWidget {
   Widget build(BuildContext context) {
     final change = this.change;
     final up = (change ?? 0) >= 0;
-    final tone = up ? AixoloColors.success : AixoloColors.danger;
+    final tone = up ? AppColors.success : AppColors.danger;
     // Stacked, not side by side: half a phone width is too narrow for
     // icon, label, amount and the trend in one row.
     return Container(
@@ -444,7 +444,7 @@ class StatBox extends StatelessWidget {
                 child: Text(label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: AixoloColors.muted, fontWeight: FontWeight.w600)),
+                    style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
@@ -467,7 +467,7 @@ class StatBox extends StatelessWidget {
                   child: Text('vs $compareWith',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, color: AixoloColors.muted)),
+                      style: const TextStyle(fontSize: 11, color: AppColors.muted)),
                 ),
               ],
             ),
@@ -545,7 +545,7 @@ class TargetBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AixoloColors.border.withValues(alpha: 0.7)),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.7)),
         boxShadow: const [
           BoxShadow(
               color: Color(0x140F1B3D), blurRadius: 14, offset: Offset(0, 6))
@@ -577,7 +577,7 @@ class TargetBanner extends StatelessWidget {
                     maxLines: 2,
                     style: const TextStyle(
                         fontSize: 11.5,
-                        color: AixoloColors.muted,
+                        color: AppColors.muted,
                         height: 1.3)),
               ],
             ),
@@ -594,7 +594,7 @@ class TargetBanner extends StatelessWidget {
                   strokeWidth: 5,
                   backgroundColor: const Color(0xFFE8EDF8),
                   valueColor:
-                      const AlwaysStoppedAnimation<Color>(AixoloColors.primary),
+                      const AlwaysStoppedAnimation<Color>(AppColors.primary),
                 ),
                 Text('${(ratio * 100).round()}%',
                     style: const TextStyle(
@@ -611,7 +611,7 @@ class TargetBanner extends StatelessWidget {
                   style: const TextStyle(
                       fontWeight: FontWeight.w900, fontSize: 14)),
               const Text('Daily Target',
-                  style: TextStyle(fontSize: 10, color: AixoloColors.muted)),
+                  style: TextStyle(fontSize: 10, color: AppColors.muted)),
             ],
           ),
         ],
@@ -642,7 +642,7 @@ class SalesLineChart extends StatelessWidget {
         height: height,
         child: const Center(
           child: Text('No sales yet today',
-              style: TextStyle(color: AixoloColors.muted, fontSize: 12)),
+              style: TextStyle(color: AppColors.muted, fontSize: 12)),
         ),
       );
     }
@@ -683,7 +683,7 @@ class _SalesLinePainter extends CustomPainter {
       final y = chart.bottom - chart.height * i / 3;
       canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), grid);
       _text(canvas, format(scale * i / 3), Offset(0, y - 6), 9,
-          AixoloColors.muted);
+          AppColors.muted);
     }
 
     Offset at(int index) {
@@ -718,14 +718,14 @@ class _SalesLinePainter extends CustomPainter {
     canvas.drawPath(
       line,
       Paint()
-        ..color = AixoloColors.primary
+        ..color = AppColors.primary
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.5
         ..strokeCap = StrokeCap.round,
     );
 
     // Every hour gets a dot; the best one gets a label.
-    final dot = Paint()..color = AixoloColors.primary;
+    final dot = Paint()..color = AppColors.primary;
     final ring = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
@@ -737,7 +737,7 @@ class _SalesLinePainter extends CustomPainter {
       canvas.drawCircle(at(i), 3.5, ring);
       if (i < labels.length) {
         _text(canvas, labels[i], Offset(at(i).dx - 14, chart.bottom + 6), 9,
-            AixoloColors.muted);
+            AppColors.muted);
       }
     }
     if (peak > 0) {
@@ -747,7 +747,7 @@ class _SalesLinePainter extends CustomPainter {
             center: Offset(anchor.dx, anchor.dy - 22), width: 78, height: 30),
         const Radius.circular(8),
       );
-      canvas.drawRRect(bubble, Paint()..color = AixoloColors.primary);
+      canvas.drawRRect(bubble, Paint()..color = AppColors.primary);
       _text(canvas, format(points[best]),
           Offset(bubble.left + 8, bubble.top + 4), 10, Colors.white,
           bold: true);

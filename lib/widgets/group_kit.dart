@@ -129,7 +129,7 @@ class GroupByChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final current = options.where((o) => o.key == value).firstOrNull;
     return ActionChip(
-      avatar: Icon(current?.icon ?? Icons.layers_rounded, size: 16, color: AixoloColors.primary),
+      avatar: Icon(current?.icon ?? Icons.layers_rounded, size: 16, color: AppColors.primary),
       label: Text(current == null ? 'Group by' : 'By ${current.label.toLowerCase()}'),
       onPressed: () async {
         final picked = await showModalBottomSheet<String>(
@@ -143,14 +143,14 @@ class GroupByChip extends StatelessWidget {
                   ListTile(
                     leading: const Icon(Icons.layers_clear_rounded),
                     title: const Text('No grouping'),
-                    trailing: value == 'none' ? const Icon(Icons.check_rounded, color: AixoloColors.primary) : null,
+                    trailing: value == 'none' ? const Icon(Icons.check_rounded, color: AppColors.primary) : null,
                     onTap: () => Navigator.pop(sheet, 'none'),
                   ),
                   for (final o in options)
                     ListTile(
-                      leading: Icon(o.icon, color: AixoloColors.primary),
+                      leading: Icon(o.icon, color: AppColors.primary),
                       title: Text(o.label),
-                      trailing: value == o.key ? const Icon(Icons.check_rounded, color: AixoloColors.primary) : null,
+                      trailing: value == o.key ? const Icon(Icons.check_rounded, color: AppColors.primary) : null,
                       onTap: () => Navigator.pop(sheet, o.key),
                     ),
                 ],
@@ -185,15 +185,15 @@ class GroupHeader extends StatelessWidget {
         decoration: BoxDecoration(color: const Color(0xFFE8EFFF), borderRadius: BorderRadius.circular(12)),
         child: Row(
           children: [
-            Icon(expanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded, color: AixoloColors.primary),
+            Icon(expanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded, color: AppColors.primary),
             const SizedBox(width: 4),
             Expanded(
               child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis),
             ),
-            Text('$count', style: const TextStyle(color: AixoloColors.muted, fontWeight: FontWeight.w700)),
+            Text('$count', style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700)),
             for (final t in totals) ...[
               const SizedBox(width: 10),
-              Text(t, style: const TextStyle(fontWeight: FontWeight.w800, color: AixoloColors.primary)),
+              Text(t, style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)),
             ],
           ],
         ),

@@ -242,4 +242,4 @@ class _RoutePainter extends CustomPainter {
 }
 
 /// Keeps the theme import used for callers that want the brand colours.
-const introBrand = AixoloColors.primary;
+const introBrand = AppColors.primary;

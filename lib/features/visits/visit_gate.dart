@@ -34,7 +34,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
           await showDialog<void>(
             context: context,
             builder: (dialog) => AlertDialog(
-              icon: const Icon(Icons.fingerprint_rounded, color: AixoloColors.warning, size: 36),
+              icon: const Icon(Icons.fingerprint_rounded, color: AppColors.warning, size: 36),
               title: const Text('Start your day first'),
               content: const Text(
                   'Check in for attendance on the Home screen before visiting customers, taking demands or collecting payments.'),
@@ -49,7 +49,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
     final go = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
-        icon: const Icon(Icons.storefront_rounded, color: AixoloColors.primary, size: 36),
+        icon: const Icon(Icons.storefront_rounded, color: AppColors.primary, size: 36),
         title: Text('Check in at $name?'),
         content: const Text('Your location is matched with the customer before you start.'),
         actions: [
@@ -82,7 +82,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
       final offsite = await showDialog<bool>(
         context: context,
         builder: (dialog) => AlertDialog(
-          icon: const Icon(Icons.wrong_location_rounded, color: AixoloColors.warning, size: 36),
+          icon: const Icon(Icons.wrong_location_rounded, color: AppColors.warning, size: 36),
           title: const Text('Offsite visit?'),
           content: Column(
             mainAxisSize: MainAxisSize.min,

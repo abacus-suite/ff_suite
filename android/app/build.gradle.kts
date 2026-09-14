@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.aixomind.aixolo"
+    namespace = "com.abs.fieldforce"
     compileSdk = flutter.compileSdkVersion
     // Installed NDK (newer than Flutter's default 28.2, backward compatible).
     ndkVersion = "30.0.16248370"
@@ -17,7 +17,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.aixomind.aixolo"
+        applicationId = "com.abs.fieldforce"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

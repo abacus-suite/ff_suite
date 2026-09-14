@@ -283,7 +283,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         if (c['approval_state'] == 'pending')
           const Card(
             color: Color(0xFFFFF5E5),
-            child: ListTile(leading: Icon(Icons.hourglass_top_rounded, color: AixoloColors.warning), title: Text('Waiting for manager approval')),
+            child: ListTile(leading: Icon(Icons.hourglass_top_rounded, color: AppColors.warning), title: Text('Waiting for manager approval')),
           ),
         Card(
           child: Padding(
@@ -297,13 +297,13 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                     if (category != null) StatusBadge('planned', label: category),
                   ],
                 ),
-                if (c['code'] != null) Text('Code ${c['code']}', style: const TextStyle(color: AixoloColors.muted)),
+                if (c['code'] != null) Text('Code ${c['code']}', style: const TextStyle(color: AppColors.muted)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.history_rounded, size: 16, color: AixoloColors.muted),
+                    const Icon(Icons.history_rounded, size: 16, color: AppColors.muted),
                     const SizedBox(width: 6),
-                    Expanded(child: Text('Last visit: ${lastVisitLabel(c)}', style: const TextStyle(color: AixoloColors.muted))),
+                    Expanded(child: Text('Last visit: ${lastVisitLabel(c)}', style: const TextStyle(color: AppColors.muted))),
                   ],
                 ),
                 if (routes.isNotEmpty) ...[
@@ -330,7 +330,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                     ? 'No GPS location yet – saved at your first check-in'
                     : 'Geofence ${c['geofence_radius']} m${distance != null ? ' · you are ${fmtDistance(distance)} away' : ''}'),
                 trailing: lat != null && lng != null
-                    ? IconButton(icon: const Icon(Icons.directions_rounded, color: AixoloColors.primary), onPressed: () => openDirections(lat, lng))
+                    ? IconButton(icon: const Icon(Icons.directions_rounded, color: AppColors.primary), onPressed: () => openDirections(lat, lng))
                     : null,
               ),
             ],
@@ -393,17 +393,17 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                     contentPadding: EdgeInsets.zero,
                     leading: CircleAvatar(
                       backgroundColor: (_steps[i]['state'] == 'done'
-                              ? AixoloColors.success
+                              ? AppColors.success
                               : _steps[i]['state'] == 'skipped'
-                                  ? AixoloColors.warning
-                                  : AixoloColors.primary)
+                                  ? AppColors.warning
+                                  : AppColors.primary)
                           .withValues(alpha: 0.14),
                       child: _steps[i]['state'] == 'done'
-                          ? const Icon(Icons.check_rounded, color: AixoloColors.success)
+                          ? const Icon(Icons.check_rounded, color: AppColors.success)
                           : Text('${i + 1}',
                               style: TextStyle(
                                   fontWeight: FontWeight.w800,
-                                  color: _steps[i]['state'] == 'skipped' ? AixoloColors.warning : AixoloColors.primary)),
+                                  color: _steps[i]['state'] == 'skipped' ? AppColors.warning : AppColors.primary)),
                     ),
                     title: Text('${_steps[i]['name']}${_steps[i]['mandatory'] == true ? ' *' : ''}',
                         style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -428,7 +428,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                     contentPadding: EdgeInsets.zero,
                     leading: const CircleAvatar(
                       backgroundColor: Color(0xFFEDE8FF),
-                      child: Icon(Icons.assignment_rounded, color: AixoloColors.purple),
+                      child: Icon(Icons.assignment_rounded, color: AppColors.purple),
                     ),
                     title: Text('${form['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text(form['trigger'] == 'visit' ? 'During this visit' : 'Profile'),
@@ -452,7 +452,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(v['state'] == 'done' ? Icons.check_circle_rounded : Icons.timelapse_rounded,
-                        color: v['state'] == 'done' ? AixoloColors.success : AixoloColors.sky),
+                        color: v['state'] == 'done' ? AppColors.success : AppColors.sky),
                     title: Text('${fmtDate(parseServerTime(v['check_in_at'])!)} · '
                         '${fmtTime(v['check_in_at'])}–${fmtTime(v['check_out_at'])}'),
                     subtitle: Text([(v['outcome_type'] as Map?)?['name'], v['note']].whereType<String>().join(' · ')),
@@ -470,14 +470,14 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       return GradientButton(
         label: 'Check out (since ${fmtTime(current!['check_in_at'])})',
         icon: Icons.logout_rounded,
-        gradient: AixoloColors.dangerGradient,
+        gradient: AppColors.dangerGradient,
         onPressed: _checkOut,
       );
     }
     if (current != null) {
       return Card(
         child: ListTile(
-          leading: const Icon(Icons.warning_amber_rounded, color: AixoloColors.warning),
+          leading: const Icon(Icons.warning_amber_rounded, color: AppColors.warning),
           title: Text('You are checked in at ${(current['client'] as Map)['name']}'),
           subtitle: const Text('Check out there first.'),
         ),

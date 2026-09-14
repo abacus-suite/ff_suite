@@ -152,7 +152,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
         await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            icon: const Icon(Icons.cloud_off_rounded, color: AixoloColors.warning, size: 48),
+            icon: const Icon(Icons.cloud_off_rounded, color: AppColors.warning, size: 48),
             title: Text('${demandFlow ? 'Demand' : 'Order'} saved offline'),
             content: const Text('It is kept on this phone and goes to the office as soon as you have network.'),
             actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
@@ -208,7 +208,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
             const Divider(),
             Row(
               children: [
-                const Icon(Icons.redeem_rounded, color: AixoloColors.success, size: 20),
+                const Icon(Icons.redeem_rounded, color: AppColors.success, size: 20),
                 const SizedBox(width: 8),
                 const Expanded(child: Text('Free goods (FOC)', style: TextStyle(fontWeight: FontWeight.w800))),
                 if (_manualAllowed && widget.lines.isNotEmpty)
@@ -217,7 +217,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
             ),
             if (!_freeChecked)
               const Text('Free units from schemes are worked out when the order reaches the office.',
-                  style: TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+                  style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
             for (final f in _free)
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -225,7 +225,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
                 title: Text('${(f['product'] as Map)['name']}'),
                 subtitle: Text('${(f['scheme'] as Map)['name']} · ${(f['scheme'] as Map)['summary']}'),
                 trailing: Text('+${fmtQty((f['qty'] as num?) ?? 0)} free',
-                    style: const TextStyle(color: AixoloColors.success, fontWeight: FontWeight.w800)),
+                    style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w800)),
               ),
             for (final m in _manual)
               ListTile(
@@ -237,7 +237,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text('+${fmtQty(m['qty'] as num)} free',
-                        style: const TextStyle(color: AixoloColors.success, fontWeight: FontWeight.w800)),
+                        style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w800)),
                     IconButton(
                       icon: const Icon(Icons.close_rounded, size: 18),
                       onPressed: () => setState(() => _manual.remove(m)),
@@ -246,7 +246,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
                 ),
               ),
             if (_freeChecked && _free.isEmpty && _manual.isEmpty)
-              const Text('No scheme applies to this cart.', style: TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+              const Text('No scheme applies to this cart.', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
           ],
           const Divider(),
           ListTile(

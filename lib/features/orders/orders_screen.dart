@@ -173,7 +173,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   Padding(
                     padding: const EdgeInsets.only(left: 6),
                     child: Text('${(o['quoted_percent'] as num).round()}% quoted',
-                        style: const TextStyle(fontSize: 11, color: AixoloColors.muted)),
+                        style: const TextStyle(fontSize: 11, color: AppColors.muted)),
                   ),
               ],
             ),

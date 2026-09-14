@@ -97,7 +97,7 @@ class _DepositsReceiveScreenState extends State<DepositsReceiveScreen> {
           children: [
             Text('Submitted ${fmtTime(d['submitted_at'])}'
                 '${asText(d['reference']) != null ? ' · slip ${d['reference']}' : ''}',
-                style: const TextStyle(color: AixoloColors.muted)),
+                style: const TextStyle(color: AppColors.muted)),
             const SizedBox(height: 8),
             for (final c in lines)
               Padding(

@@ -84,7 +84,7 @@ class _TargetsScreenState extends State<TargetsScreen> {
               color: const Color(0xFFE8EFFF),
               child: ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: AixoloColors.primary,
+                  backgroundColor: AppColors.primary,
                   child: Text('#${me['rank']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
                 ),
                 title: const Text('Your position', style: TextStyle(fontWeight: FontWeight.w800)),
@@ -94,7 +94,7 @@ class _TargetsScreenState extends State<TargetsScreen> {
           if (rows.isEmpty)
             const Padding(
               padding: EdgeInsets.all(40),
-              child: Center(child: Text('Nobody to rank yet', style: TextStyle(color: AixoloColors.muted))),
+              child: Center(child: Text('Nobody to rank yet', style: TextStyle(color: AppColors.muted))),
             ),
           for (final row in rows)
             Card(
@@ -104,11 +104,11 @@ class _TargetsScreenState extends State<TargetsScreen> {
                   children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundColor: (row['rank'] as int) <= 3 ? medals[(row['rank'] as int) - 1] : AixoloColors.border,
+                      backgroundColor: (row['rank'] as int) <= 3 ? medals[(row['rank'] as int) - 1] : AppColors.border,
                       child: Text('${row['rank']}',
                           style: TextStyle(
                               fontWeight: FontWeight.w800,
-                              color: (row['rank'] as int) <= 3 ? Colors.white : AixoloColors.text)),
+                              color: (row['rank'] as int) <= 3 ? Colors.white : AppColors.text)),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -124,7 +124,7 @@ class _TargetsScreenState extends State<TargetsScreen> {
                               for (final m in ((row['metrics'] as List?) ?? []).cast<Map<String, dynamic>>())
                                 if ((m['actual'] as num? ?? 0) > 0 || (m['target'] as num? ?? 0) > 0)
                                   Text('${m['label']} ${_value(m, 'actual', currency)}',
-                                      style: const TextStyle(fontSize: 12, color: AixoloColors.muted)),
+                                      style: const TextStyle(fontSize: 12, color: AppColors.muted)),
                             ],
                           ),
                         ],
@@ -135,7 +135,7 @@ class _TargetsScreenState extends State<TargetsScreen> {
                           style: TextStyle(
                               fontWeight: FontWeight.w900,
                               fontSize: 16,
-                              color: (row['achievement'] as num) >= 100 ? AixoloColors.success : AixoloColors.primary)),
+                              color: (row['achievement'] as num) >= 100 ? AppColors.success : AppColors.primary)),
                   ],
                 ),
               ),
@@ -170,13 +170,13 @@ class _TargetsScreenState extends State<TargetsScreen> {
                         children: [
                           Expanded(
                               child: Text('${t['name']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
-                          const Icon(Icons.call_split_rounded, color: AixoloColors.primary),
+                          const Icon(Icons.call_split_rounded, color: AppColors.primary),
                         ],
                       ),
                       const SizedBox(height: 6),
                       for (final m in ((t['metrics'] as List?) ?? []).cast<Map<String, dynamic>>())
                         Text('${m['label']}: ${_value(m, 'allocated', currency)} of ${_value(m, 'target', currency)} split',
-                            style: const TextStyle(color: AixoloColors.muted, fontSize: 13)),
+                            style: const TextStyle(color: AppColors.muted, fontSize: 13)),
                     ],
                   ),
                 ),
@@ -305,8 +305,8 @@ class _SplitTargetScreenState extends State<SplitTargetScreen> {
                             style: TextStyle(
                                 fontWeight: FontWeight.w800,
                                 color: _given(m['key'] as String) > (m['target'] as num) + 0.01
-                                    ? AixoloColors.danger
-                                    : AixoloColors.primary),
+                                    ? AppColors.danger
+                                    : AppColors.primary),
                           ),
                         ],
                       ),
@@ -325,7 +325,7 @@ class _SplitTargetScreenState extends State<SplitTargetScreen> {
                     Row(
                       children: [
                         Icon(o['scope'] == 'employee' ? Icons.person_rounded : Icons.groups_rounded,
-                            color: AixoloColors.primary, size: 20),
+                            color: AppColors.primary, size: 20),
                         const SizedBox(width: 8),
                         Expanded(child: Text('${o['name']}', style: const TextStyle(fontWeight: FontWeight.w700))),
                       ],

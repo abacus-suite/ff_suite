@@ -124,7 +124,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
           if (description != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text(description, style: const TextStyle(color: AixoloColors.muted)),
+              child: Text(description, style: const TextStyle(color: AppColors.muted)),
             ),
           for (final q in _questions)
             if (_visible(q)) KeyedSubtree(key: ValueKey(q['key']), child: _question(q)),
@@ -170,7 +170,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
                     padding: EdgeInsets.only(left: 6),
                     child: Tooltip(
                       message: 'Saved on the customer',
-                      child: Icon(Icons.storefront_rounded, size: 16, color: AixoloColors.success),
+                      child: Icon(Icons.storefront_rounded, size: 16, color: AppColors.success),
                     ),
                   ),
               ],
@@ -178,7 +178,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
             if (q['hint'] != null)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Text('${q['hint']}', style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                child: Text('${q['hint']}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
               ),
             const SizedBox(height: 10),
             input,
@@ -265,7 +265,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
         for (var i = 1; i <= 5; i++)
           IconButton(
             onPressed: () => _set(key, i),
-            icon: Icon(i <= value ? Icons.star_rounded : Icons.star_outline_rounded, color: AixoloColors.warning, size: 32),
+            icon: Icon(i <= value ? Icons.star_rounded : Icons.star_outline_rounded, color: AppColors.warning, size: 32),
           ),
       ],
     );

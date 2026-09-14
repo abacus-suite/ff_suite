@@ -11,7 +11,7 @@ import '../leaves/leaves_screen.dart';
 
 /// The bell, with however many are unread.
 class NotificationBell extends StatelessWidget {
-  const NotificationBell({super.key, this.colour = AixoloColors.text});
+  const NotificationBell({super.key, this.colour = AppColors.text});
 
   final Color colour;
 
@@ -36,7 +36,7 @@ class NotificationBell extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 constraints: const BoxConstraints(minWidth: 18),
                 decoration: BoxDecoration(
-                  color: AixoloColors.danger,
+                  color: AppColors.danger,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.white, width: 1.5),
                 ),
@@ -127,9 +127,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       };
 
   Color _colour(String kind) => switch (kind) {
-        'approval' => AixoloColors.warning,
-        'decision' => AixoloColors.success,
-        _ => AixoloColors.primary,
+        'approval' => AppColors.warning,
+        'decision' => AppColors.success,
+        _ => AppColors.primary,
       };
 
   @override
@@ -178,13 +178,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(fmtTime(row['at']), style: const TextStyle(fontSize: 11, color: AixoloColors.muted)),
+            Text(fmtTime(row['at']), style: const TextStyle(fontSize: 11, color: AppColors.muted)),
             if (!read)
               Container(
                 margin: const EdgeInsets.only(top: 4),
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(color: AixoloColors.primary, shape: BoxShape.circle),
+                decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
               ),
           ],
         ),

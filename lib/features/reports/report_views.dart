@@ -110,7 +110,7 @@ Widget _pickerChip<T>(
     onSelected: onChanged,
     itemBuilder: (_) => [for (final o in options) PopupMenuItem(value: o, child: Text(label(o)))],
     child: Chip(
-      avatar: const Icon(Icons.arrow_drop_down_rounded, size: 18, color: AixoloColors.primary),
+      avatar: const Icon(Icons.arrow_drop_down_rounded, size: 18, color: AppColors.primary),
       label: Text('$prefix${label(value)}'),
     ),
   );
@@ -163,7 +163,7 @@ class _ReportChartViewState extends State<ReportChartView> {
   @override
   Widget build(BuildContext context) {
     if (_dims.isEmpty) {
-      return const Center(child: Text('This report has nothing to chart.', style: TextStyle(color: AixoloColors.muted)));
+      return const Center(child: Text('This report has nothing to chart.', style: TextStyle(color: AppColors.muted)));
     }
     var groups = aggregate(widget.rows, _dim, _measure);
     final type = _measure.column?['type'] as String?;
@@ -212,7 +212,7 @@ class _ReportChartViewState extends State<ReportChartView> {
                       Text('${_measure.label} by ${_dim.label.toLowerCase()}',
                           style: const TextStyle(fontWeight: FontWeight.w800)),
                       Text('Total ${formatMeasure(_measure, total, widget.currency)}',
-                          style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+                          style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
                       const SizedBox(height: 14),
                       switch (_kind) {
                         ChartKind.pie => _PieChart(groups: groups, total: total, format: (v) => formatMeasure(_measure, v, widget.currency)),
@@ -265,7 +265,7 @@ class _BarList extends StatelessWidget {
                   child: LinearProgressIndicator(
                     minHeight: 10,
                     value: top == 0 ? 0 : (groups[i].$3.abs() / top).clamp(0.0, 1.0),
-                    backgroundColor: AixoloColors.border,
+                    backgroundColor: AppColors.border,
                     color: _palette[i % _palette.length],
                   ),
                 ),
@@ -295,7 +295,7 @@ class _LinePainter extends CustomPainter {
     for (var i = 0; i <= 4; i++) {
       final y = top + height - height * i / 4;
       canvas.drawLine(Offset(left, y), Offset(left + width, y), grid);
-      text.text = TextSpan(text: short(ceiling * i / 4), style: const TextStyle(fontSize: 10, color: AixoloColors.muted));
+      text.text = TextSpan(text: short(ceiling * i / 4), style: const TextStyle(fontSize: 10, color: AppColors.muted));
       text.layout();
       text.paint(canvas, Offset(left - text.width - 6, y - text.height / 2));
     }
@@ -319,14 +319,14 @@ class _LinePainter extends CustomPainter {
             colors: [Color(0x551A56DB), Color(0x001A56DB)],
           ).createShader(Rect.fromLTWH(left, top, width, height)));
     canvas.drawPath(path, Paint()
-      ..color = AixoloColors.primary
+      ..color = AppColors.primary
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke);
     final every = math.max(1, (groups.length / 6).ceil());
     for (var i = 0; i < groups.length; i++) {
-      canvas.drawCircle(point(i), 3, Paint()..color = AixoloColors.primary);
+      canvas.drawCircle(point(i), 3, Paint()..color = AppColors.primary);
       if (i % every == 0 || i == groups.length - 1) {
-        text.text = TextSpan(text: groups[i].$2, style: const TextStyle(fontSize: 9.5, color: AixoloColors.muted));
+        text.text = TextSpan(text: groups[i].$2, style: const TextStyle(fontSize: 9.5, color: AppColors.muted));
         text.layout(maxWidth: 70);
         text.paint(canvas, Offset((point(i).dx - text.width / 2).clamp(0, size.width - text.width), top + height + 6));
       }
@@ -362,7 +362,7 @@ class _PieChart extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(child: Text(groups[i].$2, maxLines: 1, overflow: TextOverflow.ellipsis)),
                 Text('${total == 0 ? 0 : (groups[i].$3 * 100 / total).round()}%',
-                    style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                    style: const TextStyle(color: AppColors.muted, fontSize: 12)),
                 const SizedBox(width: 10),
                 Text(format(groups[i].$3), style: const TextStyle(fontWeight: FontWeight.w800)),
               ],
@@ -453,7 +453,7 @@ class _ReportPivotViewState extends State<ReportPivotView> {
         style: TextStyle(
           fontSize: 12.5,
           fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
-          color: colour ?? AixoloColors.text,
+          color: colour ?? AppColors.text,
         ),
       ),
     );
@@ -463,7 +463,7 @@ class _ReportPivotViewState extends State<ReportPivotView> {
   Widget build(BuildContext context) {
     if (_dims.length < 2) {
       return const Center(
-          child: Text('This report has nothing to cross-tabulate.', style: TextStyle(color: AixoloColors.muted)));
+          child: Text('This report has nothing to cross-tabulate.', style: TextStyle(color: AppColors.muted)));
     }
     final rowGroups = aggregate(widget.rows, _rowsBy, _measure);
     final colGroups = aggregate(widget.rows, _colsBy, _measure);
@@ -506,7 +506,7 @@ class _ReportPivotViewState extends State<ReportPivotView> {
           ]),
         Row(children: [
           for (final c in colGroups) _cell(fmt(c.$3), bold: true, background: foot),
-          _cell(fmt(grand), bold: true, background: const Color(0xFFE8EFFF), colour: AixoloColors.primary),
+          _cell(fmt(grand), bold: true, background: const Color(0xFFE8EFFF), colour: AppColors.primary),
         ]),
       ],
     );
@@ -591,21 +591,21 @@ class _ReportCalendarViewState extends State<ReportCalendarView> {
     if (_attendance) {
       if (rows.isEmpty) {
         if (future || day.isBefore(widget.start) || day.isAfter(widget.end)) {
-          return (Colors.white, AixoloColors.muted);
+          return (Colors.white, AppColors.muted);
         }
-        if (day.weekday == DateTime.sunday) return (const Color(0xFFF1F3F8), AixoloColors.muted);
+        if (day.weekday == DateTime.sunday) return (const Color(0xFFF1F3F8), AppColors.muted);
         return widget.onePerson
-            ? (const Color(0xFFFDECEC), AixoloColors.danger)
-            : (Colors.white, AixoloColors.muted);
+            ? (const Color(0xFFFDECEC), AppColors.danger)
+            : (Colors.white, AppColors.muted);
       }
       final leave = rows.every((r) => r['status'] == 'On leave');
       if (leave) return (const Color(0xFFFFF4D6), const Color(0xFFB7791F));
-      return (const Color(0xFFE3F6EA), AixoloColors.success);
+      return (const Color(0xFFE3F6EA), AppColors.success);
     }
-    if (rows.isEmpty || top == 0) return (Colors.white, AixoloColors.muted);
+    if (rows.isEmpty || top == 0) return (Colors.white, AppColors.muted);
     final amount = _amount(rows);
     return (Color.lerp(const Color(0xFFEFF4FF), const Color(0xFF9DBBFF), (amount / top).clamp(0.0, 1.0))!,
-        AixoloColors.text);
+        AppColors.text);
   }
 
   Map<String, dynamic>? get _measure =>
@@ -685,7 +685,7 @@ class _ReportCalendarViewState extends State<ReportCalendarView> {
                         child: Center(
                           child: Text(d,
                               style: const TextStyle(
-                                  fontSize: 11.5, color: AixoloColors.muted, fontWeight: FontWeight.w700)),
+                                  fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w700)),
                         ),
                       ),
                   ],
@@ -711,7 +711,7 @@ class _ReportCalendarViewState extends State<ReportCalendarView> {
                           color: background,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: selected ? AixoloColors.primary : const Color(0xFFE3E9F6),
+                            color: selected ? AppColors.primary : const Color(0xFFE3E9F6),
                             width: selected ? 2 : 1,
                           ),
                         ),
@@ -762,7 +762,7 @@ class _ReportCalendarViewState extends State<ReportCalendarView> {
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
-                child: Text('Nothing on this day', style: TextStyle(color: AixoloColors.muted)),
+                child: Text('Nothing on this day', style: TextStyle(color: AppColors.muted)),
               ),
             ),
           for (final row in pickedRows)
@@ -784,7 +784,7 @@ class _ReportCalendarViewState extends State<ReportCalendarView> {
                             Text.rich(TextSpan(children: [
                               TextSpan(
                                   text: '${c['label']}: ',
-                                  style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+                                  style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
                               TextSpan(
                                   text: widget.format(c, row[c['key']]),
                                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
@@ -812,7 +812,7 @@ class _ReportCalendarViewState extends State<ReportCalendarView> {
                 border: Border.all(color: const Color(0xFFD5DCEB))),
           ),
           const SizedBox(width: 5),
-          Text(label, style: const TextStyle(fontSize: 12, color: AixoloColors.muted)),
+          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
         ],
       );
 }
@@ -841,10 +841,10 @@ class _ReportMapViewState extends State<ReportMapView> {
   Color _colour(Map<String, dynamic> row) {
     final status = widget.columns.where((c) => c['type'] == 'status').firstOrNull;
     final text = '${status == null ? '' : row[status['key']] ?? ''}'.toLowerCase();
-    if (text.contains('offsite') || text.contains('cancel') || text.contains('reject')) return AixoloColors.danger;
-    if (text.contains('onsite') || text.contains('received') || text.contains('approved')) return AixoloColors.success;
-    if (text.isEmpty) return AixoloColors.primary;
-    return AixoloColors.warning;
+    if (text.contains('offsite') || text.contains('cancel') || text.contains('reject')) return AppColors.danger;
+    if (text.contains('onsite') || text.contains('received') || text.contains('approved')) return AppColors.success;
+    if (text.isEmpty) return AppColors.primary;
+    return AppColors.warning;
   }
 
   @override
@@ -856,7 +856,7 @@ class _ReportMapViewState extends State<ReportMapView> {
         orElse: () => widget.columns.firstWhere((c) => c['key'] == 'employee', orElse: () => widget.columns.first));
     return Stack(
       children: [
-        AixoloMap(
+        AppMap(
           fitPoints: points,
           center: points.isNotEmpty ? points.first : null,
           children: [
@@ -879,7 +879,7 @@ class _ReportMapViewState extends State<ReportMapView> {
           left: 12,
           top: 12,
           child: Chip(
-            avatar: const Icon(Icons.place_rounded, size: 16, color: AixoloColors.primary),
+            avatar: const Icon(Icons.place_rounded, size: 16, color: AppColors.primary),
             label: Text('${placed.length} of ${widget.rows.length} on the map'),
           ),
         ),
@@ -913,7 +913,7 @@ class _ReportMapViewState extends State<ReportMapView> {
                         for (final c in widget.columns)
                           if (c != headline && selected[c['key']] != null && selected[c['key']] != '')
                             Text.rich(TextSpan(children: [
-                              TextSpan(text: '${c['label']}: ', style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+                              TextSpan(text: '${c['label']}: ', style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
                               TextSpan(
                                   text: widget.format(c, selected[c['key']]),
                                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),

@@ -298,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 : 'Start Your Day',
             hint: punchedIn ? 'You are on duty' : 'Tap to mark your location',
             icon: Icons.place_rounded,
-            colour: AixoloColors.success,
+            colour: AppColors.success,
             enabled: !punchedIn,
             busy: _punching,
             onTap: () => _punch(true),
@@ -313,7 +313,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 : 'End Your Day',
             hint: punchedIn ? "Complete today's work" : 'Check in first',
             icon: Icons.logout_rounded,
-            colour: AixoloColors.danger,
+            colour: AppColors.danger,
             enabled: punchedIn,
             busy: _punching,
             onTap: () => _punch(false),
@@ -329,26 +329,26 @@ class _HomeScreenState extends State<HomeScreen> {
         (
           Icons.route_rounded,
           'My ${profile.routeLabel}',
-          AixoloColors.primary,
+          AppColors.primary,
           const BeatTodayScreen()
         ),
       if (profile.feature('orders'))
         (
           Icons.inventory_2_rounded,
           'Products',
-          AixoloColors.purple,
+          AppColors.purple,
           const CatalogScreen()
         ),
       (
         Icons.groups_2_rounded,
         '${profile.label('client', 'Customer')}s',
-        AixoloColors.warning,
+        AppColors.warning,
         const ClientsScreen()
       ),
       (
         Icons.receipt_rounded,
         'Expenses',
-        AixoloColors.danger,
+        AppColors.danger,
         const ExpensesScreen()
       ),
     ];
@@ -412,7 +412,7 @@ class _HomeScreenState extends State<HomeScreen> {
       color: const Color(0xFFE8F6FF),
       child: ListTile(
         leading: const CircleAvatar(
-            backgroundColor: AixoloColors.sky,
+            backgroundColor: AppColors.sky,
             child: Icon(Icons.storefront_rounded, color: Colors.white)),
         title: Text('At ${client['name']}',
             style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -463,7 +463,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: SummaryTile(
                     icon: Icons.event_note_rounded,
-                    colour: AixoloColors.primary,
+                    colour: AppColors.primary,
                     value: planned,
                     label: 'Planned',
                     percent: planned == 0 ? 0 : 1,
@@ -473,7 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: SummaryTile(
                     icon: Icons.check_circle_rounded,
-                    colour: AixoloColors.success,
+                    colour: AppColors.success,
                     value: visited,
                     label: 'Visited',
                     percent: share(visited),
@@ -483,7 +483,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: SummaryTile(
                     icon: Icons.schedule_rounded,
-                    colour: AixoloColors.warning,
+                    colour: AppColors.warning,
                     value: pending,
                     label: 'Pending',
                     percent: share(pending),
@@ -493,7 +493,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: SummaryTile(
                     icon: Icons.cancel_rounded,
-                    colour: AixoloColors.danger,
+                    colour: AppColors.danger,
                     value: cancelled,
                     label: 'Cancelled',
                     percent: share(cancelled),
@@ -551,7 +551,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: StatBox(
                     icon: Icons.shopping_basket_rounded,
-                    colour: AixoloColors.primary,
+                    colour: AppColors.primary,
                     label: 'Total ${Services.auth.profile!.orderWord}s',
                     value: '${sales?['count'] ?? 0}',
                     change: (previous['count_change'] as num?)?.toDouble(),
@@ -562,7 +562,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: StatBox(
                     icon: Icons.payments_rounded,
-                    colour: AixoloColors.success,
+                    colour: AppColors.success,
                     label: 'Total Value',
                     value: fmtMoney(sales?['amount_total'] as num?, currency),
                     change: (previous['amount_change'] as num?)?.toDouble(),
@@ -616,9 +616,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
-                        color: AixoloColors.text)),
+                        color: AppColors.text)),
                 const Text('KM today',
-                    style: TextStyle(fontSize: 13, color: AixoloColors.muted)),
+                    style: TextStyle(fontSize: 13, color: AppColors.muted)),
               ],
             ),
           ],
@@ -647,7 +647,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
                     'No ${profile.label('visit', 'visit').toLowerCase()}s today yet',
-                    style: const TextStyle(color: AixoloColors.muted)),
+                    style: const TextStyle(color: AppColors.muted)),
               )
             else
               for (final visit in recent)
@@ -655,14 +655,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.store_rounded,
-                      color: AixoloColors.primary),
+                      color: AppColors.primary),
                   title: Text('${(visit['client'] as Map)['name']}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 14)),
                   trailing: Text(fmtTime(visit['check_in_at']),
                       style: const TextStyle(
-                          fontSize: 12, color: AixoloColors.muted)),
+                          fontSize: 12, color: AppColors.muted)),
                   onTap: () => _push(ClientDetailScreen(
                       clientId: (visit['client'] as Map)['id'] as int)),
                 ),

@@ -6,7 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import '../features/auth/login_screen.dart';
 import 'services.dart';
 
-/// App-wide rules the office sets in Aixolo settings:
+/// App-wide rules the office sets in Field Force settings:
 /// - log out an app left unused for too long;
 /// - while on duty, say loudly when GPS gets switched off.
 /// (The phone-clock check is done by the server on every punch and check-in.)

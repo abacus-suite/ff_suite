@@ -1,4 +1,4 @@
-package com.aixomind.aixolo
+package com.abs.fieldforce
 
 import io.flutter.embedding.android.FlutterActivity
 
