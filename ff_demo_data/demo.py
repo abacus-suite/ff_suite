@@ -1,4 +1,4 @@
-"""Builds the Aixolo demo on install: a 3-level team, beats, customers and 10 days of history.
+"""Builds the Field Force demo on install: a 3-level team, beats, customers and 10 days of history.
 
 Everything is dated relative to the install day, so the dashboard, reports and
 the app always have "today", "this week" and "this month" to show.
@@ -14,7 +14,7 @@ from odoo import fields
 
 _logger = logging.getLogger(__name__)
 
-PASSWORD = 'Aixolo@123'
+PASSWORD = 'FieldForce@123'
 TZ = 'Asia/Kolkata'
 DAYS = 10
 CENTRE = (11.2588, 75.7804)  # Kozhikode
@@ -35,14 +35,14 @@ SHOP_NAMES = ['Anand', 'Sree Krishna', 'Malabar', 'Al Ameen', 'Royal', 'City', '
               'Fresh Choice', 'Lakshmi', 'Noor', 'Galaxy', 'Deepam', 'Hilal']
 PRODUCTS = [
     # name, sku, MRP, PTR, PTS
-    ('Aixo Soap 100g', 'SOAP100', 45, 38, 34),
-    ('Aixo Shampoo 180ml', 'SHMP180', 160, 132, 118),
-    ('Aixo Detergent 1kg', 'DET1KG', 120, 101, 92),
-    ('Aixo Toothpaste 150g', 'TP150', 95, 79, 71),
-    ('Aixo Hair Oil 200ml', 'OIL200', 140, 116, 104),
-    ('Aixo Handwash 250ml', 'HW250', 99, 82, 74),
-    ('Aixo Floor Cleaner 1L', 'FLR1L', 175, 146, 131),
-    ('Aixo Tea 250g', 'TEA250', 130, 109, 98),
+    ('ABS Soap 100g', 'SOAP100', 45, 38, 34),
+    ('ABS Shampoo 180ml', 'SHMP180', 160, 132, 118),
+    ('ABS Detergent 1kg', 'DET1KG', 120, 101, 92),
+    ('ABS Toothpaste 150g', 'TP150', 95, 79, 71),
+    ('ABS Hair Oil 200ml', 'OIL200', 140, 116, 104),
+    ('ABS Handwash 250ml', 'HW250', 99, 82, 74),
+    ('ABS Floor Cleaner 1L', 'FLR1L', 175, 146, 131),
+    ('ABS Tea 250g', 'TEA250', 130, 109, 98),
 ]
 
 
@@ -61,7 +61,7 @@ def post_init_hook(env):
     distributors, beats, customers = _territory(env, company, people)
     _history(env, people, beats, customers, products, distributors, today)
     _month_extras(env, company, people, teams, department, products, today)
-    _logger.info('Aixolo demo data created: %s employees, %s beats, %s customers',
+    _logger.info('Field Force demo data created: %s employees, %s beats, %s customers',
                  len(people), len(beats), len(customers))
 
 
@@ -77,7 +77,7 @@ def _people(env, company):
         login = 'demo.%s' % key
         groups_field = 'group_ids' if 'group_ids' in env['res.users']._fields else 'groups_id'
         user = env['res.users'].with_context(no_reset_password=True).create({
-            'name': name, 'login': login, 'password': PASSWORD, 'email': '%s@aixolo.demo' % login,
+            'name': name, 'login': login, 'password': PASSWORD, 'email': '%s@fieldforce.demo' % login,
             'tz': TZ, 'company_id': company.id, 'company_ids': [(6, 0, company.ids)],
             groups_field: [(4, env.ref('base.group_user').id), (4, env.ref(group).id)],
         })
@@ -87,7 +87,7 @@ def _people(env, company):
             'department_id': department.id, 'ff_access_scope': scope,
             'parent_id': people[manager].id if manager else False,
             'ff_team_id': teams[team].id if team else False,
-            'work_email': '%s@aixolo.demo' % login, 'mobile_phone': '+91 98470 %05d' % (len(people) * 1111),
+            'work_email': '%s@fieldforce.demo' % login, 'mobile_phone': '+91 98470 %05d' % (len(people) * 1111),
             'ff_app_login': login,
         })
         employee.ff_set_app_password(PASSWORD)
@@ -99,7 +99,7 @@ def _people(env, company):
 
 
 def _products(env):
-    category = env['product.category'].create({'name': 'Aixo FMCG (Demo)'})
+    category = env['product.category'].create({'name': 'ABS FMCG (Demo)'})
     products = env['product.product']
     for name, sku, mrp, ptr, pts in PRODUCTS:
         products |= env['product.product'].create({

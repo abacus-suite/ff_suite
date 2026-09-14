@@ -1,4 +1,4 @@
-"""Visit step endpoints for the Aixolo app."""
+"""Visit step endpoints for the Field Force app."""
 from odoo import http
 from odoo.http import request
 

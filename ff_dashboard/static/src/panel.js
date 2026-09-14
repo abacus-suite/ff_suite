@@ -59,7 +59,7 @@ function ago(iso) {
     return hours < 24 ? `${hours} h ago` : `${Math.floor(hours / 24)} d ago`;
 }
 
-export class AixoloPanel extends Component {
+export class FieldForcePanel extends Component {
     static template = "ff_dashboard.Panel";
     static components = { FfChart };
     static props = {};
@@ -1739,4 +1739,4 @@ export class AixoloPanel extends Component {
     }
 }
 
-registry.category("actions").add("ff_panel", AixoloPanel);
+registry.category("actions").add("ff_panel", FieldForcePanel);

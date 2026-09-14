@@ -6,7 +6,7 @@
     'description': """
 Install on a test database to try every role.
 
-People (Odoo login / app login - password Aixolo@123 for both):
+People (Odoo login / app login - password FieldForce@123 for both):
   demo.head      Ravi Menon      Sales Head      (all employees)
   demo.north     Anil Kumar      Team North lead (hierarchy)
   demo.south     Divya Nair      Team South lead (hierarchy)

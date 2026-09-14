@@ -1,4 +1,4 @@
-"""Numbers behind the Aixolo panel.
+"""Numbers behind the Field Force panel.
 
 One call returns everything the dashboard draws, so the screen opens with a
 single request. Modules that may not be installed (expenses, collections,

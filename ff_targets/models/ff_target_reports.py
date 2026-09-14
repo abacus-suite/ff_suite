@@ -1,4 +1,4 @@
-"""Targets in the Aixolo panel and in the app's report catalogue."""
+"""Targets in the Field Force panel and in the app's report catalogue."""
 from datetime import timedelta
 
 from odoo import api, models
@@ -126,7 +126,7 @@ class FfDashboardTargets(models.AbstractModel):
             } for row in sorted(rows, key=lambda row: -row['achievement'])],
         }
         if not rows:
-            report['empty_hint'] = 'No targets set for %s. Add them under Aixolo › Targets.' % first.strftime('%B %Y')
+            report['empty_hint'] = 'No targets set for %s. Add them under Field Force › Targets.' % first.strftime('%B %Y')
         return report
 
     def _fmt_target(self, value, money):

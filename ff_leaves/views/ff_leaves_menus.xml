@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Time Off lives in its own app; this is the way in from Aixolo. -->
+    <!-- Time Off lives in its own app; this is the way in from Field Force. -->
     <menuitem id="menu_ff_leaves" name="Time Off" parent="ff_attendance.menu_ff_attendance"
               action="hr_holidays.hr_leave_action_action_approve_department" sequence="30"/>
 </odoo>

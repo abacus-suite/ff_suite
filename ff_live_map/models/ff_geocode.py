@@ -111,7 +111,7 @@ class FfEmployeeStatusGeocode(models.Model):
         try:
             response = requests.get(NOMINATIM_URL, timeout=TIMEOUT, params={
                 'lat': latitude, 'lon': longitude, 'format': 'jsonv2', 'zoom': 17, 'addressdetails': 1,
-            }, headers={'User-Agent': 'Aixolo field force (%s)' % base, 'Accept-Language': 'en'})
+            }, headers={'User-Agent': 'Field Force app (%s)' % base, 'Accept-Language': 'en'})
             if response.status_code == 429:
                 return False, 'OpenStreetMap asked us to slow down; addresses will fill in on the next refresh.'
             payload = response.json()

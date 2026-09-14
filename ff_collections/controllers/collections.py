@@ -1,4 +1,4 @@
-"""Payment collection endpoints for the Aixolo app."""
+"""Payment collection endpoints for the Field Force app."""
 import calendar
 from datetime import date as date_type
 

@@ -2,7 +2,7 @@ import json
 
 from odoo.tests import HttpCase, tagged
 
-PASSWORD = 'Aixolo#2026'
+PASSWORD = 'FieldForce#2026'
 
 
 @tagged('post_install', '-at_install', 'ff')

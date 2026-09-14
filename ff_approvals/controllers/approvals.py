@@ -1,4 +1,4 @@
-"""Approval queue and notifications for the Aixolo app."""
+"""Approval queue and notifications for the Field Force app."""
 from odoo import http
 from odoo.http import request
 

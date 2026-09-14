@@ -1,7 +1,7 @@
-# Aixolo – Field Force Suite (Odoo 19)
+# Field Force Suite (Odoo 19)
 
-Field sales force management on Odoo 19 (Odoo.sh), with the Aixolo Flutter Android
-app (repository `aixolo`).
+Field sales force management on Odoo 19 (Odoo.sh), with the Field Force Flutter
+app (repository `ff_suite`).
 
 ## Modules
 | Module | Purpose |
@@ -23,7 +23,7 @@ app (repository `aixolo`).
 | `ff_forms` | Custom forms |
 | `ff_attribution*` | Field employee stamped on sales, CRM, invoices |
 | `ff_live_map` | Google Maps live map, geocoding, map usage and cost |
-| `ff_dashboard` | **Aixolo Panel**: dashboard, live location + timeline, employees and org chart, attendance, leaves, expenses, orders, visits, demands, collections, targets — with Excel export |
+| `ff_dashboard` | **Field Force Panel**: dashboard, live location + timeline, employees and org chart, attendance, leaves, expenses, orders, visits, demands, collections, targets — with Excel export |
 | `ff_app_reports` | Reports in the app (own / team, date range, list / table, Excel) *(auto-install)* |
 | `ff_targets` | Monthly visit / customer / sales / collection targets and achievement |
 | `ff_tasks` | Tasks given to field staff, finished with note and photo |
@@ -35,13 +35,13 @@ Install `ff_dashboard`, `ff_targets`, `ff_tasks`, `ff_returns` and `ff_alerts`; 
 pull in the rest. Add `ff_demand`, `ff_collections`, `ff_forms` as the company needs.
 
 ## Setup after install
-1. **Aixolo › Configuration › Settings**: field timezone (then *Set it on everyone
+1. **Field Force › Configuration › Settings**: field timezone (then *Set it on everyone
    still on UTC*), tracking, selfie, geofence, order flow, payment collection,
    app security, manager alerts, email summary, Google Maps key.
 2. Google Cloud: enable **Maps JavaScript API**, **Map Tiles API** and **Geocoding API**
    for the key.
 3. For each field employee: app login, **Manager**, **Field Team**, **Field Shift**, data access.
-4. Approval flows (Aixolo › Configuration) for expenses, allowances and time off if two
+4. Approval flows (Field Force › Configuration) for expenses, allowances and time off if two
    signatures are needed.
 5. Outgoing mail server, for the email summary.
 

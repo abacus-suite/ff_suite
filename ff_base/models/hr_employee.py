@@ -174,7 +174,7 @@ class HrEmployee(models.Model):
 
         An empty timezone, or the UTC that Odoo fills in by default, would put
         an Indian morning on the previous day - so those fall back to the
-        field timezone in Aixolo settings, then the company's.
+        field timezone in Field Force settings, then the company's.
         """
         self.ensure_one()
         name = self.tz if self.tz and self.tz != 'UTC' else (

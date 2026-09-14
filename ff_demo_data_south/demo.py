@@ -62,11 +62,11 @@ SHOP_NAMES = ['Sri Murugan', 'Annapoorna', 'Saravana', 'Kerala', 'Namma', 'Sree 
               'Vasantham', 'Karnataka', 'Ganesh', 'Hari Om', 'Amma', 'Welcome']
 SHOP_WORDS = ['Stores', 'Supermarket', 'Traders', 'Provisions', 'Mart', 'Medicals', 'Agencies', 'Hypermarket']
 PRODUCTS = [
-    ('Aixo Soap 100g', 'SOAP100', 45, 38, 34), ('Aixo Shampoo 180ml', 'SHMP180', 160, 132, 118),
-    ('Aixo Detergent 1kg', 'DET1KG', 120, 101, 92), ('Aixo Toothpaste 150g', 'TP150', 95, 79, 71),
-    ('Aixo Hair Oil 200ml', 'OIL200', 140, 116, 104), ('Aixo Handwash 250ml', 'HW250', 99, 82, 74),
-    ('Aixo Floor Cleaner 1L', 'FLR1L', 175, 146, 131), ('Aixo Tea 250g', 'TEA250', 130, 109, 98),
-    ('Aixo Coffee 200g', 'COF200', 220, 186, 170), ('Aixo Biscuits 300g', 'BIS300', 60, 50, 45),
+    ('ABS Soap 100g', 'SOAP100', 45, 38, 34), ('ABS Shampoo 180ml', 'SHMP180', 160, 132, 118),
+    ('ABS Detergent 1kg', 'DET1KG', 120, 101, 92), ('ABS Toothpaste 150g', 'TP150', 95, 79, 71),
+    ('ABS Hair Oil 200ml', 'OIL200', 140, 116, 104), ('ABS Handwash 250ml', 'HW250', 99, 82, 74),
+    ('ABS Floor Cleaner 1L', 'FLR1L', 175, 146, 131), ('ABS Tea 250g', 'TEA250', 130, 109, 98),
+    ('ABS Coffee 200g', 'COF200', 220, 186, 170), ('ABS Biscuits 300g', 'BIS300', 60, 50, 45),
 ]
 
 
@@ -161,8 +161,8 @@ class Demo:
 
     def _products(self):
         Product = self.env['product.product']
-        category = self.env['product.category'].search([('name', '=', 'Aixo FMCG (Demo)')], limit=1) or \
-            self.env['product.category'].create({'name': 'Aixo FMCG (Demo)'})
+        category = self.env['product.category'].search([('name', '=', 'ABS FMCG (Demo)')], limit=1) or \
+            self.env['product.category'].create({'name': 'ABS FMCG (Demo)'})
         products = Product
         for name, sku, mrp, ptr, pts in PRODUCTS:
             found = Product.search([('default_code', '=', sku)], limit=1)

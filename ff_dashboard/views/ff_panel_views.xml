@@ -5,7 +5,7 @@
         <field name="tag">ff_panel</field>
     </record>
 
-    <!-- First menu under Aixolo, so opening the app lands on the dashboard. -->
+    <!-- First menu under Field Force, so opening the app lands on the dashboard. -->
     <menuitem id="menu_ff_panel" name="Panel" parent="ff_base.menu_ff_root"
               action="ff_panel_action" sequence="1"/>
 </odoo>
