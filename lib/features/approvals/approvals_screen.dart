@@ -104,7 +104,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             ),
             const SizedBox(height: 6),
             for (final line in lines)
-              Text(line, style: const TextStyle(fontSize: 13, color: AixoloColors.muted)),
+              Text(line, style: const TextStyle(fontSize: 13, color: AppColors.muted)),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -144,7 +144,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                       kind: 'client',
                       id: c['id'] as int,
                       icon: Icons.storefront_rounded,
-                      color: AixoloColors.teal,
+                      color: AppColors.teal,
                       title: '${c['name']}',
                       lines: [
                         'Added by ${(c['added_by'] as Map?)?['name'] ?? '-'} · ${fmtTime(c['added_at'])}',
@@ -159,7 +159,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                       kind: 'expense',
                       id: e['id'] as int,
                       icon: Icons.receipt_long_rounded,
-                      color: AixoloColors.warning,
+                      color: AppColors.warning,
                       title: '${(e['employee'] as Map?)?['name'] ?? ''}',
                       amount: fmtMoney(e['amount'] as num?, e['currency'] as String?),
                       lines: [
@@ -174,7 +174,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                       kind: 'return',
                       id: r['id'] as int,
                       icon: Icons.assignment_return_rounded,
-                      color: AixoloColors.danger,
+                      color: AppColors.danger,
                       title: '${(r['employee'] as Map?)?['name'] ?? ''} · ${r['reason_label']}',
                       amount: fmtMoney(r['amount'] as num?, r['currency'] as String?),
                       lines: [
@@ -191,7 +191,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                       kind: 'leave',
                       id: l['id'] as int,
                       icon: Icons.beach_access_rounded,
-                      color: AixoloColors.sky,
+                      color: AppColors.sky,
                       title: '${(l['employee'] as Map?)?['name'] ?? ''}',
                       lines: [
                         '${(l['type'] as Map?)?['name'] ?? ''} · ${fmtQty(l['days'] as num? ?? 0)} days',
@@ -205,7 +205,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                       kind: 'allowance',
                       id: a['id'] as int,
                       icon: Icons.local_gas_station_rounded,
-                      color: AixoloColors.purple,
+                      color: AppColors.purple,
                       title: '${(a['employee'] as Map?)?['name'] ?? ''}',
                       amount: fmtMoney(a['amount'] as num?, a['currency'] as String?),
                       lines: [
@@ -221,7 +221,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                       kind: 'regularisation',
                       id: r['id'] as int,
                       icon: Icons.edit_calendar_rounded,
-                      color: AixoloColors.sky,
+                      color: AppColors.sky,
                       title: '${(r['employee'] as Map)['name']}',
                       lines: [
                         'Date ${r['date']} · In ${fmtTime(r['check_in'])} · Out ${fmtTime(r['check_out'])}',

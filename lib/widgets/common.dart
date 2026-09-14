@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
 
-class AixoloLogo extends StatelessWidget {
-  const AixoloLogo({super.key, this.height = 44});
+class AppLogo extends StatelessWidget {
+  const AppLogo({super.key, this.height = 44});
 
   final double height;
 
   @override
   Widget build(BuildContext context) {
-    return Image.asset('assets/images/aixolo_logo.png', height: height, fit: BoxFit.contain);
+    return Image.asset('assets/images/ff_name_logo.png', height: height, fit: BoxFit.contain);
   }
 }
 
@@ -26,7 +26,7 @@ class WaveHeader extends StatelessWidget {
       clipper: _WaveClipper(),
       child: Container(
         height: height + MediaQuery.of(context).padding.top,
-        decoration: const BoxDecoration(gradient: AixoloColors.headerGradient),
+        decoration: const BoxDecoration(gradient: AppColors.headerGradient),
         padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 12, 20, 36),
         child: child,
       ),
@@ -76,9 +76,9 @@ class StatTile extends StatelessWidget {
               child: Icon(icon, color: color, size: 20),
             ),
             const SizedBox(height: 8),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: AixoloColors.text)),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: AppColors.text)),
             Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, color: AixoloColors.muted)),
+                style: const TextStyle(fontSize: 11, color: AppColors.muted)),
           ],
         ),
       ),
@@ -117,24 +117,24 @@ class SectionCard extends StatelessWidget {
 }
 
 const _statusStyles = <String, (String, Color)>{
-  'planned': ('Planned', AixoloColors.primary),
-  'pending': ('Pending', AixoloColors.primary),
-  'visited': ('Visited', AixoloColors.success),
-  'done': ('Visited', AixoloColors.success),
-  'ongoing': ('At client', AixoloColors.sky),
-  'missed': ('Missed', AixoloColors.danger),
-  'cancelled': ('Cancelled', AixoloColors.warning),
-  'skipped': ('Not planned', AixoloColors.muted),
-  'approved': ('Approved', AixoloColors.success),
-  'submitted': ('To approve', AixoloColors.primary),
-  'rejected': ('Rejected', AixoloColors.danger),
-  'filled': ('Filled', AixoloColors.success),
-  'collected': ('With you', AixoloColors.warning),
-  'received': ('Received', AixoloColors.success),
-  'quoted': ('Sent to distributor', AixoloColors.primary),
-  'partial': ('Partly sent', AixoloColors.warning),
-  'supplied': ('Supplied', AixoloColors.success),
-  'required': ('Required', AixoloColors.danger),
+  'planned': ('Planned', AppColors.primary),
+  'pending': ('Pending', AppColors.primary),
+  'visited': ('Visited', AppColors.success),
+  'done': ('Visited', AppColors.success),
+  'ongoing': ('At client', AppColors.sky),
+  'missed': ('Missed', AppColors.danger),
+  'cancelled': ('Cancelled', AppColors.warning),
+  'skipped': ('Not planned', AppColors.muted),
+  'approved': ('Approved', AppColors.success),
+  'submitted': ('To approve', AppColors.primary),
+  'rejected': ('Rejected', AppColors.danger),
+  'filled': ('Filled', AppColors.success),
+  'collected': ('With you', AppColors.warning),
+  'received': ('Received', AppColors.success),
+  'quoted': ('Sent to distributor', AppColors.primary),
+  'partial': ('Partly sent', AppColors.warning),
+  'supplied': ('Supplied', AppColors.success),
+  'required': ('Required', AppColors.danger),
 };
 
 class StatusBadge extends StatelessWidget {
@@ -145,7 +145,7 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = _statusStyles[status] ?? (status, AixoloColors.muted);
+    final style = _statusStyles[status] ?? (status, AppColors.muted);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: style.$2.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
@@ -161,7 +161,7 @@ class GradientButton extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.busy = false,
-    this.gradient = AixoloColors.brandGradient,
+    this.gradient = AppColors.brandGradient,
   });
 
   final String label;
@@ -179,7 +179,7 @@ class GradientButton extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: gradient,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: AixoloColors.primary.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 5))],
+          boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 5))],
         ),
         child: Material(
           color: Colors.transparent,
@@ -222,11 +222,11 @@ class EmptyView extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 30,
-            backgroundColor: AixoloColors.primary.withValues(alpha: 0.08),
-            child: Icon(icon, color: AixoloColors.primary, size: 30),
+            backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+            child: Icon(icon, color: AppColors.primary, size: 30),
           ),
           const SizedBox(height: 12),
-          Text(text, textAlign: TextAlign.center, style: const TextStyle(color: AixoloColors.muted)),
+          Text(text, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted)),
         ],
       ),
     );
@@ -245,7 +245,7 @@ class ErrorView extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          const Icon(Icons.cloud_off_rounded, color: AixoloColors.muted, size: 40),
+          const Icon(Icons.cloud_off_rounded, color: AppColors.muted, size: 40),
           const SizedBox(height: 8),
           Text(message, textAlign: TextAlign.center),
           TextButton(onPressed: onRetry, child: const Text('Try again')),

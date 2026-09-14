@@ -83,9 +83,9 @@ class _SyncScreenState extends State<SyncScreen> {
               builder: (context, online, _) => Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: (online ? AixoloColors.success : AixoloColors.warning).withValues(alpha: 0.12),
+                    backgroundColor: (online ? AppColors.success : AppColors.warning).withValues(alpha: 0.12),
                     child: Icon(online ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
-                        color: online ? AixoloColors.success : AixoloColors.warning),
+                        color: online ? AppColors.success : AppColors.warning),
                   ),
                   title: Text(online ? 'Connected' : 'Offline', style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: ValueListenableBuilder<int>(
@@ -108,7 +108,7 @@ class _SyncScreenState extends State<SyncScreen> {
                 builder: (context, last, _) => ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: Color(0xFFE8EFFF),
-                    child: Icon(Icons.download_for_offline_rounded, color: AixoloColors.primary),
+                    child: Icon(Icons.download_for_offline_rounded, color: AppColors.primary),
                   ),
                   title: const Text('Ready for offline', style: TextStyle(fontWeight: FontWeight.w700)),
                   subtitle: Text(last == null
@@ -142,16 +142,16 @@ class _SyncScreenState extends State<SyncScreen> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.error_outline_rounded, color: AixoloColors.danger, size: 20),
+                            const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 20),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(item.label, style: const TextStyle(fontWeight: FontWeight.w700)),
                             ),
-                            Text(_when(item.createdAt), style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                            Text(_when(item.createdAt), style: const TextStyle(color: AppColors.muted, fontSize: 12)),
                           ],
                         ),
                         const SizedBox(height: 6),
-                        Text(item.error!, style: const TextStyle(color: AixoloColors.danger)),
+                        Text(item.error!, style: const TextStyle(color: AppColors.danger)),
                         const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
@@ -179,7 +179,7 @@ class _SyncScreenState extends State<SyncScreen> {
                   children: [
                     for (final item in waiting)
                       ListTile(
-                        leading: const Icon(Icons.schedule_rounded, color: AixoloColors.warning),
+                        leading: const Icon(Icons.schedule_rounded, color: AppColors.warning),
                         title: Text(item.label),
                         subtitle: Text('Done at ${_when(item.createdAt)}'),
                       ),
@@ -192,9 +192,9 @@ class _SyncScreenState extends State<SyncScreen> {
                 padding: EdgeInsets.only(top: 60),
                 child: Column(
                   children: [
-                    Icon(Icons.cloud_done_rounded, size: 56, color: AixoloColors.success),
+                    Icon(Icons.cloud_done_rounded, size: 56, color: AppColors.success),
                     SizedBox(height: 10),
-                    Text('Everything has reached the office.', style: TextStyle(color: AixoloColors.muted)),
+                    Text('Everything has reached the office.', style: TextStyle(color: AppColors.muted)),
                   ],
                 ),
               ),
@@ -214,6 +214,6 @@ class _Heading extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
         child: Text(text.toUpperCase(),
-            style: const TextStyle(fontSize: 12, letterSpacing: 1.1, fontWeight: FontWeight.w800, color: AixoloColors.muted)),
+            style: const TextStyle(fontSize: 12, letterSpacing: 1.1, fontWeight: FontWeight.w800, color: AppColors.muted)),
       );
 }

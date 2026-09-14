@@ -106,20 +106,20 @@ class _AppShellState extends State<AppShell> {
             children: [
               // Taken at the customer: each one starts with a check-in there.
               if (profile.feature('orders'))
-                option('order', Icons.add_shopping_cart_rounded, AixoloColors.primary,
+                option('order', Icons.add_shopping_cart_rounded, AppColors.primary,
                     'New ${profile.orderWord.toLowerCase()}', 'Pick the $customer, check in, add products', sheet),
               if (profile.paymentCollection)
-                option('payment', Icons.payments_rounded, AixoloColors.teal, 'Collect payment',
+                option('payment', Icons.payments_rounded, AppColors.teal, 'Collect payment',
                     'Pick the $customer, check in, record the amount', sheet),
               if (profile.feature('visits'))
-                option('client', Icons.add_business_rounded, AixoloColors.success, 'New $customer',
+                option('client', Icons.add_business_rounded, AppColors.success, 'New $customer',
                     'Add a shop you are standing in front of', sheet),
               if (profile.isManager)
-                option('task', Icons.add_task_rounded, AixoloColors.purple, 'Give a task',
+                option('task', Icons.add_task_rounded, AppColors.purple, 'Give a task',
                     'Send a task to someone in your team', sheet),
-              option('leave', Icons.beach_access_rounded, AixoloColors.sky, 'Leave request',
+              option('leave', Icons.beach_access_rounded, AppColors.sky, 'Leave request',
                   'Ask for time off', sheet),
-              option('expense', Icons.receipt_long_rounded, AixoloColors.warning, 'New expense claim',
+              option('expense', Icons.receipt_long_rounded, AppColors.warning, 'New expense claim',
                   'Bus fare, lunch, anything you paid for', sheet),
               const SizedBox(height: 8),
             ],
@@ -214,10 +214,10 @@ class _AppShellState extends State<AppShell> {
         height: 58,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: AixoloColors.brandGradient,
+          gradient: AppColors.brandGradient,
           boxShadow: [
             BoxShadow(
-              color: AixoloColors.primary.withValues(alpha: 0.38),
+              color: AppColors.primary.withValues(alpha: 0.38),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
@@ -266,7 +266,7 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _tabButton(_ShellTab tab, bool active) {
-    final colour = active ? AixoloColors.primary : AixoloColors.muted;
+    final colour = active ? AppColors.primary : AppColors.muted;
     return InkWell(
       onTap: () => _open(tab.key),
       borderRadius: BorderRadius.circular(14),

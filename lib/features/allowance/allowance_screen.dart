@@ -87,7 +87,7 @@ class _AllowanceScreenState extends State<AllowanceScreen> {
                 dense: true,
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(leg['estimated'] == true ? Icons.help_outline_rounded : Icons.check_circle_outline_rounded,
-                    color: leg['estimated'] == true ? AixoloColors.warning : AixoloColors.success, size: 20),
+                    color: leg['estimated'] == true ? AppColors.warning : AppColors.success, size: 20),
                 title: Text('${leg['name']}'),
                 trailing: Text('${(leg['km'] as num?)?.toStringAsFixed(1) ?? '0'} km'),
               ),
@@ -150,21 +150,21 @@ class _AllowanceScreenState extends State<AllowanceScreen> {
                         children: [
                           Text('${data['total_km']}',
                               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                          const Text('km', style: TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                          const Text('km', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                         ],
                       ),
                       Column(
                         children: [
                           Text(fmtMoney(data['total_amount'] as num?, currency),
                               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                          const Text('Claimed', style: TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                          const Text('Claimed', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                         ],
                       ),
                       Column(
                         children: [
                           Text(fmtMoney(data['approved_amount'] as num?, currency),
-                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AixoloColors.success)),
-                          const Text('Approved', style: TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.success)),
+                          const Text('Approved', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                         ],
                       ),
                     ],
@@ -177,8 +177,8 @@ class _AllowanceScreenState extends State<AllowanceScreen> {
               Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: AixoloColors.purple.withValues(alpha: 0.12),
-                    child: const Icon(Icons.local_gas_station_rounded, color: AixoloColors.purple),
+                    backgroundColor: AppColors.purple.withValues(alpha: 0.12),
+                    child: const Icon(Icons.local_gas_station_rounded, color: AppColors.purple),
                   ),
                   title: Text('${claim['date']} · ${claim['distance_km']} km',
                       style: const TextStyle(fontWeight: FontWeight.w600)),

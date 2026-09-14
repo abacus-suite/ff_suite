@@ -7,36 +7,36 @@ import '../../widgets/common.dart';
 
 /// Look of one figure: icon and colour by what it counts.
 (IconData, Color) metricLook(String key) => switch (key) {
-      'days' || 'present' => (Icons.event_available_rounded, AixoloColors.success),
-      'hours' => (Icons.schedule_rounded, AixoloColors.purple),
-      'late' => (Icons.error_rounded, AixoloColors.danger),
-      'visits' => (Icons.location_on_rounded, AixoloColors.primary),
-      'offsite' => (Icons.near_me_rounded, AixoloColors.purple),
-      'orders' || 'count' || 'units' => (Icons.assignment_rounded, AixoloColors.warning),
-      'sales' || 'amount' => (Icons.bar_chart_rounded, AixoloColors.primary),
-      'collections' || 'collected' => (Icons.currency_rupee_rounded, AixoloColors.success),
-      'expenses' => (Icons.account_balance_wallet_rounded, AixoloColors.danger),
-      'customers' => (Icons.groups_rounded, AixoloColors.primary),
-      'km' || 'distance' => (Icons.add_road_rounded, AixoloColors.muted),
-      'difference' || 'missed' => (Icons.pending_actions_rounded, AixoloColors.danger),
-      'quantity' => (Icons.inventory_2_rounded, AixoloColors.warning),
-      'outlets' => (Icons.storefront_rounded, AixoloColors.primary),
-      'planned' => (Icons.event_note_rounded, AixoloColors.primary),
-      'visited' => (Icons.task_alt_rounded, AixoloColors.success),
-      'last_visit' => (Icons.history_rounded, AixoloColors.purple),
-      'check_in' || 'check_out' || 'time' || 'first' || 'last' || 'minutes' => (Icons.schedule_rounded, AixoloColors.purple),
-      'mode' || 'cash' || 'online' || 'cheque' || 'pending' => (Icons.payments_rounded, AixoloColors.success),
-      'category' || 'type' || 'band' || 'visit_type' => (Icons.label_rounded, AixoloColors.warning),
-      'route' || 'city' => (Icons.route_rounded, AixoloColors.primary),
-      'number' || 'reference' || 'sku' => (Icons.tag_rounded, AixoloColors.muted),
-      'distributor' => (Icons.local_shipping_rounded, AixoloColors.purple),
-      'outcome' || 'note' => (Icons.notes_rounded, AixoloColors.muted),
-      'approved' => (Icons.verified_rounded, AixoloColors.success),
-      'waiting' => (Icons.hourglass_top_rounded, AixoloColors.warning),
-      'score' || 'rank' || 'share' || 'completion' => (Icons.emoji_events_rounded, AixoloColors.warning),
-      'phone' => (Icons.call_rounded, AixoloColors.success),
-      'date' || 'date_to' || 'days' => (Icons.event_rounded, AixoloColors.primary),
-      _ => (Icons.insights_rounded, AixoloColors.primary),
+      'days' || 'present' => (Icons.event_available_rounded, AppColors.success),
+      'hours' => (Icons.schedule_rounded, AppColors.purple),
+      'late' => (Icons.error_rounded, AppColors.danger),
+      'visits' => (Icons.location_on_rounded, AppColors.primary),
+      'offsite' => (Icons.near_me_rounded, AppColors.purple),
+      'orders' || 'count' || 'units' => (Icons.assignment_rounded, AppColors.warning),
+      'sales' || 'amount' => (Icons.bar_chart_rounded, AppColors.primary),
+      'collections' || 'collected' => (Icons.currency_rupee_rounded, AppColors.success),
+      'expenses' => (Icons.account_balance_wallet_rounded, AppColors.danger),
+      'customers' => (Icons.groups_rounded, AppColors.primary),
+      'km' || 'distance' => (Icons.add_road_rounded, AppColors.muted),
+      'difference' || 'missed' => (Icons.pending_actions_rounded, AppColors.danger),
+      'quantity' => (Icons.inventory_2_rounded, AppColors.warning),
+      'outlets' => (Icons.storefront_rounded, AppColors.primary),
+      'planned' => (Icons.event_note_rounded, AppColors.primary),
+      'visited' => (Icons.task_alt_rounded, AppColors.success),
+      'last_visit' => (Icons.history_rounded, AppColors.purple),
+      'check_in' || 'check_out' || 'time' || 'first' || 'last' || 'minutes' => (Icons.schedule_rounded, AppColors.purple),
+      'mode' || 'cash' || 'online' || 'cheque' || 'pending' => (Icons.payments_rounded, AppColors.success),
+      'category' || 'type' || 'band' || 'visit_type' => (Icons.label_rounded, AppColors.warning),
+      'route' || 'city' => (Icons.route_rounded, AppColors.primary),
+      'number' || 'reference' || 'sku' => (Icons.tag_rounded, AppColors.muted),
+      'distributor' => (Icons.local_shipping_rounded, AppColors.purple),
+      'outcome' || 'note' => (Icons.notes_rounded, AppColors.muted),
+      'approved' => (Icons.verified_rounded, AppColors.success),
+      'waiting' => (Icons.hourglass_top_rounded, AppColors.warning),
+      'score' || 'rank' || 'share' || 'completion' => (Icons.emoji_events_rounded, AppColors.warning),
+      'phone' => (Icons.call_rounded, AppColors.success),
+      'date' || 'date_to' || 'days' => (Icons.event_rounded, AppColors.primary),
+      _ => (Icons.insights_rounded, AppColors.primary),
     };
 
 String _money(num? v, String? currency) => fmtMoney(v ?? 0, currency);
@@ -76,18 +76,18 @@ class MetricTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AixoloColors.border),
+          border: Border.all(color: AppColors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(label,
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: AixoloColors.muted)),
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AixoloColors.text)),
+              child: Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.text)),
             ),
           ],
         ),
@@ -112,12 +112,12 @@ class MetricTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AixoloColors.muted)),
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(value,
-                      style: TextStyle(fontSize: big ? 17 : 15, fontWeight: FontWeight.w800, color: AixoloColors.text)),
+                      style: TextStyle(fontSize: big ? 17 : 15, fontWeight: FontWeight.w800, color: AppColors.text)),
                 ),
               ],
             ),
@@ -163,7 +163,7 @@ class _Mini extends StatelessWidget {
                 Text(caption,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11, color: AixoloColors.muted)),
+                    style: const TextStyle(fontSize: 11, color: AppColors.muted)),
               ],
             ),
           ),
@@ -191,12 +191,12 @@ class _Plain extends StatelessWidget {
           Text(label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11.5, color: AixoloColors.muted)),
+              style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
           const SizedBox(height: 2),
           Text(value,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: AixoloColors.text)),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppColors.text)),
         ],
       ),
     );
@@ -248,10 +248,10 @@ class EmployeeSummaryCard extends StatelessWidget {
   final String? badge;
 
   static const _tints = [
-    AixoloColors.primary,
-    AixoloColors.purple,
+    AppColors.primary,
+    AppColors.purple,
     Color(0xFFEA7A1A),
-    AixoloColors.success,
+    AppColors.success,
     Color(0xFF0D9488),
   ];
 
@@ -275,7 +275,7 @@ class EmployeeSummaryCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: highlight ? AixoloColors.primary : AixoloColors.border, width: highlight ? 1.5 : 1),
+        side: BorderSide(color: highlight ? AppColors.primary : AppColors.border, width: highlight ? 1.5 : 1),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
@@ -304,7 +304,7 @@ class EmployeeSummaryCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16.5)),
                         if (subtitle != null)
-                          Text(subtitle!, style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+                          Text(subtitle!, style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
                       ],
                     ),
                   ),
@@ -313,29 +313,29 @@ class EmployeeSummaryCard extends StatelessWidget {
                     children: [
                       Text(value ?? _money(row['sales'] as num?, currency),
                           style: const TextStyle(
-                              fontWeight: FontWeight.w900, fontSize: 16.5, color: AixoloColors.primary)),
+                              fontWeight: FontWeight.w900, fontSize: 16.5, color: AppColors.primary)),
                       if (valueCaption.isNotEmpty)
-                        Text(valueCaption, style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                        Text(valueCaption, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
                       if (status != null && status!.isNotEmpty)
                         Container(
                           margin: const EdgeInsets.only(top: 4),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                           decoration: BoxDecoration(
-                            color: (statusColour ?? AixoloColors.primary).withValues(alpha: 0.12),
+                            color: (statusColour ?? AppColors.primary).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(status!,
                               style: TextStyle(
-                                  color: statusColour ?? AixoloColors.primary,
+                                  color: statusColour ?? AppColors.primary,
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w700)),
                         ),
                     ],
                   ),
-                  if (onTap != null) const Icon(Icons.chevron_right_rounded, color: AixoloColors.muted),
+                  if (onTap != null) const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
                 ],
               ),
-              if (plain && shown.isNotEmpty) const Divider(height: 20, color: AixoloColors.border),
+              if (plain && shown.isNotEmpty) const Divider(height: 20, color: AppColors.border),
               if (!plain) const SizedBox(height: 12),
               // Plain cards flow freely: each figure takes the width its text needs.
               if (plain)
@@ -370,7 +370,7 @@ class EmployeeSummaryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (var i = 0; i < items.length; i++) ...[
-              if (i > 0) const VerticalDivider(width: 1, thickness: 1, color: AixoloColors.border),
+              if (i > 0) const VerticalDivider(width: 1, thickness: 1, color: AppColors.border),
               Expanded(child: Align(alignment: plain ? Alignment.centerLeft : Alignment.center, child: items[i])),
             ],
           ],
@@ -485,10 +485,10 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
                     children: [
                       CircleAvatar(
                         radius: 30,
-                        backgroundColor: AixoloColors.primary.withValues(alpha: 0.1),
+                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                         child: Text(initials,
                             style: const TextStyle(
-                                color: AixoloColors.primary, fontWeight: FontWeight.w800, fontSize: 20)),
+                                color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 20)),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -497,7 +497,7 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
                           children: [
                             Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 19)),
                             Text('${_day(fmtDate(widget.start))} – ${_day(fmtDate(widget.end))}',
-                                style: const TextStyle(color: AixoloColors.muted)),
+                                style: const TextStyle(color: AppColors.muted)),
                           ],
                         ),
                       ),
@@ -520,9 +520,9 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
                               label: Text(label),
                               selected: _tab == i,
                               showCheckmark: false,
-                              selectedColor: AixoloColors.primary,
+                              selectedColor: AppColors.primary,
                               labelStyle: TextStyle(
-                                  color: _tab == i ? Colors.white : AixoloColors.text, fontWeight: FontWeight.w700),
+                                  color: _tab == i ? Colors.white : AppColors.text, fontWeight: FontWeight.w700),
                               onSelected: (_) => setState(() => _tab = i),
                             ),
                           ),
@@ -560,17 +560,17 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                        color: AixoloColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                    child: const Icon(Icons.bar_chart_rounded, color: AixoloColors.primary),
+                        color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                    child: const Icon(Icons.bar_chart_rounded, color: AppColors.primary),
                   ),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Total value', style: TextStyle(color: AixoloColors.muted)),
+                      const Text('Total value', style: TextStyle(color: AppColors.muted)),
                       Text(_money(o['sales'] as num?, _currency),
                           style: const TextStyle(
-                              fontSize: 24, fontWeight: FontWeight.w900, color: AixoloColors.primary)),
+                              fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.primary)),
                     ],
                   ),
                 ],
@@ -618,7 +618,7 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
         const Padding(
           padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
           child: Row(children: [
-            Icon(Icons.calendar_month_rounded, color: AixoloColors.primary),
+            Icon(Icons.calendar_month_rounded, color: AppColors.primary),
             SizedBox(width: 8),
             Text('Daily breakdown', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
           ]),
@@ -638,8 +638,8 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                        color: AixoloColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.event_note_rounded, color: AixoloColors.primary, size: 20),
+                        color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.event_note_rounded, color: AppColors.primary, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -653,10 +653,10 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
                                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                             ),
                             Text(_money(d['sales'] as num?, _currency),
-                                style: const TextStyle(fontWeight: FontWeight.w800, color: AixoloColors.primary)),
+                                style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)),
                           ],
                         ),
-                        Text(_weekday('${d['date']}'), style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+                        Text(_weekday('${d['date']}'), style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
                         const SizedBox(height: 6),
                         Wrap(
                           spacing: 14,
@@ -669,7 +669,7 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right_rounded, color: AixoloColors.muted),
+                  const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
                 ],
               ),
             ),
@@ -696,20 +696,20 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
           Card(
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: AixoloColors.warning.withValues(alpha: 0.12),
-                child: const Icon(Icons.assignment_rounded, color: AixoloColors.warning),
+                backgroundColor: AppColors.warning.withValues(alpha: 0.12),
+                child: const Icon(Icons.assignment_rounded, color: AppColors.warning),
               ),
               title: Text('${o['customer'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700)),
               subtitle: Text('${o['number'] ?? ''} · ${_day('${o['date']}')} · ${o['status'] ?? ''}'),
               trailing: Text(_money(o['amount'] as num?, _currency),
-                  style: const TextStyle(fontWeight: FontWeight.w800, color: AixoloColors.primary)),
+                  style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)),
             ),
           ),
       ];
 }
 
 Widget _pair(String label, String value) => Text.rich(TextSpan(children: [
-      TextSpan(text: '$label  ', style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+      TextSpan(text: '$label  ', style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
       TextSpan(text: value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
     ]));
 
@@ -738,8 +738,8 @@ class _Bars extends StatelessWidget {
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
                     colors: [
-                      AixoloColors.primary.withValues(alpha: 0.35),
-                      AixoloColors.primary.withValues(alpha: peak == 0 ? 0.35 : 0.35 + 0.6 * (v / peak)),
+                      AppColors.primary.withValues(alpha: 0.35),
+                      AppColors.primary.withValues(alpha: peak == 0 ? 0.35 : 0.35 + 0.6 * (v / peak)),
                     ],
                   ),
                 ),
@@ -763,7 +763,7 @@ class VisitCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final offsite = '${visit['visit_type'] ?? ''}'.toLowerCase().contains('off');
-    final colour = offsite ? AixoloColors.purple : AixoloColors.success;
+    final colour = offsite ? AppColors.purple : AppColors.success;
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -791,7 +791,7 @@ class VisitCard extends StatelessWidget {
                       ),
                       Text(
                         [if (showDate) _day('${visit['date']}'), '${visit['check_in'] ?? ''}'].join(' · '),
-                        style: const TextStyle(color: AixoloColors.muted, fontSize: 12),
+                        style: const TextStyle(color: AppColors.muted, fontSize: 12),
                       ),
                     ],
                   ),
@@ -805,7 +805,7 @@ class VisitCard extends StatelessWidget {
                             if ((visit['minutes'] ?? 0) != 0) '${visit['minutes']} min',
                             if ('${visit['outcome'] ?? ''}'.isNotEmpty) '${visit['outcome']}',
                           ].join(' · '),
-                          style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5),
+                          style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
                         ),
                       ),
                       Container(
@@ -819,7 +819,7 @@ class VisitCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   orderValue == null
-                      ? const Text('No order', style: TextStyle(color: AixoloColors.muted, fontSize: 12.5))
+                      ? const Text('No order', style: TextStyle(color: AppColors.muted, fontSize: 12.5))
                       : _pair('Order value', _money(orderValue, currency)),
                 ],
               ),
@@ -942,8 +942,8 @@ class _VisitDetailsScreenState extends State<VisitDetailsScreen> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                          color: AixoloColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
-                      child: const Icon(Icons.event_note_rounded, color: AixoloColors.primary),
+                          color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+                      child: const Icon(Icons.event_note_rounded, color: AppColors.primary),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -951,7 +951,7 @@ class _VisitDetailsScreenState extends State<VisitDetailsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(_day(iso), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-                          Text(_weekday(iso), style: const TextStyle(color: AixoloColors.muted)),
+                          Text(_weekday(iso), style: const TextStyle(color: AppColors.muted)),
                         ],
                       ),
                     ),
@@ -987,9 +987,9 @@ class _VisitDetailsScreenState extends State<VisitDetailsScreen> {
                     label: Text(label),
                     selected: _filter == key,
                     showCheckmark: false,
-                    selectedColor: AixoloColors.primary,
+                    selectedColor: AppColors.primary,
                     labelStyle:
-                        TextStyle(color: _filter == key ? Colors.white : AixoloColors.text, fontWeight: FontWeight.w700),
+                        TextStyle(color: _filter == key ? Colors.white : AppColors.text, fontWeight: FontWeight.w700),
                     onSelected: (_) => setState(() => _filter = key),
                   ),
               ],

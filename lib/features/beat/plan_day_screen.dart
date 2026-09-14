@@ -184,12 +184,12 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text('${shown.length} of ${_routes.length}',
-                            style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                            style: const TextStyle(color: AppColors.muted, fontSize: 12)),
                       ),
                     ),
                     Expanded(
                       child: shown.isEmpty
-                          ? const Center(child: Text('Nothing matches', style: TextStyle(color: AixoloColors.muted)))
+                          ? const Center(child: Text('Nothing matches', style: TextStyle(color: AppColors.muted)))
                           : ListView.builder(
                               itemCount: shown.length,
                               itemBuilder: (context, i) {
@@ -197,7 +197,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                                 final selected = _route?['id'] == r['id'];
                                 return ListTile(
                                   leading: Icon(selected ? Icons.check_circle_rounded : Icons.route_rounded,
-                                      color: selected ? AixoloColors.success : AixoloColors.primary),
+                                      color: selected ? AppColors.success : AppColors.primary),
                                   title: Text('${r['name']}',
                                       style: TextStyle(fontWeight: selected ? FontWeight.w800 : FontWeight.w600)),
                                   subtitle: Text(_routeDetails(r)),
@@ -235,7 +235,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                         children: [
                           Card(
                             child: ListTile(
-                              leading: const Icon(Icons.calendar_month_rounded, color: AixoloColors.primary),
+                              leading: const Icon(Icons.calendar_month_rounded, color: AppColors.primary),
                               title: const Text('Day'),
                               subtitle: Text(_plannedDay == null
                                   ? 'Nothing planned yet on this day'
@@ -255,11 +255,11 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                           if (_routes.isNotEmpty)
                             Card(
                               child: ListTile(
-                                leading: const Icon(Icons.route_rounded, color: AixoloColors.primary),
+                                leading: const Icon(Icons.route_rounded, color: AppColors.primary),
                                 title: Text(_route == null ? 'Choose a $routeLabel' : '${_route!['name']}',
                                     style: TextStyle(
                                         fontWeight: FontWeight.w700,
-                                        color: _route == null ? AixoloColors.muted : AixoloColors.text)),
+                                        color: _route == null ? AppColors.muted : AppColors.text)),
                                 subtitle: _route == null
                                     ? Text('${_routes.length} to choose from')
                                     : Text(_routeDetails(_route!)),
@@ -296,7 +296,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                                     const Padding(
                                       padding: EdgeInsets.symmetric(vertical: 8),
                                       child: Text('This route has no customers yet.',
-                                          style: TextStyle(color: AixoloColors.muted)),
+                                          style: TextStyle(color: AppColors.muted)),
                                     ),
                                 ],
                               ),

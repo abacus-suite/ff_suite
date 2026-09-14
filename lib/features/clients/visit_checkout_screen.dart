@@ -155,7 +155,7 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Text('Checked in at ${fmtTime(widget.visit['check_in_at'])}', style: const TextStyle(color: AixoloColors.muted)),
+                Text('Checked in at ${fmtTime(widget.visit['check_in_at'])}', style: const TextStyle(color: AppColors.muted)),
                 if (_missingForms.isNotEmpty)
                   Card(
                     color: const Color(0xFFFFF5E5),
@@ -170,7 +170,7 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
                               contentPadding: EdgeInsets.zero,
                               leading: Icon(
                                   form['mandatory'] == true ? Icons.assignment_late_rounded : Icons.assignment_rounded,
-                                  color: form['mandatory'] == true ? AixoloColors.warning : AixoloColors.primary),
+                                  color: form['mandatory'] == true ? AppColors.warning : AppColors.primary),
                               title: Text('${form['name']}'),
                               subtitle: Text(form['mandatory'] == true ? 'Required' : 'Optional'),
                               trailing: TextButton(onPressed: () => _fillForm(form), child: const Text('Fill now')),

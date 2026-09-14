@@ -105,7 +105,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
               const Padding(
                 padding: EdgeInsets.all(24),
                 child: Text('Nobody in your team has an Odoo user yet.',
-                    style: TextStyle(color: AixoloColors.muted)),
+                    style: TextStyle(color: AppColors.muted)),
               ),
             for (final p in people)
               ListTile(
@@ -114,7 +114,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   child: Text(
                       '${p['name']}'.isNotEmpty ? '${p['name']}'[0] : '?',
                       style: const TextStyle(
-                          color: AixoloColors.primary,
+                          color: AppColors.primary,
                           fontWeight: FontWeight.w800)),
                 ),
                 title: Text('${p['name']}'),
@@ -168,11 +168,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   ? ListView(children: const [
                       SizedBox(height: 120),
                       Icon(Icons.forum_rounded,
-                          size: 56, color: AixoloColors.muted),
+                          size: 56, color: AppColors.muted),
                       SizedBox(height: 10),
                       Center(
                           child: Text('No conversations yet',
-                              style: TextStyle(color: AixoloColors.muted))),
+                              style: TextStyle(color: AppColors.muted))),
                     ])
                   : ListView.separated(
                       padding: const EdgeInsets.only(bottom: 90),
@@ -193,10 +193,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
                                         ? '${c['name']}'[0]
                                         : '?',
                                     style: const TextStyle(
-                                        color: AixoloColors.primary,
+                                        color: AppColors.primary,
                                         fontWeight: FontWeight.w800))
                                 : const Icon(Icons.tag_rounded,
-                                    color: AixoloColors.success),
+                                    color: AppColors.success),
                           ),
                           title: Text('${c['name']}',
                               style: TextStyle(
@@ -218,14 +218,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
                                 Text(fmtTime(c['last_at']),
                                     style: const TextStyle(
                                         fontSize: 11.5,
-                                        color: AixoloColors.muted)),
+                                        color: AppColors.muted)),
                               if (unread > 0)
                                 Container(
                                   margin: const EdgeInsets.only(top: 4),
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 7, vertical: 2),
                                   decoration: BoxDecoration(
-                                      color: AixoloColors.primary,
+                                      color: AppColors.primary,
                                       borderRadius: BorderRadius.circular(20)),
                                   child: Text('$unread',
                                       style: const TextStyle(
@@ -344,25 +344,25 @@ class _ConversationScreenState extends State<ConversationScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_camera_rounded,
-                  color: AixoloColors.primary),
+                  color: AppColors.primary),
               title: const Text('Take photo'),
               onTap: () => Navigator.pop(sheet, 'photo'),
             ),
             ListTile(
               leading: const Icon(Icons.videocam_rounded,
-                  color: AixoloColors.danger),
+                  color: AppColors.danger),
               title: const Text('Record video'),
               onTap: () => Navigator.pop(sheet, 'video'),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_rounded,
-                  color: AixoloColors.success),
+                  color: AppColors.success),
               title: const Text('Photo or video from gallery'),
               onTap: () => Navigator.pop(sheet, 'gallery'),
             ),
             ListTile(
               leading: const Icon(Icons.attach_file_rounded,
-                  color: AixoloColors.purple),
+                  color: AppColors.purple),
               title: const Text('Document'),
               subtitle: const Text('PDF, Excel, Word…'),
               onTap: () => Navigator.pop(sheet, 'file'),
@@ -493,7 +493,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 video
                     ? Icons.play_circle_fill_rounded
                     : Icons.insert_drive_file_rounded,
-                color: mine ? Colors.white : AixoloColors.primary,
+                color: mine ? Colors.white : AppColors.primary,
                 size: 30),
             const SizedBox(width: 8),
             Flexible(
@@ -506,12 +506,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: mine ? Colors.white : AixoloColors.text)),
+                          color: mine ? Colors.white : AppColors.text)),
                   Text(
                       '${((a['size'] as num? ?? 0) / 1024).toStringAsFixed(0)} KB · tap to open',
                       style: TextStyle(
                           fontSize: 11,
-                          color: mine ? Colors.white70 : AixoloColors.muted)),
+                          color: mine ? Colors.white70 : AppColors.muted)),
                 ],
               ),
             ),
@@ -550,7 +550,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           margin: const EdgeInsets.symmetric(vertical: 3),
                           padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
                           decoration: BoxDecoration(
-                            color: mine ? AixoloColors.primary : Colors.white,
+                            color: mine ? AppColors.primary : Colors.white,
                             borderRadius: BorderRadius.only(
                               topLeft: const Radius.circular(16),
                               topRight: const Radius.circular(16),
@@ -559,7 +559,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             ),
                             border: mine
                                 ? null
-                                : Border.all(color: AixoloColors.border),
+                                : Border.all(color: AppColors.border),
                           ),
                           child: IntrinsicWidth(
                             child: Column(
@@ -571,7 +571,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                       style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w800,
-                                          color: AixoloColors.primary)),
+                                          color: AppColors.primary)),
                                 for (final a
                                     in ((m['attachments'] as List?) ?? [])
                                         .cast<Map<String, dynamic>>())
@@ -581,7 +581,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                       style: TextStyle(
                                           color: mine
                                               ? Colors.white
-                                              : AixoloColors.text,
+                                              : AppColors.text,
                                           height: 1.3)),
                                 const SizedBox(height: 2),
                                 Align(
@@ -591,7 +591,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                           fontSize: 10.5,
                                           color: mine
                                               ? Colors.white70
-                                              : AixoloColors.muted)),
+                                              : AppColors.muted)),
                                 ),
                               ],
                             ),
@@ -612,7 +612,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     tooltip: 'Attach',
                     onPressed: _sending ? null : _attach,
                     icon: const Icon(Icons.add_circle_outline_rounded,
-                        color: AixoloColors.primary),
+                        color: AppColors.primary),
                   ),
                   Expanded(
                     child: TextField(
@@ -697,9 +697,9 @@ class ChatDock extends StatelessWidget {
     return ValueListenableBuilder<int>(
       valueListenable: ChatBadge.unread,
       builder: (context, unread, _) => Material(
-        color: AixoloColors.primary,
+        color: AppColors.primary,
         elevation: 6,
-        shadowColor: AixoloColors.primary.withValues(alpha: 0.4),
+        shadowColor: AppColors.primary.withValues(alpha: 0.4),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
         child: InkWell(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
@@ -716,7 +716,7 @@ class ChatDock extends StatelessWidget {
                   const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(color: AixoloColors.danger, borderRadius: BorderRadius.circular(10)),
+                    decoration: BoxDecoration(color: AppColors.danger, borderRadius: BorderRadius.circular(10)),
                     child: Text(unread > 99 ? '99+' : '$unread',
                         style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
                   ),

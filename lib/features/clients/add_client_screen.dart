@@ -156,8 +156,8 @@ class _AddClientScreenState extends State<AddClientScreen> {
             Card(
               child: ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: (pos != null ? AixoloColors.success : AixoloColors.warning).withValues(alpha: 0.14),
-                  child: Icon(Icons.my_location_rounded, color: pos != null ? AixoloColors.success : AixoloColors.warning),
+                  backgroundColor: (pos != null ? AppColors.success : AppColors.warning).withValues(alpha: 0.14),
+                  child: Icon(Icons.my_location_rounded, color: pos != null ? AppColors.success : AppColors.warning),
                 ),
                 title: Text(_locating
                     ? 'Getting location...'

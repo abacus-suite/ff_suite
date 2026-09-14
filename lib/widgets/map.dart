@@ -14,7 +14,7 @@ import '../core/theme.dart';
 const _voyagerTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 const _darkTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png';
 const _subdomains = ['a', 'b', 'c', 'd'];
-const mapUserAgent = 'com.aixomind.aixolo';
+const mapUserAgent = 'com.abs.fieldforce';
 
 /// Kept for anything that still asks for a raw tile URL.
 const osmTiles = _voyagerTiles;
@@ -63,8 +63,8 @@ String mapCredit() => Services.googleTiles.available ? 'Google' : '© OpenStreet
 
 /// A map with the basemap, attribution and the controls people expect:
 /// zoom buttons and a recentre button.
-class AixoloMap extends StatefulWidget {
-  const AixoloMap({
+class AppMap extends StatefulWidget {
+  const AppMap({
     super.key,
     required this.children,
     this.center,
@@ -92,10 +92,10 @@ class AixoloMap extends StatefulWidget {
   final EdgeInsets padding;
 
   @override
-  State<AixoloMap> createState() => _AixoloMapState();
+  State<AppMap> createState() => _AppMapState();
 }
 
-class _AixoloMapState extends State<AixoloMap> with TickerProviderStateMixin {
+class _AppMapState extends State<AppMap> with TickerProviderStateMixin {
   final MapController _controller = MapController();
 
   LatLng get _fallbackCenter =>
@@ -132,7 +132,7 @@ class _AixoloMapState extends State<AixoloMap> with TickerProviderStateMixin {
             interactionOptions: InteractionOptions(
               flags: widget.interactive ? InteractiveFlag.all & ~InteractiveFlag.rotate : InteractiveFlag.none,
             ),
-            backgroundColor: AixoloColors.background,
+            backgroundColor: AppColors.background,
           ),
           children: [
             const BaseMapLayer(),
@@ -150,7 +150,7 @@ class _AixoloMapState extends State<AixoloMap> with TickerProviderStateMixin {
                 const SizedBox(height: 8),
                 _MapButton(icon: Icons.remove_rounded, onTap: () => _zoomBy(-1)),
                 const SizedBox(height: 12),
-                _MapButton(icon: Icons.my_location_rounded, onTap: _recentre, tint: AixoloColors.primary),
+                _MapButton(icon: Icons.my_location_rounded, onTap: _recentre, tint: AppColors.primary),
               ],
             ),
           ),
@@ -200,7 +200,7 @@ class _MapButton extends StatelessWidget {
         child: SizedBox(
           width: 40,
           height: 40,
-          child: Icon(icon, size: 20, color: tint ?? AixoloColors.text),
+          child: Icon(icon, size: 20, color: tint ?? AppColors.text),
         ),
       ),
     );
@@ -334,7 +334,7 @@ class MapPinWithLabel extends StatelessWidget {
 
 /// The blue "you are here" dot with a soft halo.
 class MyLocationDot extends StatelessWidget {
-  const MyLocationDot({super.key, this.color = AixoloColors.sky});
+  const MyLocationDot({super.key, this.color = AppColors.sky});
 
   final Color color;
 
@@ -364,7 +364,7 @@ class MyLocationDot extends StatelessWidget {
 /// navigation apps draw a route.
 List<Polyline> travelPath(List<LatLng> points, {Color? color}) {
   if (points.length < 2) return const [];
-  final line = color ?? AixoloColors.primary;
+  final line = color ?? AppColors.primary;
   return [
     Polyline(points: points, strokeWidth: 9, color: Colors.white.withValues(alpha: 0.85)),
     Polyline(points: points, strokeWidth: 5, color: line),

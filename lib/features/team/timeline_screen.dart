@@ -114,7 +114,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
       Expanded(
         child: allPoints.isEmpty
             ? const Center(child: Text('No location data for this day'))
-            : AixoloMap(
+            : AppMap(
                 fitPoints: allPoints,
                 center: allPoints.first,
                 zoom: 14,
@@ -122,14 +122,14 @@ class _TimelineScreenState extends State<TimelineScreen> {
                   PolylineLayer(polylines: travelPath(points)),
                   MarkerLayer(markers: [
                     if (points.isNotEmpty)
-                      Marker(point: points.first, child: const Icon(Icons.trip_origin_rounded, color: AixoloColors.success)),
+                      Marker(point: points.first, child: const Icon(Icons.trip_origin_rounded, color: AppColors.success)),
                     if (points.isNotEmpty)
                       Marker(
                         point: points.last,
                         width: MapPin.size.width,
                         height: MapPin.size.height,
                         alignment: Alignment.topCenter,
-                        child: const MapPin(color: AixoloColors.danger, icon: Icons.navigation_rounded),
+                        child: const MapPin(color: AppColors.danger, icon: Icons.navigation_rounded),
                       ),
                     for (final (visit, point) in visitPoints)
                       Marker(
@@ -139,7 +139,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                         alignment: Alignment.topCenter,
                         child: MapPinWithLabel(
                           label: '${(visit['client'] as Map)['name']}',
-                          color: visit['inside_geofence'] == false ? AixoloColors.warning : AixoloColors.purple,
+                          color: visit['inside_geofence'] == false ? AppColors.warning : AppColors.purple,
                           icon: Icons.storefront_rounded,
                           onTap: () => showSnack(context,
                               '${(visit['client'] as Map)['name']} · ${fmtTime(visit['check_in_at'])}–${fmtTime(visit['check_out_at'])}'

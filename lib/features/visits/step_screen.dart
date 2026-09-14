@@ -126,7 +126,7 @@ class _StepScreenState extends State<StepScreen> {
             Card(
               color: const Color(0xFFEAF3FF),
               child: ListTile(
-                leading: const Icon(Icons.info_outline_rounded, color: AixoloColors.primary),
+                leading: const Icon(Icons.info_outline_rounded, color: AppColors.primary),
                 title: Text('${step['instruction']}'),
               ),
             ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Aixolo brand colours, taken from the logo (royal blue -> sky -> aqua).
-class AixoloColors {
+/// Field Force brand colours, taken from the logo (royal blue -> sky -> aqua).
+class AppColors {
   static const primary = Color(0xFF1A56DB);
   static const primaryDark = Color(0xFF0B3AA8);
   static const sky = Color(0xFF1E90FF);
@@ -29,42 +29,42 @@ class AixoloColors {
   static const successGradient = LinearGradient(colors: [Color(0xFF16A34A), Color(0xFF14D3C0)]);
 }
 
-ThemeData aixoloTheme() {
+ThemeData appTheme() {
   final scheme = ColorScheme.fromSeed(
-    seedColor: AixoloColors.primary,
-    primary: AixoloColors.primary,
-    secondary: AixoloColors.teal,
+    seedColor: AppColors.primary,
+    primary: AppColors.primary,
+    secondary: AppColors.teal,
     surface: Colors.white,
   );
   final rounded = RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
   final inputBorder = OutlineInputBorder(
     borderRadius: BorderRadius.circular(14),
-    borderSide: const BorderSide(color: AixoloColors.border),
+    borderSide: const BorderSide(color: AppColors.border),
   );
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: AixoloColors.background,
+    scaffoldBackgroundColor: AppColors.background,
     appBarTheme: const AppBarTheme(
-      backgroundColor: AixoloColors.background,
-      foregroundColor: AixoloColors.text,
+      backgroundColor: AppColors.background,
+      foregroundColor: AppColors.text,
       elevation: 0,
       scrolledUnderElevation: 0,
       titleTextStyle: TextStyle(
-          color: AixoloColors.text, fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -0.2),
+          color: AppColors.text, fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -0.2),
       centerTitle: false,
     ),
     textTheme: const TextTheme(
-      titleLarge: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.3, color: AixoloColors.text),
-      titleMedium: TextStyle(fontWeight: FontWeight.w700, color: AixoloColors.text),
-      bodyMedium: TextStyle(color: AixoloColors.text, height: 1.35),
-      bodySmall: TextStyle(color: AixoloColors.muted, height: 1.3),
+      titleLarge: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.3, color: AppColors.text),
+      titleMedium: TextStyle(fontWeight: FontWeight.w700, color: AppColors.text),
+      bodyMedium: TextStyle(color: AppColors.text, height: 1.35),
+      bodySmall: TextStyle(color: AppColors.muted, height: 1.3),
       labelLarge: TextStyle(fontWeight: FontWeight.w700),
     ),
     listTileTheme: const ListTileThemeData(
-      titleTextStyle: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: AixoloColors.text),
-      subtitleTextStyle: TextStyle(fontSize: 12.5, color: AixoloColors.muted, height: 1.3),
-      iconColor: AixoloColors.muted,
+      titleTextStyle: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.text),
+      subtitleTextStyle: TextStyle(fontSize: 12.5, color: AppColors.muted, height: 1.3),
+      iconColor: AppColors.muted,
     ),
     cardTheme: CardThemeData(
       color: Colors.white,
@@ -74,12 +74,12 @@ ThemeData aixoloTheme() {
       margin: const EdgeInsets.symmetric(vertical: 6),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: AixoloColors.border.withValues(alpha: 0.7)),
+        side: BorderSide(color: AppColors.border.withValues(alpha: 0.7)),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: AixoloColors.primary,
+        backgroundColor: AppColors.primary,
         shape: rounded,
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
@@ -89,7 +89,7 @@ ThemeData aixoloTheme() {
       style: OutlinedButton.styleFrom(
         shape: rounded,
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-        side: const BorderSide(color: AixoloColors.primary),
+        side: const BorderSide(color: AppColors.primary),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -99,22 +99,22 @@ ThemeData aixoloTheme() {
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: inputBorder,
       enabledBorder: inputBorder,
-      focusedBorder: inputBorder.copyWith(borderSide: const BorderSide(color: AixoloColors.primary, width: 1.6)),
+      focusedBorder: inputBorder.copyWith(borderSide: const BorderSide(color: AppColors.primary, width: 1.6)),
     ),
     chipTheme: ChipThemeData(
       shape: const StadiumBorder(),
-      side: BorderSide(color: AixoloColors.border.withValues(alpha: 0.8)),
+      side: BorderSide(color: AppColors.border.withValues(alpha: 0.8)),
       backgroundColor: Colors.white,
       selectedColor: const Color(0xFFE8EFFF),
       // Spelled out: left to the scheme, labels came out white on white.
-      labelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AixoloColors.text),
+      labelStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.text),
       secondaryLabelStyle:
-          const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AixoloColors.primary),
-      checkmarkColor: AixoloColors.primary,
-      iconTheme: const IconThemeData(color: AixoloColors.primary, size: 16),
+          const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.primary),
+      checkmarkColor: AppColors.primary,
+      iconTheme: const IconThemeData(color: AppColors.primary, size: 16),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     ),
-    dividerTheme: DividerThemeData(color: AixoloColors.border.withValues(alpha: 0.7), space: 20),
+    dividerTheme: DividerThemeData(color: AppColors.border.withValues(alpha: 0.7), space: 20),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: Colors.white,
       indicatorColor: const Color(0xFFE3EDFF),
@@ -126,7 +126,7 @@ ThemeData aixoloTheme() {
           const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: AixoloColors.primary,
+      backgroundColor: AppColors.primary,
       foregroundColor: Colors.white,
     ),
   );

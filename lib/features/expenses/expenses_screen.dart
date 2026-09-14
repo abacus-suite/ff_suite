@@ -98,14 +98,14 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                         children: [
                           Text(fmtMoney(data['total_amount'] as num?, currency),
                               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                          const Text('Claimed', style: TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                          const Text('Claimed', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                         ],
                       ),
                       Column(
                         children: [
                           Text(fmtMoney(data['approved_amount'] as num?, currency),
-                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AixoloColors.success)),
-                          const Text('Approved', style: TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.success)),
+                          const Text('Approved', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                         ],
                       ),
                     ],
@@ -118,8 +118,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: AixoloColors.warning.withValues(alpha: 0.12),
-                    child: const Icon(Icons.receipt_long_rounded, color: AixoloColors.warning),
+                    backgroundColor: AppColors.warning.withValues(alpha: 0.12),
+                    child: const Icon(Icons.receipt_long_rounded, color: AppColors.warning),
                   ),
                   title: Text('${(claim['category'] as Map?)?['name'] ?? ''}',
                       style: const TextStyle(fontWeight: FontWeight.w600)),

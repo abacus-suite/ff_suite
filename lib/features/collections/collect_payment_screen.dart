@@ -157,7 +157,7 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
                           SectionCard(
                             title: '${widget.client['name']}',
                             child: Text(asText(widget.client['address']) ?? 'Payment against this account',
-                                style: const TextStyle(color: AixoloColors.muted)),
+                                style: const TextStyle(color: AppColors.muted)),
                           ),
                           const SizedBox(height: 8),
                           Wrap(
@@ -261,9 +261,9 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
                                     height: 84,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: AixoloColors.muted.withValues(alpha: 0.4)),
+                                      border: Border.all(color: AppColors.muted.withValues(alpha: 0.4)),
                                     ),
-                                    child: const Icon(Icons.add_a_photo_outlined, color: AixoloColors.muted),
+                                    child: const Icon(Icons.add_a_photo_outlined, color: AppColors.muted),
                                   ),
                                 ),
                             ],

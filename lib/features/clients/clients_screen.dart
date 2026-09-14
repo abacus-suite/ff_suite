@@ -187,7 +187,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                   },
                 ),
                 const Spacer(),
-                Text('$_total found', style: const TextStyle(fontSize: 12, color: AixoloColors.muted)),
+                Text('$_total found', style: const TextStyle(fontSize: 12, color: AppColors.muted)),
               ],
             ),
           ),
@@ -223,7 +223,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
       return const EmptyView(icon: Icons.location_off_rounded, text: 'No contacts with a GPS location');
     }
     final center = _me ?? LatLng((located.first['lat'] as num).toDouble(), (located.first['lng'] as num).toDouble());
-    return AixoloMap(
+    return AppMap(
       center: center,
       zoom: 12,
       myLocation: _me,
@@ -249,7 +249,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 alignment: Alignment.topCenter,
                 child: MapPinWithLabel(
                   label: '${c['name']}',
-                  color: c['approval_state'] == 'approved' ? AixoloColors.primary : AixoloColors.warning,
+                  color: c['approval_state'] == 'approved' ? AppColors.primary : AppColors.warning,
                   icon: Icons.storefront_rounded,
                   onTap: () => _open(c),
                 ),
@@ -275,9 +275,9 @@ class ClientTile extends StatelessWidget {
     return Card(
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: AixoloColors.primary.withValues(alpha: 0.10),
+          backgroundColor: AppColors.primary.withValues(alpha: 0.10),
           child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-              style: const TextStyle(color: AixoloColors.primary, fontWeight: FontWeight.w800)),
+              style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800)),
         ),
         title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
@@ -286,7 +286,7 @@ class ClientTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         trailing: client['distance_m'] != null
-            ? Text(fmtDistance(client['distance_m'] as num?), style: const TextStyle(color: AixoloColors.muted, fontSize: 12))
+            ? Text(fmtDistance(client['distance_m'] as num?), style: const TextStyle(color: AppColors.muted, fontSize: 12))
             : null,
         onTap: onTap,
       ),

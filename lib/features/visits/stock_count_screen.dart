@@ -184,10 +184,10 @@ class _StockCountScreenState extends State<StockCountScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Row(
                 children: [
-                  const Icon(Icons.history_rounded, size: 16, color: AixoloColors.muted),
+                  const Icon(Icons.history_rounded, size: 16, color: AppColors.muted),
                   const SizedBox(width: 6),
                   Text('Last count ${fmtDate(_previousDate!)}',
-                      style: const TextStyle(fontSize: 12, color: AixoloColors.muted)),
+                      style: const TextStyle(fontSize: 12, color: AppColors.muted)),
                 ],
               ),
             ),

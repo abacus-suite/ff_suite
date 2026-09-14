@@ -76,13 +76,13 @@ class _MonthTargetCardState extends State<MonthTargetCard> {
                   child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: (achievement >= 100 ? AixoloColors.success : AixoloColors.primary).withValues(alpha: 0.12),
+                    color: (achievement >= 100 ? AppColors.success : AppColors.primary).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text('$achievement%',
                       style: TextStyle(
                           fontWeight: FontWeight.w800,
-                          color: achievement >= 100 ? AixoloColors.success : AixoloColors.primary)),
+                          color: achievement >= 100 ? AppColors.success : AppColors.primary)),
                 ),
                 ),
               ),
@@ -90,11 +90,11 @@ class _MonthTargetCardState extends State<MonthTargetCard> {
               for (final m in metrics) ...[
                 Row(
                   children: [
-                    Icon(_icons[m['key']] ?? Icons.flag_rounded, size: 18, color: AixoloColors.muted),
+                    Icon(_icons[m['key']] ?? Icons.flag_rounded, size: 18, color: AppColors.muted),
                     const SizedBox(width: 8),
                     Expanded(child: Text('${m['label']}', style: const TextStyle(fontWeight: FontWeight.w600))),
                     Text('${value(m, 'actual')} / ${value(m, 'target')}',
-                        style: const TextStyle(fontSize: 12.5, color: AixoloColors.muted)),
+                        style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -103,8 +103,8 @@ class _MonthTargetCardState extends State<MonthTargetCard> {
                   child: LinearProgressIndicator(
                     minHeight: 7,
                     value: (((m['percent'] as num?) ?? 0) / 100).clamp(0.0, 1.0).toDouble(),
-                    backgroundColor: AixoloColors.border,
-                    color: ((m['percent'] as num?) ?? 0) >= 100 ? AixoloColors.success : AixoloColors.primary,
+                    backgroundColor: AppColors.border,
+                    color: ((m['percent'] as num?) ?? 0) >= 100 ? AppColors.success : AppColors.primary,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -112,13 +112,13 @@ class _MonthTargetCardState extends State<MonthTargetCard> {
               if (me['incentive'] != null)
                 Row(
                   children: [
-                    const Icon(Icons.card_giftcard_rounded, size: 18, color: AixoloColors.success),
+                    const Icon(Icons.card_giftcard_rounded, size: 18, color: AppColors.success),
                     const SizedBox(width: 8),
                     Expanded(
                         child: Text('${(me['incentive'] as Map)['status'] ?? 'Incentive'}',
-                            style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5))),
+                            style: const TextStyle(color: AppColors.muted, fontSize: 12.5))),
                     Text(fmtMoney((me['incentive'] as Map)['earned'] as num?, currency),
-                        style: const TextStyle(fontWeight: FontWeight.w800, color: AixoloColors.success)),
+                        style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.success)),
                   ],
                 ),
             ],
@@ -190,14 +190,14 @@ class _MyTasksCardState extends State<MyTasksCard> {
               if (tasks.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text('Nothing open. Nice.', style: TextStyle(color: AixoloColors.muted)),
+                  child: Text('Nothing open. Nice.', style: TextStyle(color: AppColors.muted)),
                 )
               else ...[
                 if ((summary['overdue'] ?? 0) > 0)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Text('${summary['overdue']} overdue',
-                        style: const TextStyle(color: AixoloColors.danger, fontWeight: FontWeight.w700)),
+                        style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w700)),
                   ),
                 for (final task in tasks.take(3))
                   ListTile(

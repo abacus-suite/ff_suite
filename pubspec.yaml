@@ -1,5 +1,5 @@
 name: field_force_app
-description: Aixolo by Aixomind - field force app for sales officers and managers (Odoo 19 backend).
+description: Field Force by ABS - field force app for sales officers and managers (Odoo 19 backend).
 publish_to: 'none'
 version: 0.3.0+3
 

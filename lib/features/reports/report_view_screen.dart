@@ -166,13 +166,13 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
     final selected = value == _member;
     return ListTile(
       leading: Icon(icon,
-          color: selected ? AixoloColors.primary : AixoloColors.muted),
+          color: selected ? AppColors.primary : AppColors.muted),
       title: Text(title,
           style: TextStyle(
               fontWeight: selected ? FontWeight.w800 : FontWeight.w500)),
       subtitle: subtitle == null ? null : Text(subtitle),
       trailing: selected
-          ? const Icon(Icons.check_rounded, color: AixoloColors.primary)
+          ? const Icon(Icons.check_rounded, color: AppColors.primary)
           : null,
       onTap: () => Navigator.pop(sheet, value),
     );
@@ -245,7 +245,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
         s.contains('cancel') ||
         s.contains('refuse') ||
         s.contains('offsite')) {
-      return AixoloColors.danger;
+      return AppColors.danger;
     }
     if (s.contains('approv') ||
         s.contains('received') ||
@@ -255,9 +255,9 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
         s.contains('sale') ||
         s.contains('validate') ||
         s.contains('checked out')) {
-      return AixoloColors.success;
+      return AppColors.success;
     }
-    return AixoloColors.warning;
+    return AppColors.warning;
   }
 
   // ------------------------------------------------------------------
@@ -394,7 +394,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
                   PopupMenuItem(
                     value: v,
                     child: Row(children: [
-                      Icon(_viewIcon(v), size: 20, color: AixoloColors.primary),
+                      Icon(_viewIcon(v), size: 20, color: AppColors.primary),
                       const SizedBox(width: 10),
                       Text(_viewLabel(v)),
                     ]),
@@ -430,7 +430,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
                     : rows.isEmpty && !_loading
                         ? const Center(
                             child: Text('Nothing in this period',
-                                style: TextStyle(color: AixoloColors.muted)))
+                                style: TextStyle(color: AppColors.muted)))
                         : RefreshIndicator(
                             onRefresh: _load,
                             child: _view == _View.chart
@@ -704,7 +704,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
           const Center(
             child: Padding(
               padding: EdgeInsets.only(right: 8),
-              child: Text('Summary by', style: TextStyle(color: AixoloColors.muted, fontWeight: FontWeight.w700)),
+              child: Text('Summary by', style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700)),
             ),
           ),
           for (final split in _splits)
@@ -771,18 +771,18 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
             child: Row(
               children: [
                 const Icon(Icons.event_rounded,
-                    size: 16, color: AixoloColors.muted),
+                    size: 16, color: AppColors.muted),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                       '${_prettyDate(fmtDate(_range.start))}  →  ${_prettyDate(fmtDate(_range.end))}',
                       style: const TextStyle(
-                          color: AixoloColors.muted, fontSize: 12.5)),
+                          color: AppColors.muted, fontSize: 12.5)),
                 ),
                 if (widget.canTeam)
                   ActionChip(
                     avatar: const Icon(Icons.people_alt_rounded,
-                        size: 16, color: AixoloColors.primary),
+                        size: 16, color: AppColors.primary),
                     label: Text(_memberLabel),
                     onPressed: _chooseMember,
                   ),
@@ -889,10 +889,10 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
               headingRowColor: const WidgetStatePropertyAll(Color(0xFFE8EFFF)),
               headingTextStyle: const TextStyle(
                   fontWeight: FontWeight.w800,
-                  color: AixoloColors.text,
+                  color: AppColors.text,
                   fontSize: 13),
               dataTextStyle:
-                  const TextStyle(color: AixoloColors.text, fontSize: 13),
+                  const TextStyle(color: AppColors.text, fontSize: 13),
               columnSpacing: 22,
               horizontalMargin: 14,
               columns: [

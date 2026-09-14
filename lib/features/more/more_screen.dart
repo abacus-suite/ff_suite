@@ -31,32 +31,32 @@ class MoreScreen extends StatelessWidget {
     final profile = Services.auth.profile!;
     void open(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
     final menu = <(IconData, String, Color, Widget)>[
-      (Icons.bar_chart_rounded, 'Reports', AixoloColors.primary, const ReportsScreen()),
-      (Icons.task_alt_rounded, 'Tasks', AixoloColors.success, const TasksScreen()),
-      (Icons.forum_rounded, 'Chat', AixoloColors.primary, const ChatListScreen()),
-      (Icons.account_balance_wallet_rounded, 'Receivables', AixoloColors.danger, const ReceivablesScreen()),
+      (Icons.bar_chart_rounded, 'Reports', AppColors.primary, const ReportsScreen()),
+      (Icons.task_alt_rounded, 'Tasks', AppColors.success, const TasksScreen()),
+      (Icons.forum_rounded, 'Chat', AppColors.primary, const ChatListScreen()),
+      (Icons.account_balance_wallet_rounded, 'Receivables', AppColors.danger, const ReceivablesScreen()),
       if (profile.feature('routes')) ...[
-        (Icons.calendar_month_rounded, 'My ${profile.routeLabel} Plan', AixoloColors.primary, const BeatTodayScreen()),
-        (Icons.edit_calendar_rounded, 'Plan a ${profile.routeLabel} Day', AixoloColors.sky, const PlanDayScreen()),
+        (Icons.calendar_month_rounded, 'My ${profile.routeLabel} Plan', AppColors.primary, const BeatTodayScreen()),
+        (Icons.edit_calendar_rounded, 'Plan a ${profile.routeLabel} Day', AppColors.sky, const PlanDayScreen()),
       ],
       if (profile.feature('visits'))
-        (Icons.add_business_rounded, 'Add ${profile.label('client', 'Customer')}', AixoloColors.teal, const AddClientScreen()),
+        (Icons.add_business_rounded, 'Add ${profile.label('client', 'Customer')}', AppColors.teal, const AddClientScreen()),
       if (profile.feature('attendance')) ...[
-        (Icons.event_available_rounded, 'My Attendance', AixoloColors.success, const MonthScreen()),
-        (Icons.edit_calendar_rounded, 'Attendance Correction', AixoloColors.sky, const RegularisationScreen()),
+        (Icons.event_available_rounded, 'My Attendance', AppColors.success, const MonthScreen()),
+        (Icons.edit_calendar_rounded, 'Attendance Correction', AppColors.sky, const RegularisationScreen()),
       ],
-      if (profile.feature('forms')) (Icons.assignment_rounded, 'Forms', AixoloColors.purple, const FormsScreen()),
-      (Icons.receipt_rounded, 'My Expenses', AixoloColors.warning, const ExpensesScreen()),
-      (Icons.beach_access_rounded, 'My Time Off', AixoloColors.sky, const LeavesScreen()),
-      (Icons.notifications_none_rounded, 'Notifications', AixoloColors.primary, const NotificationsScreen()),
+      if (profile.feature('forms')) (Icons.assignment_rounded, 'Forms', AppColors.purple, const FormsScreen()),
+      (Icons.receipt_rounded, 'My Expenses', AppColors.warning, const ExpensesScreen()),
+      (Icons.beach_access_rounded, 'My Time Off', AppColors.sky, const LeavesScreen()),
+      (Icons.notifications_none_rounded, 'Notifications', AppColors.primary, const NotificationsScreen()),
       if (profile.feature('allowance'))
-        (Icons.local_gas_station_rounded, 'Travel Allowance', AixoloColors.purple, const AllowanceScreen()),
+        (Icons.local_gas_station_rounded, 'Travel Allowance', AppColors.purple, const AllowanceScreen()),
       if (profile.paymentCollection)
-        (Icons.payments_rounded, 'Collections', AixoloColors.teal, const CollectionsScreen()),
+        (Icons.payments_rounded, 'Collections', AppColors.teal, const CollectionsScreen()),
       if (profile.isManager) ...[
-        (Icons.fact_check_rounded, 'Approvals', AixoloColors.warning, const ApprovalsScreen()),
+        (Icons.fact_check_rounded, 'Approvals', AppColors.warning, const ApprovalsScreen()),
         if (profile.paymentCollection)
-          (Icons.account_balance_rounded, 'Money To Receive', AixoloColors.success, const DepositsReceiveScreen()),
+          (Icons.account_balance_rounded, 'Money To Receive', AppColors.success, const DepositsReceiveScreen()),
       ],
     ];
     return Scaffold(
@@ -68,7 +68,7 @@ class MoreScreen extends StatelessWidget {
             tooltip: 'My profile',
             icon: CircleAvatar(
               radius: 16,
-              backgroundColor: AixoloColors.primary,
+              backgroundColor: AppColors.primary,
               child: Text(profile.name.isNotEmpty ? profile.name[0].toUpperCase() : '?',
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
             ),

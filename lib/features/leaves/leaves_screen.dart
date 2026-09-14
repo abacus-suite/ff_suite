@@ -126,7 +126,7 @@ class _LeavesScreenState extends State<LeavesScreen> {
                         title: 'My requests',
                         action: Text(
                           '${(data?['summary'] as Map?)?['waiting'] ?? 0} waiting',
-                          style: const TextStyle(color: AixoloColors.muted, fontSize: 12),
+                          style: const TextStyle(color: AppColors.muted, fontSize: 12),
                         ),
                         child: Column(
                           children: [
@@ -135,7 +135,7 @@ class _LeavesScreenState extends State<LeavesScreen> {
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 10),
                                 child: Text('No time off requested yet.',
-                                    style: TextStyle(color: AixoloColors.muted)),
+                                    style: TextStyle(color: AppColors.muted)),
                               ),
                           ],
                         ),
@@ -271,7 +271,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text('${fmtQty(_type?['remaining'] as num? ?? 0)} days left of this type',
-                  style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12)),
             ),
           const SizedBox(height: 12),
           Card(

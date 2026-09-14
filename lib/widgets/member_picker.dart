@@ -79,10 +79,10 @@ class _MemberPickerState extends State<MemberPicker> {
   Widget _option(BuildContext sheet, String value, IconData icon, String title, {String? subtitle}) {
     final selected = value == widget.value;
     return ListTile(
-      leading: Icon(icon, color: selected ? AixoloColors.primary : AixoloColors.muted),
+      leading: Icon(icon, color: selected ? AppColors.primary : AppColors.muted),
       title: Text(title, style: TextStyle(fontWeight: selected ? FontWeight.w800 : FontWeight.w500)),
       subtitle: subtitle == null ? null : Text(subtitle),
-      trailing: selected ? const Icon(Icons.check_rounded, color: AixoloColors.primary) : null,
+      trailing: selected ? const Icon(Icons.check_rounded, color: AppColors.primary) : null,
       onTap: () => Navigator.pop(sheet, value),
     );
   }
@@ -92,7 +92,7 @@ class _MemberPickerState extends State<MemberPicker> {
     if (_data?['can_team'] != true) return const SizedBox.shrink();
     return ActionChip(
       visualDensity: widget.dense ? VisualDensity.compact : null,
-      avatar: const Icon(Icons.people_alt_rounded, size: 16, color: AixoloColors.primary),
+      avatar: const Icon(Icons.people_alt_rounded, size: 16, color: AppColors.primary),
       label: Text(_label, overflow: TextOverflow.ellipsis),
       onPressed: _choose,
     );

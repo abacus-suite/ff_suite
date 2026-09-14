@@ -1,10 +1,10 @@
-# Aixolo – field app (Flutter, Android)
+# Field Force – field app (Flutter, Android)
 
-One app for field staff and their managers. It talks to the Aixolo modules on
+One app for field staff and their managers. It talks to the Field Force modules on
 Odoo 19 (`ff_mobile_api` and friends) — see `odoo_addons/README.md` in the
 Odoo repository.
 
-Package: `com.aixomind.aixolo` · Flutter stable · Dart 3.
+Package: `com.abs.fieldforce` · Flutter stable · Dart 3.
 
 ## What the app does
 
@@ -73,7 +73,7 @@ flutter analyze
 flutter test
 ```
 
-## Settings that change the app (Odoo › Aixolo › Configuration › Settings)
+## Settings that change the app (Odoo › Field Force › Configuration › Settings)
 Field timezone · selfie on punch · fake GPS · geofence radius and blocking · visit lock
 and steps · stock count · payment collection · order flow (direct / demand) · idle
 logout hours · allowed phone clock difference · Google Maps key.

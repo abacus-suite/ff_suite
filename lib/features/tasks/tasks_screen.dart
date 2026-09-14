@@ -15,12 +15,12 @@ const _stateWords = {'todo': 'To do', 'in_progress': 'In progress', 'done': 'Don
 const _priorityWords = {'0': 'Normal', '1': 'High', '2': 'Urgent'};
 
 Color taskStateColour(Map<String, dynamic> task) {
-  if (task['is_overdue'] == true) return AixoloColors.danger;
+  if (task['is_overdue'] == true) return AppColors.danger;
   return switch (task['state']) {
-    'done' => AixoloColors.success,
-    'in_progress' => AixoloColors.primary,
-    'cancelled' => AixoloColors.muted,
-    _ => AixoloColors.warning,
+    'done' => AppColors.success,
+    'in_progress' => AppColors.primary,
+    'cancelled' => AppColors.muted,
+    _ => AppColors.warning,
   };
 }
 
@@ -129,7 +129,7 @@ class _TasksScreenState extends State<TasksScreen> {
                     const Spacer(),
                     if (summary.isNotEmpty)
                       Text('${summary['open']} open · ${summary['overdue']} overdue',
-                          style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5)),
+                          style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
                   ],
                 ),
               ],
@@ -144,9 +144,9 @@ class _TasksScreenState extends State<TasksScreen> {
                     child: tasks.isEmpty && !_loading
                         ? ListView(children: const [
                             SizedBox(height: 120),
-                            Icon(Icons.task_alt_rounded, size: 56, color: AixoloColors.muted),
+                            Icon(Icons.task_alt_rounded, size: 56, color: AppColors.muted),
                             SizedBox(height: 10),
-                            Center(child: Text('No tasks here', style: TextStyle(color: AixoloColors.muted))),
+                            Center(child: Text('No tasks here', style: TextStyle(color: AppColors.muted))),
                           ])
                         : ListView.builder(
                             padding: const EdgeInsets.fromLTRB(12, 10, 12, 90),
@@ -198,7 +198,7 @@ class _TaskTile extends StatelessWidget {
                           Padding(
                             padding: const EdgeInsets.only(right: 4),
                             child: Icon(Icons.flag_rounded,
-                                size: 16, color: task['priority'] == '2' ? AixoloColors.danger : AixoloColors.warning),
+                                size: 16, color: task['priority'] == '2' ? AppColors.danger : AppColors.warning),
                           ),
                         Expanded(
                           child: Text('${task['name']}',
@@ -215,7 +215,7 @@ class _TaskTile extends StatelessWidget {
                         if (customer != null) customer,
                         if (task['due'] != null) 'Due ${task['due']}',
                       ].join(' · '),
-                      style: const TextStyle(color: AixoloColors.muted, fontSize: 12.5),
+                      style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
                     ),
                   ],
                 ),
@@ -362,9 +362,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     if ((d.$3 ?? '').isNotEmpty)
                       ListTile(
                         dense: true,
-                        leading: Icon(d.$1, color: AixoloColors.primary),
-                        title: Text(d.$2, style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
-                        subtitle: Text(d.$3!, style: const TextStyle(color: AixoloColors.text, fontSize: 14.5)),
+                        leading: Icon(d.$1, color: AppColors.primary),
+                        title: Text(d.$2, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                        subtitle: Text(d.$3!, style: const TextStyle(color: AppColors.text, fontSize: 14.5)),
                       ),
                 ],
               ),
@@ -391,7 +391,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 GradientButton(
                   label: 'Finish task',
                   icon: Icons.task_alt_rounded,
-                  gradient: AixoloColors.successGradient,
+                  gradient: AppColors.successGradient,
                   busy: _busy,
                   onPressed: () => _act('done'),
                 ),
@@ -498,7 +498,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
             const SizedBox(height: 12),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.event_rounded, color: AixoloColors.primary),
+              leading: const Icon(Icons.event_rounded, color: AppColors.primary),
               title: Text(_due == null ? 'No due date' : 'Due ${fmtDate(_due!)}'),
               trailing: TextButton(
                 onPressed: () async {

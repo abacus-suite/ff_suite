@@ -59,7 +59,7 @@ class _FormsScreenState extends State<FormsScreen> {
                 child: ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: Color(0xFFEDE8FF),
-                    child: Icon(Icons.assignment_rounded, color: AixoloColors.purple),
+                    child: Icon(Icons.assignment_rounded, color: AppColors.purple),
                   ),
                   title: Text('${form['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: form['description'] != null ? Text('${form['description']}', maxLines: 2) : null,

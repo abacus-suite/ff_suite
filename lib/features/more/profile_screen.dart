@@ -73,7 +73,7 @@ class ProfileScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: AixoloColors.brandGradient,
+              gradient: AppColors.brandGradient,
               borderRadius: BorderRadius.circular(22),
             ),
             child: Row(
@@ -115,9 +115,9 @@ class ProfileScreen extends StatelessWidget {
                 for (final item in work)
                   if ((item.$3 ?? '').isNotEmpty)
                     ListTile(
-                      leading: Icon(item.$1, color: AixoloColors.primary),
-                      title: Text(item.$2, style: const TextStyle(color: AixoloColors.muted, fontSize: 12)),
-                      subtitle: Text(item.$3!, style: const TextStyle(color: AixoloColors.text, fontSize: 15)),
+                      leading: Icon(item.$1, color: AppColors.primary),
+                      title: Text(item.$2, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                      subtitle: Text(item.$3!, style: const TextStyle(color: AppColors.text, fontSize: 15)),
                     ),
               ],
             ),
@@ -134,15 +134,15 @@ class ProfileScreen extends StatelessWidget {
                 return Column(
                   children: [
                     ListTile(
-                      leading: const Icon(Icons.phone_android_rounded, color: AixoloColors.primary),
-                      title: const Text('App version', style: TextStyle(color: AixoloColors.muted, fontSize: 12)),
+                      leading: const Icon(Icons.phone_android_rounded, color: AppColors.primary),
+                      title: const Text('App version', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                       subtitle: Text(info == null ? '…' : '${info.version} (${info.buildNumber})',
-                          style: const TextStyle(color: AixoloColors.text, fontSize: 15)),
+                          style: const TextStyle(color: AppColors.text, fontSize: 15)),
                     ),
                     ListTile(
-                      leading: const Icon(Icons.dns_rounded, color: AixoloColors.primary),
-                      title: const Text('Server', style: TextStyle(color: AixoloColors.muted, fontSize: 12)),
-                      subtitle: Text(server ?? '…', style: const TextStyle(color: AixoloColors.text, fontSize: 15)),
+                      leading: const Icon(Icons.dns_rounded, color: AppColors.primary),
+                      title: const Text('Server', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                      subtitle: Text(server ?? '…', style: const TextStyle(color: AppColors.text, fontSize: 15)),
                     ),
                   ],
                 );
@@ -153,7 +153,7 @@ class ProfileScreen extends StatelessWidget {
           GradientButton(
             label: 'Log out',
             icon: Icons.logout_rounded,
-            gradient: AixoloColors.dangerGradient,
+            gradient: AppColors.dangerGradient,
             onPressed: () => _logout(context),
           ),
         ],
@@ -223,7 +223,7 @@ class _ChangeablePhotoState extends State<_ChangeablePhoto> {
             bottom: 0,
             child: Container(
               padding: const EdgeInsets.all(5),
-              decoration: const BoxDecoration(color: AixoloColors.primary, shape: BoxShape.circle),
+              decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
               child: _busy
                   ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.camera_alt_rounded, size: 12, color: Colors.white),
