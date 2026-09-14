@@ -38,7 +38,7 @@ class LocationTracker {
       distanceFilter: profile.distanceFilter,
       intervalDuration: Duration(seconds: profile.pingInterval),
       foregroundNotificationConfig: const ForegroundNotificationConfig(
-        notificationTitle: 'Aixolo',
+        notificationTitle: 'Field Force',
         notificationText: 'Location is shared with your manager while you are punched in.',
         enableWakeLock: true,
         setOngoing: true,

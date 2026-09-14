@@ -21,7 +21,8 @@ class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStat
       AnimationController(vsync: this, duration: const Duration(milliseconds: 2600));
   bool _left = false;
 
-  static const _name = 'Aixolo';
+  static const _name = 'Field Force';
+  static const _firstWord = 5; // 'Field' white, 'Force' green, as in the logo
 
   @override
   void initState() {
@@ -73,7 +74,7 @@ class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStat
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF0B3AA8), Color(0xFF1A56DB), Color(0xFF14B8C8)],
+                    colors: [Color(0xFF0A2472), Color(0xFF0E3FAE), Color(0xFF1A73E8)],
                   ),
                 ),
                 child: Stack(
@@ -106,10 +107,8 @@ class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStat
                             child: Container(
                               width: 118,
                               height: 118,
-                              padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(32),
+                                borderRadius: BorderRadius.circular(30),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.22),
@@ -135,16 +134,16 @@ class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStat
                           children: [
                             for (var i = 0; i < _name.length; i++)
                               Builder(builder: (_) {
-                                final t = _part(0.34 + i * 0.05, 0.56 + i * 0.05, Curves.easeOutBack);
+                                final t = _part(0.34 + i * 0.035, 0.56 + i * 0.035, Curves.easeOutBack);
                                 return Opacity(
                                   opacity: t.clamp(0.0, 1.0),
                                   child: Transform.translate(
                                     offset: Offset(0, 28 * (1 - t)),
                                     child: Text(
                                       _name[i],
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 46,
+                                      style: TextStyle(
+                                        color: i < _firstWord ? Colors.white : const Color(0xFF3DDC97),
+                                        fontSize: 42,
                                         fontWeight: FontWeight.w900,
                                         letterSpacing: 1.5,
                                         height: 1,

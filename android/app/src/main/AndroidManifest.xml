@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <uses-permission android:name="android.permission.CAMERA"/>
     <application
-        android:label="Aixolo"
+        android:label="Field Force"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

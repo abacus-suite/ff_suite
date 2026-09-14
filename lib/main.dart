@@ -18,7 +18,7 @@ class AixoloApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Aixolo',
+      title: 'Field Force',
       debugShowCheckedModeBanner: false,
       navigatorKey: Services.navigatorKey,
       theme: aixoloTheme(),
