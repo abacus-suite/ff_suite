@@ -1,5 +1,5 @@
 {
-    'name': 'Aixolo - Demo Data',
+    'name': 'Field Force - Demo Data',
     'version': '19.0.1.0.0',
     'category': 'Human Resources/Field Force',
     'summary': 'A 3-level team of 6, 15 beats, 30 customers and 10 days of attendance, visits, demands and collections',

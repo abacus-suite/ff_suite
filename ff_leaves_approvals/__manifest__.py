@@ -1,5 +1,5 @@
 {
-    'name': 'Aixolo - Time Off through Approval Chains',
+    'name': 'Field Force - Time Off through Approval Chains',
     'version': '19.0.1.0.0',
     'category': 'Human Resources/Field Force',
     'summary': 'Leave requests walk the same first/second approver chain as expenses, when a flow is set',

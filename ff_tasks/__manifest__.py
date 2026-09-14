@@ -1,5 +1,5 @@
 {
-    'name': 'Aixolo - Tasks',
+    'name': 'Field Force - Tasks',
     'version': '19.0.1.0.1',
     'category': 'Human Resources/Field Force',
     'summary': 'Tasks assigned to field staff, done and proven from the app',

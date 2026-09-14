@@ -13,7 +13,7 @@
                     <setting string="Splitting rule" help="Whether the parts may add up to more than the target they come from.">
                         <field name="ff_targets_split_mode" widget="radio"/>
                     </setting>
-                    <setting string="Default incentive" help="Rules live under Aixolo › Targets › Incentive Rules.">
+                    <setting string="Default incentive" help="Rules live under Field Force › Targets › Incentive Rules.">
                         <field name="ff_targets_default_rule_id"/>
                     </setting>
                 </block>

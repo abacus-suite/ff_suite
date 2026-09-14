@@ -7,8 +7,8 @@
             <!-- Sidebar -->
             <div class="ff_panel_side" t-att-class="state.collapsed ? 'ff_panel_side_narrow' : ''">
                 <div class="ff_panel_brand">
-                    <img src="/ff_base/static/description/icon.png" alt="Aixolo"/>
-                    <span t-if="!state.collapsed">Aixolo</span>
+                    <img src="/ff_base/static/description/icon.png" alt="Field Force"/>
+                    <span t-if="!state.collapsed">Field Force</span>
                     <button class="btn btn-sm ms-auto ff_panel_collapse" t-on-click="toggleSidebar">
                         <i class="fa" t-att-class="state.collapsed ? 'fa-angle-right' : 'fa-angle-left'"/>
                     </button>

@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//block[@name='ff_security_settings']" position="after">
                 <block title="Manager Alerts" name="ff_alert_settings">
-                    <setting help="The reporting manager gets a notification in the app, and the alert is listed under Aixolo › Alerts.">
+                    <setting help="The reporting manager gets a notification in the app, and the alert is listed under Field Force › Alerts.">
                         <field name="ff_alerts_enabled"/>
                         <div class="mt-2" invisible="not ff_alerts_enabled">
                             <div><field name="ff_alerts_kind_inactive"/> <label for="ff_alerts_kind_inactive"/></div>

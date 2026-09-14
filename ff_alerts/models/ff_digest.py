@@ -60,7 +60,7 @@ class FfDigest(models.AbstractModel):
         rows = [self._row(employee, start, end) for employee in team.sorted('name')]
         email = manager.work_email or manager.user_id.email
         period = start.strftime('%d %b %Y') if start == end else '%s – %s' % (start.strftime('%d %b'), end.strftime('%d %b %Y'))
-        subject = 'Aixolo %s · %s · %d people' % (title.lower(), period, len(rows))
+        subject = 'Field Force %s · %s · %d people' % (title.lower(), period, len(rows))
         self.env['mail.mail'].sudo().create({
             'subject': subject,
             'email_to': email,
@@ -161,7 +161,7 @@ class FfDigest(models.AbstractModel):
             '<th style="padding:8px;text-align:right">Collected</th><th style="padding:8px;text-align:right">Km</th>'
             '<th style="padding:8px;text-align:right">Tasks done</th><th style="padding:8px;text-align:right">Alerts</th></tr>'
             '%s</table>'
-            '<p style="color:#6b7a99;font-size:12px;margin-top:16px">Sent by Aixolo. Open the Aixolo panel in Odoo for the detail.</p>'
+            '<p style="color:#6b7a99;font-size:12px;margin-top:16px">Sent by Field Force. Open the Field Force panel in Odoo for the detail.</p>'
             '</div>'
         ) % (
             escape(title), escape(period), escape(manager.name),

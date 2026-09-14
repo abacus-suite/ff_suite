@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//block[@name='ff_security_settings']" position="before">
                 <block title="Free Goods (FOC)" name="ff_foc_settings">
-                    <setting help="Schemes under Aixolo › Sales › Schemes &amp; FOC are always applied. With this on, reps can also add free samples or trade FOC by hand, with a reason.">
+                    <setting help="Schemes under Field Force › Sales › Schemes &amp; FOC are always applied. With this on, reps can also add free samples or trade FOC by hand, with a reason.">
                         <field name="ff_foc_manual_allowed"/>
                     </setting>
                 </block>

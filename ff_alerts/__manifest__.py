@@ -1,5 +1,5 @@
 {
-    'name': 'Aixolo - Manager Alerts & Email Digest',
+    'name': 'Field Force - Manager Alerts & Email Digest',
     'version': '19.0.1.0.0',
     'category': 'Human Resources/Field Force',
     'summary': 'Tell managers when someone stops moving, loses signal, turns GPS off or visits offsite; daily and weekly email summary',

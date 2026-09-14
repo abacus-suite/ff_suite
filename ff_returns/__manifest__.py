@@ -1,5 +1,5 @@
 {
-    'name': 'Aixolo - Returns & Damaged Stock',
+    'name': 'Field Force - Returns & Damaged Stock',
     'version': '19.0.1.0.0',
     'category': 'Human Resources/Field Force',
     'summary': 'Sales returns and damaged or expired stock reported at the outlet, approved, and credited',

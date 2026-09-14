@@ -22,7 +22,7 @@ def pct_change(today, yesterday):
 
 class FfDashboard(models.AbstractModel):
     _name = 'ff.dashboard'
-    _description = 'Aixolo Dashboard Data'
+    _description = 'Field Force Dashboard Data'
 
     # ------------------------------------------------------------------
     # Who the viewer may see
