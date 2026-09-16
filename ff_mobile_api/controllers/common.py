@@ -216,6 +216,7 @@ def employee_profile(employee):
             'visit_lock': settings['visit_lock'],
             'visit_steps': settings['visit_steps'],
             'stock_count': settings['stock_count'],
+            'visit_recommendations': settings['visit_recommendations'],
             'payment_collection': settings['payment_collection'],
             'idle_logout_hours': settings['idle_logout_hours'],
             'max_clock_skew': settings['max_clock_skew'],

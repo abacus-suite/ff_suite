@@ -44,6 +44,13 @@ class ResConfigSettings(models.TransientModel):
     ff_stock_count = fields.Boolean(
         string='Stock Count', config_parameter='ff_base.stock_count',
         help='Count stock at the customer and compare it with the previous count.')
+    ff_visit_recommendations = fields.Boolean(
+        string='Visit Recommendations', config_parameter='ff_base.visit_recommendations',
+        help='In the app, suggest the shortest order for the planned customers of the day and nearby customers due a visit.')
+    ff_recommend_radius_km = fields.Integer(string='Look Nearby Within (km)', config_parameter='ff_base.recommend_radius_km',
+                                            default=3)
+    ff_recommend_due_days = fields.Integer(string='Due After (days)', config_parameter='ff_base.recommend_due_days',
+                                           default=7)
     ff_payment_collection = fields.Boolean(
         string='Payment Collection', config_parameter='ff_base.payment_collection',
         help='Collect money at the customer and deposit it to the office.')

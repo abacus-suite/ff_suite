@@ -23,6 +23,9 @@ PARAM_DEFAULTS = {
     'payment_collection': False,   # collect money at the customer
     'idle_logout_hours': 0,        # log the app out after this long unused (0 = never)
     'max_clock_skew': 5,           # minutes a phone clock may differ from the server's
+    'visit_recommendations': False,  # suggest the next visits in the app
+    'recommend_radius_km': 3,      # how far to look for unplanned customers
+    'recommend_due_days': 7,       # a customer is due once not visited for this long
 }
 
 

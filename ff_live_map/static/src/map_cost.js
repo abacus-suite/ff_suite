@@ -7,7 +7,8 @@ import { Component, onWillStart, useState } from "@odoo/owl";
 /** What Google has cost this month, and how much of the free tier is left. */
 export class FieldForceMapCost extends Component {
     static template = "ff_live_map.MapCost";
-    static props = {};
+    // Client actions receive action, actionId, className... from the action service.
+    static props = { "*": true };
 
     setup() {
         this.orm = useService("orm");

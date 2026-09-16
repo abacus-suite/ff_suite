@@ -33,7 +33,8 @@ function since(iso) {
 
 export class FieldForceLiveMap extends Component {
     static template = "ff_live_map.LiveMap";
-    static props = {};
+    // Client actions receive action, actionId, className... from the action service.
+    static props = { "*": true };
 
     setup() {
         this.orm = useService("orm");

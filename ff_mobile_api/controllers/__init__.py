@@ -11,3 +11,4 @@ from . import profile
 from . import receivables
 from . import chat
 from . import client_products
+from . import recommendations

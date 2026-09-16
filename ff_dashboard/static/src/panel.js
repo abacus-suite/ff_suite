@@ -62,7 +62,8 @@ function ago(iso) {
 export class FieldForcePanel extends Component {
     static template = "ff_dashboard.Panel";
     static components = { FfChart };
-    static props = {};
+    // Client actions receive action, actionId, className... from the action service.
+    static props = { "*": true };
 
     setup() {
         this.orm = useService("orm");

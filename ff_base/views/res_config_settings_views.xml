@@ -85,6 +85,19 @@
                         <setting help="Count stock at the customer; each count keeps the previous count for comparison.">
                             <field name="ff_stock_count"/>
                         </setting>
+                        <setting help="Suggest the next visits in the app: today's planned customers in the shortest order from where the person is, and nearby customers due a visit.">
+                            <field name="ff_visit_recommendations"/>
+                            <div class="content-group" invisible="not ff_visit_recommendations">
+                                <div class="row mt-2">
+                                    <label for="ff_recommend_radius_km" class="col-lg-5 o_light_label"/>
+                                    <field name="ff_recommend_radius_km"/>
+                                </div>
+                                <div class="row">
+                                    <label for="ff_recommend_due_days" class="col-lg-5 o_light_label"/>
+                                    <field name="ff_recommend_due_days"/>
+                                </div>
+                            </div>
+                        </setting>
                         <setting help="Collect payments at the customer and deposit them to the office.">
                             <field name="ff_payment_collection"/>
                         </setting>
