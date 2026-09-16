@@ -24,6 +24,17 @@ def _member(employee, employee_id):
     return target
 
 
+def _path(employee, target):
+    """Breadcrumb from me down to ``target``."""
+    if target == employee:
+        return [employee]
+    chain, person = [], target
+    while person and person != employee and len(chain) < 20:
+        chain.insert(0, person)
+        person = person.parent_id
+    return [employee] + chain
+
+
 class FieldForceTeamApi(http.Controller):
 
     @api_route('/api/v1/team/members', methods=('GET',))
@@ -35,6 +46,95 @@ class FieldForceTeamApi(http.Controller):
             'members': [dict(ref(member), code=member.ff_employee_code or None, team=ref(member.ff_team_id))
                         for member in team.sorted('name')],
         })
+
+    @api_route('/api/v1/team/tree', methods=('GET',))
+    def tree(self, employee, root=None, start=None, end=None, expand=None, **kw):
+        """The team as a tree: the people directly under ``root`` (me by default),
+        each with a few figures for the period and how many are under them.
+        ``expand=1`` returns every level at once."""
+        env = request.env
+        scope = employee | _team(employee)
+        top = _member(employee, int(root)) if root and str(root) not in ('me', '0') else employee
+        today = employee._ff_today()
+        low = fields.Date.to_date(start) if start else today.replace(day=1)
+        high = fields.Date.to_date(end) if end else today
+        children_of = {}
+        for person in scope:
+            if person.parent_id and person.parent_id != person:
+                children_of.setdefault(person.parent_id.id, []).append(person)
+
+        def under(person, seen=None):
+            seen = seen if seen is not None else set()
+            found = env['hr.employee'].sudo()
+            for child in children_of.get(person.id, []):
+                if child.id in seen:
+                    continue
+                seen.add(child.id)
+                found |= child | under(child, seen)
+            return found
+
+        everyone = top | under(top)
+        start_dt, end_dt = employee._ff_day_bounds(low)[0], employee._ff_day_bounds(high)[1]
+        today_start, today_end = employee._ff_day_bounds(today)
+        statuses = {s.employee_id.id: s for s in env['ff.employee.status'].sudo().search(
+            [('employee_id', 'in', everyone.ids)])}
+
+        def counts(model, field, date_field, low_value, high_value, extra=None, amount=None):
+            if model not in env:
+                return {}
+            domain = [(field, 'in', everyone.ids), (date_field, '>=', low_value), (date_field, '<', high_value)]
+            aggregates = ['__count'] + ([amount + ':sum'] if amount else [])
+            return {row[0].id: row[1:] for row in env[model].sudo()._read_group(domain + (extra or []), [field], aggregates)}
+
+        visits_today = counts('ff.visit', 'employee_id', 'check_in_at', today_start, today_end)
+        visits = counts('ff.visit', 'employee_id', 'check_in_at', start_dt, end_dt)
+        flow = env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct'
+        if flow == 'demand' and 'ff.demand' in env:
+            sales = counts('ff.demand', 'employee_id', 'date', start_dt, end_dt,
+                           [('state', '!=', 'cancelled')], 'amount_total')
+        else:
+            sales = counts('sale.order', 'ff_employee_id', 'date_order', start_dt, end_dt,
+                           [('state', '!=', 'cancel')], 'amount_total')
+        collections = counts('ff.collection', 'employee_id', 'date', start_dt, end_dt,
+                             [('state', '!=', 'cancelled')], 'amount')
+
+        def value(table, person_id, index):
+            row = table.get(person_id)
+            return (row[index] or 0) if row else 0
+
+        def node(person, deep):
+            status = statuses.get(person.id)
+            below = under(person)
+            direct = sorted(children_of.get(person.id, []), key=lambda c: c.name or '')
+            group = person | below
+            row = {
+                'id': person.id, 'name': person.name, 'code': person.ff_employee_code or None,
+                'job': person.job_title or person.ff_designation_id.name or None,
+                'team': ref(person.ff_team_id),
+                'punched_in': bool(status and status.punched_in),
+                'last_ping_at': to_iso(status.last_ping_at) if status else None,
+                'direct_count': len(direct), 'team_count': len(below),
+                'visits_today': value(visits_today, person.id, 0),
+                'visits': value(visits, person.id, 0),
+                'sales': round(value(sales, person.id, 1), 2),
+                'collections': round(value(collections, person.id, 1), 2),
+                # Figures for this person together with everybody under them.
+                'team_visits': sum(value(visits, p.id, 0) for p in group),
+                'team_sales': round(sum(value(sales, p.id, 1) for p in group), 2),
+                'team_collections': round(sum(value(collections, p.id, 1) for p in group), 2),
+                'punched_in_count': sum(1 for p in group if statuses.get(p.id) and statuses[p.id].punched_in),
+            }
+            if deep:
+                row['children'] = [node(child, True) for child in direct]
+            return row
+
+        data = node(top, bool(expand))
+        if not expand:
+            data['children'] = [node(child, False) for child in sorted(children_of.get(top.id, []),
+                                                                         key=lambda c: c.name or '')]
+        return ok({'root': data, 'start': low.isoformat(), 'end': high.isoformat(),
+                   'currency': employee.company_id.currency_id.name,
+                   'path': [ref(p) for p in _path(employee, top)]})
 
     @api_route('/api/v1/team/live', methods=('GET',), manager=True)
     def live(self, employee, **kw):
