@@ -11,6 +11,7 @@ import '../leaves/leaves_screen.dart';
 import '../orders/catalog_screen.dart';
 import '../chat/chat_screen.dart';
 import '../tasks/tasks_screen.dart';
+import '../beat/plan_beat_screen.dart';
 import '../visits/visit_gate.dart';
 import '../clients/clients_screen.dart';
 import '../expenses/new_expense_screen.dart';
@@ -111,6 +112,9 @@ class _AppShellState extends State<AppShell> {
               if (profile.paymentCollection)
                 option('payment', Icons.payments_rounded, AppColors.teal, 'Collect payment',
                     'Pick the $customer, check in, record the amount', sheet),
+              if (profile.feature('routes'))
+                option('beat', Icons.edit_calendar_rounded, AppColors.sky, 'Create beat plan',
+                    profile.isManager ? 'Several routes at once, for you or your team' : 'Plan one or several routes for a day', sheet),
               if (profile.feature('visits'))
                 option('client', Icons.add_business_rounded, AppColors.success, 'New $customer',
                     'Add a shop you are standing in front of', sheet),
@@ -141,6 +145,8 @@ class _AppShellState extends State<AppShell> {
         await open(choice == 'order'
             ? CatalogScreen(client: client)
             : CollectPaymentScreen(client: client, visitId: visit['id'] as int?));
+      case 'beat':
+        await open(const PlanBeatScreen());
       case 'client':
         await open(const AddClientScreen());
       case 'task':

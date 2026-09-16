@@ -7,7 +7,6 @@ import '../attendance/month_screen.dart';
 import '../attendance/regularisation_screen.dart';
 import '../allowance/allowance_screen.dart';
 import '../beat/beat_today_screen.dart';
-import '../beat/plan_day_screen.dart';
 import '../collections/collections_screen.dart';
 import '../collections/deposits_receive_screen.dart';
 import '../clients/add_client_screen.dart';
@@ -20,6 +19,8 @@ import '../chat/chat_screen.dart';
 import '../receivables/receivables_screen.dart';
 import '../tasks/tasks_screen.dart';
 import 'profile_screen.dart';
+import '../beat/plan_beat_screen.dart';
+import '../team/team_tree_screen.dart';
 
 /// Every screen that is not a main tab, as a menu. Profile details and
 /// logging out live on the profile screen (the avatar on Home).
@@ -32,12 +33,14 @@ class MoreScreen extends StatelessWidget {
     void open(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
     final menu = <(IconData, String, Color, Widget)>[
       (Icons.bar_chart_rounded, 'Reports', AppColors.primary, const ReportsScreen()),
+      if (profile.isManager) (Icons.account_tree_rounded, 'Team', AppColors.purple, const TeamTreeScreen()),
       (Icons.task_alt_rounded, 'Tasks', AppColors.success, const TasksScreen()),
       (Icons.forum_rounded, 'Chat', AppColors.primary, const ChatListScreen()),
       (Icons.account_balance_wallet_rounded, 'Receivables', AppColors.danger, const ReceivablesScreen()),
       if (profile.feature('routes')) ...[
         (Icons.calendar_month_rounded, 'My ${profile.routeLabel} Plan', AppColors.primary, const BeatTodayScreen()),
-        (Icons.edit_calendar_rounded, 'Plan a ${profile.routeLabel} Day', AppColors.sky, const PlanDayScreen()),
+        (Icons.edit_calendar_rounded, 'Create Beat Plan', AppColors.sky, const PlanBeatScreen()),
+        (Icons.event_note_rounded, 'Planned Days', AppColors.primary, PlannedDaysScreen(start: DateUtils.dateOnly(DateTime.now()))),
       ],
       if (profile.feature('visits'))
         (Icons.add_business_rounded, 'Add ${profile.label('client', 'Customer')}', AppColors.teal, const AddClientScreen()),
