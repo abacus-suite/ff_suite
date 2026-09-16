@@ -21,6 +21,7 @@ import '../../widgets/member_picker.dart';
 import '../notifications/notifications_screen.dart';
 import '../more/profile_screen.dart';
 import 'month_target_card.dart';
+import 'recommendations_card.dart';
 import 'my_requests_card.dart';
 import '../../widgets/sync_status.dart';
 import '../beat/beat_today_screen.dart';
@@ -258,6 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
                 _todaySummary(),
                 const SizedBox(height: 12),
+                if (_status?['punched_in'] == true && profile.feature('visits')) const RecommendationsCard(),
                 if (profile.feature('orders')) ...[
                   _salesSummary(),
                   const SizedBox(height: 12),

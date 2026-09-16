@@ -23,6 +23,7 @@ class Profile {
     required this.visitLock,
     required this.visitSteps,
     required this.stockCount,
+    this.visitRecommendations = false,
     required this.paymentCollection,
     this.googleMapsKey = '',
     this.mapProvider = 'open',
@@ -60,6 +61,9 @@ class Profile {
   final bool visitLock;
   final bool visitSteps;
   final bool stockCount;
+
+  /// Office setting: show the "Visit next" suggestions on Home.
+  final bool visitRecommendations;
   final bool paymentCollection;
 
   /// Key set in Odoo settings; empty means the app uses the free basemap.
@@ -124,6 +128,7 @@ class Profile {
       visitLock: settings['visit_lock'] == true,
       visitSteps: settings['visit_steps'] == true,
       stockCount: settings['stock_count'] == true,
+      visitRecommendations: settings['visit_recommendations'] == true,
       paymentCollection: settings['payment_collection'] == true,
       googleMapsKey: '${settings['google_maps_key'] ?? ''}',
       mapProvider: '${settings['map_provider'] ?? ((settings['google_maps_key'] ?? '') != '' ? 'google' : 'open')}',
