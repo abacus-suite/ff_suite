@@ -33,7 +33,18 @@ def client_domain(employee):
 
 
 def visible_client(employee, partner_id):
-    partner = request.env['res.partner'].sudo().search(client_domain(employee) + [('id', '=', partner_id)], limit=1)
+    Partner = request.env['res.partner'].sudo()
+    partner = Partner.search(client_domain(employee) + [('id', '=', partner_id)], limit=1)
+    if not partner:
+        # A customer on one of my routes, or planned for me or my team, is always mine to open
+        # even when its category or assignment would otherwise hide it.
+        people = employee | employee._ff_subordinates()
+        on_route = request.env['ff.beat.line'].sudo().search_count([
+            ('partner_id', '=', partner_id), ('beat_id', 'in', employee.sudo().ff_route_ids.ids)])
+        planned = request.env['ff.route.plan.customer'].sudo().search_count([
+            ('partner_id', '=', partner_id), ('day_id.employee_id', 'in', people.ids)])
+        if on_route or planned:
+            partner = Partner.browse(partner_id).exists()
     if not partner:
         raise ApiError('Client not found.', 404, 'not_found')
     return partner

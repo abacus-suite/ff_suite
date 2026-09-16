@@ -60,7 +60,8 @@ class FieldForceRoutePlanApi(http.Controller):
         for me or (``member``) someone in my team."""
         data = body()
         target, _label = _one(employee, data.get('member'))
-        Plan = request.env['ff.beat.plan']
+        # sudo: the result set is read afterwards, and an empty non-sudo set would take the union's access rights.
+        Plan = request.env['ff.beat.plan'].sudo()
         if data.get('routes'):
             days = Plan.browse()
             for row in data['routes']:
