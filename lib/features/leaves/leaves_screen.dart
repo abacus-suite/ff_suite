@@ -18,6 +18,7 @@ class _LeavesScreenState extends State<LeavesScreen> {
   Map<String, dynamic>? _data;
   bool _loading = true;
   String? _error;
+  String _filter = 'all';
 
   @override
   void initState() {
@@ -82,6 +83,13 @@ class _LeavesScreenState extends State<LeavesScreen> {
     final data = _data;
     final leaves = ((data?['leaves'] as List?) ?? []).cast<Map<String, dynamic>>();
     final types = ((data?['types'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final allocations = ((data?['allocations'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final summary = (data?['summary'] as Map?)?.cast<String, dynamic>() ?? {};
+    final shown = _filter == 'all'
+        ? leaves
+        : leaves.where((l) => _filter == 'waiting'
+            ? const ['confirm', 'validate1', 'draft'].contains(l['state'])
+            : l['state'] == _filter).toList();
     return Scaffold(
       appBar: AppBar(title: const Text('My Time Off')),
       floatingActionButton: FloatingActionButton.extended(
@@ -98,44 +106,87 @@ class _LeavesScreenState extends State<LeavesScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                     children: [
+                      Row(
+                        children: [
+                          _stat('Allocated', fmtQty(summary['allocated'] as num? ?? 0), AppColors.primary),
+                          _stat('Used', fmtQty(summary['used'] as num? ?? 0), AppColors.purple),
+                          _stat('Pending', fmtQty(summary['pending'] as num? ?? 0), AppColors.warning),
+                          _stat('Available', fmtQty(summary['remaining'] as num? ?? 0), AppColors.success),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
                       if (types.isNotEmpty)
                         SectionCard(
-                          title: 'Balance',
+                          title: 'Balance by type',
+                          child: Column(children: [for (final type in types) _typeTile(type)]),
+                        ),
+                      if (allocations.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        SectionCard(
+                          title: 'Allocations',
                           child: Column(
                             children: [
-                              for (final type in types)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
-                                  child: Row(
+                              for (final a in allocations)
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  dense: true,
+                                  leading: const CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: Color(0xFFE8EFFF),
+                                    child: Icon(Icons.card_giftcard_rounded, size: 17, color: AppColors.primary),
+                                  ),
+                                  title: Text('${(a['type'] as Map)['name']}',
+                                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  subtitle: Text([
+                                    if (a['from'] != null) 'From ${a['from']}',
+                                    a['to'] != null ? 'to ${a['to']}' : 'no end date',
+                                    if (asText(a['name']) != null) '${a['name']}',
+                                  ].join(' · ')),
+                                  trailing: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
-                                      Expanded(child: Text('${type['name']}')),
-                                      Text(
-                                        type['requires_allocation'] == true
-                                            ? '${fmtQty(type['remaining'] as num? ?? 0)} left'
-                                            : 'No limit',
-                                        style: const TextStyle(fontWeight: FontWeight.w700),
-                                      ),
+                                      Text('${fmtQty(a['days'] as num? ?? 0)} days',
+                                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                                      if (a['used'] != null)
+                                        Text('${fmtQty(a['used'] as num)} used',
+                                            style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
                                     ],
                                   ),
                                 ),
                             ],
                           ),
                         ),
+                      ],
                       const SizedBox(height: 12),
                       SectionCard(
                         title: 'My requests',
-                        action: Text(
-                          '${(data?['summary'] as Map?)?['waiting'] ?? 0} waiting',
-                          style: const TextStyle(color: AppColors.muted, fontSize: 12),
-                        ),
+                        action: Text('${summary['waiting'] ?? 0} waiting',
+                            style: const TextStyle(color: AppColors.muted, fontSize: 12)),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            for (final leave in leaves) _leaveTile(leave),
-                            if (leaves.isEmpty)
+                            Wrap(
+                              spacing: 6,
+                              children: [
+                                for (final (key, label) in [
+                                  ('all', 'All'),
+                                  ('waiting', 'Waiting'),
+                                  ('validate', 'Approved'),
+                                  ('refuse', 'Refused'),
+                                ])
+                                  ChoiceChip(
+                                    label: Text(label),
+                                    selected: _filter == key,
+                                    onSelected: (_) => setState(() => _filter = key),
+                                  ),
+                              ],
+                            ),
+                            for (final leave in shown) _leaveTile(leave),
+                            if (shown.isEmpty)
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 10),
-                                child: Text('No time off requested yet.',
-                                    style: TextStyle(color: AppColors.muted)),
+                                child: Text('Nothing here.', style: TextStyle(color: AppColors.muted)),
                               ),
                           ],
                         ),
@@ -146,30 +197,137 @@ class _LeavesScreenState extends State<LeavesScreen> {
     );
   }
 
+  Widget _stat(String label, String value, Color colour) => Expanded(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(color: colour.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14)),
+          child: Column(
+            children: [
+              Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: colour)),
+              Text(label, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+            ],
+          ),
+        ),
+      );
+
+  Widget _typeTile(Map<String, dynamic> type) {
+    final limited = type['requires_allocation'] == true;
+    final allocated = (type['allocated'] as num?) ?? 0;
+    final used = (type['used'] as num?) ?? 0;
+    final pending = (type['pending'] as num?) ?? 0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('${type['name']}', style: const TextStyle(fontWeight: FontWeight.w700))),
+              Text(limited ? '${fmtQty((type['remaining'] as num?) ?? 0)} available' : 'No limit',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: limited && ((type['remaining'] as num?) ?? 0) <= 0 ? AppColors.danger : AppColors.success)),
+            ],
+          ),
+          if (limited && allocated > 0) ...[
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(
+                height: 8,
+                child: Row(
+                  children: [
+                    Expanded(flex: (used * 100).round(), child: Container(color: AppColors.purple)),
+                    Expanded(flex: (pending * 100).round(), child: Container(color: AppColors.warning)),
+                    Expanded(
+                        flex: ((allocated - used - pending).clamp(0, allocated) * 100).round(),
+                        child: Container(color: const Color(0xFFE3E9F6))),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            [
+              if (limited) 'Allocated ${fmtQty(allocated)}',
+              'Used ${fmtQty(used)}',
+              if (pending > 0) 'Pending ${fmtQty(pending)}',
+              if (asText(type['approval']) != null) '${type['approval']}',
+            ].join(' · '),
+            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _leaveTile(Map<String, dynamic> leave) {
     final from = asText(leave['from']) ?? '';
     final to = asText(leave['to']) ?? '';
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text('${leave['type']['name']}'),
+    final approval = (leave['approval'] as Map?)?.cast<String, dynamic>();
+    final steps = ((approval?['steps'] as List?) ?? []).cast<Map<String, dynamic>>();
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(left: 8, bottom: 8),
+      title: Text('${leave['type']['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Text([
         from == to ? from : '$from → $to',
         '${fmtQty(leave['days'] as num? ?? 0)} days',
-        if (asText(leave['reason']) != null) '${leave['reason']}',
       ].join(' · ')),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          StatusBadge('${leave['state']}', label: '${leave['state_label']}'),
-          if (leave['can_cancel'] == true)
-            TextButton(
-              onPressed: () => _withdraw(leave),
-              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 24)),
-              child: const Text('Withdraw', style: TextStyle(fontSize: 11)),
+      trailing: StatusBadge('${leave['state']}', label: '${leave['state_label']}'),
+      children: [
+        if (asText(leave['reason']) != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Reason: ${leave['reason']}', style: const TextStyle(fontSize: 13)),
+          ),
+        if (asText(approval?['label']) != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('${approval!['label']}',
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.muted)),
             ),
-        ],
-      ),
+          ),
+        for (final (i, step) in steps.indexed)
+          Row(
+            children: [
+              Icon(
+                step['state'] == 'done'
+                    ? Icons.check_circle_rounded
+                    : step['state'] == 'rejected'
+                        ? Icons.cancel_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                size: 18,
+                color: step['state'] == 'done'
+                    ? AppColors.success
+                    : step['state'] == 'rejected'
+                        ? AppColors.danger
+                        : AppColors.muted,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Text('${i + 1}. ${step['name']}${asText(step['approver']) != null ? ' · ${step['approver']}' : ''}',
+                      style: const TextStyle(fontSize: 13)),
+                ),
+              ),
+            ],
+          ),
+        if (leave['can_cancel'] == true)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => _withdraw(leave),
+              icon: const Icon(Icons.undo_rounded, size: 18),
+              label: const Text('Withdraw'),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -267,11 +425,31 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                 ),
             ],
           ),
-          if (_type?['requires_allocation'] == true)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text('${fmtQty(_type?['remaining'] as num? ?? 0)} days left of this type',
-                  style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+          if (_type != null)
+            Card(
+              margin: const EdgeInsets.only(top: 10),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _type!['requires_allocation'] == true
+                          ? '${fmtQty(_type!['remaining'] as num? ?? 0)} days available · '
+                              'allocated ${fmtQty(_type!['allocated'] as num? ?? 0)}, used ${fmtQty(_type!['used'] as num? ?? 0)}'
+                              '${((_type!['pending'] as num?) ?? 0) > 0 ? ', pending ${fmtQty(_type!['pending'] as num)}' : ''}'
+                          : 'No limit for this type',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    if (asText(_type!['approval']) != null)
+                      Text('Approval: ${_type!['approval']}',
+                          style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                    if (_type!['can_request'] == false)
+                      const Text('Nothing left to request for this type.',
+                          style: TextStyle(color: AppColors.danger, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
             ),
           const SizedBox(height: 12),
           Card(
@@ -311,7 +489,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
             label: 'Send for approval',
             icon: Icons.send_rounded,
             busy: _busy,
-            onPressed: _busy || _type == null ? null : _submit,
+            onPressed: _busy || _type == null || _type!['can_request'] == false ? null : _submit,
           ),
         ],
       ),
