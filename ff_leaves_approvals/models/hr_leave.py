@@ -66,6 +66,23 @@ class HrLeave(models.Model):
         rest = self - chained
         return super(HrLeave, rest).action_refuse(*args, **kwargs) if rest else True
 
+    def _ff_approval_payload(self):
+        """With a chain, the steps are the chain's: who, and where it stands."""
+        lines = self.sudo().approval_line_ids.sorted('sequence')
+        if not lines:
+            return super()._ff_approval_payload()
+        return {
+            'source': 'chain',
+            'label': 'Approval flow: %d step%s' % (len(lines), '' if len(lines) == 1 else 's'),
+            'steps': [{
+                'name': line.name,
+                'approver': line.user_id.name or '',
+                'state': {'approved': 'done', 'rejected': 'rejected'}.get(line.state, line.state),
+                'decided_at': fields.Datetime.to_string(line.decided_at) if line.decided_at else None,
+                'note': line.note or '',
+            } for line in lines],
+        }
+
     # -- the app ----------------------------------------------------------
     def ff_decide_as(self, employee, approve, reason=''):
         self.ensure_one()

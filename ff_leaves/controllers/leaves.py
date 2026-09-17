@@ -18,9 +18,17 @@ class FieldForceLeavesApi(http.Controller):
         rows = Leave.ff_my_leaves(employee, min(to_int(limit) or 50, 200))
         waiting = len([row for row in rows if row['state'] in ('confirm', 'validate1')])
         approved = len([row for row in rows if row['state'] == 'validate'])
+        types = Leave.ff_types_for(employee)
         return ok({
-            'summary': {'waiting': waiting, 'approved': approved, 'total': len(rows)},
-            'types': Leave.ff_types_for(employee),
+            'summary': {
+                'waiting': waiting, 'approved': approved, 'total': len(rows),
+                'allocated': round(sum(t['allocated'] or 0 for t in types), 2),
+                'used': round(sum(t['used'] or 0 for t in types), 2),
+                'pending': round(sum(t['pending'] or 0 for t in types), 2),
+                'remaining': round(sum(t['remaining'] or 0 for t in types if t['requires_allocation']), 2),
+            },
+            'types': types,
+            'allocations': Leave.ff_allocations_for(employee),
             'leaves': rows,
         })
 

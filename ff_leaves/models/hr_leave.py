@@ -16,6 +16,23 @@ APP_STATES = {
 }
 
 
+VALIDATION_LABELS = {
+    'no_validation': 'No approval needed',
+    'hr': 'Approved by the Time Off officer',
+    'manager': "Approved by the employee's manager",
+    'both': 'Manager, then Time Off officer',
+}
+
+
+class HrLeaveType(models.Model):
+    _inherit = 'hr.leave.type'
+
+    ff_show_in_app = fields.Boolean(
+        string='Request from Field Force App', default=False,
+        help='Only types with this ticked can be requested in the Field Force app. '
+             'While no type is ticked at all, the app offers every type.')
+
+
 class HrLeave(models.Model):
     _inherit = 'hr.leave'
 
@@ -33,26 +50,92 @@ class HrLeave(models.Model):
             'reason': self.private_name or self.name or '',
             'employee': {'id': self.employee_id.id, 'name': self.employee_id.name},
             'can_cancel': self.state in ('draft', 'confirm'),
+            'requested_on': fields.Datetime.to_string(self.create_date) if self.create_date else None,
+            'approval': self._ff_approval_payload(),
         }
+
+    def _ff_approval_payload(self):
+        """How this request gets approved; the approval chain module adds its steps."""
+        self.ensure_one()
+        kind = self.holiday_status_id.leave_validation_type if 'leave_validation_type' in self.holiday_status_id._fields else ''
+        steps = []
+        if kind in ('manager', 'both'):
+            manager = self.employee_id.leave_manager_id if 'leave_manager_id' in self.employee_id._fields else False
+            steps.append({'name': 'Manager', 'approver': manager.name if manager else 'Manager',
+                          'state': 'done' if self.state in ('validate1', 'validate') else
+                          'rejected' if self.state == 'refuse' else 'pending'})
+        if kind in ('hr', 'both'):
+            steps.append({'name': 'Time Off officer', 'approver': 'HR',
+                          'state': 'done' if self.state == 'validate' else
+                          'rejected' if self.state == 'refuse' else
+                          'waiting' if kind == 'both' and self.state == 'confirm' else 'pending'})
+        return {'source': 'odoo', 'label': VALIDATION_LABELS.get(kind, ''), 'steps': steps}
 
     # ------------------------------------------------------------------
     @api.model
-    def ff_types_for(self, employee):
-        """Leave types this employee may ask for, with what is left of each."""
+    def _ff_app_types(self, employee):
+        """Types offered in the app: the ticked ones, or every type while none is ticked."""
         Type = self.env['hr.leave.type'].sudo().with_context(
             employee_id=employee.id, default_employee_id=employee.id)
-        types = Type.search([('company_id', 'in', (False, employee.company_id.id))])
+        domain = [('company_id', 'in', (False, employee.company_id.id))]
+        if 'active' in Type._fields:
+            domain.append(('active', '=', True))
+        ticked = Type.search(domain + [('ff_show_in_app', '=', True)])
+        return ticked or Type.search(domain)
+
+    @api.model
+    def ff_types_for(self, employee):
+        """Leave types this employee may ask for, with allocated, used, pending and what is left."""
         rows = []
-        for leave_type in types:
+        Leave = self.sudo()
+        year_start = fields.Date.context_today(self).replace(month=1, day=1)
+        for leave_type in self._ff_app_types(employee):
+            def number(name):
+                return round(float(getattr(leave_type, name, 0.0) or 0.0), 2) if name in leave_type._fields else 0.0
+            taken = Leave.search([('employee_id', '=', employee.id), ('holiday_status_id', '=', leave_type.id),
+                                  ('state', '=', 'validate'), ('request_date_from', '>=', year_start)])
+            pending = Leave.search([('employee_id', '=', employee.id), ('holiday_status_id', '=', leave_type.id),
+                                    ('state', 'in', ('confirm', 'validate1'))])
+            requires = leave_type.requires_allocation in ('yes', True)
+            allocated = number('max_leaves')
+            used = number('leaves_taken') if 'leaves_taken' in leave_type._fields else round(sum(taken.mapped('number_of_days')), 2)
+            pending_days = round(sum(pending.mapped('number_of_days')), 2)
+            remaining = number('virtual_remaining_leaves')
             rows.append({
                 'id': leave_type.id,
                 'name': leave_type.name,
-                'requires_allocation': leave_type.requires_allocation == 'yes',
-                'remaining': round(leave_type.virtual_remaining_leaves or 0.0, 2),
+                'requires_allocation': requires,
+                'allocated': allocated if requires else None,
+                'used': used,
+                'used_this_year': round(sum(taken.mapped('number_of_days')), 2),
+                'pending': pending_days,
+                'remaining': remaining if requires else None,
                 'unit': leave_type.request_unit,
                 'colour': leave_type.color or 0,
+                'approval': VALIDATION_LABELS.get(getattr(leave_type, 'leave_validation_type', ''), ''),
+                'can_request': (not requires) or remaining > 0,
             })
         return rows
+
+    @api.model
+    def ff_allocations_for(self, employee):
+        """Days given to this employee per type, with the period they cover."""
+        if 'hr.leave.allocation' not in self.env:
+            return []
+        Allocation = self.env['hr.leave.allocation'].sudo()
+        allowed = self._ff_app_types(employee)
+        allocations = Allocation.search([('employee_id', '=', employee.id), ('state', '=', 'validate'),
+                                         ('holiday_status_id', 'in', allowed.ids)], order='date_from desc')
+        return [{
+            'id': allocation.id,
+            'type': {'id': allocation.holiday_status_id.id, 'name': allocation.holiday_status_id.name},
+            'days': round(allocation.number_of_days or 0.0, 2),
+            'used': round(getattr(allocation, 'leaves_taken', 0.0) or 0.0, 2) if 'leaves_taken' in allocation._fields else None,
+            'from': allocation.date_from.isoformat() if allocation.date_from else None,
+            'to': allocation.date_to.isoformat() if allocation.date_to else None,
+            'name': allocation.name or '',
+            'kind': allocation.allocation_type if 'allocation_type' in allocation._fields else 'regular',
+        } for allocation in allocations]
 
     @api.model
     def ff_my_leaves(self, employee, limit=50):
@@ -66,6 +149,8 @@ class HrLeave(models.Model):
         leave_type = self.env['hr.leave.type'].sudo().browse(int(data.get('type_id') or 0)).exists()
         if not leave_type:
             raise UserError(self.env._('Choose a leave type.'))
+        if leave_type not in self._ff_app_types(employee):
+            raise UserError(self.env._('%s cannot be requested from the app.', leave_type.name))
         date_from = fields.Date.to_date(data.get('from'))
         date_to = fields.Date.to_date(data.get('to')) or date_from
         if not date_from:
