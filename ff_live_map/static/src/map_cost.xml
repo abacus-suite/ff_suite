@@ -2,7 +2,7 @@
 <templates xml:space="preserve">
 
     <t t-name="ff_live_map.MapCost">
-        <div class="o_action_manager ff_map_cost p-3 overflow-auto">
+        <div class="o_action_manager ff_map_cost p-3 h-100 overflow-auto">
             <t t-if="state.summary">
                 <div class="d-flex align-items-center gap-2 mb-3">
                     <h4 class="mb-0">Google Maps cost</h4>
