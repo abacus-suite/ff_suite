@@ -45,6 +45,8 @@ class HrLeave(models.Model):
             'to': self.request_date_to and self.request_date_to.isoformat(),
             'days': self.number_of_days,
             'half_day': self.request_unit_half,
+            'half_day_period': (self.request_date_from_period or None)
+            if self.request_unit_half and 'request_date_from_period' in self._fields else None,
             'state': self.state,
             'state_label': APP_STATES.get(self.state, self.state),
             'reason': self.private_name or self.name or '',
@@ -166,9 +168,77 @@ class HrLeave(models.Model):
         }
         if data.get('half_day'):
             values.update({'request_unit_half': True, 'request_date_to': date_from})
+            if 'request_date_from_period' in self._fields:
+                values['request_date_from_period'] = 'pm' if data.get('half_day_period') == 'pm' else 'am'
         leave = self.sudo().with_context(
             mail_create_nosubscribe=True, leave_skip_date_check=True).create(values)
         return leave
+
+    @api.model
+    def ff_team_balances(self, employee):
+        """Each person in my team: totals per type, who is off now and what is waiting."""
+        team = employee._ff_subordinates().sorted('name')
+        today = fields.Date.context_today(self)
+        rows = []
+        for member in team:
+            types = self.ff_types_for(member)
+            current = self.sudo().search([('employee_id', '=', member.id), ('state', '=', 'validate'),
+                                          ('request_date_from', '<=', today), ('request_date_to', '>=', today)], limit=1)
+            upcoming = self.sudo().search([('employee_id', '=', member.id), ('state', 'in', ('confirm', 'validate1', 'validate')),
+                                           ('request_date_from', '>', today)], order='request_date_from', limit=3)
+            rows.append({
+                'employee': {'id': member.id, 'name': member.name, 'code': member.ff_employee_code or None,
+                             'job': member.job_title or None},
+                'allocated': round(sum(t['allocated'] or 0 for t in types), 2),
+                'used': round(sum(t['used'] or 0 for t in types), 2),
+                'pending': round(sum(t['pending'] or 0 for t in types), 2),
+                'remaining': round(sum(t['remaining'] or 0 for t in types if t['requires_allocation']), 2),
+                'types': types,
+                'on_leave_today': current.ff_app_payload() if current else None,
+                'upcoming': [leave.ff_app_payload() for leave in upcoming],
+            })
+        return rows
+
+    @api.model
+    def ff_calendar(self, employee, start, end, member=None):
+        """Approved and waiting leave of me and my team between two dates."""
+        people = employee | employee._ff_subordinates()
+        if member not in (None, '', 'team', 'me'):
+            people = people.filtered(lambda p: p.id == int(member))
+        elif member == 'me':
+            people = employee
+        leaves = self.sudo().search([
+            ('employee_id', 'in', people.ids), ('state', 'in', ('confirm', 'validate1', 'validate')),
+            ('request_date_from', '<=', end), ('request_date_to', '>=', start),
+        ], order='request_date_from')
+        return [leave.ff_app_payload() for leave in leaves]
+
+    @api.model
+    def ff_check_overlap(self, employee, date_from, date_to):
+        """What a leave would clash with: planned route days and other leave."""
+        warnings = []
+        if 'ff.beat.plan' in self.env:
+            days = self.env['ff.beat.plan'].sudo().search([
+                ('employee_id', '=', employee.id), ('date', '>=', date_from), ('date', '<=', date_to)], order='date')
+            for day in days:
+                customers = len(day.customer_line_ids.filtered(lambda l: l.selected and not l.visit_id))
+                warnings.append({'kind': 'beat_plan', 'date': day.date.isoformat(),
+                                 'message': '%s: %s planned (%d customers)' % (
+                                     day.date.isoformat(), day.beat_id.display_name, customers)})
+        if 'ff.task' in self.env:
+            for task in self.env['ff.task'].sudo().search([
+                    ('employee_id', '=', employee.id), ('state', 'in', ('todo', 'in_progress')),
+                    ('date_deadline', '>=', date_from), ('date_deadline', '<=', date_to)]):
+                warnings.append({'kind': 'task', 'date': task.date_deadline.isoformat(),
+                                 'message': 'Task due %s: %s' % (task.date_deadline.isoformat(), task.name)})
+        clash = self.sudo().search([
+            ('employee_id', '=', employee.id), ('state', 'in', ('confirm', 'validate1', 'validate')),
+            ('request_date_from', '<=', date_to), ('request_date_to', '>=', date_from)], limit=1)
+        if clash:
+            warnings.append({'kind': 'leave', 'date': clash.request_date_from.isoformat(),
+                             'message': 'You already have %s on these days (%s)' % (
+                                 clash.holiday_status_id.name, APP_STATES.get(clash.state, clash.state))})
+        return warnings
 
     @api.model
     def ff_to_approve(self, employee):

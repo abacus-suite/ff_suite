@@ -1,5 +1,7 @@
 """Leave endpoints for the Field Force app."""
-from odoo import http
+from datetime import timedelta
+
+from odoo import fields, http
 from odoo.http import request
 
 from odoo.addons.ff_mobile_api.controllers.clients import to_int
@@ -31,6 +33,28 @@ class FieldForceLeavesApi(http.Controller):
             'allocations': Leave.ff_allocations_for(employee),
             'leaves': rows,
         })
+
+    @api_route('/api/v1/leaves/team', methods=('GET',), manager=True)
+    def team(self, employee, **kw):
+        return ok(request.env['hr.leave'].ff_team_balances(employee))
+
+    @api_route('/api/v1/leaves/calendar', methods=('GET',))
+    def calendar(self, employee, start=None, end=None, member=None, **kw):
+        today = employee._ff_today()
+        low = fields.Date.to_date(start) if start else today.replace(day=1)
+        high = fields.Date.to_date(end) if end else low + timedelta(days=41)
+        if (high - low).days > 120:
+            raise ApiError('Choose a range of 120 days or less.')
+        return ok({'start': low.isoformat(), 'end': high.isoformat(),
+                   'leaves': request.env['hr.leave'].ff_calendar(employee, low, high, member)})
+
+    @api_route('/api/v1/leaves/check', methods=('GET',))
+    def check(self, employee, start=None, end=None, **kw):
+        low = fields.Date.to_date(start) if start else employee._ff_today()
+        high = fields.Date.to_date(end) if end else low
+        if high < low:
+            low, high = high, low
+        return ok({'warnings': request.env['hr.leave'].ff_check_overlap(employee, low, high)})
 
     @api_route('/api/v1/leaves', methods=('POST',))
     def request_leave(self, employee, **kw):
