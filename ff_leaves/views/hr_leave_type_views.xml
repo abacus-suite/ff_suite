@@ -19,7 +19,7 @@
         <field name="model">hr.leave.type</field>
         <field name="inherit_id" ref="hr_holidays.view_holiday_status_normal_tree"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='name']" position="after">
+            <xpath expr="//list" position="inside">
                 <field name="ff_show_in_app" string="In App" widget="boolean_toggle"/>
             </xpath>
         </field>
