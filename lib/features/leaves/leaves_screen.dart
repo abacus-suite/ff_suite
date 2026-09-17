@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import 'team_leaves.dart';
 
 /// My time off: what is left of each type, what I asked for, and its state.
 class LeavesScreen extends StatefulWidget {
@@ -91,7 +92,22 @@ class _LeavesScreenState extends State<LeavesScreen> {
             ? const ['confirm', 'validate1', 'draft'].contains(l['state'])
             : l['state'] == _filter).toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('My Time Off')),
+      appBar: AppBar(
+        title: const Text('My Time Off'),
+        actions: [
+          IconButton(
+            tooltip: 'Calendar',
+            icon: const Icon(Icons.calendar_month_rounded),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaveCalendarScreen())),
+          ),
+          if (Services.auth.profile?.isManager ?? false)
+            IconButton(
+              tooltip: 'Team time off',
+              icon: const Icon(Icons.groups_rounded),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TeamLeavesScreen())),
+            ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _request,
         icon: const Icon(Icons.add),
@@ -348,6 +364,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   DateTime _from = DateTime.now().add(const Duration(days: 1));
   DateTime _to = DateTime.now().add(const Duration(days: 1));
   bool _halfDay = false;
+  String _halfPeriod = 'am';
   bool _busy = false;
 
   @override
@@ -362,7 +379,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     super.dispose();
   }
 
-  int get _days => _halfDay ? 1 : _to.difference(_from).inDays + 1;
+  num get _days => _halfDay ? 0.5 : _to.difference(_from).inDays + 1;
 
   Future<void> _pick(bool isFrom) async {
     final now = DateTime.now();
@@ -386,6 +403,55 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
 
   Future<void> _submit() async {
     setState(() => _busy = true);
+    // Warn about planned route days, tasks or other leave on these days first.
+    try {
+      final check = await Services.api.get('/api/v1/leaves/check',
+          query: {'start': fmtDate(_from), 'end': fmtDate(_halfDay ? _from : _to)}) as Map<String, dynamic>;
+      final warnings = ((check['warnings'] as List?) ?? []).cast<Map<String, dynamic>>();
+      if (warnings.isNotEmpty && mounted) {
+        final go = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('These days are busy'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final w in warnings.take(8))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Icon(
+                          w['kind'] == 'beat_plan'
+                              ? Icons.route_rounded
+                              : w['kind'] == 'task'
+                                  ? Icons.task_alt_rounded
+                                  : Icons.beach_access_rounded,
+                          size: 18,
+                          color: AppColors.warning),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text('${w['message']}')),
+                    ]),
+                  ),
+                if (warnings.length > 8) Text('and ${warnings.length - 8} more'),
+                const SizedBox(height: 8),
+                const Text('Send the request anyway?', style: TextStyle(fontWeight: FontWeight.w700)),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Change dates')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Send anyway')),
+            ],
+          ),
+        );
+        if (go != true) {
+          if (mounted) setState(() => _busy = false);
+          return;
+        }
+      }
+    } catch (_) {
+      // Offline or older server: the request still goes.
+    }
     try {
       await Services.outbox.submit('/api/v1/leaves', {
         'uuid': const Uuid().v4(),
@@ -393,6 +459,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         'from': fmtDate(_from),
         'to': fmtDate(_halfDay ? _from : _to),
         'half_day': _halfDay,
+        'half_day_period': _halfPeriod,
         'reason': _reason.text.trim(),
       });
       Services.refresh.value++;
@@ -475,6 +542,15 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
             title: const Text('Half day'),
             contentPadding: EdgeInsets.zero,
           ),
+          if (_halfDay)
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'am', label: Text('Morning'), icon: Icon(Icons.wb_sunny_outlined)),
+                ButtonSegment(value: 'pm', label: Text('Afternoon'), icon: Icon(Icons.wb_twilight_rounded)),
+              ],
+              selected: {_halfPeriod},
+              onSelectionChanged: (v) => setState(() => _halfPeriod = v.first),
+            ),
           const SizedBox(height: 4),
           TextField(
             controller: _reason,
@@ -482,7 +558,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
             decoration: const InputDecoration(labelText: 'Reason'),
           ),
           const SizedBox(height: 16),
-          Text('$_days day${_days == 1 ? '' : 's'}',
+          Text('${fmtQty(_days)} day${_days == 1 ? '' : 's'}',
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
           const SizedBox(height: 12),
           GradientButton(
