@@ -108,7 +108,11 @@ class _TeamLeavesScreenState extends State<TeamLeavesScreen> {
         );
     return Card(
       margin: const EdgeInsets.only(top: 10),
+      clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
         leading: CircleAvatar(
           backgroundColor: (off != null ? AppColors.warning : AppColors.primary).withValues(alpha: 0.12),
           child: Icon(off != null ? Icons.beach_access_rounded : Icons.person_rounded,

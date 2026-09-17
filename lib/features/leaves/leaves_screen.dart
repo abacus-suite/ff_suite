@@ -286,6 +286,8 @@ class _LeavesScreenState extends State<LeavesScreen> {
     final steps = ((approval?['steps'] as List?) ?? []).cast<Map<String, dynamic>>();
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
+      shape: const RoundedRectangleBorder(side: BorderSide.none),
+      collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
       childrenPadding: const EdgeInsets.only(left: 8, bottom: 8),
       title: Text('${leave['type']['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Text([
