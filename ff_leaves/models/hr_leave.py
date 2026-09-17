@@ -29,8 +29,8 @@ class HrLeaveType(models.Model):
 
     ff_show_in_app = fields.Boolean(
         string='Request from Field Force App', default=False,
-        help='Only types with this ticked can be requested in the Field Force app. '
-             'While no type is ticked at all, the app offers every type.')
+        help='Only types with this ticked are shown in the Field Force app. '
+             'Types left unticked are hidden in the app.')
 
 
 class HrLeave(models.Model):
@@ -76,14 +76,13 @@ class HrLeave(models.Model):
     # ------------------------------------------------------------------
     @api.model
     def _ff_app_types(self, employee):
-        """Types offered in the app: the ticked ones, or every type while none is ticked."""
+        """Types offered in the app: only the ticked ones."""
         Type = self.env['hr.leave.type'].sudo().with_context(
             employee_id=employee.id, default_employee_id=employee.id)
         domain = [('company_id', 'in', (False, employee.company_id.id))]
         if 'active' in Type._fields:
             domain.append(('active', '=', True))
-        ticked = Type.search(domain + [('ff_show_in_app', '=', True)])
-        return ticked or Type.search(domain)
+        return Type.search(domain + [('ff_show_in_app', '=', True)])
 
     @api.model
     def ff_types_for(self, employee):

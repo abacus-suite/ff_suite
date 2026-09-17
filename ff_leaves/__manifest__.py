@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Leaves in the App',
-    'version': '19.0.1.0.2',
+    'version': '19.0.1.0.3',
     'category': 'Human Resources/Field Force',
     'summary': "Request time off from the phone and approve it there, on Odoo's own Time Off",
     'author': 'Field Force Suite',

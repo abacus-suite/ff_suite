@@ -8,7 +8,7 @@
             <xpath expr="//sheet" position="inside">
                 <group string="Field Force App" name="ff_app">
                     <field name="ff_show_in_app" string="Request from the app"
-                           help="Only ticked types appear in the Field Force app. While none is ticked, the app offers every type."/>
+                           help="Only ticked types appear in the Field Force app. Unticked types are hidden in the app."/>
                 </group>
             </xpath>
         </field>
