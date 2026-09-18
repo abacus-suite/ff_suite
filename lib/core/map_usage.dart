@@ -1,8 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart';
-import 'package:flutter_map/flutter_map.dart';
-
 import 'services.dart';
 
 /// Counts the Google tiles this phone fetched and reports the total to Odoo.
@@ -40,21 +37,13 @@ class MapUsage {
     _tiles = 0;
     _sessions = 0;
     try {
-      await Services.api.post('/api/v1/maps/usage', {'tiles': tiles, 'sessions': sessions});
+      final res = await Services.api.post('/api/v1/maps/usage', {'tiles': tiles, 'sessions': sessions});
+      if (res is Map && res['google'] is bool) {
+        Services.googleTiles.freeLimitReached = res['google'] == false;
+      }
     } catch (_) {
       _tiles += tiles;
       _sessions += sessions;
     }
-  }
-}
-
-/// A tile provider that counts every tile it hands to the map.
-class CountingTileProvider extends NetworkTileProvider {
-  CountingTileProvider({super.headers});
-
-  @override
-  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) {
-    MapUsage.tile();
-    return super.getImage(coordinates, options);
   }
 }

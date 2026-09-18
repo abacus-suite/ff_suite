@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../core/map_usage.dart';
+import '../core/tile_cache.dart';
 import '../core/services.dart';
 import '../core/theme.dart';
 
@@ -20,9 +20,12 @@ const mapUserAgent = 'com.abs.fieldforce';
 const osmTiles = _voyagerTiles;
 
 /// The basemap: Google's own tiles when the office has set a key in Odoo,
-/// otherwise the free CARTO basemap.
+/// otherwise the free CARTO basemap. A [preview] (small, not movable) map is
+/// always free: Google is kept for the maps people actually work in.
 class BaseMapLayer extends StatefulWidget {
-  const BaseMapLayer({super.key});
+  const BaseMapLayer({super.key, this.preview = false});
+
+  final bool preview;
 
   @override
   State<BaseMapLayer> createState() => _BaseMapLayerState();
@@ -38,7 +41,7 @@ class _BaseMapLayerState extends State<BaseMapLayer> {
   }
 
   Future<void> _loadGoogle() async {
-    if (!Services.googleTiles.available) return;
+    if (widget.preview || !Services.googleTiles.available) return;
     final url = await Services.googleTiles.urlTemplate();
     if (mounted && url != null) setState(() => _googleUrl = url);
   }
@@ -46,20 +49,21 @@ class _BaseMapLayerState extends State<BaseMapLayer> {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final google = _googleUrl;
+    final google = Services.googleTiles.available ? _googleUrl : null;
     return TileLayer(
       urlTemplate: google ?? (dark ? _darkTiles : _voyagerTiles),
       subdomains: google == null ? _subdomains : const [],
       retinaMode: google == null && RetinaMode.isHighDensity(context),
       userAgentPackageName: mapUserAgent,
-      // Google bills per tile, so count only the tiles that come from Google.
-      tileProvider: google == null ? NetworkTileProvider() : CountingTileProvider(),
+      // Tiles are kept on the phone; only tiles downloaded from Google are counted.
+      tileProvider: CachedTileProvider(paid: google != null),
     );
   }
 }
 
 /// Google asks for its name on the map; OpenStreetMap and CARTO ask for theirs.
-String mapCredit() => Services.googleTiles.available ? 'Google' : '© OpenStreetMap · CARTO';
+String mapCredit({bool preview = false}) =>
+    !preview && Services.googleTiles.available ? 'Google' : '© OpenStreetMap · CARTO';
 
 /// A map with the basemap, attribution and the controls people expect:
 /// zoom buttons and a recentre button.
@@ -135,9 +139,9 @@ class _AppMapState extends State<AppMap> with TickerProviderStateMixin {
             backgroundColor: AppColors.background,
           ),
           children: [
-            const BaseMapLayer(),
+            BaseMapLayer(preview: !widget.interactive),
             ...widget.children,
-            const _Attribution(),
+            _Attribution(preview: !widget.interactive),
           ],
         ),
         if (widget.controls)
@@ -162,7 +166,9 @@ class _AppMapState extends State<AppMap> with TickerProviderStateMixin {
 }
 
 class _Attribution extends StatelessWidget {
-  const _Attribution();
+  const _Attribution({this.preview = false});
+
+  final bool preview;
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +180,7 @@ class _Attribution extends StatelessWidget {
         margin: const EdgeInsets.all(4),
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
         decoration: BoxDecoration(color: const Color(0x99FFFFFF), borderRadius: BorderRadius.circular(3)),
-        child: Text(mapCredit(), style: const TextStyle(fontSize: 8, color: Color(0xFF5B6478))),
+        child: Text(mapCredit(preview: preview), style: const TextStyle(fontSize: 8, color: Color(0xFF5B6478))),
       ),
     );
   }

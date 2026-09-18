@@ -38,9 +38,15 @@ class GoogleTiles {
     return '$_tile?session=$session&key=${Uri.encodeQueryComponent(key)}';
   }
 
-  /// Google only when the office chose it and gave a key; otherwise the free tiles are used.
+  /// Set when Odoo says this month's free tiles are nearly used up; free tiles
+  /// are shown until Odoo allows Google again (next month, or a higher limit).
+  bool freeLimitReached = false;
+
+  /// Google only when the office chose it, gave a key and the free allowance lasts.
   bool get available =>
-      Services.auth.profile?.mapProvider == 'google' && (Services.auth.profile?.googleMapsKey ?? '').isNotEmpty;
+      !freeLimitReached &&
+      Services.auth.profile?.mapProvider == 'google' &&
+      (Services.auth.profile?.googleMapsKey ?? '').isNotEmpty;
 
   Future<String?> _session(String key, String mapType, bool highDpi) {
     final cached = _token;
