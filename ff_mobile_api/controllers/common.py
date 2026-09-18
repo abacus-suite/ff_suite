@@ -220,13 +220,22 @@ def employee_profile(employee):
             'payment_collection': settings['payment_collection'],
             'idle_logout_hours': settings['idle_logout_hours'],
             'max_clock_skew': settings['max_clock_skew'],
-            'map_provider': map_provider(request.env),
+            'map_provider': _app_map_provider(),
             'map_style': map_style(request.env),
             # The key only travels when Google is the chosen provider.
-            'google_maps_key': google_maps_key(request.env) if map_provider(request.env) == 'google' else '',
+            'google_maps_key': google_maps_key(request.env) if _app_map_provider() == 'google' else '',
             'order_flow': request.env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct',
         },
     }
+
+
+def _app_map_provider():
+    """Google for the app's maps only while this month's free tiles last (when the guard is on)."""
+    provider = map_provider(request.env)
+    if provider == 'google' and 'ff.map.usage' in request.env \
+            and not request.env['ff.map.usage'].sudo().ff_google_allowed('tiles'):
+        return 'open'
+    return provider
 
 
 def attendance_data(att):

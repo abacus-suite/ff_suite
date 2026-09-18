@@ -6,6 +6,16 @@
         <field name="inherit_id" ref="ff_base.res_config_settings_view_form_ff"/>
         <field name="arch" type="xml">
             <xpath expr="//block[@name='ff_map_settings']" position="inside">
+                <setting string="Stay within Google's free tier"
+                         help="Google is used for the maps people look at until this share of a free allowance is used; then the free maps take over until the 1st of next month. No Google bill.">
+                    <field name="ff_map_free_guard"/>
+                    <div class="content-group" invisible="not ff_map_free_guard">
+                        <div class="row mt-2">
+                            <label for="ff_map_guard_percent" class="col-lg-5 o_light_label"/>
+                            <field name="ff_map_guard_percent"/>
+                        </div>
+                    </div>
+                </setting>
                 <setting string="Monthly map budget" help="The live map shows a warning once the estimated Google cost passes this. 0 = no budget.">
                     <field name="ff_map_budget"/>
                 </setting>

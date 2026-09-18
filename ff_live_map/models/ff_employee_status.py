@@ -41,10 +41,13 @@ class FfEmployeeStatus(models.Model):
         people = [self._ff_map_person(employee, statuses.get(employee.id), visits.get(employee.id))
                   for employee in employees]
         people.sort(key=lambda row: (not row['punched_in'], row['name'] or ''))
+        provider = map_provider(self.env)
+        if provider == 'google' and not self.env['ff.map.usage'].ff_google_allowed('web_map'):
+            provider = 'open'  # this month's free Google map loads are used up
         data = {
-            'map_provider': map_provider(self.env),
+            'map_provider': provider,
             'map_style': map_style(self.env),
-            'google_maps_key': google_maps_key(self.env) if map_provider(self.env) == 'google' else '',
+            'google_maps_key': google_maps_key(self.env) if provider == 'google' else '',
             'people': people,
             'clients': self._ff_map_clients(employees) if with_clients else [],
         }

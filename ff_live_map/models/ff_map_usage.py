@@ -28,7 +28,11 @@ DEFAULTS = {
     'map_price_tiles': 53.0,    # per 1000 tiles beyond the free tier
     'map_price_geocode': 440.0,  # per 1000 address lookups beyond the free tier
     'map_budget': 0.0,          # 0 = no budget set
+    'map_guard_percent': 90,    # stop using Google at this share of the free tier
 }
+
+# Which free allowance each kind of request draws from.
+GUARDED = {'tiles': 'map_free_tiles', 'web_map': 'map_free_loads', 'geocode': 'map_free_geocode'}
 
 
 def map_setting(env, key):
@@ -81,6 +85,28 @@ class FfMapUsage(models.Model):
                 'employee_id': employee.id if employee else False,
             })
         return row
+
+    @api.model
+    def ff_guard_on(self):
+        """Stay within Google's free tier: on unless the office switched it off."""
+        return self.env['ir.config_parameter'].sudo().get_param('ff_base.map_free_guard', 'True') != 'False'
+
+    @api.model
+    def ff_google_allowed(self, kind):
+        """May Google still be used for ``kind`` this month without paying?
+
+        With the guard on, Google stops at the set share of the free allowance
+        and the free maps take over until the 1st of next month.
+        """
+        if kind not in GUARDED or not self.ff_guard_on():
+            return True
+        free = map_setting(self.env, GUARDED[kind])
+        percent = min(max(map_setting(self.env, 'map_guard_percent'), 1), 100)
+        first, last = self._ff_month_bounds()
+        groups = self.sudo()._read_group(
+            [('date', '>=', first), ('date', '<', last), ('kind', '=', kind)], [], ['count:sum'])
+        used = (groups[0][0] if groups else 0) or 0
+        return used < free * percent / 100.0
 
     @api.model
     def ff_record_web_map(self):
@@ -142,7 +168,12 @@ class FfMapUsage(models.Model):
         geocode = line('geocode', map_setting(self.env, 'map_free_geocode'), map_setting(self.env, 'map_price_geocode'))
         budget = map_setting(self.env, 'map_budget')
         cost = round(loads['cost'] + tiles['cost'] + geocode['cost'], 2)
+        guard = self.ff_guard_on()
         return {
+            'guard': guard,
+            'guard_percent': map_setting(self.env, 'map_guard_percent'),
+            'google_paused': {kind: guard and not self.ff_google_allowed(kind)
+                              for kind in GUARDED} if first == self._ff_month_bounds()[0] else {},
             'month': first.strftime('%Y-%m'),
             'month_label': first.strftime('%B %Y'),
             'currency': self.env.company.currency_id.symbol or self.env.company.currency_id.name,

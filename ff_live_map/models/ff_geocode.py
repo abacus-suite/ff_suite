@@ -12,7 +12,7 @@ import requests
 
 from odoo import fields, models
 
-from odoo.addons.ff_base.tools import google_maps_key, haversine_m, map_provider
+from odoo.addons.ff_base.tools import geocode_provider, google_maps_key, haversine_m
 
 _logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class FfEmployeeStatusGeocode(models.Model):
         warning clears itself, and a run with nothing to resolve is not a
         problem either.
         """
-        if map_provider(self.env) == 'open':
+        if geocode_provider(self.env) == 'open' or not self.env['ff.map.usage'].ff_google_allowed('geocode'):
             return self._ff_resolve_open()
         key = google_maps_key(self.env)
         if not key:

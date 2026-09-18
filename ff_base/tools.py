@@ -58,6 +58,18 @@ def map_provider(env):
     return chosen
 
 
+def geocode_provider(env):
+    """Who turns GPS points into addresses: 'open' (free OpenStreetMap, the default) or 'google'.
+
+    Addresses are background work nobody looks at on a map, so they stay free
+    even when Google draws the maps.
+    """
+    chosen = env['ir.config_parameter'].sudo().get_param('ff_base.geocode_provider') or 'open'
+    if chosen == 'google' and google_maps_key(env):
+        return 'google'
+    return 'open'
+
+
 def map_style(env):
     """The free map's look: liberty (colourful), positron (light) or bright."""
     style = env['ir.config_parameter'].sudo().get_param('ff_base.open_map_style')

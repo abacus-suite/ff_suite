@@ -23,6 +23,22 @@
                     </button>
                 </div>
 
+                <div t-if="state.summary.guard" class="alert alert-success py-2 small mb-3">
+                    <i class="fa fa-shield me-1"/>
+                    Staying within Google's free tier: Google stops at <b t-esc="state.summary.guard_percent"/>% of each free allowance
+                    and free maps take over until the 1st. Address lookups use free OpenStreetMap unless Google is chosen in settings.
+                    <t t-if="state.summary.google_paused and (state.summary.google_paused.tiles or state.summary.google_paused.web_map or state.summary.google_paused.geocode)">
+                        <br/><b>Now on free maps for:</b>
+                        <t t-if="state.summary.google_paused.tiles"> app maps</t>
+                        <t t-if="state.summary.google_paused.web_map"> · Odoo maps</t>
+                        <t t-if="state.summary.google_paused.geocode"> · addresses</t>
+                    </t>
+                </div>
+                <div t-else="" class="alert alert-warning py-2 small mb-3">
+                    <i class="fa fa-exclamation-triangle me-1"/>
+                    The free-tier guard is off: Google keeps being used after the free allowance and is billed.
+                </div>
+
                 <div class="row g-3">
                     <div class="col-md-4">
                         <div class="ff_cost_card h-100">

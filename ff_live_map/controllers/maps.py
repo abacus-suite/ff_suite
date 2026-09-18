@@ -13,4 +13,5 @@ class FieldForceMapUsageApi(http.Controller):
         Usage = request.env['ff.map.usage']
         Usage.ff_record('tiles', data.get('tiles'), employee=employee)
         Usage.ff_record('session', data.get('sessions'), employee=employee)
-        return ok({'recorded': True})
+        # Tells the app whether Google tiles are still within this month's free tier.
+        return ok({'recorded': True, 'google': Usage.ff_google_allowed('tiles')})

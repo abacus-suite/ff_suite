@@ -60,6 +60,11 @@ class ResConfigSettings(models.TransientModel):
         default=lambda self: 'google' if self.env['ir.config_parameter'].sudo().get_param('ff_base.google_maps_key') else 'open',
         help='Google: Google tiles, web map and addresses, billed by Google. Open maps: OpenFreeMap / MapLibre '
              'for the web map, CARTO / OpenStreetMap tiles in the app and OpenStreetMap addresses, all free.')
+    ff_geocode_provider = fields.Selection(
+        [('open', 'OpenStreetMap (free)'), ('google', 'Google Geocoding (paid after the free tier)')],
+        string='Address Lookups', config_parameter='ff_base.geocode_provider', default='open',
+        help='Turning GPS points into street addresses runs in the background, so it can stay free '
+             'even when Google draws the maps.')
     ff_open_map_style = fields.Selection(
         [('liberty', 'Liberty (colourful)'), ('positron', 'Positron (light)'), ('bright', 'Bright')],
         string='Free Map Style', config_parameter='ff_base.open_map_style', default='liberty')

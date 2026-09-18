@@ -149,13 +149,36 @@ class TestGeocodeCache(TransactionCase):
         result = {'formatted_address': '8PGR+5HF, Naranganam, Kerala', 'address_components': []}
         self.assertEqual(self.status._ff_short_address(result), '8PGR+5HF, Naranganam, Kerala')
 
-    def test_without_a_key_nothing_is_looked_up(self):
-        self.env['ir.config_parameter'].sudo().set_param('ff_base.google_maps_key', '')
-        self.status.write({'latitude': 10.0, 'longitude': 76.0})
-        self.status.ff_resolve_addresses()
-        self.assertFalse(self.status.address)
-        self.assertIn('key', self.env['ir.config_parameter'].sudo().get_param(
-            'ff_base.geocode_problem'))
+    def test_addresses_are_free_unless_google_is_chosen_with_a_key(self):
+        from odoo.addons.ff_base.tools import geocode_provider
+        Param = self.env['ir.config_parameter'].sudo()
+        Param.set_param('ff_base.google_maps_key', 'AIza-test')
+        self.assertEqual(geocode_provider(self.env), 'open')
+        Param.set_param('ff_base.geocode_provider', 'google')
+        self.assertEqual(geocode_provider(self.env), 'google')
+        Param.set_param('ff_base.google_maps_key', '')
+        self.assertEqual(geocode_provider(self.env), 'open')
+
+    def test_the_guard_stops_google_before_the_free_tier_ends(self):
+        Param = self.env['ir.config_parameter'].sudo()
+        Param.set_param('ff_base.map_free_tiles', 1000)
+        self.Usage.ff_record('tiles', 899, employee=self.employee)
+        self.assertTrue(self.Usage.ff_google_allowed('tiles'))
+        self.Usage.ff_record('tiles', 1, employee=self.employee)  # 90 % reached
+        self.assertFalse(self.Usage.ff_google_allowed('tiles'))
+        self.assertTrue(self.Usage.ff_google_allowed('web_map'))
+        Param.set_param('ff_base.map_free_guard', 'False')
+        self.assertTrue(self.Usage.ff_google_allowed('tiles'))
+
+    def test_the_web_map_falls_back_to_free_when_its_loads_are_used(self):
+        Param = self.env['ir.config_parameter'].sudo()
+        Param.set_param('ff_base.google_maps_key', 'AIza-test')
+        Param.set_param('ff_base.map_provider', 'google')
+        Param.set_param('ff_base.map_free_loads', 10)
+        self.Usage.ff_record('web_map', 9)
+        data = self.Status.ff_live_map()
+        self.assertEqual(data['map_provider'], 'open')
+        self.assertEqual(data['google_maps_key'], '')
 
     def test_nothing_to_resolve_clears_an_old_warning(self):
         Param = self.env['ir.config_parameter'].sudo()
