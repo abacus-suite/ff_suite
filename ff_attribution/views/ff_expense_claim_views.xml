@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_expense_claim_view_form_ff_attribution" model="ir.ui.view">
+        <field name="name">ff.expense.claim.form.ff_attribution</field>
+        <field name="model">ff.expense.claim</field>
+        <field name="inherit_id" ref="ff_expenses.ff_expense_claim_view_form"/>
+        <field name="arch" type="xml">
+            <field name="visit_id" position="after">
+                <field name="ff_route_id" readonly="state != 'draft'"/>
+                <field name="ff_district_id" readonly="state != 'draft'"/>
+            </field>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_visit_step_view_list" model="ir.ui.view">
+        <field name="name">ff.visit.step.list</field>
+        <field name="model">ff.visit.step</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="step_type"/>
+                <field name="form_id" optional="show"/>
+                <field name="department_ids" widget="many2many_tags" placeholder="All departments"/>
+                <field name="category_ids" widget="many2many_tags" placeholder="All categories"/>
+                <field name="mandatory"/>
+                <field name="allow_skip"/>
+                <field name="skip_reason_required" optional="hide"/>
+                <field name="help_text" optional="hide"/>
+                <field name="active" widget="boolean_toggle" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_visit_step_action" model="ir.actions.act_window">
+        <field name="name">Visit Steps</field>
+        <field name="res_model">ff.visit.step</field>
+        <field name="view_mode">list</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Design what happens at a visit</p>
+            <p>Step 1, step 2... notes, photo, form, stock count, order. Switch "Guided Visit Steps" on in Settings first.</p>
+        </field>
+    </record>
+</odoo>

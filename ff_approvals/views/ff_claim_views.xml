@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_expense_claim_view_form_approvals" model="ir.ui.view">
+        <field name="name">ff.expense.claim.form.approvals</field>
+        <field name="model">ff.expense.claim</field>
+        <field name="inherit_id" ref="ff_expenses.ff_expense_claim_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='note']" position="before">
+                <separator string="Approvals" invisible="not approval_line_ids"/>
+                <field name="approval_line_ids" readonly="1" invisible="not approval_line_ids">
+                    <list>
+                        <field name="sequence" string="#"/>
+                        <field name="name"/>
+                        <field name="user_id"/>
+                        <field name="state" widget="badge"
+                               decoration-success="state == 'approved'"
+                               decoration-danger="state == 'rejected'"
+                               decoration-muted="state == 'skipped'"/>
+                        <field name="decided_at"/>
+                        <field name="note" optional="show"/>
+                    </list>
+                </field>
+            </xpath>
+            <xpath expr="//field[@name='approver_id']" position="before">
+                <field name="approver_user_id" invisible="not approver_user_id" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="ff_allowance_claim_view_form_approvals" model="ir.ui.view">
+        <field name="name">ff.allowance.claim.form.approvals</field>
+        <field name="model">ff.allowance.claim</field>
+        <field name="inherit_id" ref="ff_allowance.ff_allowance_claim_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='approver_id']" position="before">
+                <field name="approver_user_id" invisible="not approver_user_id" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

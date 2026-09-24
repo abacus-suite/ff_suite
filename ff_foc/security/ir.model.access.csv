@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_foc_scheme_user,ff.foc.scheme user,model_ff_foc_scheme,base.group_user,1,0,0,0
+access_ff_foc_scheme_manager,ff.foc.scheme manager,model_ff_foc_scheme,ff_base.group_ff_manager,1,1,1,1
+access_ff_foc_slab_user,ff.foc.slab user,model_ff_foc_slab,base.group_user,1,0,0,0
+access_ff_foc_slab_manager,ff.foc.slab manager,model_ff_foc_slab,ff_base.group_ff_manager,1,1,1,1

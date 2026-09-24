@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="seq_ff_collection_deposit" model="ir.sequence">
+        <field name="name">Field Collection Deposit</field>
+        <field name="code">ff.collection.deposit</field>
+        <field name="prefix">DEP/%(year)s/</field>
+        <field name="padding">4</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+    <record id="ir_cron_ff_collection_reminder" model="ir.cron">
+        <field name="name">Field Force: remind about money not deposited</field>
+        <field name="model_id" ref="model_ff_collection_reminder"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_remind()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+    </record>
+
+    <data noupdate="1">
+        <record id="collection_mode_cash" model="ff.collection.mode">
+            <field name="name">Cash</field>
+            <field name="mode_type">cash</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="collection_mode_online" model="ff.collection.mode">
+            <field name="name">Online / UPI</field>
+            <field name="mode_type">online</field>
+            <field name="sequence">20</field>
+            <field name="requires_reference" eval="True"/>
+            <field name="needs_deposit" eval="False"/>
+        </record>
+        <record id="collection_mode_cheque" model="ff.collection.mode">
+            <field name="name">Cheque</field>
+            <field name="mode_type">cheque</field>
+            <field name="sequence">30</field>
+            <field name="requires_reference" eval="True"/>
+            <field name="requires_photo" eval="True"/>
+        </record>
+        <record id="collection_mode_pdc" model="ff.collection.mode">
+            <field name="name">Post-dated cheque</field>
+            <field name="mode_type">pdc</field>
+            <field name="sequence">40</field>
+            <field name="requires_reference" eval="True"/>
+            <field name="requires_photo" eval="True"/>
+            <field name="requires_instrument_date" eval="True"/>
+        </record>
+    </data>
+</odoo>

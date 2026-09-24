@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Schemes -->
+    <record id="ff_foc_scheme_view_list" model="ir.ui.view">
+        <field name="name">ff.foc.scheme.list</field>
+        <field name="model">ff.foc.scheme</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="summary"/>
+                <field name="basis" optional="show"/>
+                <field name="date_from" optional="show"/>
+                <field name="date_to" optional="show"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_foc_scheme_view_form" model="ir.ui.view">
+        <field name="name">ff.foc.scheme.form</field>
+        <field name="model">ff.foc.scheme</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="e.g. Monsoon offer: 10 + 1"/></h1>
+                        <div class="text-muted"><field name="summary"/></div>
+                    </div>
+                    <group>
+                        <group string="Buy">
+                            <field name="product_ids" widget="many2many_tags" placeholder="Products"/>
+                            <field name="categ_ids" widget="many2many_tags" placeholder="…or whole categories"
+                                   invisible="product_ids"/>
+                            <field name="basis" widget="radio"/>
+                        </group>
+                        <group string="Get free">
+                            <field name="free_product_id" placeholder="Same product"/>
+                            <field name="repeat"/>
+                            <field name="note" placeholder="Shown to the rep in the app"/>
+                        </group>
+                    </group>
+                    <field name="slab_ids">
+                        <list editable="bottom">
+                            <field name="min_qty"/>
+                            <field name="free_qty"/>
+                        </list>
+                    </field>
+                    <group>
+                        <group string="When">
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                        <group string="For whom">
+                            <field name="department_ids" widget="many2many_tags" placeholder="Every department"/>
+                            <field name="customer_category_ids" widget="many2many_tags" placeholder="Every customer"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_foc_scheme_action" model="ir.actions.act_window">
+        <field name="name">FOC Schemes</field>
+        <field name="res_model">ff.foc.scheme</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Create a free-goods scheme</p>
+            <p>"Buy 10, get 1 free", slabs, or a different product free. The app shows it on the product
+               and adds the free units to the order or demand at ₹0.</p>
+        </field>
+    </record>
+
+    <!-- What was given free -->
+    <record id="ff_foc_order_line_view_list" model="ir.ui.view">
+        <field name="name">sale.order.line.foc.list</field>
+        <field name="model">sale.order.line</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0">
+                <field name="order_id"/>
+                <field name="order_partner_id" string="Customer"/>
+                <field name="product_id"/>
+                <field name="product_uom_qty" string="Free Qty" sum="Total"/>
+                <field name="ff_foc_scheme_id"/>
+                <field name="ff_foc_reason"/>
+                <field name="state" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_foc_order_line_action" model="ir.actions.act_window">
+        <field name="name">FOC on Orders</field>
+        <field name="res_model">sale.order.line</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="ff_foc_order_line_view_list"/>
+        <field name="domain">[('ff_is_foc', '=', True)]</field>
+        <field name="context">{'group_by': ['product_id']}</field>
+    </record>
+
+    <record id="ff_foc_demand_line_view_list" model="ir.ui.view">
+        <field name="name">ff.demand.line.foc.list</field>
+        <field name="model">ff.demand.line</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0">
+                <field name="date"/>
+                <field name="demand_id"/>
+                <field name="employee_id"/>
+                <field name="partner_id"/>
+                <field name="distributor_id" optional="show"/>
+                <field name="product_id"/>
+                <field name="quantity" string="Free Qty" sum="Total"/>
+                <field name="foc_scheme_id"/>
+                <field name="foc_reason"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_foc_demand_line_action" model="ir.actions.act_window">
+        <field name="name">FOC on Demands</field>
+        <field name="res_model">ff.demand.line</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="ff_foc_demand_line_view_list"/>
+        <field name="domain">[('is_foc', '=', True)]</field>
+    </record>
+
+    <!-- FOC visible on the documents -->
+    <record id="ff_demand_view_form_foc" model="ir.ui.view">
+        <field name="name">ff.demand.form.foc</field>
+        <field name="model">ff.demand</field>
+        <field name="inherit_id" ref="ff_demand.ff_demand_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='line_ids']/list/field[@name='product_id']" position="after">
+                <field name="is_foc" widget="boolean_toggle"/>
+                <field name="foc_scheme_id" optional="show"/>
+                <field name="foc_reason" optional="hide"/>
+            </xpath>
+            <xpath expr="//field[@name='amount_total']" position="after">
+                <field name="foc_value"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="ff_demand_quotation_view_form_foc" model="ir.ui.view">
+        <field name="name">ff.demand.quotation.form.foc</field>
+        <field name="model">ff.demand.quotation</field>
+        <field name="inherit_id" ref="ff_demand.ff_demand_quotation_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='line_ids']/list/field[@name='product_id']" position="after">
+                <field name="is_foc" readonly="1" force_save="1"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_order_form_ff_foc" model="ir.ui.view">
+        <field name="name">sale.order.form.ff.foc</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='order_line']/list/field[@name='product_uom_qty']" position="after">
+                <field name="ff_is_foc" optional="show" widget="boolean_toggle"/>
+            </xpath>
+        </field>
+    </record>
+
+    <menuitem id="menu_ff_foc_section" name="Schemes &amp; FOC" parent="ff_base.menu_ff_group_sales" sequence="45"/>
+    <menuitem id="menu_ff_foc_schemes" name="FOC Schemes" parent="menu_ff_foc_section" action="ff_foc_scheme_action" sequence="10"/>
+    <menuitem id="menu_ff_foc_demand_lines" name="FOC on Demands" parent="menu_ff_foc_section" action="ff_foc_demand_line_action" sequence="20"/>
+    <menuitem id="menu_ff_foc_order_lines" name="FOC on Orders" parent="menu_ff_foc_section" action="ff_foc_order_line_action" sequence="30"
+              groups="sales_team.group_sale_salesman"/>
+</odoo>

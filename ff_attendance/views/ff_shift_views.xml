@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_shift_view_list" model="ir.ui.view">
+        <field name="name">ff.shift.list</field>
+        <field name="model">ff.shift</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="start_time" widget="float_time"/>
+                <field name="end_time" widget="float_time"/>
+                <field name="grace_minutes"/>
+                <field name="half_day_hours" widget="float_time"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_shift_view_form" model="ir.ui.view">
+        <field name="name">ff.shift.form</field>
+        <field name="model">ff.shift</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="e.g. General Shift"/></h1>
+                    </div>
+                    <group>
+                        <group string="Timing">
+                            <field name="start_time" widget="float_time"/>
+                            <field name="end_time" widget="float_time"/>
+                            <field name="grace_minutes"/>
+                            <field name="half_day_hours" widget="float_time"/>
+                        </group>
+                        <group string="Week Off">
+                            <field name="off_mon"/>
+                            <field name="off_tue"/>
+                            <field name="off_wed"/>
+                            <field name="off_thu"/>
+                            <field name="off_fri"/>
+                            <field name="off_sat"/>
+                            <field name="off_sun"/>
+                        </group>
+                    </group>
+                    <field name="company_id" groups="base.group_multi_company"/>
+                    <field name="active" invisible="1"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_shift_action" model="ir.actions.act_window">
+        <field name="name">Shifts</field>
+        <field name="res_model">ff.shift</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

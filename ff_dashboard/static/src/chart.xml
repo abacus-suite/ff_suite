@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="ff_dashboard.Chart">
+        <div class="ff_chart_box" t-attf-style="height: {{props.height or 210}}px">
+            <canvas t-ref="canvas"/>
+        </div>
+    </t>
+
+</templates>

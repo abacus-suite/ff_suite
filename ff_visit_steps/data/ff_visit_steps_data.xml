@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="visit_step_notes" model="ff.visit.step">
+        <field name="name">Visit notes</field>
+        <field name="step_type">note</field>
+        <field name="sequence">10</field>
+        <field name="help_text">What happened at the visit? If the customer was not there, write the reason.</field>
+        <field name="mandatory" eval="True"/>
+        <field name="allow_skip" eval="False"/>
+    </record>
+    <record id="visit_step_photo" model="ff.visit.step">
+        <field name="name">Shop photo</field>
+        <field name="step_type">photo</field>
+        <field name="sequence">20</field>
+        <field name="help_text">Take a photo of the shop or the shelf.</field>
+    </record>
+    <record id="visit_step_stock" model="ff.visit.step">
+        <field name="name">Stock count</field>
+        <field name="step_type">stock</field>
+        <field name="sequence">30</field>
+        <field name="help_text">Count the stock on the shelf; the previous count is shown for comparison.</field>
+    </record>
+    <record id="visit_step_order" model="ff.visit.step">
+        <field name="name">Take order</field>
+        <field name="step_type">order</field>
+        <field name="sequence">40</field>
+    </record>
+</odoo>

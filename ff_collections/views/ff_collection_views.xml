@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_collection_view_list" model="ir.ui.view">
+        <field name="name">ff.collection.list</field>
+        <field name="model">ff.collection</field>
+        <field name="arch" type="xml">
+            <list decoration-warning="state == 'collected'" decoration-muted="state == 'cancelled'">
+                <field name="date"/>
+                <field name="employee_id"/>
+                <field name="partner_id"/>
+                <field name="mode_id"/>
+                <field name="reference" optional="show"/>
+                <field name="instrument_date" optional="hide"/>
+                <field name="deposit_id" optional="show"/>
+                <field name="amount" sum="Total"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="state" widget="badge"
+                       decoration-warning="state == 'collected'"
+                       decoration-info="state == 'submitted'"
+                       decoration-success="state == 'received'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_collection_view_form" model="ir.ui.view">
+        <field name="name">ff.collection.form</field>
+        <field name="model">ff.collection</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_cancel" type="object" string="Cancel"
+                            invisible="state in ('received', 'cancelled')" groups="ff_base.group_ff_manager"/>
+                    <field name="state" widget="statusbar" statusbar_visible="collected,submitted,received"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="employee_id"/>
+                            <field name="partner_id"/>
+                            <field name="date"/>
+                            <field name="visit_id"/>
+                        </group>
+                        <group>
+                            <field name="mode_id"/>
+                            <field name="amount"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="reference"/>
+                            <field name="instrument_date"/>
+                            <field name="deposit_id"/>
+                            <field name="photo_count"/>
+                        </group>
+                    </group>
+                    <field name="note"/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_collection_view_pivot" model="ir.ui.view">
+        <field name="name">ff.collection.pivot</field>
+        <field name="model">ff.collection</field>
+        <field name="arch" type="xml">
+            <pivot string="Collections">
+                <field name="employee_id" type="row"/>
+                <field name="mode_id" type="col"/>
+                <field name="amount" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="ff_collection_view_search" model="ir.ui.view">
+        <field name="name">ff.collection.search</field>
+        <field name="model">ff.collection</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="partner_id"/>
+                <field name="mode_id"/>
+                <field name="reference"/>
+                <filter name="with_employee" string="Still With Employee" domain="[('state', '=', 'collected')]"/>
+                <filter name="submitted" string="Submitted" domain="[('state', '=', 'submitted')]"/>
+                <filter name="received" string="Received" domain="[('state', '=', 'received')]"/>
+                <filter name="date" string="Date" date="date"/>
+                <group>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_mode" string="Mode" context="{'group_by': 'mode_id'}"/>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_collection_action" model="ir.actions.act_window">
+        <field name="name">Collections</field>
+        <field name="res_model">ff.collection</field>
+        <field name="view_mode">list,form,pivot</field>
+    </record>
+</odoo>

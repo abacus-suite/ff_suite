@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_employee_status_view_list" model="ir.ui.view">
+        <field name="name">ff.employee.status.list</field>
+        <field name="model">ff.employee.status</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" decoration-danger="punched_in and (is_inactive or is_signal_lost or not gps_on)"
+                  decoration-muted="not punched_in">
+                <field name="employee_id"/>
+                <field name="team_id" optional="show"/>
+                <field name="manager_id" optional="hide"/>
+                <field name="punched_in" widget="boolean"/>
+                <field name="punched_in_at"/>
+                <field name="last_ping_at"/>
+                <field name="battery"/>
+                <field name="is_low_battery" optional="show"/>
+                <field name="gps_on" optional="show"/>
+                <field name="is_inactive"/>
+                <field name="is_signal_lost"/>
+                <field name="is_mock" optional="hide"/>
+                <field name="map_url" widget="url" string="Map" text="Open map"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_employee_status_view_form" model="ir.ui.view">
+        <field name="name">ff.employee.status.form</field>
+        <field name="model">ff.employee.status</field>
+        <field name="arch" type="xml">
+            <form create="0" edit="0">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="employee_id"/></h1>
+                    </div>
+                    <group>
+                        <group string="Attendance">
+                            <field name="team_id"/>
+                            <field name="manager_id"/>
+                            <field name="punched_in"/>
+                            <field name="punched_in_at"/>
+                            <field name="moved_at"/>
+                            <field name="is_inactive"/>
+                            <field name="is_signal_lost"/>
+                        </group>
+                        <group string="Device">
+                            <field name="last_ping_at"/>
+                            <field name="latitude"/>
+                            <field name="longitude"/>
+                            <field name="accuracy"/>
+                            <field name="map_url" widget="url" text="Open in Google Maps"/>
+                            <field name="battery"/>
+                            <field name="is_charging"/>
+                            <field name="gps_on"/>
+                            <field name="battery_saver"/>
+                            <field name="location_permission"/>
+                            <field name="is_mock"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_employee_status_view_search" model="ir.ui.view">
+        <field name="name">ff.employee.status.search</field>
+        <field name="model">ff.employee.status</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="team_id"/>
+                <filter name="punched_in" string="Punched In" domain="[('punched_in', '=', True)]"/>
+                <filter name="not_punched_in" string="Not Punched In" domain="[('punched_in', '=', False)]"/>
+                <separator/>
+                <filter name="alerts" string="Needs Attention"
+                        domain="[('punched_in', '=', True), '|', '|', '|', ('is_inactive', '=', True), ('is_signal_lost', '=', True), ('gps_on', '=', False), ('is_low_battery', '=', True)]"/>
+                <group>
+                    <filter name="group_team" string="Team" context="{'group_by': 'team_id'}"/>
+                    <filter name="group_manager" string="Manager" context="{'group_by': 'manager_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_employee_status_action" model="ir.actions.act_window">
+        <field name="name">Live Status</field>
+        <field name="res_model">ff.employee.status</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No live data yet</p>
+            <p>Statuses appear when field staff start sending locations from the mobile app.</p>
+        </field>
+    </record>
+</odoo>
