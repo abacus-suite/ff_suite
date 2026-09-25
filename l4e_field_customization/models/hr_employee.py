@@ -82,8 +82,8 @@ class HrEmployee(models.Model):
         string='Travel Allowance',
         help='e.g. 4 Rs per km / Fixed Amount',
     )
-    l4e_other_allowance = fields.Float(
-        string='Other / Variable Allowance (Rs.)',
+    l4e_other_allowance = fields.Char(
+        string='Other / Variable Allowance',
     )
     l4e_incentive = fields.Char(
         string='Incentive',
@@ -99,3 +99,20 @@ class HrEmployee(models.Model):
         'employee_id',
         string='Salary Revision History',
     )
+
+    def _auto_init(self):
+        cr = self.env.cr
+        cr.execute("""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'hr_employee' 
+                    AND column_name = 'l4e_other_allowance' 
+                    AND data_type != 'character varying'
+                ) THEN
+                    ALTER TABLE hr_employee ALTER COLUMN l4e_other_allowance TYPE varchar USING l4e_other_allowance::varchar;
+                END IF;
+            END $$;
+        """)
+        return super()._auto_init()
