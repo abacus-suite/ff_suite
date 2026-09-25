@@ -38,4 +38,9 @@
         <field name="name">Signages</field>
     </record>
 
+    <!-- Enforce dd/mm/yyyy date format -->
+    <record id="base.lang_en" model="res.lang">
+        <field name="date_format">%d/%m/%Y</field>
+    </record>
+
 </odoo>

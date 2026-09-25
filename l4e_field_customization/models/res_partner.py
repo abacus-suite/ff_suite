@@ -53,9 +53,6 @@ class ResPartner(models.Model):
     margin_percentage = fields.Float(
         string='Margin %',
     )
-    credit_days = fields.Char(
-        string='Credit Days',
-    )
     outlet_onboard_date = fields.Date(
         string='Outlet Onboarded Date',
     )
@@ -85,20 +82,28 @@ class ResPartner(models.Model):
         compute='_compute_is_distributor',
         store=True,
     )
-    total_margin_pct = fields.Float(
-        string='Total Margin %',
-    )
     distributor_margin_pct = fields.Float(
         string='Distributor Margin %',
     )
     outlet_margin_pct = fields.Float(
         string='Outlet Margin %',
     )
+    total_margin_pct = fields.Float(
+        string='Total Margin %',
+        compute='_compute_total_margin',
+        store=True,
+        readonly=False,
+    )
     distributor_mrp_line_ids = fields.One2many(
         'distributor.mrp.line',
         'partner_id',
         string='MRP Lines',
     )
+
+    @api.depends('distributor_margin_pct', 'outlet_margin_pct')
+    def _compute_total_margin(self):
+        for partner in self:
+            partner.total_margin_pct = (partner.distributor_margin_pct or 0.0) + (partner.outlet_margin_pct or 0.0)
 
     @api.depends('ff_category_id', 'ff_category_id.name', 'ff_category_type')
     def _compute_is_distributor(self):
@@ -113,6 +118,8 @@ class ResPartner(models.Model):
     @api.model
     def _register_hook(self):
         super()._register_hook()
+        # Enforce dd/mm/yyyy date format across all active languages
+        self.env.cr.execute("UPDATE res_lang SET date_format = '%%d/%%m/%%Y' WHERE active = TRUE;")
         # Self-healing: ensure all custom columns and tables exist in DB immediately
         # even if server boots before formal module upgrade
         cr = self.env.cr
