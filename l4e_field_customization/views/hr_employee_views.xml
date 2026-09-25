@@ -38,9 +38,9 @@
                 <field name="l4e_remarks"/>
             </xpath>
 
-            <!-- ── HR Settings tab (page name="hr_settings") ── -->
-            <xpath expr="//page[@name='hr_settings']" position="inside">
-                <group string="Salary &amp; Allowances">
+            <!-- ── Payroll tab (page name="payroll_information") ── -->
+            <xpath expr="//page[@name='payroll_information']//group[@name='payroll_group']" position="after">
+                <group string="Salary Components &amp; Allowances">
                     <group>
                         <field name="l4e_gross_salary_joining"/>
                         <field name="l4e_basic"/>
