@@ -66,9 +66,6 @@ class HrEmployee(models.Model):
     l4e_gross_salary_joining = fields.Float(
         string='Gross Salary on Joining (Rs.)',
     )
-    l4e_basic = fields.Float(
-        string='Basic (Rs.)',
-    )
     l4e_dearness_allowance = fields.Float(
         string='Dearness Allowance (Rs.)',
     )
@@ -77,9 +74,6 @@ class HrEmployee(models.Model):
     )
     l4e_medical_allowance = fields.Float(
         string='Medical Allowance (Rs.)',
-    )
-    l4e_hra = fields.Float(
-        string='HRA (Rs.)',
     )
     l4e_special_allowance = fields.Float(
         string='Special Allowance (Rs.)',

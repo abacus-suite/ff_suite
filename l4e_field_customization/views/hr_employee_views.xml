@@ -43,11 +43,9 @@
                 <group string="Salary Components &amp; Allowances">
                     <group>
                         <field name="l4e_gross_salary_joining"/>
-                        <field name="l4e_basic"/>
                         <field name="l4e_dearness_allowance"/>
                         <field name="l4e_conveyance_allowance"/>
                         <field name="l4e_medical_allowance"/>
-                        <field name="l4e_hra"/>
                     </group>
                     <group>
                         <field name="l4e_special_allowance"/>
