@@ -4,7 +4,7 @@
     'category': 'Human Resources',
     'summary': 'Custom fields for Employee and Contact masters — Kumbayah Foods',
     'author': 'Krishnaraj',
-    'depends': ['hr', 'base', 'product', 'ff_clients', 'ff_beat'],
+    'depends': ['hr', 'base', 'account', 'product', 'ff_clients', 'ff_beat'],
     'data': [
         'security/ir.model.access.csv',
         'data/master_data.xml',

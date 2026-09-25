@@ -15,8 +15,8 @@
             </xpath>
 
             <xpath expr="//page[@name='work_information']//field[@name='job_id']" position="after">
-                <field name="l4e_date_of_joining"/>
-                <field name="l4e_date_of_joining_pvt"/>
+                <field name="l4e_date_of_joining" options="{'numeric': true}"/>
+                <field name="l4e_date_of_joining_pvt" options="{'numeric': true}"/>
                 <field name="l4e_probation_period"/>
                 <field name="l4e_immediate_reporting_person"/>
                 <field name="l4e_unolo_id"/>
@@ -24,6 +24,11 @@
             </xpath>
 
             <!-- ── Personal Information tab (page name="personal_information") ── -->
+            <!-- Enforce numeric dd/mm/yyyy on Birthday -->
+            <xpath expr="//page[@name='personal_information']//field[@name='birthday']" position="attributes">
+                <attribute name="options">{'numeric': True}</attribute>
+            </xpath>
+
             <!-- Add after sex (gender) field -->
             <xpath expr="//page[@name='personal_information']//field[@name='sex']" position="after">
                 <field name="l4e_blood_group"/>

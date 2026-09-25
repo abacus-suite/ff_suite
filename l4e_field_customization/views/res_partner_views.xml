@@ -14,6 +14,13 @@
                 <field name="contact_person" placeholder="e.g. Store Manager Name"/>
             </xpath>
 
+            <xpath expr="//field[@name='category_id']" position="after">
+                <field name="client_prospect"/>
+                <field name="client_status"/>
+                <field name="visible_to_id"/>
+                <field name="delivery_day"/>
+            </xpath>
+
             <!-- Hidden helper field for dynamic tab visibility -->
             <xpath expr="//notebook" position="before">
                 <field name="is_distributor" invisible="1"/>
@@ -31,13 +38,13 @@
                     </group>
                 </page>
 
-                <!-- 3. Margin Tab (Only for Distributor category) -->
+                <!-- 3. Margin Tab (Only for Distributor category, 3 fields with Total auto-computed) -->
                 <page string="Margin" name="distributor_margin" invisible="not is_distributor">
                     <group>
                         <group string="Margin Percentage">
-                            <field name="total_margin_pct"/>
                             <field name="distributor_margin_pct"/>
                             <field name="outlet_margin_pct"/>
+                            <field name="total_margin_pct" readonly="1" force_save="1"/>
                         </group>
                     </group>
                     <group string="Product MRP Details">
@@ -54,7 +61,20 @@
         </field>
     </record>
 
-    <!-- Inherit Field Force Contact Form to add Business Category, Status, Visible To, etc. -->
+    <!-- Inherit Partner Form to rename Payment Terms to Credit Days in Sales & Purchase Tab -->
+    <record id="view_partner_property_form_l4e_custom" model="ir.ui.view">
+        <field name="name">res.partner.property.form.l4e.custom</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="account.view_partner_property_form"/>
+        <field name="priority">60</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='property_payment_term_id']" position="attributes">
+                <attribute name="string">Credit Days</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Inherit Field Force Contact Form: Business Category on Left, Outlet Details on Right -->
     <record id="res_partner_view_form_ff_l4e" model="ir.ui.view">
         <field name="name">res.partner.form.ff.l4e</field>
         <field name="model">res.partner</field>
@@ -67,17 +87,17 @@
                 <attribute name="string">Territory</attribute>
             </xpath>
 
-            <!-- Add custom fields under Field Contact group -->
+            <!-- Add Business Category under Contact Category (Left Side) -->
             <xpath expr="//field[@name='ff_category_id']" position="after">
                 <field name="business_category_id"/>
-                <field name="client_prospect"/>
-                <field name="client_status"/>
-                <field name="visible_to_id"/>
-                <field name="delivery_day"/>
+            </xpath>
+
+            <!-- Add new header and fields under Location (Right Side) to balance layout -->
+            <xpath expr="//field[@name='ff_map_url']" position="after">
+                <separator string="Outlet Details"/>
                 <field name="scheme"/>
                 <field name="margin_percentage"/>
-                <field name="credit_days"/>
-                <field name="outlet_onboard_date"/>
+                <field name="outlet_onboard_date" options="{'numeric': true}"/>
                 <field name="marketing_material_id"/>
             </xpath>
 

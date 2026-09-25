@@ -53,9 +53,6 @@ class ResPartner(models.Model):
     margin_percentage = fields.Float(
         string='Margin %',
     )
-    credit_days = fields.Char(
-        string='Credit Days',
-    )
     outlet_onboard_date = fields.Date(
         string='Outlet Onboarded Date',
     )
@@ -85,20 +82,28 @@ class ResPartner(models.Model):
         compute='_compute_is_distributor',
         store=True,
     )
-    total_margin_pct = fields.Float(
-        string='Total Margin %',
-    )
     distributor_margin_pct = fields.Float(
         string='Distributor Margin %',
     )
     outlet_margin_pct = fields.Float(
         string='Outlet Margin %',
     )
+    total_margin_pct = fields.Float(
+        string='Total Margin %',
+        compute='_compute_total_margin',
+        store=True,
+        readonly=False,
+    )
     distributor_mrp_line_ids = fields.One2many(
         'distributor.mrp.line',
         'partner_id',
         string='MRP Lines',
     )
+
+    @api.depends('distributor_margin_pct', 'outlet_margin_pct')
+    def _compute_total_margin(self):
+        for partner in self:
+            partner.total_margin_pct = (partner.distributor_margin_pct or 0.0) + (partner.outlet_margin_pct or 0.0)
 
     @api.depends('ff_category_id', 'ff_category_id.name', 'ff_category_type')
     def _compute_is_distributor(self):
@@ -123,7 +128,6 @@ class ResPartner(models.Model):
             ("delivery_day", "VARCHAR"),
             ("scheme", "VARCHAR"),
             ("margin_percentage", "DOUBLE PRECISION"),
-            ("credit_days", "VARCHAR"),
             ("outlet_onboard_date", "DATE"),
             ("chiller_availability", "VARCHAR"),
             ("chiller_model", "VARCHAR"),
