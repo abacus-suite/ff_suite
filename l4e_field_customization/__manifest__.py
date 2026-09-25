@@ -1,6 +1,6 @@
 {
     'name': 'L4E Field Customization',
-    'version': '19.0.1.4.0',
+    'version': '19.0.1.5.0',
     'category': 'Human Resources',
     'summary': 'Custom fields for Employee and Contact masters — Kumbayah Foods',
     'author': 'Krishnaraj',

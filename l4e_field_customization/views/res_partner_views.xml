@@ -97,7 +97,7 @@
                 <separator string="Outlet Details"/>
                 <field name="scheme"/>
                 <field name="margin_percentage"/>
-                <field name="outlet_onboard_date"/>
+                <field name="outlet_onboard_date" options="{'numeric': true}"/>
                 <field name="marketing_material_id"/>
             </xpath>
 
