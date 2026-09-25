@@ -9,11 +9,13 @@
         <field name="arch" type="xml">
 
             <!-- ── Work Information tab ── -->
+            <!-- Add Employee Type and Employee ID before department -->
             <xpath expr="//page[@name='work_information']//field[@name='department_id']" position="before">
                 <field name="l4e_employee_type" widget="radio" options="{'horizontal': true}"/>
                 <field name="l4e_employee_id"/>
             </xpath>
 
+            <!-- Add joining/probation fields after job_id -->
             <xpath expr="//page[@name='work_information']//field[@name='job_id']" position="after">
                 <field name="l4e_date_of_joining"/>
                 <field name="l4e_date_of_joining_pvt"/>
@@ -24,16 +26,15 @@
             </xpath>
 
             <!-- ── Private Information tab ── -->
-            <xpath expr="//page[@name='private_information']//field[@name='ssnid']" position="after">
-                <field name="l4e_aadhaar_number"/>
-            </xpath>
-
+            <!-- Add personal fields after gender -->
             <xpath expr="//page[@name='private_information']//field[@name='gender']" position="after">
                 <field name="l4e_blood_group"/>
                 <field name="l4e_father_name"/>
                 <field name="l4e_highest_qualification"/>
+                <field name="l4e_aadhaar_number"/>
             </xpath>
 
+            <!-- Add reference and remarks after emergency contact -->
             <xpath expr="//page[@name='private_information']//field[@name='emergency_contact']" position="after">
                 <field name="l4e_reference_hiring"/>
                 <field name="l4e_remarks"/>
@@ -60,7 +61,7 @@
                 </group>
             </xpath>
 
-            <!-- ── New tab: Salary Revision History only ── -->
+            <!-- ── New tab: Salary Revision History ONLY ── -->
             <xpath expr="//notebook" position="inside">
                 <page string="Salary Revision History" name="salary_revision">
                     <field name="l4e_salary_revision_ids" nolabel="1">
