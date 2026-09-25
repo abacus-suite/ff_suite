@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- Default Business Categories from Kumbayah Master -->
+    <record id="bcat_modern_trade" model="business.category">
+        <field name="name">MODERN TRADE</field>
+    </record>
+    <record id="bcat_hotel" model="business.category">
+        <field name="name">HOTEL</field>
+    </record>
+    <record id="bcat_general_trade" model="business.category">
+        <field name="name">GENERAL TRADE</field>
+    </record>
+    <record id="bcat_cafe_restaurant" model="business.category">
+        <field name="name">CAFE-RESTAURANT</field>
+    </record>
+    <record id="bcat_distributor" model="business.category">
+        <field name="name">DISTRIBUTOR</field>
+    </record>
+    <record id="bcat_others" model="business.category">
+        <field name="name">OTHERS</field>
+    </record>
+
+    <!-- Default Marketing Materials from Kumbayah Master -->
+    <record id="mat_tent_cards" model="marketing.material">
+        <field name="name">Tent Cards</field>
+    </record>
+    <record id="mat_menu_cards" model="marketing.material">
+        <field name="name">Menu cards</field>
+    </record>
+    <record id="mat_acrylic_stand" model="marketing.material">
+        <field name="name">Acrylic Stand</field>
+    </record>
+    <record id="mat_standee" model="marketing.material">
+        <field name="name">Standee (Stand with Board)</field>
+    </record>
+    <record id="mat_signages" model="marketing.material">
+        <field name="name">Signages</field>
+    </record>
+
+</odoo>

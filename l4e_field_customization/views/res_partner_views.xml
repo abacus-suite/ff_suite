@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Inherit Partner Form View for Kumbayah Foods Contact Customizations -->
+    <record id="view_partner_form_l4e_custom" model="ir.ui.view">
+        <field name="name">res.partner.form.l4e.custom</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="priority">50</field>
+        <field name="arch" type="xml">
+
+            <!-- 1. Contact Person field in general partner info -->
+            <xpath expr="//field[@name='vat']" position="before">
+                <field name="contact_person" placeholder="e.g. Store Manager Name"/>
+            </xpath>
+
+            <!-- Hidden helper field for dynamic tab visibility -->
+            <xpath expr="//notebook" position="before">
+                <field name="is_distributor" invisible="1"/>
+            </xpath>
+
+            <!-- 2. Chiller Details Tab -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Chiller Details" name="chiller_details">
+                    <group>
+                        <group string="Chiller Information">
+                            <field name="chiller_availability"/>
+                            <field name="chiller_model" invisible="chiller_availability != 'yes'"/>
+                            <field name="chiller_sr_no" invisible="chiller_availability != 'yes'"/>
+                        </group>
+                    </group>
+                </page>
+
+                <!-- 3. Margin Tab (Only for Distributor category) -->
+                <page string="Margin" name="distributor_margin" invisible="not is_distributor">
+                    <group>
+                        <group string="Margin Percentage">
+                            <field name="total_margin_pct"/>
+                            <field name="distributor_margin_pct"/>
+                            <field name="outlet_margin_pct"/>
+                        </group>
+                    </group>
+                    <group string="Product MRP Details">
+                        <field name="distributor_mrp_line_ids" nolabel="1">
+                            <list editable="bottom">
+                                <field name="product_id" width="500"/>
+                                <field name="mrp" width="300"/>
+                            </list>
+                        </field>
+                    </group>
+                </page>
+            </xpath>
+
+        </field>
+    </record>
+
+    <!-- Inherit Field Force Contact Form to add Business Category, Status, Visible To, etc. -->
+    <record id="res_partner_view_form_ff_l4e" model="ir.ui.view">
+        <field name="name">res.partner.form.ff.l4e</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="ff_clients.res_partner_view_form_ff"/>
+        <field name="priority">60</field>
+        <field name="arch" type="xml">
+
+            <!-- Rename City / District to Territory -->
+            <xpath expr="//field[@name='ff_district_id']" position="attributes">
+                <attribute name="string">Territory</attribute>
+            </xpath>
+
+            <!-- Add custom fields under Field Contact group -->
+            <xpath expr="//field[@name='ff_category_id']" position="after">
+                <field name="business_category_id"/>
+                <field name="client_prospect"/>
+                <field name="client_status"/>
+                <field name="visible_to_id"/>
+                <field name="delivery_day"/>
+                <field name="scheme"/>
+                <field name="margin_percentage"/>
+                <field name="credit_days"/>
+                <field name="outlet_onboard_date"/>
+                <field name="marketing_material_id"/>
+            </xpath>
+
+        </field>
+    </record>
+
+    <!-- Inherit ff_beat to rename Routes to Beat -->
+    <record id="res_partner_view_form_ff_beat_l4e" model="ir.ui.view">
+        <field name="name">res.partner.form.ff.beat.l4e</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="ff_beat.res_partner_view_form_ff_beat"/>
+        <field name="priority">70</field>
+        <field name="arch" type="xml">
+            <!-- Rename Routes to Beat -->
+            <xpath expr="//field[@name='ff_route_ids']" position="attributes">
+                <attribute name="string">Beat</attribute>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
