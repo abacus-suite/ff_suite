@@ -8,7 +8,7 @@ class HrEmployee(models.Model):
     l4e_employee_type = fields.Selection(
         selection=[
             ('employee', 'Employee'),
-            ('contractor', 'Contractor - Not included in Payroll'),
+            ('contractor', 'Contractor'),
         ],
         string='Employee Type',
         default='employee',

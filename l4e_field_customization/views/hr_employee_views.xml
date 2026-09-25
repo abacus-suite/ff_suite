@@ -64,9 +64,9 @@
                 <page string="Salary Revision History" name="salary_revision">
                     <field name="l4e_salary_revision_ids" nolabel="1">
                         <list editable="bottom">
-                            <field name="effective_date"/>
-                            <field name="amount"/>
-                            <field name="note"/>
+                            <field name="effective_date" string="Effective Date" width="33%"/>
+                            <field name="amount" string="Amount (Rs.)" width="33%"/>
+                            <field name="note" string="Note" width="34%"/>
                         </list>
                     </field>
                 </page>
