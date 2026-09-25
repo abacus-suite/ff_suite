@@ -10,7 +10,7 @@
 
             <!-- ── Work Information tab (page name="work_information") ── -->
             <xpath expr="//page[@name='work_information']//field[@name='department_id']" position="before">
-                <field name="l4e_employee_type" widget="radio" options="{'horizontal': true}"/>
+                <field name="l4e_employee_type" string="Employee Type" widget="radio" options="{'horizontal': true}"/>
                 <field name="l4e_employee_id"/>
             </xpath>
 
