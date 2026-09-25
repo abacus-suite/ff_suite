@@ -8,14 +8,12 @@
         <field name="inherit_id" ref="hr.view_employee_form"/>
         <field name="arch" type="xml">
 
-            <!-- ── Work Information tab ── -->
-            <!-- Add Employee Type and Employee ID before department -->
+            <!-- ── Work Information tab (page name="work_information") ── -->
             <xpath expr="//page[@name='work_information']//field[@name='department_id']" position="before">
                 <field name="l4e_employee_type" widget="radio" options="{'horizontal': true}"/>
                 <field name="l4e_employee_id"/>
             </xpath>
 
-            <!-- Add joining/probation fields after job_id -->
             <xpath expr="//page[@name='work_information']//field[@name='job_id']" position="after">
                 <field name="l4e_date_of_joining"/>
                 <field name="l4e_date_of_joining_pvt"/>
@@ -25,22 +23,22 @@
                 <field name="l4e_company_vehicle"/>
             </xpath>
 
-            <!-- ── Private Information tab ── -->
-            <!-- Add personal fields after gender -->
-            <xpath expr="//page[@name='private_information']//field[@name='gender']" position="after">
+            <!-- ── Personal Information tab (page name="personal_information") ── -->
+            <!-- Add after sex (gender) field -->
+            <xpath expr="//page[@name='personal_information']//field[@name='sex']" position="after">
                 <field name="l4e_blood_group"/>
                 <field name="l4e_father_name"/>
                 <field name="l4e_highest_qualification"/>
                 <field name="l4e_aadhaar_number"/>
             </xpath>
 
-            <!-- Add reference and remarks after emergency contact -->
-            <xpath expr="//page[@name='private_information']//field[@name='emergency_contact']" position="after">
+            <!-- Add after emergency_contact field -->
+            <xpath expr="//page[@name='personal_information']//field[@name='emergency_contact']" position="after">
                 <field name="l4e_reference_hiring"/>
                 <field name="l4e_remarks"/>
             </xpath>
 
-            <!-- ── HR Settings tab ── -->
+            <!-- ── HR Settings tab (page name="hr_settings") ── -->
             <xpath expr="//page[@name='hr_settings']" position="inside">
                 <group string="Salary &amp; Allowances">
                     <group>
