@@ -53,6 +53,9 @@ class ResPartner(models.Model):
     margin_percentage = fields.Float(
         string='Margin %',
     )
+    credit_days = fields.Char(
+        string='Credit Days',
+    )
     outlet_onboard_date = fields.Date(
         string='Outlet Onboarded Date',
     )
@@ -128,6 +131,7 @@ class ResPartner(models.Model):
             ("delivery_day", "VARCHAR"),
             ("scheme", "VARCHAR"),
             ("margin_percentage", "DOUBLE PRECISION"),
+            ("credit_days", "VARCHAR"),
             ("outlet_onboard_date", "DATE"),
             ("chiller_availability", "VARCHAR"),
             ("chiller_model", "VARCHAR"),
