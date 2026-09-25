@@ -196,7 +196,7 @@ class _ChangeablePhotoState extends State<_ChangeablePhoto> {
       ),
     );
     if (source == null) return;
-    final bytes = await takePhoto(source, selfie: true);
+    final bytes = await takePhoto(source, selfie: true, stamp: false);
     if (bytes == null || !mounted) return;
     setState(() => _busy = true);
     try {
