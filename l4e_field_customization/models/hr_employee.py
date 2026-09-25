@@ -10,7 +10,7 @@ class HrEmployee(models.Model):
             ('employee', 'Employee'),
             ('contractor', 'Contractor'),
         ],
-        string='Employee Type',
+        string='Contract Type',
         default='employee',
     )
     l4e_employee_id = fields.Char(
