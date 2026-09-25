@@ -24,9 +24,12 @@
             </xpath>
 
             <!-- ── Personal Information tab (page name="personal_information") ── -->
-            <!-- Enforce numeric dd/mm/yyyy on Birthday -->
+            <!-- Enforce numeric dd/mm/yyyy on Birthday and hide overlapping checkbox -->
             <xpath expr="//page[@name='personal_information']//field[@name='birthday']" position="attributes">
                 <attribute name="options">{'numeric': True}</attribute>
+            </xpath>
+            <xpath expr="//page[@name='personal_information']//span[field[@name='birthday_public_display']]" position="attributes">
+                <attribute name="invisible">1</attribute>
             </xpath>
 
             <!-- Add after sex (gender) field -->
