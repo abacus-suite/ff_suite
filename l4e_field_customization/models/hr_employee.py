@@ -4,6 +4,7 @@ from odoo import models, fields
 class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
+    # ── General Info ──────────────────────────────────────────────────────────
     l4e_employee_type = fields.Selection(
         selection=[
             ('employee', 'Employee'),
