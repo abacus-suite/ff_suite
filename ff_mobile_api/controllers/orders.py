@@ -287,6 +287,7 @@ class FieldForceOrdersApi(http.Controller):
                 'id': product.id,
                 'name': product.display_name,
                 'sku': product.product_tmpl_id.ff_sku_code or None,
+                'has_image': bool(product.image_128),
                 'qty': quantity,
             } for product, quantity in top],
         })

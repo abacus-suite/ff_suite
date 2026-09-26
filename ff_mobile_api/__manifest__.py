@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Mobile API',
-    'version': '19.0.1.13.8',
+    'version': '19.0.1.13.9',
     'category': 'Human Resources/Field Force',
     'summary': 'REST API (/api/v1) for the Field Force mobile app',
     'author': 'Field Force Suite',
