@@ -17,7 +17,7 @@ DAY_STATUSES = [
 
 
 class HrAttendance(models.Model):
-    _inherit = 'hr.attendance'
+    _inherit = ['hr.attendance', 'mail.thread']
 
     ff_source = fields.Selection([
         ('web', 'Web / Kiosk'),
