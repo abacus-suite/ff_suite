@@ -38,6 +38,8 @@ class Profile {
     this.manager,
     this.designation,
     this.shiftName,
+    this.shiftStart,
+    this.shiftEnd,
     this.scope = 'own',
     this.routeLabel = 'Beat',
     this.routes = const [],
@@ -52,6 +54,10 @@ class Profile {
   final String? manager;
   final String? designation;
   final String? shiftName;
+
+  /// The shift's hours as fractions of a day, 9.5 being half past nine.
+  final double? shiftStart;
+  final double? shiftEnd;
   final bool isManager;
   final bool isAdmin;
   final String scope;
@@ -128,6 +134,8 @@ class Profile {
       manager: _name(employee['manager']),
       designation: _name(employee['designation']),
       shiftName: shift?['name'] as String?,
+      shiftStart: (shift?['start_time'] as num?)?.toDouble(),
+      shiftEnd: (shift?['end_time'] as num?)?.toDouble(),
       isManager: roles['is_manager'] == true,
       isAdmin: roles['is_admin'] == true,
       scope: roles['scope'] as String? ?? 'own',
