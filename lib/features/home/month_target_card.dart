@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'sales_cards.dart';
+
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
@@ -178,19 +180,65 @@ class _MyTasksCardState extends State<MyTasksCard> {
       padding: const EdgeInsets.only(bottom: 12),
       child: Card(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CardHeader(
+              CardHead(
                 icon: Icons.task_alt_rounded,
-                title: 'My tasks',
-                trailing: TextButton(onPressed: openList, child: const Text('View All')),
+                title: 'My Tasks',
+                subtitle: 'Stay on top of your work',
+                tint: AppColors.success,
+                trailing: TextButton(
+                  onPressed: openList,
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [Text('View All'), Icon(Icons.chevron_right_rounded, size: 18)],
+                  ),
+                ),
               ),
+              const SizedBox(height: 10),
               if (tasks.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text('Nothing open. Nice.', style: TextStyle(color: AppColors.muted)),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppColors.success.withValues(alpha: 0.12),
+                        AppColors.success.withValues(alpha: 0.03),
+                      ],
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: const Icon(Icons.checklist_rounded, color: AppColors.success, size: 27),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Nothing open.',
+                                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                            SizedBox(height: 2),
+                            Text('Nice! You are all caught up.',
+                                style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 )
               else ...[
                 if ((summary['overdue'] ?? 0) > 0)

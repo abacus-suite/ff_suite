@@ -13,8 +13,8 @@ import '../../widgets/dashboard.dart';
 
 /// The header every one of these cards wears: an icon tile, a title with a
 /// line under it, and whatever the card puts on the right.
-class _CardHead extends StatelessWidget {
-  const _CardHead({required this.icon, required this.title, required this.subtitle, required this.tint, this.trailing});
+class CardHead extends StatelessWidget {
+  const CardHead({super.key, required this.icon, required this.title, required this.subtitle, required this.tint, this.trailing});
 
   final IconData icon;
   final String title;
@@ -187,7 +187,7 @@ class SalesCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _CardHead(
+            CardHead(
               icon: Icons.bar_chart_rounded,
               title: switch (period) { 'week' => "Week's Sales", 'month' => "Month's Sales", _ => "Today's Sales" },
               subtitle: subtitle,
@@ -479,7 +479,7 @@ class _TopProductsCardState extends State<TopProductsCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _CardHead(
+            CardHead(
               icon: Icons.inventory_2_rounded,
               title: 'Top Products',
               subtitle: 'Best performing items',
@@ -688,7 +688,7 @@ class TravelCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _CardHead(
+                      CardHead(
                         icon: Icons.place_rounded,
                         title: 'Total Travelled',
                         subtitle: 'Distance covered today',

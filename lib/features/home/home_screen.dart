@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 import '../../core/photos.dart';
 import 'punch_form.dart';
 import '../../core/format.dart';
+import '../../core/geo.dart';
 import '../../core/local_state.dart';
 import '../../core/models.dart';
 import '../../core/permissions.dart';
@@ -53,6 +54,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _member = 'me';
   bool _loading = true;
   bool _punching = false;
+  final PageController _visitPages = PageController(viewportFraction: 0.86);
+  int _visitPage = 0;
   String? _error;
 
   Profile get _profile => Services.auth.profile!;
@@ -70,6 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     Services.refresh.removeListener(_load);
+    _visitPages.dispose();
     super.dispose();
   }
 
@@ -437,140 +441,260 @@ class _HomeScreenState extends State<HomeScreen> {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CardHead(
+              icon: Icons.event_available_rounded,
+              title: 'Upcoming Visits',
+              subtitle: '${waiting.length} still to see today',
+              tint: AppColors.primary,
+              trailing: TextButton(
+                onPressed: () => _push(const BeatTodayScreen()),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [Text('View All'), Icon(Icons.chevron_right_rounded, size: 18)],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 128,
+              child: PageView.builder(
+                controller: _visitPages,
+                padEnds: false,
+                itemCount: waiting.length,
+                onPageChanged: (page) => setState(() => _visitPage = page),
+                itemBuilder: (_, i) => Padding(
+                  padding: EdgeInsets.only(right: i == waiting.length - 1 ? 0 : 10),
+                  child: _upcomingCard(waiting[i], i),
+                ),
+              ),
+            ),
+            if (waiting.length > 1) ...[
+              const SizedBox(height: 8),
+              Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    for (var i = 0; i < waiting.length; i++)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: i == _visitPage ? 18 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: i == _visitPage ? AppColors.primary : AppColors.border,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _upcomingCard(Map<String, dynamic> client, int index) {
+    final tint = index.isEven ? AppColors.primary : AppColors.purple;
+    final address = asText(client['address']) ?? asText((client['district'] as Map?)?['name']) ?? '';
+    final metres = client['distance_m'] as num?;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => _push(ClientDetailScreen(clientId: client['id'] as int)),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [tint.withValues(alpha: 0.1), tint.withValues(alpha: 0.03)],
+          ),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Icon(Icons.place_rounded, size: 18, color: AppColors.primary),
-                const SizedBox(width: 6),
-                const Expanded(
-                  child: Text('Upcoming Visits', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(13)),
+                  child: Icon(Icons.storefront_rounded, color: tint, size: 21),
                 ),
-                TextButton(
-                  onPressed: () => _push(const BeatTodayScreen()),
-                  child: const Text('View All'),
-                ),
-              ],
-            ),
-            SizedBox(
-              height: 78,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: waiting.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (_, i) => _upcomingCard(waiting[i]),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _upcomingCard(Map<String, dynamic> client) {
-    final address = asText(client['address']) ?? asText((client['district'] as Map?)?['name']) ?? '';
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () => _push(ClientDetailScreen(clientId: client['id'] as int)),
-      child: Container(
-        width: 210,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
-              child: const Icon(Icons.storefront_rounded, size: 19, color: AppColors.primary),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('${client['name']}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                  const SizedBox(height: 3),
-                  Row(
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.location_on_outlined, size: 12, color: AppColors.muted),
-                      const SizedBox(width: 2),
-                      Expanded(
-                        child: Text(address,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                      Text('${client['name']}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5)),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on_outlined, size: 12, color: AppColors.muted),
+                          const SizedBox(width: 2),
+                          Expanded(
+                            child: Text(address,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 11.5, color: AppColors.muted, height: 1.25)),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+              ],
             ),
-            const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.muted),
+            const Spacer(),
+            Row(
+              children: [
+                _visitChip(Icons.tag_rounded, 'Stop ${client['sequence'] ?? index + 1}', tint),
+                const SizedBox(width: 8),
+                if (metres != null) _visitChip(Icons.near_me_rounded, fmtDistance(metres), AppColors.muted),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
+  Widget _visitChip(IconData icon, String text, Color tint) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: tint),
+            const SizedBox(width: 4),
+            Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: tint)),
+          ],
+        ),
+      );
+
   Widget _quickActions(Profile profile) {
-    final actions = <(IconData, String, Color, Widget)>[
+    final actions = <(IconData, String, String, Color, Widget)>[
       if (profile.feature('routes'))
         (
           Icons.route_rounded,
           'My ${profile.routeLabel}',
+          "View today's plan",
           AppColors.primary,
           const BeatTodayScreen()
         ),
       if (profile.feature('orders'))
-        (
-          Icons.inventory_2_rounded,
-          'Products',
-          AppColors.purple,
-          const CatalogScreen()
-        ),
+        (Icons.inventory_2_rounded, 'Products', 'Browse products', AppColors.purple, const CatalogScreen()),
       (
         Icons.groups_2_rounded,
         '${profile.label('client', 'Customer')}s',
+        'Manage your customers',
         AppColors.warning,
         const ClientsScreen()
       ),
-      (
-        Icons.receipt_rounded,
-        'Expenses',
-        AppColors.danger,
-        const ExpensesScreen()
-      ),
+      (Icons.receipt_rounded, 'Expenses', 'Add new expense', AppColors.danger, const ExpensesScreen()),
     ];
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CardHeader(icon: Icons.apps_rounded, title: 'Quick Actions'),
+            const CardHead(
+              icon: Icons.bolt_rounded,
+              title: 'Quick Actions',
+              subtitle: 'Get things done faster',
+              tint: AppColors.success,
+            ),
             const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final action in actions) ...[
-                    QuickAction(
-                      icon: action.$1,
-                      label: action.$2,
-                      colour: action.$3,
-                      onTap: () => _push(action.$4),
-                    ),
-                    const SizedBox(width: 10),
-                  ],
-                ],
+            // Two by two, sized by their own content: a grid inside a card
+            // leaves an empty strip when the rows are shorter than it expects.
+            for (var row = 0; row < (actions.length + 1) ~/ 2; row++)
+              Padding(
+                padding: EdgeInsets.only(bottom: row == (actions.length - 1) ~/ 2 ? 0 : 10),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: _actionTile(actions[row * 2])),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: row * 2 + 1 < actions.length
+                            ? _actionTile(actions[row * 2 + 1])
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionTile((IconData, String, String, Color, Widget) action) {
+    final (icon, label, hint, tint, screen) = action;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => _push(screen),
+      child: Container(
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [tint.withValues(alpha: 0.12), tint.withValues(alpha: 0.03)],
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, color: tint, size: 19),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5)),
+                      Text(hint,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11, color: AppColors.muted, height: 1.2)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
+                  child: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 15),
+                ),
+              ],
             ),
           ],
         ),

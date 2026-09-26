@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
-import '../../widgets/common.dart';
+import 'sales_cards.dart';
 import '../allowance/allowance_screen.dart';
 import '../expenses/expenses_screen.dart';
 import '../leaves/leaves_screen.dart';
@@ -121,39 +121,102 @@ class _MyRequestsCardState extends State<MyRequestsCard> {
       return const SizedBox.shrink();
     }
     final waiting = _lines.values.fold<int>(0, (sum, line) => sum + line.waiting);
-    return SectionCard(
-      title: 'My requests',
-      action: waiting == 0
-          ? const Text('All settled', style: TextStyle(fontSize: 12, color: AppColors.success))
-          : Text('$waiting waiting',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.warning)),
-      child: Column(
-        children: [
-          for (final entry in _lines.entries) _tile(entry.key, entry.value),
-        ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CardHead(
+                icon: Icons.description_rounded,
+                title: 'My Requests',
+                subtitle: 'Time off, expenses and claims',
+                tint: AppColors.purple,
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: (waiting == 0 ? AppColors.success : AppColors.warning).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(waiting == 0 ? 'All settled' : '$waiting waiting',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: waiting == 0 ? AppColors.success : AppColors.warning)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              for (final entry in _lines.entries) _tile(entry.key, entry.value),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _tile(String key, _RequestLine line) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      onTap: () => _open(key),
-      leading: CircleAvatar(
-        radius: 18,
-        backgroundColor: line.colour.withValues(alpha: 0.12),
-        child: Icon(line.icon, size: 18, color: line.colour),
-      ),
-      title: Text(line.label),
-      subtitle: Text(line.detail, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (line.waiting > 0) StatusBadge('submitted', label: '${line.waiting} waiting'),
-          if (line.waiting == 0 && line.approved > 0)
-            StatusBadge('approved', label: '${line.approved} approved'),
-          const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-        ],
+    final pending = line.waiting > 0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => _open(key),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: line.colour.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(line.icon, size: 19, color: line.colour),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(line.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    const SizedBox(height: 1),
+                    Text(line.detail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: (pending ? AppColors.warning : line.colour).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Text(
+                    pending
+                        ? '${line.waiting} waiting'
+                        : (line.approved > 0 ? '${line.approved} approved' : 'Request'),
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: pending ? AppColors.warning : line.colour)),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+            ],
+          ),
+        ),
       ),
     );
   }
