@@ -26,6 +26,35 @@ def to_int(value):
         return None
 
 
+def _route_partner_ids(people):
+    """Customers standing on these people's routes or planned for their days."""
+    env = request.env
+    ids = set()
+    if 'ff.beat.line' in env:
+        routes = people.sudo().ff_route_ids
+        if routes:
+            ids.update(env['ff.beat.line'].sudo().search([('beat_id', 'in', routes.ids)]).partner_id.ids)
+    if 'ff.route.plan.customer' in env:
+        ids.update(env['ff.route.plan.customer'].sudo().search(
+            [('day_id.employee_id', 'in', people.ids)]).partner_id.ids)
+    return list(ids)
+
+
+def _with_routes(domain, extra_ids):
+    """The domain, widened by the customers of the routes and the plans.
+
+    The two sets are joined by their ids rather than by an "or" of two
+    domains: the first one already carries its own operators, and rewriting
+    those by hand is how mistakes creep in.
+    """
+    if not extra_ids:
+        return domain
+    Partner = request.env['res.partner'].sudo()
+    ids = set(Partner.search(domain).ids)
+    ids.update(Partner.search([('ff_is_client', '=', True), ('id', 'in', extra_ids)]).ids)
+    return [('id', 'in', list(ids))]
+
+
 def client_domain(employee, member=None):
     """Contacts the app may show.
 
@@ -33,36 +62,43 @@ def client_domain(employee, member=None):
     or the whole team at once. Every category any of them may use is allowed,
     so a team spread over departments still shows all its kinds of contact.
     """
-    people = employee
-    if member not in (None, '', 'me'):
+    # A manager's list is their team's list: their own contacts and everybody's
+    # under them, unless they ask for one person or for themselves alone.
+    people = employee | employee._ff_subordinates()
+    if member in (None, ''):
+        member = 'team'
+    if member == 'me':
+        people = employee
+    elif member != 'team':
         team = employee._ff_subordinates()
-        if member == 'team':
-            people = employee | team
-        else:
-            try:
-                chosen = team.filtered(lambda e, m=int(member): e.id == m)
-            except (TypeError, ValueError):
-                chosen = team.browse()
-            if not chosen:
-                raise ApiError('That person is not in your team.', 403, 'forbidden')
-            people = chosen
+        try:
+            chosen = team.filtered(lambda e, m=int(member): e.id == m)
+        except (TypeError, ValueError):
+            chosen = team.browse()
+        if not chosen:
+            raise ApiError('That person is not in your team.', 403, 'forbidden')
+        people = chosen
+    # Customers on the routes these people work, or planned for one of their
+    # days, belong in the list even when nobody assigned them by name.
+    extra = _route_partner_ids(people)
     if employee.ff_access_scope == 'all':
         domain = [('ff_is_client', '=', True), ('ff_approval_state', '!=', 'rejected')]
-        if people != employee:
+        # Somebody who sees everything only narrows down when they pick a person.
+        if member not in ('team', 'me'):
             domain.append(('ff_employee_ids', 'in', people.ids))
         return domain
     if people == employee:
-        return request.env['res.partner']._ff_visible_domain(employee)
+        return _with_routes(request.env['res.partner']._ff_visible_domain(employee), extra)
     Category = request.env['ff.contact.category']
     categories = Category.browse()
     for person in people:
         categories |= Category.ff_for_employee(person)
-    return [
+    return _with_routes([
         ('ff_is_client', '=', True),
         ('ff_category_id', 'in', categories.ids),
         ('ff_employee_ids', 'in', people.ids),
         ('ff_approval_state', '!=', 'rejected'),
-    ]
+    ], extra)
 
 
 def visible_client(employee, partner_id):
@@ -96,6 +132,21 @@ def category_for(employee, category_id):
     raise ApiError('category_id is required: choose a contact category.')
 
 
+def _category_counts(employee, member=None):
+    """How many contacts of each kind the person may see, for the chips."""
+    Partner = request.env['res.partner'].sudo()
+    base = client_domain(employee, member)
+    groups = Partner._read_group(base, ['ff_category_id'], ['__count'])
+    by_category = [{
+        'id': category.id,
+        'name': category.name,
+        'type': category.category_type,
+        'count': count,
+    } for category, count in groups if category]
+    by_category.sort(key=lambda row: -row['count'])
+    return {'total': sum(row['count'] for row in by_category), 'categories': by_category}
+
+
 class FieldForceClientsApi(http.Controller):
 
     @api_route('/api/v1/clients', methods=('GET',))
@@ -123,11 +174,13 @@ class FieldForceClientsApi(http.Controller):
                        ('partner_longitude', '>=', lng - dlng), ('partner_longitude', '<=', lng + dlng)]
             rows = [client_data(p, lat, lng) for p in Partner.search(domain)]
             rows = sorted((r for r in rows if r['distance_m'] <= radius * 1000), key=lambda r: r['distance_m'])
-            return ok({'total': len(rows), 'clients': rows[offset:offset + limit]})
+            return ok({'total': len(rows), 'counts': _category_counts(employee, member),
+                       'clients': rows[offset:offset + limit]})
 
         total = Partner.search_count(domain)
         partners = Partner.search(domain, order='name', limit=limit, offset=offset)
-        return ok({'total': total, 'clients': [client_data(p) for p in partners]})
+        return ok({'total': total, 'counts': _category_counts(employee, member),
+                   'clients': [client_data(p) for p in partners]})
 
     @api_route('/api/v1/clients/<int:partner_id>', methods=('GET',))
     def client(self, employee, partner_id, lat=None, lng=None, **kw):
