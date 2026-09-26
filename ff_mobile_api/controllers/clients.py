@@ -26,10 +26,43 @@ def to_int(value):
         return None
 
 
-def client_domain(employee):
+def client_domain(employee, member=None):
+    """Contacts the app may show.
+
+    A manager sees their own and, through ``member``, one person of their team
+    or the whole team at once. Every category any of them may use is allowed,
+    so a team spread over departments still shows all its kinds of contact.
+    """
+    people = employee
+    if member not in (None, '', 'me'):
+        team = employee._ff_subordinates()
+        if member == 'team':
+            people = employee | team
+        else:
+            try:
+                chosen = team.filtered(lambda e, m=int(member): e.id == m)
+            except (TypeError, ValueError):
+                chosen = team.browse()
+            if not chosen:
+                raise ApiError('That person is not in your team.', 403, 'forbidden')
+            people = chosen
     if employee.ff_access_scope == 'all':
-        return [('ff_is_client', '=', True), ('ff_approval_state', '!=', 'rejected')]
-    return request.env['res.partner']._ff_visible_domain(employee)
+        domain = [('ff_is_client', '=', True), ('ff_approval_state', '!=', 'rejected')]
+        if people != employee:
+            domain.append(('ff_employee_ids', 'in', people.ids))
+        return domain
+    if people == employee:
+        return request.env['res.partner']._ff_visible_domain(employee)
+    Category = request.env['ff.contact.category']
+    categories = Category.browse()
+    for person in people:
+        categories |= Category.ff_for_employee(person)
+    return [
+        ('ff_is_client', '=', True),
+        ('ff_category_id', 'in', categories.ids),
+        ('ff_employee_ids', 'in', people.ids),
+        ('ff_approval_state', '!=', 'rejected'),
+    ]
 
 
 def visible_client(employee, partner_id):
@@ -67,9 +100,9 @@ class FieldForceClientsApi(http.Controller):
 
     @api_route('/api/v1/clients', methods=('GET',))
     def clients(self, employee, q=None, category_id=None, lat=None, lng=None, radius_km=None,
-                limit=None, offset=None, **kw):
+                limit=None, offset=None, member=None, **kw):
         Partner = request.env['res.partner'].sudo()
-        domain = client_domain(employee)
+        domain = client_domain(employee, member)
         if q:
             domain += ['|', '|', '|', ('name', 'ilike', q), ('ff_client_code', 'ilike', q),
                        ('phone', 'ilike', q), ('city', 'ilike', q)]
