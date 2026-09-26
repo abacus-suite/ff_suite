@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
+import 'geo_camera.dart';
 import 'geo.dart';
 import 'services.dart';
 import 'tile_cache.dart';
@@ -92,6 +93,13 @@ Future<PhotoPlace> currentPlace({bool fresh = false}) async {
 /// wherever it is opened later - Odoo, a download or a forwarded message.
 /// [stamp] is off for pictures that are not evidence, such as a profile photo.
 Future<Uint8List?> takePhoto(ImageSource source, {bool selfie = false, bool stamp = true}) async {
+  // Photos meant as evidence are taken in the app's own camera, which shows the
+  // place and time on the viewfinder before the shot. Pictures chosen from the
+  // gallery, and photos that carry no stamp, still use the phone's picker.
+  if (stamp && source == ImageSource.camera) {
+    final shot = await openGeoCamera(selfie: selfie);
+    if (shot != null) return shot;
+  }
   final image = await ImagePicker().pickImage(
     source: source,
     maxWidth: selfie ? _selfieSide : _maxSide,

@@ -19,6 +19,14 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// The camera plugin compiles against CallbackToFutureAdapter without asking
+// for it, so every Android module gets it on its compile path.
+subprojects {
+    plugins.withId("com.android.library") {
+        dependencies.add("compileOnly", "androidx.concurrent:concurrent-futures:1.2.0")
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
