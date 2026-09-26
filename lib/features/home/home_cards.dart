@@ -219,53 +219,86 @@ class _CheckInHeroState extends State<CheckInHero> {
 
 /// A small card with a title, an optional action, and any body.
 class MiniCard extends StatelessWidget {
-  const MiniCard({super.key, required this.icon, required this.title, required this.child, this.action, this.onTap});
+  const MiniCard(
+      {super.key,
+      required this.icon,
+      required this.title,
+      required this.child,
+      this.action,
+      this.onTap,
+      this.tint = AppColors.primary});
 
   final IconData icon;
   final String title;
   final Widget child;
   final Widget? action;
   final VoidCallback? onTap;
+  final Color tint;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [tint.withValues(alpha: 0.12), tint.withValues(alpha: 0.03)],
+                ),
+              ),
+              child: Row(
                 children: [
-                  Icon(icon, size: 18, color: AppColors.primary),
-                  const SizedBox(width: 6),
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(9),
+                      boxShadow: [
+                        BoxShadow(color: tint.withValues(alpha: 0.2), blurRadius: 7, offset: const Offset(0, 3))
+                      ],
+                    ),
+                    child: Icon(icon, size: 16, color: tint),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                   ),
                   if (action != null) action!,
                 ],
               ),
-              const SizedBox(height: 10),
-              child,
-            ],
-          ),
+            ),
+            Padding(padding: const EdgeInsets.fromLTRB(12, 10, 12, 12), child: child),
+          ],
         ),
       ),
     );
   }
 }
 
-/// The day's sales in one glance: the total, how it compares, and small bars.
+/// The day's money in one glance: the total, how it compares, and small bars
+/// with the best hour lifted out of the row.
 class SalesGlance extends StatelessWidget {
-  const SalesGlance({super.key, required this.amount, required this.currency, required this.change, required this.bars,
-    required this.compareWith});
+  const SalesGlance(
+      {super.key,
+      required this.amount,
+      required this.currency,
+      required this.change,
+      required this.bars,
+      required this.compareWith,
+      this.count});
 
   final num amount;
   final String? currency;
@@ -273,48 +306,63 @@ class SalesGlance extends StatelessWidget {
   final List<double> bars;
   final String compareWith;
 
+  /// How many orders made up the amount; null hides the line.
+  final int? count;
+
   @override
   Widget build(BuildContext context) {
     final up = (change ?? 0) >= 0;
+    final tone = up ? AppColors.success : AppColors.danger;
     final peak = bars.isEmpty ? 0.0 : bars.reduce((a, b) => a > b ? a : b);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(fmtMoney(amount, currency),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.text)),
-        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(fmtMoney(amount, currency),
+              maxLines: 1,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, height: 1.1, color: AppColors.text)),
+        ),
+        const SizedBox(height: 6),
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: (up ? AppColors.success : AppColors.danger).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(color: tone.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(9)),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(up ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                      size: 11, color: up ? AppColors.success : AppColors.danger),
+                  Icon(up ? Icons.trending_up_rounded : Icons.trending_down_rounded, size: 12, color: tone),
+                  const SizedBox(width: 3),
                   Text('${(change ?? 0).abs().toStringAsFixed(0)}%',
-                      style: TextStyle(
-                          fontSize: 10.5, fontWeight: FontWeight.w800, color: up ? AppColors.success : AppColors.danger)),
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: tone)),
                 ],
               ),
             ),
             const SizedBox(width: 5),
             Flexible(
               child: Text('vs $compareWith',
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
             ),
           ],
         ),
+        if (count != null) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.receipt_long_rounded, size: 13, color: AppColors.muted),
+              const SizedBox(width: 4),
+              Text('$count today',
+                  style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ],
         const SizedBox(height: 10),
         SizedBox(
-          height: 46,
+          height: 44,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -323,10 +371,19 @@ class SalesGlance extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 1.5),
                     child: Container(
-                      height: peak == 0 ? 4 : (6 + 40 * (value / peak)),
+                      height: peak == 0 ? 5 : (6 + 38 * (value / peak)),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: value == peak && peak > 0 ? 0.85 : 0.28),
-                        borderRadius: BorderRadius.circular(3),
+                        borderRadius: BorderRadius.circular(4),
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: value == peak && peak > 0
+                              ? [AppColors.primary, AppColors.sky]
+                              : [
+                                  AppColors.primary.withValues(alpha: 0.28),
+                                  AppColors.primary.withValues(alpha: 0.14)
+                                ],
+                        ),
                       ),
                     ),
                   ),
@@ -339,7 +396,7 @@ class SalesGlance extends StatelessWidget {
   }
 }
 
-/// What moved most, as a short bar list.
+/// What moved most, as a ranked list with a bar behind each name.
 class TopProducts extends StatelessWidget {
   const TopProducts({super.key, required this.rows});
 
@@ -351,20 +408,37 @@ class TopProducts extends StatelessWidget {
   Widget build(BuildContext context) {
     if (rows.isEmpty) {
       return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
-        child: Text('Nothing sold yet', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+        padding: EdgeInsets.symmetric(vertical: 18),
+        child: Row(
+          children: [
+            Icon(Icons.inventory_rounded, size: 16, color: AppColors.muted),
+            SizedBox(width: 6),
+            Text('Nothing sold yet', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+          ],
+        ),
       );
     }
-    final peak = rows
-        .map((r) => ((r['qty'] as num?) ?? 0).toDouble())
-        .fold<double>(0, (a, b) => a > b ? a : b);
+    final peak = rows.map((r) => ((r['qty'] as num?) ?? 0).toDouble()).fold<double>(0, (a, b) => a > b ? a : b);
     return Column(
       children: [
         for (final (i, row) in rows.take(4).indexed)
           Padding(
-            padding: const EdgeInsets.only(bottom: 9),
+            padding: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
+                Container(
+                  width: 18,
+                  height: 18,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _colours[i % _colours.length].withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text('${i + 1}',
+                      style: TextStyle(
+                          fontSize: 10, fontWeight: FontWeight.w900, color: _colours[i % _colours.length])),
+                ),
+                const SizedBox(width: 7),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -378,7 +452,7 @@ class TopProducts extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: peak == 0 ? 0 : ((row['qty'] as num?) ?? 0) / peak,
-                          minHeight: 6,
+                          minHeight: 5,
                           backgroundColor: AppColors.border,
                           color: _colours[i % _colours.length],
                         ),
@@ -397,7 +471,7 @@ class TopProducts extends StatelessWidget {
   }
 }
 
-/// Distance covered today, with the day's path beside it.
+/// Distance covered today, with the day's path behind it.
 class TravelStrip extends StatelessWidget {
   const TravelStrip({super.key, required this.km, required this.change, required this.points, this.onOpen});
 
@@ -409,13 +483,14 @@ class TravelStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final up = (change ?? 0) >= 0;
+    final tone = up ? AppColors.success : AppColors.danger;
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onOpen,
         child: SizedBox(
-          height: 108,
+          height: 116,
           child: Row(
             children: [
               Expanded(
@@ -426,29 +501,50 @@ class TravelStrip extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.route_rounded, size: 18, color: AppColors.primary),
-                          SizedBox(width: 6),
-                          Text('Total Travelled', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                          Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(9),
+                              gradient: AppColors.brandGradient,
+                            ),
+                            child: const Icon(Icons.route_rounded, size: 15, color: Colors.white),
+                          ),
+                          const SizedBox(width: 7),
+                          const Text('Total Travelled',
+                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Text('${km.toStringAsFixed(1)} km',
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.text)),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(km.toStringAsFixed(1),
+                              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: AppColors.text)),
+                          const SizedBox(width: 3),
+                          const Text('km', style: TextStyle(fontSize: 13, color: AppColors.muted)),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
                       if (change != null)
-                        Row(
-                          children: [
-                            Icon(up ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                                size: 12, color: up ? AppColors.success : AppColors.danger),
-                            Text('${change!.abs().toStringAsFixed(0)}% ',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: up ? AppColors.success : AppColors.danger)),
-                            const Text('vs yesterday', style: TextStyle(fontSize: 11, color: AppColors.muted)),
-                          ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: tone.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(up ? Icons.trending_up_rounded : Icons.trending_down_rounded, size: 12, color: tone),
+                              const SizedBox(width: 3),
+                              Text('${change!.abs().toStringAsFixed(0)}% vs yesterday',
+                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: tone)),
+                            ],
+                          ),
                         ),
                     ],
                   ),
@@ -456,7 +552,21 @@ class TravelStrip extends StatelessWidget {
               ),
               Expanded(
                 flex: 4,
-                child: SizedBox.expand(child: RouteMiniMap(points: points, height: 108)),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    RouteMiniMap(points: points, height: 116),
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                        child: const Icon(Icons.open_in_full_rounded, size: 13, color: AppColors.primary),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

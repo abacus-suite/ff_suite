@@ -367,6 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 currency: currency,
                 change: (previous['amount_change'] as num?)?.toDouble(),
                 compareWith: _compareWord,
+                count: (sales?['count'] as num?)?.toInt(),
                 bars: [for (final row in rows) ((row['amount'] as num?) ?? 0).toDouble()],
               ),
             ),
@@ -376,6 +377,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: MiniCard(
               icon: Icons.inventory_2_rounded,
               title: 'Top Products',
+              tint: AppColors.purple,
               onTap: () => _push(const CatalogScreen()),
               child: TopProducts(
                 rows: ((sales?['top_products'] as List?) ?? []).cast<Map<String, dynamic>>(),
@@ -810,20 +812,43 @@ class _HomeScreenState extends State<HomeScreen> {
               )
             else
               for (final visit in recent)
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.store_rounded,
-                      color: AppColors.primary),
-                  title: Text('${(visit['client'] as Map)['name']}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14)),
-                  trailing: Text(fmtTime(visit['check_in_at']),
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.muted)),
+                InkWell(
+                  borderRadius: BorderRadius.circular(12),
                   onTap: () => _push(ClientDetailScreen(
                       clientId: (visit['client'] as Map)['id'] as int)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.check_rounded, size: 17, color: AppColors.success),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text('${(visit['client'] as Map)['name']}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Text(fmtTime(visit['check_in_at']),
+                              style: const TextStyle(
+                                  fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
           ],
         ),
