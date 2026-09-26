@@ -65,17 +65,25 @@ class ResConfigSettings(models.TransientModel):
     ff_payment_collection = fields.Boolean(
         string='Payment Collection', config_parameter='ff_base.payment_collection',
         help='Collect money at the customer and deposit it to the office.')
-    ff_map_provider = fields.Selection(
-        [('google', 'Google Maps (paid, needs a key)'), ('open', 'Open maps (free, no key)')],
-        string='Map Provider', config_parameter='ff_base.map_provider',
-        default=lambda self: 'google' if self.env['ir.config_parameter'].sudo().get_param('ff_base.google_maps_key') else 'open',
-        help='Google: Google tiles, web map and addresses, billed by Google. Open maps: OpenFreeMap / MapLibre '
-             'for the web map, CARTO / OpenStreetMap tiles in the app and OpenStreetMap addresses, all free.')
+    ff_map_mode = fields.Selection(
+        [('sdk', "Google map inside the app (free, needs a key)"),
+         ('google', 'Google everywhere (billed by request)'),
+         ('open', 'Open maps everywhere (free, no key)'),
+         ('hybrid', 'Google for maps, free addresses (billed by request)')],
+        string='Maps', config_parameter='ff_base.map_mode', default='sdk',
+        help="Google map inside the app: the phone draws Google's own map, which Google does not charge for; "
+             "Odoo's web map uses the free map. Google everywhere: Google tiles, web map and addresses, all billed. "
+             "Open maps: free everywhere, no key. Google for maps, free addresses: Google draws the maps people "
+             "look at, addresses stay free, and the guard switches to free maps before the free tier runs out.")
     ff_geocode_provider = fields.Selection(
         [('open', 'OpenStreetMap (free)'), ('google', 'Google Geocoding (paid after the free tier)')],
         string='Address Lookups', config_parameter='ff_base.geocode_provider', default='open',
         help='Turning GPS points into street addresses runs in the background, so it can stay free '
              'even when Google draws the maps.')
+    ff_map_provider = fields.Selection(
+        [('google', 'Google'), ('open', 'Open maps')],
+        string='Map Provider (old)', config_parameter='ff_base.map_provider',
+        help='Kept so databases set up before the four choices existed still read correctly.')
     ff_open_map_style = fields.Selection(
         [('liberty', 'Liberty (colourful)'), ('positron', 'Positron (light)'), ('bright', 'Bright')],
         string='Free Map Style', config_parameter='ff_base.open_map_style', default='liberty')

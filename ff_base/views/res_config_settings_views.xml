@@ -72,10 +72,10 @@
                         </setting>
                     </block>
                     <block title="Maps" name="ff_map_settings">
-                        <setting string="Map provider" help="Pick who draws the maps in Odoo and in the app. Everybody's maps change on their next refresh or login.">
-                            <field name="ff_map_provider" widget="radio"/>
+                        <setting string="Maps" help="How the maps are drawn, and what they cost. The first choice is free: the phone draws Google's own map, which Google does not bill, and Odoo's web map uses the free map.">
+                            <field name="ff_map_mode" widget="radio"/>
                         </setting>
-                        <setting string="Google Maps API key" invisible="ff_map_provider != 'google'"
+                        <setting string="Google Maps API key" invisible="ff_map_mode == 'open'"
                                  help="Enable Maps JavaScript API for the web map, Map Tiles API for the phone app and Geocoding API for addresses, then paste the key here. Until a key is set, the free maps are used.">
                             <field name="ff_google_maps_key" password="True" placeholder="AIza..."/>
                         </setting>
@@ -83,7 +83,7 @@
                                  help="Background work: turning GPS points into street addresses. OpenStreetMap is free; Google counts against its 10,000 free lookups a month.">
                             <field name="ff_geocode_provider" widget="radio"/>
                         </setting>
-                        <setting string="Free map style" invisible="ff_map_provider != 'open'"
+                        <setting string="Free map style" invisible="ff_map_mode == 'google'"
                                  help="How the free web map looks. The app uses CARTO's Voyager map, which is free and needs no key.">
                             <field name="ff_open_map_style" widget="radio"/>
                         </setting>

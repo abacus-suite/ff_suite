@@ -16,7 +16,7 @@ from odoo import http
 from odoo.exceptions import AccessDenied, AccessError, UserError, ValidationError
 from odoo.http import request
 
-from odoo.addons.ff_base.tools import (get_settings, google_maps_key, map_provider, map_style, to_iso,
+from odoo.addons.ff_base.tools import (get_settings, google_maps_key, map_mode, map_provider, map_style, to_iso,
                                        client_time, clock_skew_minutes)
 
 _logger = logging.getLogger(__name__)
@@ -224,9 +224,12 @@ def employee_profile(employee):
             'idle_logout_hours': settings['idle_logout_hours'],
             'max_clock_skew': settings['max_clock_skew'],
             'map_provider': _app_map_provider(),
+            'map_mode': map_mode(request.env),
             'map_style': map_style(request.env),
             # The key only travels when Google is the chosen provider.
-            'google_maps_key': google_maps_key(request.env) if _app_map_provider() == 'google' else '',
+            # The key travels for Google tiles and for the phone's own Google map.
+            'google_maps_key': google_maps_key(request.env)
+            if _app_map_provider() in ('google', 'sdk') else '',
             'order_flow': request.env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct',
         },
     }
