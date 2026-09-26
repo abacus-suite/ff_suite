@@ -33,10 +33,30 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
   /// Free goods the rep adds by hand: product, qty, reason.
   final List<Map<String, dynamic>> _manual = [];
 
+  /// Who will supply this order: chosen here, before it is sent.
+  List<Map<String, dynamic>> _distributors = [];
+  int? _distributorId;
+
   @override
   void initState() {
     super.initState();
     _loadFoc();
+    _loadDistributors();
+  }
+
+  /// The distributors this outlet can be supplied by, with the usual one first.
+  Future<void> _loadDistributors() async {
+    try {
+      final data = await Services.api.get('/api/v1/distributors',
+          query: {'partner_id': widget.client['id']}) as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _distributors = ((data['distributors'] as List?) ?? []).cast<Map<String, dynamic>>();
+        _distributorId = data['suggested_id'] as int?;
+      });
+    } catch (_) {
+      // No distributors set up: the order goes straight to the customer.
+    }
   }
 
   Future<void> _loadFoc() async {
@@ -142,6 +162,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
         if (_manual.isNotEmpty)
           'foc': [for (final m in _manual) {'product_id': m['product_id'], 'qty': m['qty'], 'reason': m['reason']}],
         'note': _note.text.trim(),
+        if (_distributorId != null) 'distributor_id': _distributorId,
         'lat': pos?.latitude,
         'lng': pos?.longitude,
         'uuid': _uuid,
@@ -183,6 +204,71 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
     }
   }
 
+  /// Who supplies the order: the field picks, the office sees it on the record.
+  Widget _distributorCard() {
+    final chosen = _distributors.where((d) => d['id'] == _distributorId).firstOrNull;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                      color: AppColors.purple.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(11)),
+                  child: const Icon(Icons.local_shipping_rounded, size: 18, color: AppColors.purple),
+                ),
+                const SizedBox(width: 9),
+                const Expanded(
+                  child: Text('Supplied by', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              demandFlow
+                  ? 'The office sends this demand to the distributor you choose.'
+                  : 'The order is billed to the distributor; the shop stays on it as the outlet.',
+              style: const TextStyle(fontSize: 12, color: AppColors.muted),
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<int>(
+              initialValue: chosen == null ? null : _distributorId,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Distributor',
+                prefixIcon: Icon(Icons.store_mall_directory_rounded, size: 19, color: AppColors.primary),
+                filled: true,
+                fillColor: Colors.white,
+              ),
+              items: [
+                for (final distributor in _distributors)
+                  DropdownMenuItem(
+                    value: distributor['id'] as int,
+                    child: Text(
+                      [
+                        '${distributor['name']}',
+                        if (asText(distributor['city']) != null) '· ${distributor['city']}',
+                      ].join(' '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _distributorId = value),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -196,6 +282,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
             leading: const Icon(Icons.store),
             title: Text(widget.client['name'] as String, style: theme.textTheme.titleMedium),
           ),
+          if (_distributors.isNotEmpty) _distributorCard(),
           const Divider(),
           for (final l in widget.lines)
             ListTile(

@@ -151,7 +151,6 @@ class _AppMapState extends State<AppMap> with TickerProviderStateMixin {
           children: [
             BaseMapLayer(preview: !widget.interactive),
             ...widget.children,
-            _Attribution(preview: !widget.interactive),
           ],
         ),
         if (widget.controls)
@@ -172,27 +171,6 @@ class _AppMapState extends State<AppMap> with TickerProviderStateMixin {
     );
     final radius = widget.borderRadius;
     return radius == null ? map : ClipRRect(borderRadius: radius, child: map);
-  }
-}
-
-class _Attribution extends StatelessWidget {
-  const _Attribution({this.preview = false});
-
-  final bool preview;
-
-  @override
-  Widget build(BuildContext context) {
-    // Only the map data credit, which Google and OpenStreetMap require - not
-    // the "flutter_map" label SimpleAttributionWidget adds in front of it.
-    return Align(
-      alignment: Alignment.bottomLeft,
-      child: Container(
-        margin: const EdgeInsets.all(4),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-        decoration: BoxDecoration(color: const Color(0x99FFFFFF), borderRadius: BorderRadius.circular(3)),
-        child: Text(mapCredit(preview: preview), style: const TextStyle(fontSize: 8, color: Color(0xFF5B6478))),
-      ),
-    );
   }
 }
 
