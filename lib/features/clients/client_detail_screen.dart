@@ -41,14 +41,23 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   bool _busy = false;
   String? _error;
 
+  /// Where I am, drawn on the customer's map beside the shop.
+  LatLng? _me;
+
   /// Demand, returns and payments only once checked in here (or when visits are not used at all).
   bool get _canAct => _atThisClient || !(Services.auth.profile?.feature('visits') ?? false);
 
   bool get _atThisClient => _current != null && (_current!['client'] as Map)['id'] == widget.clientId;
 
+  Future<void> _loadMe() async {
+    final here = await lastKnownPosition();
+    if (here != null && mounted) setState(() => _me = LatLng(here.latitude, here.longitude));
+  }
+
   @override
   void initState() {
     super.initState();
+    _loadMe();
     _load();
   }
 
@@ -399,18 +408,17 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         AppColors.primary,
         lat == null || lng == null ? null : () => openDirections(lat, lng)
       ),
-      if (profile.feature('orders'))
+      // Checking in is the thing people reach for at the shop, so it sits here.
+      if (profile.feature('visits'))
         (
-          Icons.description_rounded,
-          profile.isDemandFlow ? 'Demand' : 'Create Order',
-          AppColors.warning,
-          _canAct && c['allow_orders'] != false && c['approval_state'] == 'approved'
-              ? () => _takeOrder(c)
-              : null
+          _atThisClient ? Icons.logout_rounded : Icons.login_rounded,
+          _atThisClient ? 'Check Out' : 'Check In',
+          _atThisClient ? AppColors.danger : AppColors.warning,
+          _busy ? null : (_atThisClient ? _checkOut : _checkIn)
         ),
       (
         Icons.event_available_rounded,
-        'Schedule Visit',
+        'Plan Visit',
         AppColors.purple,
         () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => PlannedDaysScreen(start: DateUtils.dateOnly(DateTime.now()))))
@@ -554,7 +562,16 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                         zoom: 16,
                         interactive: false,
                         controls: false,
+                        myLocation: _me,
                         children: [
+                          if (_me != null)
+                            MarkerLayer(markers: [
+                              Marker(
+                                  point: _me!,
+                                  width: MyLocationDot.size,
+                                  height: MyLocationDot.size,
+                                  child: const MyLocationDot()),
+                            ]),
                           CircleLayer(circles: [
                             CircleMarker(
                               point: LatLng(lat.toDouble(), lng.toDouble()),

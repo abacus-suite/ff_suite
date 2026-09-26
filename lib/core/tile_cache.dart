@@ -59,7 +59,12 @@ class TileCache {
     final res = await _dio.get<List<int>>(url);
     final bytes = Uint8List.fromList(res.data ?? const []);
     if (paid) MapUsage.tile();
-    if (bytes.isNotEmpty) {
+    // Only real pictures are kept. A provider that answers "API key required"
+    // sends a picture of an error, and keeping it would leave that error on the
+    // map for days.
+    final type = '${res.headers.value('content-type') ?? ''}';
+    final ok = res.statusCode == 200 && type.startsWith('image/') && bytes.length > 1024;
+    if (ok) {
       file.writeAsBytes(bytes, flush: false).ignore();
     }
     return bytes;

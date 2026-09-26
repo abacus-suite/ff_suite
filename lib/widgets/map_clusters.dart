@@ -20,9 +20,15 @@ class MapCluster {
   bool get isSingle => items.length == 1;
 }
 
-/// Size of a cell on screen; bigger means fewer, fatter bubbles.
-const _cellPixels = 92.0;
+/// How close two pins must be on screen to end up in the same bubble.
+const _mergePixels = 78.0;
 
+/// Groups points that sit close together on screen at this zoom.
+///
+/// Points are placed on the world pixel grid of the current zoom and then
+/// gathered around the busiest ones, so a bubble never splits in two just
+/// because a grid line ran between two shops, and two bubbles never land on
+/// top of each other.
 List<MapCluster> clusterPoints(
   List<Map<String, dynamic>> rows,
   double zoom, {
@@ -31,7 +37,7 @@ List<MapCluster> clusterPoints(
 }) {
   if (rows.isEmpty) return const [];
   final scale = 256 * math.pow(2, zoom).toDouble();
-  final cells = <String, List<Map<String, dynamic>>>{};
+  final points = <(Offset, Map<String, dynamic>)>[];
   for (final row in rows) {
     final lat = (row[latKey] as num?)?.toDouble();
     final lng = (row[lngKey] as num?)?.toDouble();
@@ -39,19 +45,51 @@ List<MapCluster> clusterPoints(
     final x = (lng + 180) / 360 * scale;
     final sin = math.sin(lat * math.pi / 180).clamp(-0.9999, 0.9999);
     final y = (0.5 - math.log((1 + sin) / (1 - sin)) / (4 * math.pi)) * scale;
-    final key = '${(x / _cellPixels).floor()}:${(y / _cellPixels).floor()}';
-    cells.putIfAbsent(key, () => []).add(row);
+    points.add((Offset(x, y), row));
   }
-  return [
-    for (final group in cells.values)
-      MapCluster(
-        LatLng(
-          group.map((r) => (r[latKey] as num).toDouble()).reduce((a, b) => a + b) / group.length,
-          group.map((r) => (r[lngKey] as num).toDouble()).reduce((a, b) => a + b) / group.length,
-        ),
-        group,
-      ),
-  ];
+  if (points.isEmpty) return const [];
+
+  // Buckets of a merge-width each, so every point only looks at its neighbours.
+  final buckets = <String, List<int>>{};
+  String keyOf(Offset p) => '${(p.dx / _mergePixels).floor()}:${(p.dy / _mergePixels).floor()}';
+  for (var i = 0; i < points.length; i++) {
+    buckets.putIfAbsent(keyOf(points[i].$1), () => []).add(i);
+  }
+
+  final taken = List<bool>.filled(points.length, false);
+  final clusters = <MapCluster>[];
+  for (var i = 0; i < points.length; i++) {
+    if (taken[i]) continue;
+    final here = points[i].$1;
+    final cellX = (here.dx / _mergePixels).floor();
+    final cellY = (here.dy / _mergePixels).floor();
+    final members = <Map<String, dynamic>>[];
+    var sumX = 0.0;
+    var sumY = 0.0;
+    var sumLat = 0.0;
+    var sumLng = 0.0;
+    for (var dx = -1; dx <= 1; dx++) {
+      for (var dy = -1; dy <= 1; dy++) {
+        for (final j in buckets['${cellX + dx}:${cellY + dy}'] ?? const <int>[]) {
+          if (taken[j]) continue;
+          if ((points[j].$1 - here).distance > _mergePixels) continue;
+          taken[j] = true;
+          members.add(points[j].$2);
+          sumX += points[j].$1.dx;
+          sumY += points[j].$1.dy;
+          sumLat += (points[j].$2[latKey] as num).toDouble();
+          sumLng += (points[j].$2[lngKey] as num).toDouble();
+        }
+      }
+    }
+    if (members.isEmpty) continue;
+    // The bubble sits on the middle of what it holds, not on its first pin.
+    clusters.add(MapCluster(LatLng(sumLat / members.length, sumLng / members.length), members));
+    // Keep the centre in pixels out of the way of rounding: it is only used above.
+    sumX;
+    sumY;
+  }
+  return clusters;
 }
 
 /// The blue bubble with the number of contacts inside it.
