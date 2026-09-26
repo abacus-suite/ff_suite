@@ -7,6 +7,23 @@ from odoo.addons.ff_base.tools import parse_client_dt
 from .common import ApiError, api_route, attendance_data, body, ok, regularisation_data, check_device_clock
 
 
+def _shift_data(employee, open_attendance, today):
+    """The shift behind today's punch, so the app knows when the day is meant to end."""
+    shift = (open_attendance.ff_shift_id if open_attendance else False) or employee.ff_shift_id
+    if not shift:
+        return None
+    hours, minutes = divmod(min(int(round(shift.end_time * 60)), 24 * 60 - 1), 60)
+    return {
+        'id': shift.id,
+        'name': shift.name,
+        'start': round(shift.start_time, 2),
+        'end': round(shift.end_time, 2),
+        # Local wall-clock time the shift ends today, for the app to compare with.
+        'ends_at': '%s %02d:%02d' % (today.isoformat(), hours, minutes),
+        'half_day_hours': round(shift.half_day_hours, 2),
+    }
+
+
 class FieldForceAttendanceApi(http.Controller):
 
     @api_route('/api/v1/attendance/status', methods=('GET',))
@@ -23,6 +40,7 @@ class FieldForceAttendanceApi(http.Controller):
             'current': attendance_data(open_att),
             'today': [attendance_data(a) for a in todays],
             'worked_hours_today': round(sum(todays.mapped('worked_hours')), 2),
+            'shift': _shift_data(employee, open_att, today),
         })
 
     @api_route('/api/v1/attendance/punch-in', methods=('POST',))

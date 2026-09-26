@@ -109,6 +109,11 @@ class HrEmployee(models.Model):
         elif action == 'out':
             if not attendance:
                 raise UserError(self.env._('You are not punched in.'))
+            early = attendance._ff_early_minutes(now)
+            reason = (data.get('early_reason') or '').strip()[:250]
+            if settings['early_checkout_reason'] and early > 0 and not reason:
+                raise UserError(self.env._(
+                    'Your shift ends later. Say why you are ending the day now.'))
             if odometer and attendance.ff_in_odometer and odometer < attendance.ff_in_odometer:
                 raise UserError(self.env._(
                     'The odometer reads %(now)s, below the %(before)s at check-in. Check the number.',
@@ -121,6 +126,8 @@ class HrEmployee(models.Model):
                 'ff_out_accuracy': accuracy,
                 'ff_out_is_mock': is_mock,
                 'ff_out_selfie': selfie,
+                'ff_early_minutes': early,
+                'ff_early_reason': reason or False,
                 'ff_out_odometer': odometer or 0.0,
                 'ff_out_odometer_photo': odometer_photo,
                 'ff_out_uuid': uuid,

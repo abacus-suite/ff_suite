@@ -35,6 +35,10 @@ class HrAttendance(models.Model):
         VEHICLES, string='Vehicle', help='How the person travelled on this day, chosen at check-in.')
     ff_vehicle_note = fields.Char(
         string='Vehicle Note', help='What "Other" was: a lift, a hired vehicle, a company van...')
+    ff_early_reason = fields.Char(
+        string='Early Check-out Reason', help='Why the day was ended before the shift ended.')
+    ff_early_minutes = fields.Integer(
+        string='Left Early (min)', help='Minutes between the check-out and the end of the shift.')
     ff_in_odometer = fields.Float(string='Odometer at Punch-in', digits=(12, 1))
     ff_out_odometer = fields.Float(string='Odometer at Punch-out', digits=(12, 1))
     ff_in_odometer_photo = fields.Image(string='Odometer Photo (in)', max_width=1280, max_height=1280)
@@ -49,6 +53,17 @@ class HrAttendance(models.Model):
     ff_out_is_mock = fields.Boolean(string='Punch-out Mock Location')
     ff_late_minutes = fields.Integer(string='Late (min)', compute='_compute_ff_day_status', store=True)
     ff_day_status = fields.Selection(DAY_STATUSES, string='Day Status', compute='_compute_ff_day_status', store=True)
+
+    def _ff_early_minutes(self, when):
+        """How many minutes before the end of the shift ``when`` is; 0 when it is not early."""
+        self.ensure_one()
+        shift = self.ff_shift_id
+        if not shift or not self.employee_id:
+            return 0
+        local = self.employee_id._ff_to_local(when)
+        hours, minutes = divmod(min(int(round(shift.end_time * 60)), 24 * 60 - 1), 60)
+        end = local.replace(hour=hours, minute=minutes, second=0, microsecond=0)
+        return max(0, int((end - local).total_seconds() // 60))
 
     @api.depends('ff_in_odometer', 'ff_out_odometer')
     def _compute_ff_odometer_km(self):

@@ -32,6 +32,9 @@
                         <setting help="Require a selfie photo when punching in and out from the app.">
                             <field name="ff_selfie_required"/>
                         </setting>
+                        <setting string="Reason for an early check-out" help="Ending the day before the shift ends asks for a reason, which is kept on the attendance record.">
+                            <field name="ff_early_checkout_reason"/>
+                        </setting>
                         <setting string="Vehicle on punch-in" help="Ask how the person travels today: two-wheeler, car, public transport or on foot.">
                             <field name="ff_punch_vehicle"/>
                         </setting>

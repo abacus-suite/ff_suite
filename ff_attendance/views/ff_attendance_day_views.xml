@@ -77,6 +77,8 @@
                                     <field name="ff_in_odometer" optional="show"/>
                                     <field name="ff_out_odometer" optional="show"/>
                                     <field name="ff_odometer_km" optional="show" sum="Odometer km"/>
+                                    <field name="ff_early_minutes" optional="show"/>
+                                    <field name="ff_early_reason" optional="show"/>
                                     <field name="ff_in_address"/>
                                     <field name="ff_out_address" optional="hide"/>
                                     <field name="ff_in_selfie" widget="image" options="{'size': [48, 48]}"/>

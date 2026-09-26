@@ -15,6 +15,7 @@ PARAM_DEFAULTS = {
     'max_accuracy': 100,         # metres; worse pings are ignored for distance
     'allow_mock': False,
     'selfie_required': False,    # set to True by module data
+    'early_checkout_reason': False,  # ask why when somebody ends the day before the shift does
     'punch_vehicle': False,      # ask how the person travels today when punching in
     'punch_odometer': False,     # ask for the odometer photo and reading at both punches
     'geofence_radius': 150,      # metres around a client counted as "at client"

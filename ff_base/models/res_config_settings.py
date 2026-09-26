@@ -31,6 +31,9 @@ class ResConfigSettings(models.TransientModel):
         string='Allow Mock Locations', config_parameter='ff_base.allow_mock')
     ff_selfie_required = fields.Boolean(
         string='Selfie Required on Punch', config_parameter='ff_base.selfie_required')
+    ff_early_checkout_reason = fields.Boolean(
+        string='Reason for an Early Check-out', config_parameter='ff_base.early_checkout_reason',
+        help='Somebody checking out before their shift ends must say why. The reason is kept on the attendance.')
     ff_punch_vehicle = fields.Boolean(
         string='Ask the Vehicle on Punch-in', config_parameter='ff_base.punch_vehicle',
         help='At check-in the app asks how the person is travelling today (two-wheeler, car, public transport, on foot). '
