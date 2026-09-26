@@ -61,3 +61,10 @@ Future<void> openDirections(num lat, num lng) async {
 Future<void> callPhone(String phone) async {
   await launchUrl(Uri(scheme: 'tel', path: phone));
 }
+
+/// Opens the phone's dialler with a customer's number ready to call.
+Future<void> callNumber(String number) async {
+  final cleaned = number.replaceAll(RegExp(r'[^0-9+]'), '');
+  if (cleaned.isEmpty) return;
+  await launchUrl(Uri.parse('tel:$cleaned'), mode: LaunchMode.externalApplication);
+}
