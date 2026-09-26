@@ -77,10 +77,25 @@ class _SdkMapState extends State<SdkMap> {
   g.GoogleMapController? _controller;
   Set<g.Marker> _markers = {};
 
+  /// Markers are pictures, so they are drawn at the screen's own pixel density
+  /// and handed to Google with that ratio. Drawing them at one pixel per point
+  /// and letting the map stretch them is what makes them look smudged.
+  double _ratio = 3;
+
   @override
   void initState() {
     super.initState();
     _drawPins();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+    if ((ratio - _ratio).abs() > 0.01) {
+      _ratio = ratio;
+      _drawPins();
+    }
   }
 
   @override
@@ -114,7 +129,7 @@ class _SdkMapState extends State<SdkMap> {
     final face = count >= 100 ? 74.0 : (count >= 50 ? 68.0 : (count >= 10 ? 62.0 : 56.0));
     final size = face + 26;
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
+    final canvas = Canvas(recorder)..scale(_ratio);
     final centre = Offset(size / 2, size / 2);
     final tint = Color.lerp(colour, AppColors.sky, 0.25) ?? colour;
 
@@ -152,7 +167,7 @@ class _SdkMapState extends State<SdkMap> {
       textDirection: TextDirection.ltr,
     )..layout();
     painter.paint(canvas, centre - Offset(painter.width / 2, painter.height / 2));
-    return _toIcon(recorder, size.round(), size.round());
+    return _toIcon(recorder, size, size);
   }
 
   /// One shop: its name on a white chip, over a teardrop pin with a shop glyph.
@@ -179,7 +194,7 @@ class _SdkMapState extends State<SdkMap> {
     final height = pinHeight + (name == null ? 0 : chipHeight + gap);
 
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
+    final canvas = Canvas(recorder)..scale(_ratio);
 
     if (name != null) {
       final chip = RRect.fromRectAndRadius(
@@ -226,13 +241,16 @@ class _SdkMapState extends State<SdkMap> {
     )..layout();
     glyph.paint(canvas, head - Offset(glyph.width / 2, glyph.height / 2));
 
-    return _toIcon(recorder, width.round(), height.round());
+    return _toIcon(recorder, width, height);
   }
 
-  Future<g.BitmapDescriptor> _toIcon(ui.PictureRecorder recorder, int width, int height) async {
-    final image = await recorder.endRecording().toImage(width, height);
+  Future<g.BitmapDescriptor> _toIcon(ui.PictureRecorder recorder, double width, double height) async {
+    final image = await recorder.endRecording().toImage(
+          (width * _ratio).round(),
+          (height * _ratio).round(),
+        );
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    return g.BitmapDescriptor.bytes(data!.buffer.asUint8List());
+    return g.BitmapDescriptor.bytes(data!.buffer.asUint8List(), imagePixelRatio: _ratio);
   }
 
   @override
