@@ -253,6 +253,8 @@ def attendance_data(att):
         'in_address': att.ff_in_address or None,
         'out_address': att.ff_out_address or None,
         'source': att.ff_source,
+        'vehicle': att.ff_vehicle_type or None,
+        'odometer_in': att.ff_in_odometer or None,
     }
 
 

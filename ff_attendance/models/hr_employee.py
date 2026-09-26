@@ -67,11 +67,14 @@ class HrEmployee(models.Model):
             odometer = float(odometer) if odometer not in (None, '') else False
         except (TypeError, ValueError):
             raise UserError(self.env._('The odometer reading must be a number.'))
-        if settings['punch_odometer'] and not (odometer_photo and odometer):
-            raise UserError(self.env._('A photo of the odometer and its reading are required to punch.'))
         vehicle = data.get('vehicle') or False
         if vehicle and vehicle not in dict(self.env['hr.attendance']._fields['ff_vehicle_type'].selection):
             raise UserError(self.env._('That vehicle is not one of the choices.'))
+        open_attendance = employee._ff_open_attendance()
+        # Only somebody on their own two- or four-wheeler has a meter to photograph.
+        on_own_vehicle = (vehicle or (open_attendance.ff_vehicle_type if open_attendance else False))             in ('two_wheeler', 'four_wheeler')
+        if settings['punch_odometer'] and on_own_vehicle and not (odometer_photo and odometer):
+            raise UserError(self.env._('A photo of the odometer and its reading are required to punch.'))
 
         try:
             now, offline = client_time(data)
