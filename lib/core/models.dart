@@ -18,6 +18,7 @@ class Profile {
     required this.distanceFilter,
     required this.lowBattery,
     required this.selfieRequired,
+    this.earlyCheckoutReason = false,
     this.punchVehicle = false,
     this.punchOdometer = false,
     required this.allowMock,
@@ -58,6 +59,9 @@ class Profile {
   final int distanceFilter;
   final int lowBattery;
   final bool selfieRequired;
+
+  /// Somebody leaving before the shift ends must say why.
+  final bool earlyCheckoutReason;
 
   /// Ask how the person travels today when they check in.
   final bool punchVehicle;
@@ -131,6 +135,7 @@ class Profile {
       distanceFilter: (settings['distance_filter'] as num? ?? 50).toInt(),
       lowBattery: (settings['low_battery'] as num? ?? 20).toInt(),
       selfieRequired: settings['selfie_required'] == true,
+      earlyCheckoutReason: settings['early_checkout_reason'] == true,
       punchVehicle: settings['punch_vehicle'] == true,
       punchOdometer: settings['punch_odometer'] == true,
       allowMock: settings['allow_mock'] == true,

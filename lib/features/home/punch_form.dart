@@ -11,7 +11,8 @@ import 'punch_extras.dart';
 
 /// What the person filled in before punching.
 class PunchInput {
-  const PunchInput({this.selfie, this.vehicle, this.vehicleNote, this.odometerPhoto, this.odometer});
+  const PunchInput(
+      {this.selfie, this.vehicle, this.vehicleNote, this.odometerPhoto, this.odometer, this.earlyReason});
 
   final Uint8List? selfie;
   final String? vehicle;
@@ -20,6 +21,9 @@ class PunchInput {
   final String? vehicleNote;
   final Uint8List? odometerPhoto;
   final double? odometer;
+
+  /// Why the day is being ended before the shift does.
+  final String? earlyReason;
 }
 
 /// One form for the whole punch: the selfie, the vehicle and the odometer,
@@ -33,6 +37,8 @@ class PunchFormScreen extends StatefulWidget {
     this.needVehicle = false,
     this.needOdometer = false,
     this.vehicle,
+    this.shiftEndsAt,
+    this.askEarlyReason = false,
   });
 
   final bool punchIn;
@@ -42,6 +48,12 @@ class PunchFormScreen extends StatefulWidget {
 
   /// The vehicle chosen at check-in, so check-out knows whether to ask for the meter.
   final String? vehicle;
+
+  /// When today's shift is due to end, in the person's own time.
+  final DateTime? shiftEndsAt;
+
+  /// The office asks for a reason when the day ends early.
+  final bool askEarlyReason;
 
   @override
   State<PunchFormScreen> createState() => _PunchFormScreenState();
@@ -53,6 +65,7 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
   late String? _vehicle = widget.vehicle;
   final _reading = TextEditingController();
   final _note = TextEditingController();
+  final _early = TextEditingController();
   bool _tried = false;
   bool _busy = false;
 
@@ -60,6 +73,7 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
   void dispose() {
     _reading.dispose();
     _note.dispose();
+    _early.dispose();
     super.dispose();
   }
 
@@ -83,6 +97,21 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
 
   double? get _odometer => double.tryParse(_reading.text.trim());
 
+  /// Ending the day before the shift does, with the office asking why.
+  bool get _isEarly {
+    final ends = widget.shiftEndsAt;
+    return !widget.punchIn && widget.askEarlyReason && ends != null && DateTime.now().isBefore(ends);
+  }
+
+  String get _earlyBy {
+    final ends = widget.shiftEndsAt;
+    if (ends == null) return '';
+    final left = ends.difference(DateTime.now());
+    final hours = left.inHours;
+    final minutes = left.inMinutes % 60;
+    return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
+  }
+
   /// Only a two- or four-wheeler has a meter to photograph. On foot, in a bus
   /// or when the office does not ask for the vehicle at all, nothing is asked.
   bool get _hasMeter =>
@@ -94,7 +123,8 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
   bool get _ready =>
       (!widget.needSelfie || _selfie != null) &&
       (!widget.needVehicle || (_vehicle != null && (_vehicle != 'other' || _note.text.trim().isNotEmpty))) &&
-      (!_hasMeter || (_odometerPhoto != null && (_odometer ?? 0) > 0));
+      (!_hasMeter || (_odometerPhoto != null && (_odometer ?? 0) > 0)) &&
+      (!_isEarly || _early.text.trim().isNotEmpty);
 
   void _submit() {
     setState(() => _tried = true);
@@ -108,6 +138,7 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
       vehicleNote: _vehicle == 'other' ? _note.text.trim() : null,
       odometerPhoto: _hasMeter ? _odometerPhoto : null,
       odometer: _hasMeter ? _odometer : null,
+      earlyReason: _isEarly ? _early.text.trim() : null,
     ));
   }
 
@@ -125,6 +156,39 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
             style: const TextStyle(color: AppColors.muted),
           ),
           const SizedBox(height: 12),
+          if (_isEarly)
+            Card(
+              color: const Color(0xFFFFF6E5),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.schedule_rounded, size: 18, color: AppColors.warning),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text('You are ending the day $_earlyBy before your shift ends.',
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                        ),
+                      ],
+                    ),
+                    TextField(
+                      controller: _early,
+                      onChanged: (_) => setState(() {}),
+                      textCapitalization: TextCapitalization.sentences,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        labelText: 'Why are you leaving early?',
+                        hintText: 'Not well, family matter, work finished early...',
+                        errorText: _tried && _early.text.trim().isEmpty ? 'Please say why.' : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (widget.needSelfie)
             _photoField(
               title: 'Selfie',

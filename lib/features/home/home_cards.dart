@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -10,12 +12,14 @@ import '../../widgets/dashboard.dart';
 
 /// The first thing on the screen: whether the day has started, and the one
 /// button that starts or ends it, with today's target beside it.
-class CheckInHero extends StatelessWidget {
+class CheckInHero extends StatefulWidget {
   const CheckInHero({
     super.key,
     required this.punchedIn,
     required this.since,
     required this.worked,
+    this.onDutySince,
+    this.workedHours = 0,
     required this.target,
     required this.busy,
     required this.onPunch,
@@ -26,6 +30,12 @@ class CheckInHero extends StatelessWidget {
   final String since;
   final String worked;
 
+  /// When the punch that is still open began; null when the day is not running.
+  final DateTime? onDutySince;
+
+  /// Hours already finished today, before the open punch.
+  final double workedHours;
+
   /// How many visits are planned for today; 0 hides the badge.
   final int target;
   final bool busy;
@@ -33,7 +43,45 @@ class CheckInHero extends StatelessWidget {
   final String routeLabel;
 
   @override
+  State<CheckInHero> createState() => _CheckInHeroState();
+}
+
+class _CheckInHeroState extends State<CheckInHero> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    // While the person is on duty the card counts with them, every second.
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && widget.punchedIn && widget.onDutySince != null) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  /// Hours finished today plus the time running on the open punch.
+  String get _soFar {
+    final since = widget.onDutySince;
+    final running = since == null ? Duration.zero : DateTime.now().difference(since);
+    final total = Duration(minutes: (widget.workedHours * 60).round()) +
+        (running.isNegative ? Duration.zero : running);
+    final hours = total.inHours;
+    final minutes = total.inMinutes % 60;
+    final seconds = total.inSeconds % 60;
+    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}'
+        ':${seconds.toString().padLeft(2, '0')}';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final punchedIn = widget.punchedIn;
+    final since = widget.since;
+    final target = widget.target;
     final green = punchedIn;
     return Container(
       decoration: BoxDecoration(
@@ -70,7 +118,7 @@ class CheckInHero extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             green
-                ? 'Worked $worked so far. Keep going and close the day when you finish.'
+                ? 'On duty $_soFar so far. Close the day when you finish.'
                 : 'Track visits, meet customers and create more opportunities.',
             style: const TextStyle(fontSize: 12.5, color: AppColors.muted, height: 1.35),
           ),
@@ -103,7 +151,9 @@ class CheckInHero extends StatelessWidget {
         ),
       );
 
-  Widget _targetBadge() => Container(
+  Widget _targetBadge() {
+    final target = widget.target;
+    return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -127,11 +177,14 @@ class CheckInHero extends StatelessWidget {
           ],
         ),
       );
+  }
 
-  Widget _button(bool green) => SizedBox(
+  Widget _button(bool green) {
+    final busy = widget.busy;
+    return SizedBox(
         height: 54,
         child: FilledButton(
-          onPressed: busy ? null : onPunch,
+          onPressed: busy ? null : widget.onPunch,
           style: FilledButton.styleFrom(
             backgroundColor: green ? AppColors.danger : AppColors.primary,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
@@ -161,6 +214,7 @@ class CheckInHero extends StatelessWidget {
                 ),
         ),
       );
+  }
 }
 
 /// A small card with a title, an optional action, and any body.

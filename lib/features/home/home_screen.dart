@@ -165,11 +165,14 @@ class _HomeScreenState extends State<HomeScreen> {
       if (pos.isMocked && !_profile.allowMock)
         throw 'A fake GPS app was detected. Disable it to punch.';
       final place = await currentPlace(fresh: true);
+      final shiftEnd = _shiftEndsAt();
+      final asksEarly = _profile.earlyCheckoutReason && !punchIn && shiftEnd != null &&
+          DateTime.now().isBefore(shiftEnd);
       final needSelfie = _profile.selfieRequired;
       final needVehicle = punchIn && _profile.punchVehicle;
       final needOdometer = _profile.punchOdometer;
       PunchInput? filled = const PunchInput();
-      if (needSelfie || needVehicle || needOdometer) {
+      if (needSelfie || needVehicle || needOdometer || asksEarly) {
         if (!mounted) return;
         filled = await Navigator.of(context).push<PunchInput>(MaterialPageRoute(
           builder: (_) => PunchFormScreen(
@@ -178,6 +181,8 @@ class _HomeScreenState extends State<HomeScreen> {
             needVehicle: needVehicle,
             needOdometer: needOdometer,
             vehicle: punchIn ? null : (_status?['current'] as Map?)?['vehicle'] as String?,
+            shiftEndsAt: shiftEnd,
+            askEarlyReason: _profile.earlyCheckoutReason,
           ),
         ));
         if (filled == null) return; // backed out of the form: nothing is punched
@@ -185,6 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final selfie = filled.selfie == null ? null : base64Encode(filled.selfie!);
       final vehicle = filled.vehicle;
       final vehicleNote = filled.vehicleNote;
+      final earlyReason = filled.earlyReason;
       final odometer = filled.odometer;
       final odometerPhoto = filled.odometerPhoto == null ? null : base64Encode(filled.odometerPhoto!);
       int? battery;
@@ -201,6 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (selfie != null) 'selfie': selfie,
         if (vehicle != null) 'vehicle': vehicle,
         if (vehicleNote != null && vehicleNote.isNotEmpty) 'vehicle_note': vehicleNote,
+        if (earlyReason != null && earlyReason.isNotEmpty) 'early_reason': earlyReason,
         if (odometer != null) 'odometer': odometer,
         if (odometerPhoto != null) 'odometer_photo': odometerPhoto,
         // The server compares it with its own clock (queued offline work is exempt).
@@ -233,6 +240,12 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       if (mounted) setState(() => _punching = false);
     }
+  }
+
+  /// When today's shift is due to end, as the phone reads the clock.
+  DateTime? _shiftEndsAt() {
+    final ends = (_status?['shift'] as Map?)?['ends_at'];
+    return ends == null ? null : DateTime.tryParse('$ends');
   }
 
   Future<void> _push(Widget screen) async {
@@ -322,6 +335,8 @@ class _HomeScreenState extends State<HomeScreen> {
       worked: fmtHours(_status?['worked_hours_today'] as num?),
       target: planned,
       busy: _punching,
+      onDutySince: DateTime.tryParse('${current?['check_in'] ?? ''}')?.toLocal(),
+      workedHours: ((_status?['worked_hours_today'] as num?) ?? 0).toDouble(),
       routeLabel: profile.routeLabel,
       onPunch: () => _punch(!punchedIn),
     );
