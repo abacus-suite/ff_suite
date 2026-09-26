@@ -254,6 +254,7 @@ def attendance_data(att):
         'out_address': att.ff_out_address or None,
         'source': att.ff_source,
         'vehicle': att.ff_vehicle_type or None,
+        'vehicle_note': att.ff_vehicle_note or None,
         'odometer_in': att.ff_in_odometer or None,
     }
 

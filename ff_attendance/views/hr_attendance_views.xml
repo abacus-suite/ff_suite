@@ -19,6 +19,7 @@
                 <field name="ff_shift_id" optional="hide"/>
                 <field name="ff_source" optional="show"/>
                 <field name="ff_vehicle_type" optional="hide"/>
+                <field name="ff_vehicle_note" optional="hide"/>
                 <field name="ff_odometer_km" optional="hide" sum="Odometer km"/>
                 <field name="ff_in_address" optional="show"/>
                 <field name="ff_out_address" optional="hide"/>
@@ -46,6 +47,7 @@
                             <field name="ff_late_minutes"/>
                             <field name="ff_source"/>
                             <field name="ff_vehicle_type"/>
+                            <field name="ff_vehicle_note" invisible="ff_vehicle_type != 'other'"/>
                             <field name="ff_odometer_km"/>
                         </group>
                     </group>

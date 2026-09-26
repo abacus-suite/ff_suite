@@ -70,6 +70,9 @@ class HrEmployee(models.Model):
         vehicle = data.get('vehicle') or False
         if vehicle and vehicle not in dict(self.env['hr.attendance']._fields['ff_vehicle_type'].selection):
             raise UserError(self.env._('That vehicle is not one of the choices.'))
+        vehicle_note = (data.get('vehicle_note') or '').strip()[:120]
+        if vehicle == 'other' and not vehicle_note:
+            raise UserError(self.env._('Say in a few words how you are travelling today.'))
         open_attendance = employee._ff_open_attendance()
         # Only somebody on their own two- or four-wheeler has a meter to photograph.
         on_own_vehicle = (vehicle or (open_attendance.ff_vehicle_type if open_attendance else False))             in ('two_wheeler', 'four_wheeler')
@@ -96,6 +99,7 @@ class HrEmployee(models.Model):
                 'ff_in_is_mock': is_mock,
                 'ff_in_selfie': selfie,
                 'ff_vehicle_type': vehicle,
+                'ff_vehicle_note': vehicle_note or False,
                 'ff_in_odometer': odometer or 0.0,
                 'ff_in_odometer_photo': odometer_photo,
                 'ff_source': 'app',

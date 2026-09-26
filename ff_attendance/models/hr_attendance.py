@@ -33,6 +33,8 @@ class HrAttendance(models.Model):
     ff_out_address = fields.Char(string='Punch-out Address')
     ff_vehicle_type = fields.Selection(
         VEHICLES, string='Vehicle', help='How the person travelled on this day, chosen at check-in.')
+    ff_vehicle_note = fields.Char(
+        string='Vehicle Note', help='What "Other" was: a lift, a hired vehicle, a company van...')
     ff_in_odometer = fields.Float(string='Odometer at Punch-in', digits=(12, 1))
     ff_out_odometer = fields.Float(string='Odometer at Punch-out', digits=(12, 1))
     ff_in_odometer_photo = fields.Image(string='Odometer Photo (in)', max_width=1280, max_height=1280)
