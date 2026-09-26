@@ -36,10 +36,7 @@ class FfAttendanceDay(models.Model):
     out_address = fields.Char(string='Last Punch-out Address', readonly=True)
     vehicle_type = fields.Char(string='Vehicle', readonly=True)
     odometer_km = fields.Float(string='Odometer km', readonly=True)
-    still_in = fields.Boolean(string='On Duty Now', readonly=True)
-    on_duty_since = fields.Datetime(string='On Duty Since', readonly=True)
-    hours_so_far = fields.Float(string='On Duty So Far', compute='_compute_hours_so_far',
-                                help='Hours worked today, including the punch that is still open.')
+    still_in = fields.Boolean(string='Still Checked In', readonly=True)
 
     attendance_ids = fields.One2many('hr.attendance', string='Punches', compute='_compute_attendance_ids')
     distance_km = fields.Float(string='Travelled (km)', compute='_compute_distance_km')
@@ -53,13 +50,6 @@ class FfAttendanceDay(models.Model):
                 ('employee_id', '=', row.employee_id.id),
                 ('check_in', '>=', start), ('check_in', '<', end),
             ], order='check_in') if start else Attendance.browse()
-
-    def _compute_hours_so_far(self):
-        """Worked hours plus the time running on an open punch."""
-        now = fields.Datetime.now()
-        for row in self:
-            running = (now - row.on_duty_since).total_seconds() / 3600.0 if row.on_duty_since else 0.0
-            row.hours_so_far = round((row.worked_hours or 0.0) + max(running, 0.0), 2)
 
     def _compute_distance_km(self):
         Track = self.env['ff.daily.track'] if 'ff.daily.track' in self.env else None
@@ -93,9 +83,7 @@ class FfAttendanceDay(models.Model):
                    MIN(e.company_id) AS company_id,
                    ((a.check_in AT TIME ZONE 'UTC') AT TIME ZONE COALESCE(rr.tz, 'UTC'))::date AS date,
                    MIN(a.check_in) AS first_check_in,
-                   CASE WHEN BOOL_OR(a.check_out IS NULL) THEN NULL
-                        ELSE MAX(a.check_out) END AS last_check_out,
-                   MAX(a.check_in) FILTER (WHERE a.check_out IS NULL) AS on_duty_since,
+                   MAX(a.check_out) AS last_check_out,
                    COUNT(*) AS punch_count,
                    COALESCE(SUM(a.worked_hours), 0) AS worked_hours,
                    COALESCE(MAX(a.ff_late_minutes), 0) AS late_minutes,
