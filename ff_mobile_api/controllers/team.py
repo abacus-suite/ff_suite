@@ -217,7 +217,80 @@ class FieldForceTeamApi(http.Controller):
                 'ts': to_iso(p.ts), 'lat': p.latitude, 'lng': p.longitude,
                 'accuracy': p.accuracy, 'battery': p.battery, 'source': p.source, 'mock': p.is_mock,
             } for p in sampled],
+            'activity': self._day_activity(target, start, end),
         })
+
+    def _day_activity(self, target, start, end):
+        """Everything the person did in the app that day, with its value.
+
+        Orders, money collected, expenses, returns, demands, stock counts,
+        forms filled and tasks closed, each with the moment it happened so the
+        app can place it in the day.
+        """
+        env = request.env
+        rows = []
+
+        def add(record, kind, title, when, amount=None, partner=None, detail='', state=None):
+            if not when:
+                return
+            rows.append({
+                'id': record.id,
+                'model': record._name,
+                'kind': kind,
+                'title': title,
+                'at': to_iso(when),
+                'amount': round(amount, 2) if amount is not None else None,
+                'partner': ref(partner) if partner else None,
+                'detail': detail or '',
+                'state': state or '',
+                'visit_id': record.visit_id.id if 'visit_id' in record._fields and record.visit_id else None,
+            })
+
+        def between(model, field, domain):
+            if model not in env:
+                return env['res.partner'].browse()  # empty, never iterated
+            return env[model].sudo().search(domain + [(field, '>=', start), (field, '<', end)], order=field)
+
+        currency = target.company_id.currency_id.name
+
+        for order in between('sale.order', 'date_order',
+                             [('ff_employee_id', '=', target.id), ('ff_source', '=', 'app'),
+                              ('state', '!=', 'cancel')]):
+            add(order, 'order', order.name or 'Order', order.date_order,
+                amount=order.amount_total, partner=order.partner_id,
+                detail='%d line%s' % (len(order.order_line), '' if len(order.order_line) == 1 else 's'),
+                state=order.state)
+
+        for demand in between('ff.demand', 'date', [('employee_id', '=', target.id), ('state', '!=', 'cancelled')]):
+            add(demand, 'demand', demand.name or 'Demand', demand.date,
+                amount=demand.amount_total, partner=demand.partner_id, state=demand.state)
+
+        for collection in between('ff.collection', 'date', [('employee_id', '=', target.id)]):
+            add(collection, 'collection', 'Money collected', collection.date,
+                amount=collection.amount, partner=collection.partner_id,
+                detail=collection.mode_id.name or '', state=collection.state)
+
+        for claim in between('ff.expense.claim', 'create_date', [('employee_id', '=', target.id)]):
+            add(claim, 'expense', claim.category_id.name or 'Expense', claim.create_date,
+                amount=claim.amount, partner=claim.partner_id, state=claim.state)
+
+        for goods in between('ff.return', 'date', [('employee_id', '=', target.id), ('state', '!=', 'cancelled')]):
+            add(goods, 'return', goods.name or 'Return', goods.date,
+                amount=goods.amount_total, partner=goods.partner_id, state=goods.state)
+
+        for count in between('ff.stock.count', 'date', [('employee_id', '=', target.id)]):
+            add(count, 'stock_count', 'Stock counted', count.date, partner=count.partner_id,
+                detail='%d product%s' % (len(count.line_ids), '' if len(count.line_ids) == 1 else 's'))
+
+        for answer in between('ff.form.response', 'create_date', [('employee_id', '=', target.id)]):
+            add(answer, 'form', answer.form_id.name or 'Form filled', answer.create_date,
+                partner=answer.partner_id)
+
+        for task in between('ff.task', 'write_date', [('employee_id', '=', target.id), ('state', '=', 'done')]):
+            add(task, 'task', task.name or 'Task done', task.write_date, partner=task.partner_id, state=task.state)
+
+        rows.sort(key=lambda row: row['at'])
+        return {'currency': currency, 'items': rows}
 
     @api_route('/api/v1/approvals', methods=('GET',), manager=True)
     def approvals(self, employee, **kw):
