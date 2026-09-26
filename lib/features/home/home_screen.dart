@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../core/photos.dart';
 import 'punch_form.dart';
@@ -276,7 +275,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _todaySummary(),
       if (_status?['punched_in'] == true && profile.feature('visits')) const RecommendationsCard(),
       if (profile.feature('orders')) ...[_salesCard(), _topProductsCard()],
-      _travelCard(),
       _upcomingVisits(profile),
       const MyTasksCard(),
       const MyRequestsCard(),
@@ -323,11 +321,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// The day in one card: where it stands and the button that moves it on.
+  /// The day in one card: where it stands, how it is going, and what moves it on.
   Widget _hero(Profile profile) {
     final punchedIn = _status?['punched_in'] == true;
     final current = _status?['current'] as Map<String, dynamic>?;
     final planned = ((_today?['clients'] as List?) ?? []).length;
+    final raw = ((_travel?['points'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final first = raw.isEmpty ? null : DateTime.tryParse('${raw.first['ts']}');
+    final last = raw.isEmpty ? null : DateTime.tryParse('${raw.last['ts']}');
     return CheckInHero(
       punchedIn: punchedIn,
       since: fmtTime(current?['check_in']),
@@ -336,6 +337,10 @@ class _HomeScreenState extends State<HomeScreen> {
       busy: _punching,
       onDutySince: DateTime.tryParse('${current?['check_in'] ?? ''}')?.toLocal(),
       workedHours: ((_status?['worked_hours_today'] as num?) ?? 0).toDouble(),
+      km: (_travel?['distance_km'] as num?) ?? 0,
+      visits: _visits.length,
+      travelMinutes: first != null && last != null ? last.difference(first).inMinutes : 0,
+      onOpenDay: () => _push(const DayJourneyScreen()),
       routeLabel: profile.routeLabel,
       onPunch: () => _punch(!punchedIn),
     );
@@ -402,27 +407,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _travelCard() {
-    final travel = _travel;
-    final raw = ((travel?['points'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final points = raw
-        .map((p) => LatLng((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble()))
-        .toList();
-    // How long the day has been moving: first position to last.
-    final first = raw.isEmpty ? null : DateTime.tryParse('${raw.first['ts']}');
-    final last = raw.isEmpty ? null : DateTime.tryParse('${raw.last['ts']}');
-    final minutes = first != null && last != null ? last.difference(first).inMinutes : 0;
-    return TravelCard(
-      km: (travel?['distance_km'] as num?) ?? 0,
-      points: points,
-      visits: _visits.length,
-      minutes: minutes,
-      onOpen: () => _push(const DayJourneyScreen()),
-      onOpenMap: () => _push(const DayJourneyScreen(showMapFirst: true)),
-    );
-  }
-
-  /// The customers still to be seen today, as cards you can swipe through.
   Widget _upcomingVisits(Profile profile) {
     final clients = ((_today?['clients'] as List?) ?? []).cast<Map<String, dynamic>>();
     final waiting = clients

@@ -19,11 +19,15 @@ class CheckInHero extends StatefulWidget {
     required this.punchedIn,
     required this.since,
     required this.worked,
-    this.onDutySince,
-    this.workedHours = 0,
     required this.target,
     required this.busy,
     required this.onPunch,
+    this.onDutySince,
+    this.workedHours = 0,
+    this.km = 0,
+    this.visits = 0,
+    this.travelMinutes = 0,
+    this.onOpenDay,
     this.routeLabel = 'Today',
   });
 
@@ -31,17 +35,25 @@ class CheckInHero extends StatefulWidget {
   final String since;
   final String worked;
 
+  /// How many visits are planned for today; 0 hides the badge.
+  final int target;
+  final bool busy;
+  final VoidCallback? onPunch;
+  final String routeLabel;
+
   /// When the punch that is still open began; null when the day is not running.
   final DateTime? onDutySince;
 
   /// Hours already finished today, before the open punch.
   final double workedHours;
 
-  /// How many visits are planned for today; 0 hides the badge.
-  final int target;
-  final bool busy;
-  final VoidCallback onPunch;
-  final String routeLabel;
+  /// The day so far: distance, customers seen and time on the road.
+  final num km;
+  final int visits;
+  final int travelMinutes;
+
+  /// Opens the day's journey when the figures are tapped.
+  final VoidCallback? onOpenDay;
 
   @override
   State<CheckInHero> createState() => _CheckInHeroState();
@@ -65,25 +77,35 @@ class _CheckInHeroState extends State<CheckInHero> {
     super.dispose();
   }
 
-  /// Hours finished today plus the time running on the open punch.
-  String get _soFar {
+  Duration get _onDuty {
     final since = widget.onDutySince;
     final running = since == null ? Duration.zero : DateTime.now().difference(since);
-    final total = Duration(minutes: (widget.workedHours * 60).round()) +
+    return Duration(minutes: (widget.workedHours * 60).round()) +
         (running.isNegative ? Duration.zero : running);
-    final hours = total.inHours;
-    final minutes = total.inMinutes % 60;
-    final seconds = total.inSeconds % 60;
-    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}'
-        ':${seconds.toString().padLeft(2, '0')}';
+  }
+
+  /// "7h 22m", or the seconds too while the day is short.
+  String get _soFar {
+    final total = _onDuty;
+    if (total.inHours > 0) return '${total.inHours}h ${total.inMinutes % 60}m';
+    if (total.inMinutes > 0) return '${total.inMinutes}m ${total.inSeconds % 60}s';
+    return '${total.inSeconds}s';
+  }
+
+  String get _travelTime {
+    final minutes = widget.travelMinutes;
+    if (minutes <= 0) return '—';
+    return minutes >= 60 ? '${minutes ~/ 60}h ${minutes % 60}m' : '${minutes}m';
+  }
+
+  String get _speed {
+    if (widget.travelMinutes <= 0 || widget.km <= 0) return '—';
+    return '${(widget.km / (widget.travelMinutes / 60)).toStringAsFixed(1)} km/h';
   }
 
   @override
   Widget build(BuildContext context) {
-    final punchedIn = widget.punchedIn;
-    final since = widget.since;
-    final target = widget.target;
-    final green = punchedIn;
+    final green = widget.punchedIn;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
@@ -91,46 +113,63 @@ class _CheckInHeroState extends State<CheckInHero> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: green
-              ? const [Color(0xFFE6F7EE), Color(0xFFDDF3FF)]
+              ? const [Color(0xFFE8F8EF), Color(0xFFE2F1FF)]
               : const [Color(0xFFDCEBFF), Color(0xFFE9F7FF)],
         ),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: _pill(
-                  green ? 'ON DUTY · SINCE $since' : 'NOT CHECKED IN TODAY',
-                  green ? AppColors.success : AppColors.muted,
-                ),
-              ),
-              if (target > 0) _targetBadge(),
+              Expanded(child: _statusPill(green)),
+              if (widget.target > 0) _targetBadge(),
             ],
           ),
           const SizedBox(height: 12),
           Text(
-            green ? 'Your Field Day\nis Running' : 'Ready to Start\nYour Field Day?',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, height: 1.15, color: AppColors.text),
+            green ? 'Your Field Day is Running' : 'Ready to Start\nYour Field Day?',
+            style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, height: 1.2, color: AppColors.text),
           ),
           const SizedBox(height: 6),
-          Text(
-            green
-                ? 'On duty $_soFar so far. Close the day when you finish.'
-                : 'Track visits, meet customers and create more opportunities.',
-            style: const TextStyle(fontSize: 12.5, color: AppColors.muted, height: 1.35),
+          Row(
+            children: [
+              Icon(green ? Icons.schedule_rounded : Icons.play_circle_outline_rounded,
+                  size: 16, color: AppColors.muted),
+              const SizedBox(width: 6),
+              Expanded(
+                child: green
+                    ? Text.rich(
+                        TextSpan(
+                          children: [
+                            const TextSpan(text: 'On duty for '),
+                            TextSpan(
+                                text: _soFar,
+                                style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.text)),
+                            const TextSpan(text: ' so far.'),
+                          ],
+                        ),
+                        style: const TextStyle(fontSize: 13, color: AppColors.muted),
+                      )
+                    : const Text('Track visits, meet customers and create more opportunities.',
+                        style: TextStyle(fontSize: 12.5, color: AppColors.muted, height: 1.35)),
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
-          _button(green),
+          if (green) ...[
+            const SizedBox(height: 12),
+            _figures(),
+          ],
+          const SizedBox(height: 12),
+          green ? _footRow() : _button(green),
         ],
       ),
     );
   }
 
-  Widget _pill(String text, Color colour) => Align(
+  Widget _statusPill(bool green) => Align(
         alignment: Alignment.centerLeft,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -138,23 +177,31 @@ class _CheckInHeroState extends State<CheckInHero> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(color: colour, shape: BoxShape.circle)),
+              Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                      color: green ? AppColors.success : AppColors.muted, shape: BoxShape.circle)),
               const SizedBox(width: 7),
-              Flexible(
-                child: Text(text,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+              Text(green ? 'Checked In' : 'Not checked in today',
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.text)),
+              if (green) ...[
+                Container(
+                  width: 1,
+                  height: 14,
+                  margin: const EdgeInsets.symmetric(horizontal: 9),
+                  color: AppColors.border,
+                ),
+                Text(widget.since,
                     style: const TextStyle(
-                        fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.4, color: AppColors.text)),
-              ),
+                        fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.success)),
+              ],
             ],
           ),
         ),
       );
 
-  Widget _targetBadge() {
-    final target = widget.target;
-    return Container(
+  Widget _targetBadge() => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -170,7 +217,7 @@ class _CheckInHeroState extends State<CheckInHero> {
               children: [
                 const Icon(Icons.adjust_rounded, size: 16, color: AppColors.danger),
                 const SizedBox(width: 5),
-                Text('$target',
+                Text('${widget.target}',
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.text)),
               ],
             ),
@@ -178,20 +225,115 @@ class _CheckInHeroState extends State<CheckInHero> {
           ],
         ),
       );
+
+  /// The day so far, in the card itself: distance, visits, time and speed.
+  Widget _figures() {
+    final cells = <(IconData, String, String, Color)>[
+      (Icons.place_rounded, '${widget.km.toStringAsFixed(1)} km', 'Total Travelled', AppColors.success),
+      (Icons.directions_car_rounded, '${widget.visits}', 'Visits', AppColors.primary),
+      (Icons.timer_rounded, _travelTime, 'Travel Time', AppColors.success),
+      (Icons.speed_rounded, _speed, 'Avg. Speed', AppColors.danger),
+    ];
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: widget.onOpenDay,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        decoration: BoxDecoration(color: const Color(0xCCFFFFFF), borderRadius: BorderRadius.circular(18)),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, cell) in cells.indexed) ...[
+                if (i > 0) Container(width: 1, color: AppColors.border),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                              color: cell.$4.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(11)),
+                          child: Icon(cell.$1, size: 17, color: cell.$4),
+                        ),
+                        const SizedBox(height: 6),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(cell.$2,
+                              maxLines: 1,
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                        ),
+                        Text(cell.$3,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  Widget _button(bool green) {
-    final busy = widget.busy;
-    return SizedBox(
+  /// When the day is running: when it started, and the way to close it.
+  Widget _footRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: BoxDecoration(color: const Color(0xCCFFFFFF), borderRadius: BorderRadius.circular(22)),
+            child: Row(
+              children: [
+                const Icon(Icons.schedule_rounded, size: 16, color: AppColors.muted),
+                const SizedBox(width: 7),
+                const Text('Check-in', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                const Spacer(),
+                Text(widget.since,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.text)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          height: 46,
+          child: FilledButton.icon(
+            onPressed: widget.busy ? null : widget.onPunch,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.danger,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+            icon: widget.busy
+                ? const SizedBox(
+                    width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.stop_circle_rounded, size: 20),
+            label: const Text('Check Out', style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _button(bool green) => SizedBox(
         height: 54,
         child: FilledButton(
-          onPressed: busy ? null : widget.onPunch,
+          onPressed: widget.busy ? null : widget.onPunch,
           style: FilledButton.styleFrom(
             backgroundColor: green ? AppColors.danger : AppColors.primary,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
             padding: const EdgeInsets.symmetric(horizontal: 16),
           ),
-          child: busy
+          child: widget.busy
               ? const SizedBox(
                   width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : Row(
@@ -215,7 +357,6 @@ class _CheckInHeroState extends State<CheckInHero> {
                 ),
         ),
       );
-  }
 }
 
 /// A small card with a title, an optional action, and any body.
