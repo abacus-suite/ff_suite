@@ -175,9 +175,16 @@ class FieldForceTeamApi(http.Controller):
             summary['at_client'] += bool(visit)
         return ok({'summary': summary, 'members': members, 'server_time': to_iso(fields.Datetime.now())})
 
+    @api_route('/api/v1/me/timeline', methods=('GET',))
+    def my_timeline(self, employee, date=None, **kw):
+        """My own day: where I went, when I punched and whom I visited."""
+        return self._timeline_for(employee, date)
+
     @api_route('/api/v1/team/<int:employee_id>/timeline', methods=('GET',), manager=True)
     def timeline(self, employee, employee_id, date=None, **kw):
-        target = _member(employee, employee_id)
+        return self._timeline_for(_member(employee, employee_id), date)
+
+    def _timeline_for(self, target, date=None):
         try:
             day = fields.Date.to_date(date) if date else target._ff_today()
         except ValueError:
