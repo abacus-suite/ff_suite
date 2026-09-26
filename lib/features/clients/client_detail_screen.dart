@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../core/format.dart';
+import '../../core/models.dart';
 import '../../core/geo.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/map.dart';
+import '../beat/plan_beat_screen.dart';
 import '../collections/collect_payment_screen.dart';
 import '../forms/form_fill_screen.dart';
 import '../orders/catalog_screen.dart';
@@ -269,6 +274,373 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     );
   }
 
+  /// The customer at a glance: who they are, how they stand, and their beat.
+  Widget _hero(Map<String, dynamic> c, String? category, List<Map> routes) {
+    final name = '${c['name']}';
+    final pending = c['approval_state'] == 'pending';
+    final owners = ((c['assigned_to'] as List?) ?? []).cast<Map<String, dynamic>>();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primary, Color(0xFF3B82F6)],
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 32,
+                backgroundColor: Colors.white.withValues(alpha: 0.25),
+                child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 26)),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  child: const Icon(Icons.storefront_rounded, size: 12, color: AppColors.primary),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    if (category != null) _heroChip(category),
+                    _heroChip(pending ? 'Pending' : 'Active',
+                        dot: pending ? AppColors.warning : AppColors.success),
+                    if (c['code'] != null) _heroChip('${c['code']}'),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.history_rounded, size: 14, color: Colors.white70),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        [
+                          'Last visit: ${lastVisitLabel(c)}',
+                          if (owners.isNotEmpty) '${owners.first['name']}',
+                        ].join('  ·  '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                      ),
+                    ),
+                  ],
+                ),
+                if (routes.isNotEmpty) ...[
+                  const SizedBox(height: 9),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                    child: Text('Beat: ${routes.first['name']}',
+                        style: const TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.text)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroChip(String text, {Color? dot}) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.22),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (dot != null) ...[
+              Container(width: 7, height: 7, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+              const SizedBox(width: 5),
+            ],
+            Text(text,
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+          ],
+        ),
+      );
+
+  /// The four things people reach for first.
+  Widget _quickRow(Map<String, dynamic> c, Profile profile) {
+    final lat = c['lat'] as num?;
+    final lng = c['lng'] as num?;
+    final phone = asText(c['phone']);
+    final actions = <(IconData, String, Color, VoidCallback?)>[
+      (Icons.call_rounded, 'Call', AppColors.success, phone == null ? null : () => callPhone(phone)),
+      (
+        Icons.near_me_rounded,
+        'Navigate',
+        AppColors.primary,
+        lat == null || lng == null ? null : () => openDirections(lat, lng)
+      ),
+      if (profile.feature('orders'))
+        (
+          Icons.description_rounded,
+          profile.isDemandFlow ? 'Demand' : 'Create Order',
+          AppColors.warning,
+          _canAct && c['allow_orders'] != false && c['approval_state'] == 'approved'
+              ? () => _takeOrder(c)
+              : null
+        ),
+      (
+        Icons.event_available_rounded,
+        'Schedule Visit',
+        AppColors.purple,
+        () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => PlannedDaysScreen(start: DateUtils.dateOnly(DateTime.now()))))
+      ),
+    ];
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (icon, label, tint, onTap) in actions)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: onTap,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: onTap == null ? AppColors.border : tint,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(icon, color: Colors.white, size: 20),
+                          ),
+                          const SizedBox(height: 7),
+                          Text(label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: onTap == null ? AppColors.muted : AppColors.text)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Where the customer is and how to reach them, with the pin on a small map.
+  Widget _locationCard(Map<String, dynamic> c, num? lat, num? lng, num? distance) {
+    final inside = distance != null && distance <= ((c['geofence_radius'] as num?) ?? 150);
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(11)),
+                  child: const Icon(Icons.place_rounded, size: 18, color: AppColors.primary),
+                ),
+                const SizedBox(width: 9),
+                const Expanded(
+                  child: Text('Location & Contact',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+                ),
+                if (lat != null && lng != null)
+                  TextButton.icon(
+                    onPressed: () => openDirections(lat, lng),
+                    icon: const Icon(Icons.map_rounded, size: 16),
+                    label: const Text('View on Map'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (asText(c['address']) != null || asText(c['city']) != null)
+              _infoRow(Icons.location_on_rounded, asText(c['city']) ?? '${c['address']}',
+                  asText(c['address']) ?? ''),
+            if (asText(c['phone']) != null)
+              _infoRow(Icons.call_rounded, '${c['phone']}', '',
+                  trailing: IconButton(
+                    icon: const Icon(Icons.call_rounded, size: 18, color: AppColors.primary),
+                    onPressed: () => callPhone('${c['phone']}'),
+                  )),
+            if (asText(c['gst']) != null) _infoRow(Icons.receipt_long_rounded, '${c['gst']}', 'GST number'),
+            _infoRow(
+              Icons.radar_rounded,
+              lat == null ? 'No GPS location yet' : 'Geofence: ${c['geofence_radius']} m',
+              lat == null
+                  ? 'It is saved at your first check-in'
+                  : (distance == null ? '' : 'You are ${fmtDistance(distance)} away'),
+              trailing: lat == null
+                  ? null
+                  : Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: (inside ? AppColors.success : AppColors.warning).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                  color: inside ? AppColors.success : AppColors.warning,
+                                  shape: BoxShape.circle)),
+                          const SizedBox(width: 5),
+                          Text(inside ? 'Within range' : 'Out of range',
+                              style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: inside ? AppColors.success : AppColors.warning)),
+                        ],
+                      ),
+                    ),
+            ),
+            if (lat != null && lng != null) ...[
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: SizedBox(
+                  height: 140,
+                  child: Stack(
+                    children: [
+                      AppMap(
+                        center: LatLng(lat.toDouble(), lng.toDouble()),
+                        zoom: 16,
+                        interactive: false,
+                        controls: false,
+                        children: [
+                          CircleLayer(circles: [
+                            CircleMarker(
+                              point: LatLng(lat.toDouble(), lng.toDouble()),
+                              radius: ((c['geofence_radius'] as num?) ?? 150).toDouble(),
+                              useRadiusInMeter: true,
+                              color: AppColors.primary.withValues(alpha: 0.12),
+                              borderColor: AppColors.success,
+                              borderStrokeWidth: 1.5,
+                            ),
+                          ]),
+                          MarkerLayer(
+                            alignment: Alignment.topCenter,
+                            markers: [
+                              Marker(
+                                point: LatLng(lat.toDouble(), lng.toDouble()),
+                                width: MapPin.size.width,
+                                height: MapPin.size.height,
+                                alignment: Alignment.topCenter,
+                                child: const MapPin(color: AppColors.danger, icon: Icons.storefront_rounded),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: Material(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => openDirections(lat, lng),
+                            child: const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: Icon(Icons.directions_rounded, size: 18, color: AppColors.primary),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String title, String subtitle, {Widget? trailing}) => Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11)),
+              child: Icon(icon, size: 17, color: AppColors.primary),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                  if (subtitle.isNotEmpty)
+                    Text(subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                ],
+              ),
+            ),
+            if (trailing != null) trailing,
+          ],
+        ),
+      );
+
   Widget _content(Map<String, dynamic> c) {
     final profile = Services.auth.profile!;
     final lat = c['lat'] as num?;
@@ -285,82 +657,11 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             color: Color(0xFFFFF5E5),
             child: ListTile(leading: Icon(Icons.hourglass_top_rounded, color: AppColors.warning), title: Text('Waiting for manager approval')),
           ),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(child: Text('${c['name']}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800))),
-                    if (category != null) StatusBadge('planned', label: category),
-                  ],
-                ),
-                if (c['code'] != null) Text('Code ${c['code']}', style: const TextStyle(color: AppColors.muted)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.history_rounded, size: 16, color: AppColors.muted),
-                    const SizedBox(width: 6),
-                    Expanded(child: Text('Last visit: ${lastVisitLabel(c)}', style: const TextStyle(color: AppColors.muted))),
-                  ],
-                ),
-                if (routes.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 6, children: [for (final r in routes) Chip(label: Text('${r['name']}'), visualDensity: VisualDensity.compact)]),
-                ],
-                if (asText(c['gst']) != null) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.receipt_long_rounded, size: 16, color: AppColors.muted),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text('GST ${c['gst']}',
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        Card(
-          child: Column(
-            children: [
-              if (c['address'] != null) ListTile(leading: const Icon(Icons.place_rounded), title: Text('${c['address']}')),
-              if (asText(c['city']) != null)
-                ListTile(
-                  leading: const Icon(Icons.location_city_rounded),
-                  title: Text('${c['city']}'),
-                  subtitle: routes.isEmpty ? null : Text('Beat: ${routes.first['name']}'),
-                ),
-              if (asText(c['gst']) != null)
-                ListTile(
-                  leading: const Icon(Icons.receipt_long_rounded),
-                  title: Text('${c['gst']}'),
-                  subtitle: const Text('GST number'),
-                ),
-              if (c['phone'] != null)
-                ListTile(
-                  leading: const Icon(Icons.phone_rounded),
-                  title: Text('${c['phone']}'),
-                  onTap: () => callPhone('${c['phone']}'),
-                ),
-              ListTile(
-                leading: const Icon(Icons.radar_rounded),
-                title: Text(lat == null
-                    ? 'No GPS location yet – saved at your first check-in'
-                    : 'Geofence ${c['geofence_radius']} m${distance != null ? ' · you are ${fmtDistance(distance)} away' : ''}'),
-                trailing: lat != null && lng != null
-                    ? IconButton(icon: const Icon(Icons.directions_rounded, color: AppColors.primary), onPressed: () => openDirections(lat, lng))
-                    : null,
-              ),
-            ],
-          ),
-        ),
+        _hero(c, category, routes),
+        const SizedBox(height: 12),
+        _quickRow(c, profile),
+        const SizedBox(height: 12),
+        _locationCard(c, lat, lng, distance),
         const SizedBox(height: 10),
         ClientBalanceCard(clientId: widget.clientId),
         const SizedBox(height: 10),
