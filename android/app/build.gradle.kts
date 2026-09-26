@@ -30,6 +30,13 @@ android {
         versionName = flutter.versionName
     }
 
+    defaultConfig {
+        // The Google map inside the app needs its key at build time. Pass it with
+        // flutter build apk -PMAPS_API_KEY=... ; without one the app draws the free map.
+        manifestPlaceholders["MAPS_API_KEY"] =
+            (project.findProperty("MAPS_API_KEY") as String?) ?: ""
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.

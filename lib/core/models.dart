@@ -30,6 +30,7 @@ class Profile {
     required this.paymentCollection,
     this.googleMapsKey = '',
     this.mapProvider = 'open',
+    this.mapMode = 'open',
     this.orderFlow = 'direct',
     this.photoVersion,
     this.idleLogoutHours = 0,
@@ -89,6 +90,9 @@ class Profile {
 
   /// 'google' (paid tiles, needs the key) or 'open' (free CARTO / OpenStreetMap tiles).
   final String mapProvider;
+
+  /// 'sdk', 'google', 'open' or 'hybrid', as set in Odoo.
+  final String mapMode;
 
   /// 'direct' books a sale order at the outlet; 'demand' collects demand for
   /// the office to consolidate into distributor quotations.
@@ -155,6 +159,7 @@ class Profile {
       paymentCollection: settings['payment_collection'] == true,
       googleMapsKey: '${settings['google_maps_key'] ?? ''}',
       mapProvider: '${settings['map_provider'] ?? ((settings['google_maps_key'] ?? '') != '' ? 'google' : 'open')}',
+      mapMode: '${settings['map_mode'] ?? 'open'}',
       orderFlow: '${settings['order_flow'] ?? 'direct'}',
       photoVersion: employee['photo_version'] as String?,
       idleLogoutHours: (settings['idle_logout_hours'] as num? ?? 0).toInt(),

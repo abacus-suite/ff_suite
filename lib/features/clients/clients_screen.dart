@@ -13,6 +13,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/map.dart';
 import '../../widgets/map_clusters.dart';
+import '../../widgets/sdk_map.dart';
 import '../../widgets/member_picker.dart';
 import 'add_client_screen.dart';
 import 'client_detail_screen.dart';
@@ -522,6 +523,35 @@ class _ClientsScreenState extends State<ClientsScreen> {
         _me ?? LatLng((located.first['lat'] as num).toDouble(), (located.first['lng'] as num).toDouble());
     // Far out the pins gather into counted bubbles; zooming in breaks them apart.
     final clusters = clusterPoints(located, _zoom);
+    if (SdkMap.available) {
+      // Google's own map, drawn by the phone: no charge, and the roads people know.
+      return Stack(
+        children: [
+          SdkMap(
+            centre: centre,
+            zoom: _zoom,
+            myLocation: _me,
+            onCameraIdle: (zoom, _) {
+              if ((zoom - _zoom).abs() > 0.15 && mounted) setState(() => _zoom = zoom);
+            },
+            pins: [
+              for (final (i, cluster) in clusters.indexed)
+                SdkPin(
+                  id: 'c$i-${cluster.items.length}-${cluster.centre.latitude}',
+                  point: cluster.centre,
+                  count: cluster.items.length,
+                  label: cluster.isSingle ? '${cluster.items.first['name']}' : null,
+                  colour: cluster.isSingle && cluster.items.first['approval_state'] != 'approved'
+                      ? AppColors.warning
+                      : AppColors.primary,
+                  onTap: () => cluster.isSingle ? _open(cluster.items.first) : _openCluster(cluster),
+                ),
+            ],
+          ),
+          _mapCount(located.length),
+        ],
+      );
+    }
     return Stack(
       children: [
         AppMap(
@@ -583,7 +613,13 @@ class _ClientsScreenState extends State<ClientsScreen> {
             ),
           ],
         ),
-        Positioned(
+        _mapCount(located.length),
+      ],
+    );
+  }
+
+  /// How many customers the map is showing, in the corner.
+  Widget _mapCount(int count) => Positioned(
           left: 12,
           bottom: 12,
           child: Container(
@@ -593,13 +629,10 @@ class _ClientsScreenState extends State<ClientsScreen> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: const [BoxShadow(color: Color(0x1A0F1B3D), blurRadius: 10, offset: Offset(0, 3))],
             ),
-            child: Text('${located.length} on the map',
+            child: Text('$count on the map',
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
           ),
-        ),
-      ],
-    );
-  }
+      );
 
   /// Zoom into a bubble; when it holds customers at one spot, list them instead.
   void _openCluster(MapCluster cluster) {
