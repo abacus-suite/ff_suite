@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Attendance',
-    'version': '19.0.1.1.3',
+    'version': '19.0.1.1.4',
     'category': 'Human Resources/Field Force',
     'summary': 'Selfie + GPS punch, shifts, late marks, monthly muster and regularisation',
     'author': 'Field Force Suite',
@@ -11,6 +11,7 @@
         'data/ff_attendance_data.xml',
         'views/ff_shift_views.xml',
         'views/hr_attendance_views.xml',
+        'views/ff_attendance_day_views.xml',
         'views/ff_regularisation_views.xml',
         'views/hr_employee_views.xml',
         'views/ff_attendance_menus.xml',
