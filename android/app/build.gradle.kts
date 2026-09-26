@@ -33,8 +33,11 @@ android {
     defaultConfig {
         // The Google map inside the app needs its key at build time. Pass it with
         // flutter build apk -PMAPS_API_KEY=... ; without one the app draws the free map.
+        // Google's map library stops the app dead when this is empty, so a build
+        // without a key carries a placeholder instead; the app then draws the
+        // free map and never opens a Google map.
         manifestPlaceholders["MAPS_API_KEY"] =
-            (project.findProperty("MAPS_API_KEY") as String?) ?: ""
+            (project.findProperty("MAPS_API_KEY") as String?) ?: "no-maps-key"
     }
 
     buildTypes {
