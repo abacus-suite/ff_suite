@@ -11,10 +11,13 @@ import 'punch_extras.dart';
 
 /// What the person filled in before punching.
 class PunchInput {
-  const PunchInput({this.selfie, this.vehicle, this.odometerPhoto, this.odometer});
+  const PunchInput({this.selfie, this.vehicle, this.vehicleNote, this.odometerPhoto, this.odometer});
 
   final Uint8List? selfie;
   final String? vehicle;
+
+  /// What "Other" was, in the person's own words.
+  final String? vehicleNote;
   final Uint8List? odometerPhoto;
   final double? odometer;
 }
@@ -49,12 +52,14 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
   Uint8List? _odometerPhoto;
   late String? _vehicle = widget.vehicle;
   final _reading = TextEditingController();
+  final _note = TextEditingController();
   bool _tried = false;
   bool _busy = false;
 
   @override
   void dispose() {
     _reading.dispose();
+    _note.dispose();
     super.dispose();
   }
 
@@ -88,7 +93,7 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
 
   bool get _ready =>
       (!widget.needSelfie || _selfie != null) &&
-      (!widget.needVehicle || _vehicle != null) &&
+      (!widget.needVehicle || (_vehicle != null && (_vehicle != 'other' || _note.text.trim().isNotEmpty))) &&
       (!_hasMeter || (_odometerPhoto != null && (_odometer ?? 0) > 0));
 
   void _submit() {
@@ -100,6 +105,7 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
     Navigator.of(context).pop(PunchInput(
       selfie: _selfie,
       vehicle: _vehicle,
+      vehicleNote: _vehicle == 'other' ? _note.text.trim() : null,
       odometerPhoto: _hasMeter ? _odometerPhoto : null,
       odometer: _hasMeter ? _odometer : null,
     ));
@@ -262,6 +268,20 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
                   ),
               ],
             ),
+            if (_vehicle == 'other')
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: TextField(
+                  controller: _note,
+                  onChanged: (_) => setState(() {}),
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: 'What are you travelling by?',
+                    hintText: 'A lift with a colleague, a hired vehicle, the company van...',
+                    errorText: _tried && _note.text.trim().isEmpty ? 'Say it in a few words.' : null,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

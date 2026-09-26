@@ -184,6 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       final selfie = filled.selfie == null ? null : base64Encode(filled.selfie!);
       final vehicle = filled.vehicle;
+      final vehicleNote = filled.vehicleNote;
       final odometer = filled.odometer;
       final odometerPhoto = filled.odometerPhoto == null ? null : base64Encode(filled.odometerPhoto!);
       int? battery;
@@ -199,6 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (place.address.isNotEmpty) 'address': place.address,
         if (selfie != null) 'selfie': selfie,
         if (vehicle != null) 'vehicle': vehicle,
+        if (vehicleNote != null && vehicleNote.isNotEmpty) 'vehicle_note': vehicleNote,
         if (odometer != null) 'odometer': odometer,
         if (odometerPhoto != null) 'odometer_photo': odometerPhoto,
         // The server compares it with its own clock (queued offline work is exempt).
