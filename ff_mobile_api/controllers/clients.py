@@ -300,7 +300,8 @@ class FieldForceClientsApi(http.Controller):
             if not route or (employee.ff_route_ids and route not in employee.ff_route_ids):
                 raise ApiError('This route is not assigned to you.', 403, 'forbidden')
             vals['ff_route_ids'] = [(4, route.id)]
-            vals['ff_extra_employee_ids'] = [(4, person.id) for person in route.employee_ids]
+            # Everybody who works that route can see the contact from now on.
+            vals['ff_employee_ids'] = [(4, person.id) for person in route.employee_ids]
             # A route covers one city: take it unless the app sent one.
             if route.district_id and not vals.get('ff_district_id'):
                 vals['ff_district_id'] = route.district_id.id
@@ -324,7 +325,8 @@ class FieldForceClientsApi(http.Controller):
                 notes.append('Location set by %s.' % employee.name)
         if not vals:
             raise ApiError('Nothing to change.')
-        changed = [partner._fields[f].string for f in vals if f not in ('partner_latitude', 'partner_longitude')]
+        changed = [partner._fields[f].string for f in vals
+                   if f in partner._fields and f not in ('partner_latitude', 'partner_longitude')]
         partner.write(vals)
         if changed:
             notes.insert(0, '%s updated from the app by %s.' % (', '.join(changed), employee.name))
