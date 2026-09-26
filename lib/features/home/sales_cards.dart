@@ -644,6 +644,7 @@ class TravelCard extends StatelessWidget {
     required this.visits,
     required this.minutes,
     this.onOpen,
+    this.onOpenMap,
   });
 
   final num km;
@@ -653,6 +654,9 @@ class TravelCard extends StatelessWidget {
   /// Minutes between the first and the last position of the day.
   final int minutes;
   final VoidCallback? onOpen;
+
+  /// The corner button: straight to the map of the day.
+  final VoidCallback? onOpenMap;
 
   String get _travelTime {
     if (minutes <= 0) return '-';
@@ -725,10 +729,17 @@ class TravelCard extends StatelessWidget {
                     Positioned(
                       right: 8,
                       top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.fullscreen_rounded, size: 16, color: AppColors.text),
+                      child: Material(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: onOpenMap ?? onOpen,
+                          child: const Padding(
+                            padding: EdgeInsets.all(6),
+                            child: Icon(Icons.fullscreen_rounded, size: 16, color: AppColors.text),
+                          ),
+                        ),
                       ),
                     ),
                   ],

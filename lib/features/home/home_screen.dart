@@ -21,6 +21,7 @@ import '../../widgets/member_picker.dart';
 import '../notifications/notifications_screen.dart';
 import '../more/profile_screen.dart';
 import 'home_cards.dart';
+import 'day_journey_screen.dart';
 import 'sales_cards.dart';
 import 'month_target_card.dart';
 import 'recommendations_card.dart';
@@ -315,8 +316,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _targetBanner(),
                 const SizedBox(height: 12),
                 const MonthTargetCard(),
-                const SizedBox(height: 12),
-                _lastVisited(profile),
+
                 const SizedBox(height: 12),
                 const SyncStatusBar(),
               ],
@@ -421,7 +421,8 @@ class _HomeScreenState extends State<HomeScreen> {
       points: points,
       visits: _visits.length,
       minutes: minutes,
-      onOpen: () => _push(const BeatTodayScreen()),
+      onOpen: () => _push(const DayJourneyScreen()),
+      onOpenMap: () => _push(const DayJourneyScreen(showMapFirst: true)),
     );
   }
 
@@ -784,71 +785,5 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _lastVisited(Profile profile) {
-    final recent = _visits.take(5).toList();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            CardHeader(
-              icon: Icons.groups_rounded,
-              title: 'Last 5 Visited',
-              trailing: TextButton(
-                  onPressed: () => widget.onOpenTab?.call('customers'),
-                  child: const Text('View All')),
-            ),
-            const SizedBox(height: 4),
-            if (recent.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                    'No ${profile.label('visit', 'visit').toLowerCase()}s today yet',
-                    style: const TextStyle(color: AppColors.muted)),
-              )
-            else
-              for (final visit in recent)
-                InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => _push(ClientDetailScreen(
-                      clientId: (visit['client'] as Map)['id'] as int)),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: AppColors.success.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.check_rounded, size: 17, color: AppColors.success),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text('${(visit['client'] as Map)['name']}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.background,
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                          child: Text(fmtTime(visit['check_in_at']),
-                              style: const TextStyle(
-                                  fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w700)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-          ],
-        ),
-      ),
-    );
-  }
+
 }
