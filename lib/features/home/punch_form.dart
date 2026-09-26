@@ -29,12 +29,16 @@ class PunchFormScreen extends StatefulWidget {
     this.needSelfie = false,
     this.needVehicle = false,
     this.needOdometer = false,
+    this.vehicle,
   });
 
   final bool punchIn;
   final bool needSelfie;
   final bool needVehicle;
   final bool needOdometer;
+
+  /// The vehicle chosen at check-in, so check-out knows whether to ask for the meter.
+  final String? vehicle;
 
   @override
   State<PunchFormScreen> createState() => _PunchFormScreenState();
@@ -43,7 +47,7 @@ class PunchFormScreen extends StatefulWidget {
 class _PunchFormScreenState extends State<PunchFormScreen> {
   Uint8List? _selfie;
   Uint8List? _odometerPhoto;
-  String? _vehicle;
+  late String? _vehicle = widget.vehicle;
   final _reading = TextEditingController();
   bool _tried = false;
   bool _busy = false;
@@ -74,10 +78,18 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
 
   double? get _odometer => double.tryParse(_reading.text.trim());
 
+  /// Only a two- or four-wheeler has a meter to photograph. On foot, in a bus
+  /// or when the office does not ask for the vehicle at all, nothing is asked.
+  bool get _hasMeter =>
+      widget.needOdometer &&
+      (widget.needVehicle || widget.vehicle != null
+          ? const ['two_wheeler', 'four_wheeler'].contains(_vehicle)
+          : true);
+
   bool get _ready =>
       (!widget.needSelfie || _selfie != null) &&
       (!widget.needVehicle || _vehicle != null) &&
-      (!widget.needOdometer || (_odometerPhoto != null && (_odometer ?? 0) > 0));
+      (!_hasMeter || (_odometerPhoto != null && (_odometer ?? 0) > 0));
 
   void _submit() {
     setState(() => _tried = true);
@@ -88,8 +100,8 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
     Navigator.of(context).pop(PunchInput(
       selfie: _selfie,
       vehicle: _vehicle,
-      odometerPhoto: _odometerPhoto,
-      odometer: widget.needOdometer ? _odometer : null,
+      odometerPhoto: _hasMeter ? _odometerPhoto : null,
+      odometer: _hasMeter ? _odometer : null,
     ));
   }
 
@@ -117,7 +129,7 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
               onTap: () => _shoot(selfie: true),
             ),
           if (widget.needVehicle) _vehicleField(),
-          if (widget.needOdometer) ...[
+          if (_hasMeter) ...[
             _photoField(
               title: 'Odometer photo',
               hint: 'Point at the meter so the numbers can be read.',
@@ -138,6 +150,7 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
                     labelText: 'Odometer reading',
                     suffixText: 'km',
                     errorText: _tried && (_odometer ?? 0) <= 0 ? 'Type the number on the meter.' : null,
+                    helperText: 'Only asked when you ride your own two- or four-wheeler.',
                   ),
                 ),
               ),

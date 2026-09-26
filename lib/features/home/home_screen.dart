@@ -177,6 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
             needSelfie: needSelfie,
             needVehicle: needVehicle,
             needOdometer: needOdometer,
+            vehicle: punchIn ? null : (_status?['current'] as Map?)?['vehicle'] as String?,
           ),
         ));
         if (filled == null) return; // backed out of the form: nothing is punched
