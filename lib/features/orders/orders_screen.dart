@@ -186,7 +186,21 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return out;
   }
 
-  int _countOf(String state) => _orders.where((o) => o['state'] == state).length;
+  int _countOf(List<String> states) => _orders.where((o) => states.contains('${o['state']}')).length;
+
+  /// The boxes across the top, named after the states this flow really uses.
+  List<(IconData, List<String>, String, Color)> get _statBoxes => _demandFlow
+      ? const [
+          (Icons.description_rounded, ['draft', 'submitted'], 'Submitted', AppColors.primary),
+          (Icons.local_shipping_rounded, ['quoted', 'partial'], 'With distributor', AppColors.warning),
+          (Icons.inventory_rounded, ['supplied'], 'Supplied', AppColors.success),
+          (Icons.cancel_rounded, ['cancelled'], 'Cancelled', AppColors.danger),
+        ]
+      : const [
+          (Icons.description_rounded, ['draft', 'sent'], 'Submitted', AppColors.primary),
+          (Icons.check_circle_rounded, ['sale', 'done'], 'Confirmed', AppColors.success),
+          (Icons.cancel_rounded, ['cancel'], 'Cancelled', AppColors.danger),
+        ];
 
   /// The card for one order or demand.
   Widget _row(Map<String, dynamic> o) {
@@ -196,9 +210,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final route = asText((o['route'] as Map?)?['name']);
     final state = '${o['state']}';
     final tone = switch (state) {
-      'approved' || 'sale' || 'done' => AppColors.success,
+      'supplied' || 'sale' || 'done' => AppColors.success,
       'cancelled' || 'cancel' => AppColors.danger,
-      'draft' => AppColors.muted,
+      'quoted' || 'partial' => AppColors.warning,
       _ => AppColors.primary,
     };
     return Card(
@@ -250,11 +264,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                                state == 'approved' || state == 'sale' || state == 'done'
+                                state == 'supplied' || state == 'sale' || state == 'done'
                                     ? Icons.check_circle_rounded
                                     : (state == 'cancelled' || state == 'cancel'
                                         ? Icons.cancel_rounded
-                                        : Icons.schedule_rounded),
+                                        : (state == 'quoted' || state == 'partial'
+                                            ? Icons.local_shipping_rounded
+                                            : Icons.schedule_rounded)),
                                 size: 13,
                                 color: tone),
                             const SizedBox(width: 4),
@@ -578,16 +594,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         padding: const EdgeInsets.all(8),
                         child: Row(
                           children: [
-                            _statBox(Icons.description_rounded, '${_orders.length}',
-                                'Total ${_demandFlow ? 'demands' : 'orders'}', AppColors.primary),
-                            _statBox(Icons.check_circle_rounded,
-                                '${_countOf('approved') + _countOf('sale') + _countOf('done')}', 'Approved',
-                                AppColors.success),
-                            _statBox(Icons.schedule_rounded,
-                                '${_countOf('submitted') + _countOf('draft') + _countOf('sent')}', 'Waiting',
-                                AppColors.warning),
-                            _statBox(Icons.cancel_rounded,
-                                '${_countOf('cancelled') + _countOf('cancel')}', 'Cancelled', AppColors.danger),
+                            for (final box in _statBoxes)
+                              _statBox(box.$1, '${_countOf(box.$2)}', box.$3, box.$4),
                           ],
                         ),
                       ),
