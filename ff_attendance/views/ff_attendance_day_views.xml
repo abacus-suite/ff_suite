@@ -14,12 +14,11 @@
                 <field name="punch_count" string="Punches"/>
                 <field name="worked_hours" widget="float_time" sum="Worked"/>
                 <field name="hours_so_far" widget="float_time" string="On Duty So Far"/>
-                <field name="still_in" column_invisible="1"/>
+                <field name="still_in" string="On Duty" widget="boolean_toggle" readonly="1"/>
                 <field name="day_status" widget="badge"
                        decoration-success="day_status == 'present'"
                        decoration-warning="day_status == 'late'"
                        decoration-danger="day_status == 'half_day'"/>
-                <widget name="web_ribbon" title="On Duty" invisible="not still_in"/>
                 <field name="late_minutes" optional="show"/>
                 <field name="vehicle_type" optional="hide"/>
                 <field name="odometer_km" optional="hide" sum="Odometer km"/>
