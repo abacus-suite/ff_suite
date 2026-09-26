@@ -13,6 +13,9 @@
         android:label="Field Force"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Google's map inside the app. The key is passed at build time with
+             -PMAPS_API_KEY=... ; without one the app draws the free map. -->
+        <meta-data android:name="com.google.android.geo.API_KEY" android:value="${MAPS_API_KEY}"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -26,8 +29,6 @@
                  the Android process has started. This theme is visible to the user
                  while the Flutter UI initializes. After that, this theme continues
                  to determine the Window background behind the Flutter UI. -->
-            <meta-data android:name="com.google.android.geo.API_KEY"
-            android:value="${MAPS_API_KEY}"/>
         <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
