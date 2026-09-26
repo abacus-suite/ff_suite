@@ -31,6 +31,14 @@ class ResConfigSettings(models.TransientModel):
         string='Allow Mock Locations', config_parameter='ff_base.allow_mock')
     ff_selfie_required = fields.Boolean(
         string='Selfie Required on Punch', config_parameter='ff_base.selfie_required')
+    ff_punch_vehicle = fields.Boolean(
+        string='Ask the Vehicle on Punch-in', config_parameter='ff_base.punch_vehicle',
+        help='At check-in the app asks how the person is travelling today (two-wheeler, car, public transport, on foot). '
+             'It is kept on the attendance and used for the travel allowance.')
+    ff_punch_odometer = fields.Boolean(
+        string='Odometer Photo on Punch', config_parameter='ff_base.punch_odometer',
+        help='At check-in and check-out the app asks for a photo of the odometer and the reading on it. '
+             'The photo carries the place and time, and the day\'s kilometres are worked out from the two readings.')
     ff_geofence_radius = fields.Integer(
         string='Client Geofence (m)', config_parameter='ff_base.geofence_radius', default=150)
     ff_visit_block_outside = fields.Boolean(

@@ -61,6 +61,17 @@ class HrEmployee(models.Model):
         selfie = _strip_data_url(data.get('selfie'))
         if settings['selfie_required'] and not selfie:
             raise UserError(self.env._('A selfie is required to punch.'))
+        odometer_photo = _strip_data_url(data.get('odometer_photo'))
+        odometer = data.get('odometer')
+        try:
+            odometer = float(odometer) if odometer not in (None, '') else False
+        except (TypeError, ValueError):
+            raise UserError(self.env._('The odometer reading must be a number.'))
+        if settings['punch_odometer'] and not (odometer_photo and odometer):
+            raise UserError(self.env._('A photo of the odometer and its reading are required to punch.'))
+        vehicle = data.get('vehicle') or False
+        if vehicle and vehicle not in dict(self.env['hr.attendance']._fields['ff_vehicle_type'].selection):
+            raise UserError(self.env._('That vehicle is not one of the choices.'))
 
         try:
             now, offline = client_time(data)
@@ -81,6 +92,9 @@ class HrEmployee(models.Model):
                 'ff_in_accuracy': accuracy,
                 'ff_in_is_mock': is_mock,
                 'ff_in_selfie': selfie,
+                'ff_vehicle_type': vehicle,
+                'ff_in_odometer': odometer or 0.0,
+                'ff_in_odometer_photo': odometer_photo,
                 'ff_source': 'app',
                 'ff_in_uuid': uuid,
                 'ff_offline': offline,
@@ -88,6 +102,10 @@ class HrEmployee(models.Model):
         elif action == 'out':
             if not attendance:
                 raise UserError(self.env._('You are not punched in.'))
+            if odometer and attendance.ff_in_odometer and odometer < attendance.ff_in_odometer:
+                raise UserError(self.env._(
+                    'The odometer reads %(now)s, below the %(before)s at check-in. Check the number.',
+                    now=odometer, before=attendance.ff_in_odometer))
             attendance.write({
                 'check_out': now,
                 'out_latitude': lat,
@@ -96,6 +114,8 @@ class HrEmployee(models.Model):
                 'ff_out_accuracy': accuracy,
                 'ff_out_is_mock': is_mock,
                 'ff_out_selfie': selfie,
+                'ff_out_odometer': odometer or 0.0,
+                'ff_out_odometer_photo': odometer_photo,
                 'ff_out_uuid': uuid,
                 'ff_offline': attendance.ff_offline or offline,
             })

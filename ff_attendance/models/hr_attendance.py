@@ -1,5 +1,14 @@
 from odoo import api, fields, models
 
+VEHICLES = [
+    ('two_wheeler', 'Two-wheeler'),
+    ('four_wheeler', 'Four-wheeler'),
+    ('public', 'Public transport'),
+    ('walk', 'On foot'),
+    ('other', 'Other'),
+]
+
+
 DAY_STATUSES = [
     ('present', 'Present'),
     ('late', 'Late'),
@@ -22,6 +31,14 @@ class HrAttendance(models.Model):
     ff_in_uuid = fields.Char(index=True, copy=False)
     ff_out_uuid = fields.Char(index=True, copy=False)
     ff_out_address = fields.Char(string='Punch-out Address')
+    ff_vehicle_type = fields.Selection(
+        VEHICLES, string='Vehicle', help='How the person travelled on this day, chosen at check-in.')
+    ff_in_odometer = fields.Float(string='Odometer at Punch-in', digits=(12, 1))
+    ff_out_odometer = fields.Float(string='Odometer at Punch-out', digits=(12, 1))
+    ff_in_odometer_photo = fields.Image(string='Odometer Photo (in)', max_width=1280, max_height=1280)
+    ff_out_odometer_photo = fields.Image(string='Odometer Photo (out)', max_width=1280, max_height=1280)
+    ff_odometer_km = fields.Float(string='Odometer km', compute='_compute_ff_odometer_km', store=True, digits=(12, 1),
+                                  help='Punch-out reading less the punch-in reading.')
     ff_in_selfie = fields.Image(string='Punch-in Selfie', max_width=1024, max_height=1024)
     ff_out_selfie = fields.Image(string='Punch-out Selfie', max_width=1024, max_height=1024)
     ff_in_accuracy = fields.Float(string='Punch-in Accuracy (m)')
@@ -30,6 +47,12 @@ class HrAttendance(models.Model):
     ff_out_is_mock = fields.Boolean(string='Punch-out Mock Location')
     ff_late_minutes = fields.Integer(string='Late (min)', compute='_compute_ff_day_status', store=True)
     ff_day_status = fields.Selection(DAY_STATUSES, string='Day Status', compute='_compute_ff_day_status', store=True)
+
+    @api.depends('ff_in_odometer', 'ff_out_odometer')
+    def _compute_ff_odometer_km(self):
+        for att in self:
+            both = att.ff_in_odometer and att.ff_out_odometer
+            att.ff_odometer_km = max(att.ff_out_odometer - att.ff_in_odometer, 0.0) if both else 0.0
 
     @api.depends('check_in', 'check_out', 'worked_hours', 'ff_shift_id')
     def _compute_ff_day_status(self):

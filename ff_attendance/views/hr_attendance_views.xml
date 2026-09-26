@@ -18,6 +18,8 @@
                 <field name="ff_late_minutes" optional="show"/>
                 <field name="ff_shift_id" optional="hide"/>
                 <field name="ff_source" optional="show"/>
+                <field name="ff_vehicle_type" optional="hide"/>
+                <field name="ff_odometer_km" optional="hide" sum="Odometer km"/>
                 <field name="ff_in_address" optional="show"/>
                 <field name="ff_out_address" optional="hide"/>
             </list>
@@ -43,6 +45,8 @@
                             <field name="ff_day_status"/>
                             <field name="ff_late_minutes"/>
                             <field name="ff_source"/>
+                            <field name="ff_vehicle_type"/>
+                            <field name="ff_odometer_km"/>
                         </group>
                     </group>
                     <group>
@@ -53,6 +57,9 @@
                             <field name="ff_in_address"/>
                             <field name="ff_in_accuracy"/>
                             <field name="ff_in_is_mock"/>
+                            <field name="ff_in_odometer"/>
+                            <field name="ff_in_odometer_photo" widget="image" options="{'size': [180, 180]}"
+                                   nolabel="1" colspan="2"/>
                         </group>
                         <group string="Punch Out">
                             <field name="ff_out_selfie" widget="image" options="{'size': [180, 180]}" nolabel="1" colspan="2"/>
@@ -61,6 +68,9 @@
                             <field name="ff_out_address"/>
                             <field name="ff_out_accuracy"/>
                             <field name="ff_out_is_mock"/>
+                            <field name="ff_out_odometer"/>
+                            <field name="ff_out_odometer_photo" widget="image" options="{'size': [180, 180]}"
+                                   nolabel="1" colspan="2"/>
                         </group>
                     </group>
                 </sheet>

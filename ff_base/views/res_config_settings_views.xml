@@ -32,6 +32,12 @@
                         <setting help="Require a selfie photo when punching in and out from the app.">
                             <field name="ff_selfie_required"/>
                         </setting>
+                        <setting string="Vehicle on punch-in" help="Ask how the person travels today: two-wheeler, car, public transport or on foot.">
+                            <field name="ff_punch_vehicle"/>
+                        </setting>
+                        <setting string="Odometer photo on punch" help="Ask for a photo of the odometer and its reading at check-in and check-out; the day's kilometres come from the two readings.">
+                            <field name="ff_punch_odometer"/>
+                        </setting>
                         <setting help="Accept punches and pings from fake-GPS apps. Keep this off in production.">
                             <field name="ff_allow_mock"/>
                         </setting>
