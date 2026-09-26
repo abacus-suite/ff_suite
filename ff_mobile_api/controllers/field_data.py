@@ -30,6 +30,10 @@ def client_data(partner, lat=None, lng=None):
         'days_since_visit': partner.ff_days_since_visit if partner.ff_days_since_visit >= 0 else None,
         'routes': [ref(route) for route in partner.ff_route_ids],
         'assigned_to': [ref(person) for person in partner.ff_employee_ids[:3]],
+        'gst': partner.vat or None,
+        'city': partner.city or None,
+        'zip': partner.zip or None,
+        'street': partner.street or None,
         'distance_m': int(haversine_m(lat, lng, partner.partner_latitude, partner.partner_longitude))
         if located and lat is not None and lng is not None else None,
     }

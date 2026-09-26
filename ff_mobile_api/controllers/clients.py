@@ -289,6 +289,23 @@ class FieldForceClientsApi(http.Controller):
         for field in ('phone', 'email', 'street', 'street2', 'city', 'zip'):
             if field in data:
                 vals[field] = (data.get(field) or '').strip() or False
+        if 'gst' in data:
+            vals['vat'] = (data.get('gst') or '').strip().upper() or False
+        if data.get('category_id'):
+            vals['ff_category_id'] = category_for(employee, data['category_id']).id
+        if data.get('district_id'):
+            vals['ff_district_id'] = to_int(data['district_id']) or False
+        if data.get('route_id'):
+            route = request.env['ff.beat'].sudo().browse(to_int(data['route_id']) or []).exists()
+            if not route or (employee.ff_route_ids and route not in employee.ff_route_ids):
+                raise ApiError('This route is not assigned to you.', 403, 'forbidden')
+            vals['ff_route_ids'] = [(4, route.id)]
+            vals['ff_extra_employee_ids'] = [(4, person.id) for person in route.employee_ids]
+            # A route covers one city: take it unless the app sent one.
+            if route.district_id and not vals.get('ff_district_id'):
+                vals['ff_district_id'] = route.district_id.id
+            if route.district_id and not data.get('city'):
+                vals['city'] = route.district_id.name
         if (data.get('name') or '').strip():
             vals['name'] = data['name'].strip()
         notes = []
@@ -330,6 +347,7 @@ class FieldForceClientsApi(http.Controller):
             'comment': data.get('note') or False,
             'partner_latitude': to_float(data.get('lat')) or 0.0,
             'partner_longitude': to_float(data.get('lng')) or 0.0,
+            'vat': (data.get('gst') or '').strip().upper() or False,
             'ff_category_id': category_for(employee, data.get('category_id')).id,
             'ff_district_id': to_int(data.get('district_id')) or False,
         }
@@ -353,6 +371,20 @@ class FieldForceClientsApi(http.Controller):
                 vals['country_id'] = route.country_id.id
         partner = request.env['res.partner'].ff_create_from_app(employee, vals)
         return ok(client_data(partner), status=201)
+
+    @api_route('/api/v1/my-routes', methods=('GET',))
+    def my_routes(self, employee, **kw):
+        """The routes this person works, to choose from when editing a contact."""
+        routes = employee.sudo().ff_route_ids
+        if not routes:
+            routes = request.env['ff.beat'].sudo().search(
+                [('company_id', 'in', (False, employee.company_id.id))], limit=200)
+        return ok([{
+            'id': route.id,
+            'name': route.name,
+            'city': route.district_id.name or None,
+            'district_id': route.district_id.id or None,
+        } for route in routes])
 
     @api_route('/api/v1/contact-categories', methods=('GET',))
     def contact_categories(self, employee, **kw):
