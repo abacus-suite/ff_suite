@@ -121,9 +121,7 @@ class _MyRequestsCardState extends State<MyRequestsCard> {
       return const SizedBox.shrink();
     }
     final waiting = _lines.values.fold<int>(0, (sum, line) => sum + line.waiting);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Card(
+    return Card(
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -152,7 +150,6 @@ class _MyRequestsCardState extends State<MyRequestsCard> {
             ],
           ),
         ),
-      ),
     );
   }
 

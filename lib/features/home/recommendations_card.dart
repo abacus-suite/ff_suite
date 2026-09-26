@@ -68,7 +68,7 @@ class _RecommendationsCardState extends State<RecommendationsCard> {
     final rest = planned.skip(1).toList();
     final shownRest = _showAll ? rest : rest.take(3).toList();
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

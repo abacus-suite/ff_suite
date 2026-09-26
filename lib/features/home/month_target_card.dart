@@ -62,9 +62,7 @@ class _MonthTargetCardState extends State<MonthTargetCard> {
       'October', 'November', 'December'];
     String value(Map<String, dynamic> m, String key) =>
         m['money'] == true ? fmtMoney(m[key] as num?, currency) : fmtQty((m[key] as num?) ?? 0);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Card(
+    return Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -126,7 +124,6 @@ class _MonthTargetCardState extends State<MonthTargetCard> {
             ],
           ),
         ),
-      ),
     );
   }
 }
@@ -176,9 +173,7 @@ class _MyTasksCardState extends State<MyTasksCard> {
       _load();
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Card(
+    return Card(
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -270,7 +265,6 @@ class _MyTasksCardState extends State<MyTasksCard> {
             ],
           ),
         ),
-      ),
     );
   }
 }

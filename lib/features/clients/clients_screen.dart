@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -11,6 +12,8 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/map.dart';
+import '../../widgets/map_clusters.dart';
+import '../../widgets/member_picker.dart';
 import 'add_client_screen.dart';
 import 'client_detail_screen.dart';
 
@@ -38,6 +41,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
   int? _categoryId;
   int _total = 0;
   LatLng? _me;
+  String _member = 'me';
+  final MapController _mapController = MapController();
+  double _zoom = 12;
 
   String get _clientLabel => Services.auth.profile!.label('client', 'Client');
 
@@ -51,6 +57,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _mapController.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -74,6 +81,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
       final q = _search.text.trim();
       if (q.isNotEmpty) query['q'] = q;
       if (_categoryId != null) query['category_id'] = _categoryId;
+      if (_member != 'me') query['member'] = _member;
       if (_nearby) {
         // Never leave the list spinning on a slow GPS fix: fall back to the last known place.
         final pos = await currentPosition(recentOk: true)
@@ -186,6 +194,18 @@ class _ClientsScreenState extends State<ClientsScreen> {
                     _load();
                   },
                 ),
+                const SizedBox(width: 8),
+                if (Services.auth.profile?.isManager == true)
+                  Flexible(
+                    child: MemberPicker(
+                      value: _member,
+                      dense: true,
+                      onChanged: (value) {
+                        setState(() => _member = value);
+                        _load();
+                      },
+                    ),
+                  ),
                 const Spacer(),
                 Text('$_total found', style: const TextStyle(fontSize: 12, color: AppColors.muted)),
               ],
@@ -222,41 +242,119 @@ class _ClientsScreenState extends State<ClientsScreen> {
     if (located.isEmpty && _me == null) {
       return const EmptyView(icon: Icons.location_off_rounded, text: 'No contacts with a GPS location');
     }
-    final center = _me ?? LatLng((located.first['lat'] as num).toDouble(), (located.first['lng'] as num).toDouble());
-    return AppMap(
-      center: center,
-      zoom: 12,
-      myLocation: _me,
-      fitPoints: [
-        if (_me != null) _me!,
-        for (final c in located) LatLng((c['lat'] as num).toDouble(), (c['lng'] as num).toDouble()),
-      ],
+    final centre =
+        _me ?? LatLng((located.first['lat'] as num).toDouble(), (located.first['lng'] as num).toDouble());
+    // Far out the pins gather into counted bubbles; zooming in breaks them apart.
+    final clusters = clusterPoints(located, _zoom);
+    return Stack(
       children: [
-        MarkerLayer(
-          markers: [
-            if (_me != null)
-              Marker(point: _me!, width: MyLocationDot.size, height: MyLocationDot.size, child: const MyLocationDot()),
+        AppMap(
+          controller: _mapController,
+          center: centre,
+          zoom: 12,
+          myLocation: _me,
+          onCamera: (camera) {
+            if ((camera.zoom - _zoom).abs() > 0.15 && mounted) {
+              setState(() => _zoom = camera.zoom);
+            }
+          },
+          fitPoints: [
+            if (_me != null) _me!,
+            for (final c in located) LatLng((c['lat'] as num).toDouble(), (c['lng'] as num).toDouble()),
+          ],
+          children: [
+            MarkerLayer(
+              markers: [
+                if (_me != null)
+                  Marker(
+                      point: _me!,
+                      width: MyLocationDot.size,
+                      height: MyLocationDot.size,
+                      child: const MyLocationDot()),
+              ],
+            ),
+            MarkerLayer(
+              alignment: Alignment.topCenter,
+              markers: [
+                for (final cluster in clusters)
+                  if (cluster.isSingle)
+                    Marker(
+                      point: cluster.centre,
+                      width: MapPinWithLabel.size.width,
+                      height: MapPinWithLabel.size.height,
+                      alignment: Alignment.topCenter,
+                      child: MapPinWithLabel(
+                        label: '${cluster.items.first['name']}',
+                        color: cluster.items.first['approval_state'] == 'approved'
+                            ? AppColors.primary
+                            : AppColors.warning,
+                        icon: Icons.storefront_rounded,
+                        onTap: () => _open(cluster.items.first),
+                      ),
+                    )
+                  else
+                    Marker(
+                      point: cluster.centre,
+                      width: ClusterBubble.sizeFor(cluster.items.length),
+                      height: ClusterBubble.sizeFor(cluster.items.length),
+                      alignment: Alignment.center,
+                      child: ClusterBubble(
+                        count: cluster.items.length,
+                        onTap: () => _openCluster(cluster),
+                      ),
+                    ),
+              ],
+            ),
           ],
         ),
-        MarkerLayer(
-          alignment: Alignment.topCenter,
-          markers: [
-            for (final c in located)
-              Marker(
-                point: LatLng((c['lat'] as num).toDouble(), (c['lng'] as num).toDouble()),
-                width: MapPinWithLabel.size.width,
-                height: MapPinWithLabel.size.height,
-                alignment: Alignment.topCenter,
-                child: MapPinWithLabel(
-                  label: '${c['name']}',
-                  color: c['approval_state'] == 'approved' ? AppColors.primary : AppColors.warning,
-                  icon: Icons.storefront_rounded,
-                  onTap: () => _open(c),
-                ),
-              ),
-          ],
+        Positioned(
+          left: 12,
+          bottom: 12,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [BoxShadow(color: Color(0x1A0F1B3D), blurRadius: 10, offset: Offset(0, 3))],
+            ),
+            child: Text('${located.length} on the map',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
         ),
       ],
+    );
+  }
+
+  /// Zoom into a bubble; when it holds customers at one spot, list them instead.
+  void _openCluster(MapCluster cluster) {
+    final camera = _mapController.camera;
+    if (camera.zoom < 16) {
+      _mapController.move(cluster.centre, math.min(camera.zoom + 2.5, 17));
+      setState(() => _zoom = math.min(camera.zoom + 2.5, 17));
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text('${cluster.items.length} ${_clientLabel.toLowerCase()}s here',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            ),
+            for (final client in cluster.items)
+              ClientTile(
+                  client: client,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _open(client);
+                  }),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -259,6 +259,34 @@ class _HomeScreenState extends State<HomeScreen> {
     _load();
   }
 
+  /// Every card of the home screen, in the order they are read. Cards that
+  /// have nothing to show return an empty widget and are dropped here, so the
+  /// gap between what is left stays the same everywhere.
+  List<Widget> _cards(Profile profile) {
+    final cards = <Widget>[
+      if (profile.feature('attendance'))
+        _hero(profile)
+      else
+        HeroBanner(
+          routeLabel: profile.feature('routes') ? profile.routeLabel : 'Today',
+          onExplore: () =>
+              _push(profile.feature('routes') ? const BeatTodayScreen() : const ClientsScreen()),
+        ),
+      if (_visit != null) _ongoingVisitCard(_visit!),
+      _todaySummary(),
+      if (_status?['punched_in'] == true && profile.feature('visits')) const RecommendationsCard(),
+      if (profile.feature('orders')) ...[_salesCard(), _topProductsCard()],
+      _travelCard(),
+      _upcomingVisits(profile),
+      const MyTasksCard(),
+      const MyRequestsCard(),
+      _quickActions(profile),
+      _targetBanner(),
+      const MonthTargetCard(),
+    ];
+    return [for (final card in cards) if (card is! SizedBox) card];
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = _profile;
@@ -269,6 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onRefresh: _load,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            // One gap everywhere: each card only draws itself.
             children: [
               HomeHeader(
                 name: profile.name,
@@ -283,45 +312,8 @@ class _HomeScreenState extends State<HomeScreen> {
               else if (_error != null && _status == null)
                 Card(child: ErrorView(message: _error!, onRetry: _load))
               else ...[
-                if (profile.feature('attendance')) ...[
-                  _hero(profile),
-                  const SizedBox(height: 14),
-                ] else ...[
-                  HeroBanner(
-                    routeLabel: profile.feature('routes') ? profile.routeLabel : 'Today',
-                    onExplore: () => _push(profile.feature('routes')
-                        ? const BeatTodayScreen()
-                        : const ClientsScreen()),
-                  ),
-                  const SizedBox(height: 14),
-                ],
-                if (_visit != null) ...[
-                  _ongoingVisitCard(_visit!),
-                  const SizedBox(height: 12),
-                ],
-                _todaySummary(),
-                const SizedBox(height: 12),
-                if (_status?['punched_in'] == true && profile.feature('visits')) const RecommendationsCard(),
-                if (profile.feature('orders')) ...[
-                  _salesCard(),
-                  const SizedBox(height: 12),
-                  _topProductsCard(),
-                  const SizedBox(height: 12),
-                ],
-                _travelCard(),
-                const SizedBox(height: 12),
-                _upcomingVisits(profile),
-                const SizedBox(height: 12),
-                const MyTasksCard(),
-                const MyRequestsCard(),
-                const SizedBox(height: 12),
-                _quickActions(profile),
-                const SizedBox(height: 12),
-                _targetBanner(),
-                const SizedBox(height: 12),
-                const MonthTargetCard(),
-
-                const SizedBox(height: 12),
+                for (final card in _cards(profile))
+                  Padding(padding: const EdgeInsets.only(bottom: 12), child: card),
                 const SyncStatusBar(),
               ],
             ],

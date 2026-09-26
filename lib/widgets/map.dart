@@ -79,6 +79,8 @@ class AppMap extends StatefulWidget {
     this.myLocation,
     this.borderRadius,
     this.padding = const EdgeInsets.all(48),
+    this.controller,
+    this.onCamera,
   });
 
   final List<Widget> children;
@@ -95,12 +97,18 @@ class AppMap extends StatefulWidget {
   final BorderRadius? borderRadius;
   final EdgeInsets padding;
 
+  /// Drive the map from outside, for example to zoom into a cluster.
+  final MapController? controller;
+
+  /// Called whenever the map is moved or zoomed, with the camera as it stands.
+  final void Function(MapCamera camera)? onCamera;
+
   @override
   State<AppMap> createState() => _AppMapState();
 }
 
 class _AppMapState extends State<AppMap> with TickerProviderStateMixin {
-  final MapController _controller = MapController();
+  late final MapController _controller = widget.controller ?? MapController();
 
   LatLng get _fallbackCenter =>
       widget.center ?? (widget.fitPoints.isNotEmpty ? widget.fitPoints.first : const LatLng(20.5937, 78.9629));
@@ -133,6 +141,8 @@ class _AppMapState extends State<AppMap> with TickerProviderStateMixin {
             initialCameraFit: widget.fitPoints.length > 1
                 ? CameraFit.coordinates(coordinates: widget.fitPoints, padding: widget.padding)
                 : null,
+            onMapReady: () => widget.onCamera?.call(_controller.camera),
+            onPositionChanged: (camera, _) => widget.onCamera?.call(camera),
             interactionOptions: InteractionOptions(
               flags: widget.interactive ? InteractiveFlag.all & ~InteractiveFlag.rotate : InteractiveFlag.none,
             ),
