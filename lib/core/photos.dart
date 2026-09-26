@@ -54,7 +54,8 @@ DateTime? _recentAt;
 
 Future<PhotoPlace> currentPlace({bool fresh = false}) async {
   final cached = _recent;
-  if (!fresh && cached != null && DateTime.now().difference(_recentAt!).inMinutes < 2) {
+  final cachedAt = _recentAt;
+  if (!fresh && cached != null && cachedAt != null && DateTime.now().difference(cachedAt).inMinutes < 2) {
     return PhotoPlace(
       latitude: cached.latitude,
       longitude: cached.longitude,
@@ -97,8 +98,13 @@ Future<Uint8List?> takePhoto(ImageSource source, {bool selfie = false, bool stam
   // place and time on the viewfinder before the shot. Pictures chosen from the
   // gallery, and photos that carry no stamp, still use the phone's picker.
   if (stamp && source == ImageSource.camera) {
-    final shot = await openGeoCamera(selfie: selfie);
-    if (shot != null) return shot;
+    try {
+      final shot = await openGeoCamera(selfie: selfie);
+      if (shot != null) return shot;
+    } catch (_) {
+      // The phone's camera would not open through the app: fall back to its own
+      // camera below, and the place and time are still written on the picture.
+    }
   }
   final image = await ImagePicker().pickImage(
     source: source,

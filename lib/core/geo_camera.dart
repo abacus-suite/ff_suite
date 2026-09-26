@@ -61,7 +61,7 @@ class _GeoCameraScreenState extends State<GeoCameraScreen> {
 
   Future<void> _shoot() async {
     final camera = _camera;
-    if (camera == null || _busy) return;
+    if (camera == null || !camera.value.isInitialized || _busy) return;
     setState(() => _busy = true);
     try {
       final shot = await camera.takePicture();
@@ -100,7 +100,19 @@ class _GeoCameraScreenState extends State<GeoCameraScreen> {
                     child: _error != null
                         ? Padding(
                             padding: const EdgeInsets.all(24),
-                            child: Text(_error!, style: const TextStyle(color: Colors.white70)),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(_error!,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: Colors.white70)),
+                                const SizedBox(height: 12),
+                                FilledButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: const Text('Use the phone camera'),
+                                ),
+                              ],
+                            ),
                           )
                         : const CircularProgressIndicator(color: Colors.white),
                   ),
@@ -184,7 +196,8 @@ class _GeoCameraScreenState extends State<GeoCameraScreen> {
 Future<Uint8List?> openGeoCamera({bool selfie = false, String title = 'Photo'}) {
   final navigator = Services.navigatorKey.currentState;
   if (navigator == null) return Future.value(null);
-  return navigator.push<Uint8List>(
-    MaterialPageRoute(builder: (_) => GeoCameraScreen(selfie: selfie, title: title)),
-  );
+  return navigator
+      .push<Uint8List>(MaterialPageRoute(builder: (_) => GeoCameraScreen(selfie: selfie, title: title)))
+      // Whatever the camera does, the person must still be able to take the photo.
+      .catchError((_) => null);
 }
