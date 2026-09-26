@@ -4,11 +4,10 @@ import 'dart:convert';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/photos.dart';
-import 'punch_extras.dart';
+import 'punch_form.dart';
 import '../../core/format.dart';
 import '../../core/local_state.dart';
 import '../../core/models.dart';
@@ -166,29 +165,26 @@ class _HomeScreenState extends State<HomeScreen> {
       if (pos.isMocked && !_profile.allowMock)
         throw 'A fake GPS app was detected. Disable it to punch.';
       final place = await currentPlace(fresh: true);
-      String? selfie;
-      if (_profile.selfieRequired) {
-        final photo = await takePhoto(ImageSource.camera, selfie: true);
-        if (photo == null) throw 'A selfie is required to punch.';
-        selfie = base64Encode(photo);
-      }
-      String? vehicle;
-      if (punchIn && _profile.punchVehicle) {
+      final needSelfie = _profile.selfieRequired;
+      final needVehicle = punchIn && _profile.punchVehicle;
+      final needOdometer = _profile.punchOdometer;
+      PunchInput? filled = const PunchInput();
+      if (needSelfie || needVehicle || needOdometer) {
         if (!mounted) return;
-        vehicle = await askVehicle(context);
-        if (vehicle == null) throw 'Choose how you are travelling today.';
+        filled = await Navigator.of(context).push<PunchInput>(MaterialPageRoute(
+          builder: (_) => PunchFormScreen(
+            punchIn: punchIn,
+            needSelfie: needSelfie,
+            needVehicle: needVehicle,
+            needOdometer: needOdometer,
+          ),
+        ));
+        if (filled == null) return; // backed out of the form: nothing is punched
       }
-      String? odometerPhoto;
-      double? odometer;
-      if (_profile.punchOdometer) {
-        final photo = await takePhoto(ImageSource.camera);
-        if (photo == null) throw 'A photo of the odometer is required.';
-        if (!mounted) return;
-        final reading = await askOdometer(context);
-        if (reading == null) throw 'Enter the odometer reading.';
-        odometerPhoto = base64Encode(photo);
-        odometer = reading;
-      }
+      final selfie = filled.selfie == null ? null : base64Encode(filled.selfie!);
+      final vehicle = filled.vehicle;
+      final odometer = filled.odometer;
+      final odometerPhoto = filled.odometerPhoto == null ? null : base64Encode(filled.odometerPhoto!);
       int? battery;
       try {
         battery = await Battery().batteryLevel;
