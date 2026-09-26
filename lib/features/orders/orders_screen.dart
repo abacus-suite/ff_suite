@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/group_kit.dart';
 import '../../widgets/member_picker.dart';
+import 'catalog_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key, this.embedded = false});
@@ -31,11 +32,27 @@ class _OrdersScreenState extends State<OrdersScreen> {
   final _search = TextEditingController();
   Timer? _debounce;
   final Set<String> _collapsed = {};
+  String _sort = 'latest';
+  String _base = '';
+  Map<String, String> _headers = const {};
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadImageKeys();
+  }
+
+  /// Where to fetch product pictures from, with this session's key.
+  Future<void> _loadImageKeys() async {
+    final base = await Services.api.url('');
+    final headers = await Services.api.authHeaders();
+    if (mounted) {
+      setState(() {
+        _base = base;
+        _headers = headers;
+      });
+    }
   }
 
   @override
@@ -152,172 +169,480 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return [for (final k in keys) (k, titles[k]!, members[k]!, values[k]!)];
   }
 
+  /// Newest first, biggest first, or by customer.
+  List<Map<String, dynamic>> _sorted(List<Map<String, dynamic>> rows) {
+    final out = [...rows];
+    switch (_sort) {
+      case 'amount':
+        out.sort((a, b) =>
+            ((b['amount_total'] as num?) ?? 0).compareTo((a['amount_total'] as num?) ?? 0));
+      case 'customer':
+        out.sort((a, b) => '${(a['client'] as Map?)?['name']}'
+            .toLowerCase()
+            .compareTo('${(b['client'] as Map?)?['name']}'.toLowerCase()));
+      default:
+        out.sort((a, b) => '${b['date']}'.compareTo('${a['date']}'));
+    }
+    return out;
+  }
+
+  int _countOf(String state) => _orders.where((o) => o['state'] == state).length;
+
+  /// The card for one order or demand.
   Widget _row(Map<String, dynamic> o) {
-    final products = ((o['products'] as List?) ?? []).length;
+    final products = ((o['products'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final count = products.isNotEmpty ? products.length : ((o['line_count'] as num?) ?? 0).toInt();
+    final date = parseServerTime(o['date']);
+    final route = asText((o['route'] as Map?)?['name']);
+    final state = '${o['state']}';
+    final tone = switch (state) {
+      'approved' || 'sale' || 'done' => AppColors.success,
+      'cancelled' || 'cancel' => AppColors.danger,
+      'draft' => AppColors.muted,
+      _ => AppColors.primary,
+    };
     return Card(
-      child: ListTile(
-        title: Text('${o['name']} · ${(o['client'] as Map?)?['name'] ?? ''}'),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text([
-              '${fmtDate(parseServerTime(o['date'])!)} ${fmtTime(o['date'])}',
-              if (products > 0) '$products products' else if (o['line_count'] != null) '${o['line_count']} products',
-              if (_member != 'me' && (o['employee'] as Map?)?['name'] != null) '${(o['employee'] as Map)['name']}',
-              if ((o['route'] as Map?)?['name'] != null) '${(o['route'] as Map)['name']}',
-            ].join(' · ')),
-            Row(
-              children: [
-                StatusBadge('${o['state']}', label: '${o['state_label']}'),
-                if ((o['quoted_percent'] as num? ?? 0) > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 6),
-                    child: Text('${(o['quoted_percent'] as num).round()}% quoted',
-                        style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-                  ),
-              ],
-            ),
-          ],
-        ),
-        isThreeLine: true,
-        trailing: Text(fmtMoney(o['amount_total'] as num?, o['currency'] as String?),
-            style: const TextStyle(fontWeight: FontWeight.w700)),
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
         onTap: () => _showOrder(o['id'] as int),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                        color: tone.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(13)),
+                    child: Icon(_demandFlow ? Icons.assignment_rounded : Icons.receipt_long_rounded,
+                        size: 20, color: tone),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${o['name']}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                        Text('${(o['client'] as Map?)?['name'] ?? ''}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                            color: tone.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                                state == 'approved' || state == 'sale' || state == 'done'
+                                    ? Icons.check_circle_rounded
+                                    : (state == 'cancelled' || state == 'cancel'
+                                        ? Icons.cancel_rounded
+                                        : Icons.schedule_rounded),
+                                size: 13,
+                                color: tone),
+                            const SizedBox(width: 4),
+                            Text('${o['state_label'] ?? state}',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: tone)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Text(fmtMoney(o['amount_total'] as num?, o['currency'] as String?),
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                          const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Container(height: 1, color: AppColors.border),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  if (date != null)
+                    _meta(Icons.calendar_today_rounded, prettyDay(date.toLocal()), fmtTime(o['date'])),
+                  if (count > 0) ...[
+                    _divider(),
+                    _meta(Icons.inventory_2_rounded, '$count product${count == 1 ? '' : 's'}', ''),
+                  ],
+                  if (route != null) ...[
+                    _divider(),
+                    _meta(Icons.place_rounded, route, ''),
+                  ],
+                  if (_member != 'me' && asText((o['employee'] as Map?)?['name']) != null) ...[
+                    _divider(),
+                    _meta(Icons.person_rounded, '${(o['employee'] as Map)['name']}', ''),
+                  ],
+                ],
+              ),
+              if (products.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 46,
+                  child: Row(
+                    children: [
+                      for (final product in products.take(3)) _thumb(product),
+                      if (count > 3)
+                        Container(
+                          width: 46,
+                          height: 46,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text('+${count - 3}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w800, fontSize: 12.5, color: AppColors.primary)),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
+
+  Widget _divider() => Container(
+        width: 1,
+        height: 24,
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        color: AppColors.border,
+      );
+
+  Widget _meta(IconData icon, String value, String hint) => Flexible(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(9)),
+              child: Icon(icon, size: 14, color: AppColors.primary),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  if (hint.isNotEmpty)
+                    Text(hint, style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _thumb(Map<String, dynamic> product) => Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            width: 46,
+            height: 46,
+            child: product['has_image'] == true && _base.isNotEmpty
+                ? Image.network('$_base/api/v1/products/${product['id']}/image',
+                    headers: _headers,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _thumbFallback())
+                : _thumbFallback(),
+          ),
+        ),
+      );
+
+  Widget _thumbFallback() => Container(
+        color: AppColors.background,
+        child: const Icon(Icons.inventory_2_outlined, size: 18, color: AppColors.muted),
+      );
+
+  Widget _statBox(IconData icon, String value, String label, Color tint) => Expanded(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          decoration: BoxDecoration(
+              color: tint.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14)),
+          child: Column(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
+                child: Icon(icon, size: 17, color: Colors.white),
+              ),
+              const SizedBox(height: 6),
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
+            ],
+          ),
+        ),
+      );
+
+  Widget _sortPill() => Container(
+        padding: const EdgeInsets.only(left: 10, right: 2),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: _sort,
+            isDense: true,
+            borderRadius: BorderRadius.circular(14),
+            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.muted),
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.text),
+            items: const [
+              DropdownMenuItem(value: 'latest', child: Text('Latest')),
+              DropdownMenuItem(value: 'amount', child: Text('Biggest')),
+              DropdownMenuItem(value: 'customer', child: Text('Customer')),
+            ],
+            onChanged: (value) => value == null ? null : setState(() => _sort = value),
+          ),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
     final summary = _summary;
     final word = _demandFlow ? 'demands' : 'orders';
+    final one = _demandFlow ? 'demand' : 'order';
     final statuses = <String, String>{
       for (final o in _orders) '${o['state']}': '${o['state_label'] ?? o['state']}',
     };
     final sections = _sections();
     final periodLabel = Periods.choices.firstWhere((p) => p.$1 == _period).$2;
     return Scaffold(
-      appBar: AppBar(
-          automaticallyImplyLeading: !widget.embedded, title: Text(_demandFlow ? 'My Demands' : 'My Orders')),
-      body: Column(
-        children: [
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Column(
-              children: [
-                PeriodChips(
-                  period: _period,
-                  range: _range,
-                  onChanged: (period, range) {
-                    setState(() {
-                      _period = period;
-                      _range = range;
-                    });
-                    _load();
-                  },
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: TextField(
-                    controller: _search,
-                    onChanged: (_) {
-                      _debounce?.cancel();
-                      _debounce = Timer(const Duration(milliseconds: 450), _load);
-                    },
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.search_rounded),
-                      hintText: 'Search number, customer or product',
-                      isDense: true,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  height: 40,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    children: [
-                      MemberPicker(
-                        value: _member,
-                        dense: true,
-                        onChanged: (value) {
-                          setState(() {
-                            _member = value;
-                            if (value == 'me' && _groupBy == 'employee') _groupBy = 'none';
-                          });
-                          _load();
-                        },
-                      ),
-                      const SizedBox(width: 6),
-                      GroupByChip(
-                          value: _groupBy, options: _groupOptions, onChanged: (v) => setState(() => _groupBy = v)),
-                      if (statuses.length > 1) ...[
-                        const SizedBox(width: 6),
-                        ChoiceChip(
-                          label: const Text('All'),
-                          selected: _status == 'all',
-                          onSelected: (_) => setState(() => _status = 'all'),
-                        ),
-                        for (final entry in statuses.entries)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 6),
-                            child: ChoiceChip(
-                              label: Text(entry.value),
-                              selected: _status == entry.key,
-                              onSelected: (_) => setState(() => _status = entry.key),
-                            ),
-                          ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_loading) const LinearProgressIndicator(minHeight: 2),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 12, 6),
+              child: Row(
                 children: [
-                  if (_error != null) Text(_error!),
-                  if (summary != null)
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.today),
-                        title: Text('$periodLabel: ${summary['count']} $word'),
-                        subtitle: Text('${fmtMoney(summary['amount_total'] as num?, summary['currency'] as String?)}'
-                            '${_demandFlow ? ' at PTR' : ' incl. tax'}'
-                            '${_period == 'custom' ? ' · ${prettyDay(_range.start)} – ${prettyDay(_range.end)}' : ''}'),
-                      ),
+                  if (!widget.embedded && Navigator.of(context).canPop())
+                    IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.arrow_back_rounded)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_demandFlow ? 'My Demands' : 'My Orders',
+                            style: const TextStyle(
+                                fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.text)),
+                        Text('Track your $word',
+                            style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+                      ],
                     ),
-                  if (_visible.isEmpty && !_loading)
-                    Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Center(child: Text('No $word in this period')),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      await Navigator.of(context)
+                          .push(MaterialPageRoute(builder: (_) => const CatalogScreen()));
+                      _load();
+                    },
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     ),
-                  for (final section in sections) ...[
-                    if (_groupBy != 'none')
-                      GroupHeader(
-                        title: section.$2,
-                        count: section.$3.length,
-                        totals: [fmtMoney(section.$4, summary?['currency'] as String?)],
-                        expanded: !_collapsed.contains(section.$1),
-                        onTap: () => setState(() {
-                          if (!_collapsed.remove(section.$1)) _collapsed.add(section.$1);
-                        }),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('New'),
+                  ),
+                ],
+              ),
+            ),
+            PeriodChips(
+              period: _period,
+              range: _range,
+              onChanged: (period, range) {
+                setState(() {
+                  _period = period;
+                  _range = range;
+                });
+                _load();
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: TextField(
+                  controller: _search,
+                  onChanged: (_) {
+                    _debounce?.cancel();
+                    _debounce = Timer(const Duration(milliseconds: 450), _load);
+                  },
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search_rounded, color: AppColors.muted),
+                    hintText: 'Search number, customer or product...',
+                    border: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(
+              height: 44,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  MemberPicker(
+                    value: _member,
+                    dense: true,
+                    onChanged: (value) {
+                      setState(() {
+                        _member = value;
+                        if (value == 'me' && _groupBy == 'employee') _groupBy = 'none';
+                      });
+                      _load();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  GroupByChip(
+                      value: _groupBy, options: _groupOptions, onChanged: (v) => setState(() => _groupBy = v)),
+                  const SizedBox(width: 8),
+                  _sortPill(),
+                  if (statuses.length > 1) ...[
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: const Text('All'),
+                      selected: _status == 'all',
+                      onSelected: (_) => setState(() => _status = 'all'),
+                    ),
+                    for (final entry in statuses.entries)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: ChoiceChip(
+                          label: Text(entry.value),
+                          selected: _status == entry.key,
+                          onSelected: (_) => setState(() => _status = entry.key),
+                        ),
                       ),
-                    if (_groupBy == 'none' || !_collapsed.contains(section.$1))
-                      for (final o in section.$3) _row(o),
                   ],
                 ],
               ),
             ),
-          ),
-        ],
+            if (_loading) const LinearProgressIndicator(minHeight: 2),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                  children: [
+                    if (_error != null) Text(_error!),
+                    Card(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Row(
+                          children: [
+                            _statBox(Icons.description_rounded, '${_orders.length}',
+                                'Total ${_demandFlow ? 'demands' : 'orders'}', AppColors.primary),
+                            _statBox(Icons.check_circle_rounded,
+                                '${_countOf('approved') + _countOf('sale') + _countOf('done')}', 'Approved',
+                                AppColors.success),
+                            _statBox(Icons.schedule_rounded,
+                                '${_countOf('submitted') + _countOf('draft') + _countOf('sent')}', 'Waiting',
+                                AppColors.warning),
+                            _statBox(Icons.cancel_rounded,
+                                '${_countOf('cancelled') + _countOf('cancel')}', 'Cancelled', AppColors.danger),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Text(periodLabel,
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                          const Spacer(),
+                          if (summary != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                  '${summary['count']} ${summary['count'] == 1 ? one : word}  ·  '
+                                  '${fmtMoney(summary['amount_total'] as num?, summary['currency'] as String?)}',
+                                  style: const TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.primary)),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (_visible.isEmpty && !_loading)
+                      Padding(
+                        padding: const EdgeInsets.all(28),
+                        child: EmptyView(
+                            icon: Icons.receipt_long_rounded, text: 'No $word in this period'),
+                      ),
+                    for (final section in sections) ...[
+                      if (_groupBy != 'none')
+                        GroupHeader(
+                          title: section.$2,
+                          count: section.$3.length,
+                          totals: [fmtMoney(section.$4, summary?['currency'] as String?)],
+                          expanded: !_collapsed.contains(section.$1),
+                          onTap: () => setState(() {
+                            if (!_collapsed.remove(section.$1)) _collapsed.add(section.$1);
+                          }),
+                        ),
+                      if (_groupBy == 'none' || !_collapsed.contains(section.$1))
+                        for (final o in _sorted(section.$3)) _row(o),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
