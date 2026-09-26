@@ -369,6 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 compareWith: _compareWord,
                 count: (sales?['count'] as num?)?.toInt(),
                 bars: [for (final row in rows) ((row['amount'] as num?) ?? 0).toDouble()],
+                labels: [for (final row in rows) '${row['label']}'],
               ),
             ),
           ),
