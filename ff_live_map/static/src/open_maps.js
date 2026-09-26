@@ -106,7 +106,7 @@ function classesFor(gl, styleUrl) {
                 style: styleUrl,
                 center: [center.lng, center.lat],
                 zoom: options.zoom ?? 5,
-                attributionControl: { compact: true },
+                attributionControl: false,
             });
             this.gl.addControl(new gl.NavigationControl({ showCompass: false }), "bottom-right");
             if (options.fullscreenControl !== false) {

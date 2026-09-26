@@ -40,7 +40,9 @@ def order_data(order, with_lines=False):
         'state': order.state,
         'state_label': STATE_LABELS.get(order.state, order.state),
         'date': to_iso(order.date_order),
-        'client': ref(order.partner_id),
+        'client': ref(order.ff_outlet_id or order.partner_id),
+        'billed_to': ref(order.partner_id) if order.ff_outlet_id else None,
+        'distributor': ref(order.partner_id) if order.ff_outlet_id else None,
         'amount_untaxed': order.amount_untaxed,
         'amount_tax': order.amount_tax,
         'amount_total': order.amount_total,
@@ -124,6 +126,32 @@ class FieldForceOrdersApi(http.Controller):
             return ok(demand.ff_app_payload(), status=201)
         order = request.env['sale.order'].ff_create_from_app(employee, partner, data)
         return ok(order_data(order, with_lines=True), status=201)
+
+    @api_route('/api/v1/distributors', methods=('GET',))
+    def distributors(self, employee, q=None, partner_id=None, **kw):
+        """Who can supply an outlet: the one already set on it or its route first."""
+        Partner = request.env['res.partner'].sudo()
+        domain = [('ff_is_distributor', '=', True), ('active', '=', True)]
+        if q:
+            domain += ['|', ('name', 'ilike', q), ('city', 'ilike', q)]
+        rows = Partner.search(domain, order='name', limit=200)
+        suggested = Partner.browse()
+        if partner_id:
+            outlet = Partner.browse(int(partner_id)).exists()
+            suggested = outlet.ff_distributor_id if 'ff_distributor_id' in outlet._fields else Partner
+            if not suggested and 'ff_route_ids' in outlet._fields:
+                routes = outlet.ff_route_ids.filtered(lambda r: 'ff_distributor_id' in r._fields
+                                                      and r.ff_distributor_id)
+                suggested = routes[:1].ff_distributor_id if routes else Partner
+        return ok({
+            'suggested_id': suggested.id or None,
+            'distributors': [{
+                'id': row.id,
+                'name': row.name,
+                'city': row.city or None,
+                'phone': row.phone or None,
+            } for row in rows],
+        })
 
     @api_route('/api/v1/orders', methods=('GET',))
     def orders(self, employee, partner_id=None, limit=None, member=None, start=None, end=None, q=None, **kw):

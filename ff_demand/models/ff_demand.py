@@ -137,6 +137,13 @@ class FfDemand(models.Model):
             ('employee_id', '=', employee.id), ('partner_id', '=', partner.id), ('state', '=', 'ongoing'),
         ], limit=1)
         routes = partner.sudo().ff_route_ids if 'ff_route_ids' in partner._fields else False
+        # The field picks who should supply this demand; the office's own
+        # suggestion fills in afterwards when nothing was chosen.
+        distributor = self.env['res.partner'].browse()
+        if data.get('distributor_id'):
+            distributor = self.env['res.partner'].sudo().browse(int(data['distributor_id'])).exists()
+            if not distributor or not distributor.ff_is_distributor:
+                raise UserError(self.env._('Choose a distributor from the list.'))
         demand = Demand.create({
             'date': parse_client_dt(data.get('at')) or fields.Datetime.now(),
             'employee_id': employee.id,
@@ -148,6 +155,7 @@ class FfDemand(models.Model):
             'latitude': float(data.get('lat') or 0.0),
             'longitude': float(data.get('lng') or 0.0),
             'client_uuid': uuid,
+            'distributor_id': distributor.id or False,
         })
         if visit and not visit.outcome_id:
             outcome = self.env['ff.visit.outcome'].ff_for(employee, partner).filtered('is_order')[:1]

@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Orders',
-    'version': '19.0.1.1.2',
+    'version': '19.0.1.1.3',
     'category': 'Human Resources/Field Force',
     'summary': 'Field orders from the mobile app: SKU catalogue, geotagged orders linked to visits',
     'author': 'Field Force Suite',

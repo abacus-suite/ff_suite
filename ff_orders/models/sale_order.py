@@ -20,6 +20,9 @@ class SaleOrder(models.Model):
     ff_latitude = fields.Float(string='Order Latitude', digits=(10, 7), copy=False)
     ff_longitude = fields.Float(string='Order Longitude', digits=(10, 7), copy=False)
     ff_client_uuid = fields.Char(index=True, copy=False)
+    ff_outlet_id = fields.Many2one(
+        'res.partner', string='Outlet', index=True, copy=False,
+        help='The shop the order was taken at, when the order is billed to its distributor.')
 
     _ff_client_uuid_uniq = models.Constraint('UNIQUE(ff_client_uuid)', 'This field order was already received.')
 
@@ -57,9 +60,21 @@ class SaleOrder(models.Model):
         visit = self.env['ff.visit'].sudo().search([
             ('employee_id', '=', employee.id), ('partner_id', '=', partner.id), ('state', '=', 'ongoing'),
         ], limit=1)
+        # Sold through a distributor: the distributor is invoiced and the
+        # outlet is kept, so everybody can still see where it was taken.
+        billed_to = partner
+        outlet = self.env['res.partner'].browse()
+        if data.get('distributor_id'):
+            distributor = self.env['res.partner'].sudo().browse(int(data['distributor_id'])).exists()
+            if not distributor or not distributor.ff_is_distributor:
+                raise UserError(self.env._('Choose a distributor from the list.'))
+            billed_to, outlet = distributor, partner
+
         order = Order.create({
             'date_order': parse_client_dt(data.get('at')) or fields.Datetime.now(),
-            'partner_id': partner.id,
+            'partner_id': billed_to.id,
+            'partner_shipping_id': outlet.id or billed_to.id,
+            'ff_outlet_id': outlet.id or False,
             'user_id': employee.user_id.id or False,
             'company_id': employee.company_id.id,
             'order_line': line_vals,
