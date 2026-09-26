@@ -46,6 +46,11 @@ def order_data(order, with_lines=False):
         'amount_total': order.amount_total,
         'currency': order.currency_id.name,
         'line_count': len(order.order_line),
+        # A few products, so the list can show what the order was for.
+        'products': [{'id': line.product_id.id, 'name': line.product_id.display_name,
+                      'has_image': bool(line.product_id.image_128),
+                      'qty': line.product_uom_qty, 'subtotal': line.price_subtotal}
+                     for line in order.order_line[:6] if line.product_id],
         'visit_id': order.ff_visit_id.id or None,
         'employee': ref(order.ff_employee_id),
     }

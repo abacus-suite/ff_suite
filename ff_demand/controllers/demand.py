@@ -39,6 +39,7 @@ def demand_data(demand, with_lines=False):
     if with_lines == 'brief':
         # Just enough for grouping by product in the list.
         data['products'] = [{'id': line.product_id.id, 'name': line.product_id.display_name,
+                             'has_image': bool(line.product_id.image_128),
                              'qty': line.quantity, 'subtotal': line.subtotal}
                             for line in demand.line_ids if line.product_id]
     elif with_lines:

@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Demand & Distributor Quotations',
-    'version': '19.0.1.1.3',
+    'version': '19.0.1.1.4',
     'category': 'Human Resources/Field Force',
     'summary': 'Collect demand at the outlet, consolidate it per distributor, quote the distributor',
     'author': 'Field Force Suite',
