@@ -18,6 +18,8 @@ class Profile {
     required this.distanceFilter,
     required this.lowBattery,
     required this.selfieRequired,
+    this.punchVehicle = false,
+    this.punchOdometer = false,
     required this.allowMock,
     required this.trackingEnabled,
     required this.visitLock,
@@ -56,6 +58,12 @@ class Profile {
   final int distanceFilter;
   final int lowBattery;
   final bool selfieRequired;
+
+  /// Ask how the person travels today when they check in.
+  final bool punchVehicle;
+
+  /// Ask for a photo of the odometer and its reading at both punches.
+  final bool punchOdometer;
   final bool allowMock;
   final bool trackingEnabled;
   final bool visitLock;
@@ -123,6 +131,8 @@ class Profile {
       distanceFilter: (settings['distance_filter'] as num? ?? 50).toInt(),
       lowBattery: (settings['low_battery'] as num? ?? 20).toInt(),
       selfieRequired: settings['selfie_required'] == true,
+      punchVehicle: settings['punch_vehicle'] == true,
+      punchOdometer: settings['punch_odometer'] == true,
       allowMock: settings['allow_mock'] == true,
       trackingEnabled: employee['tracking_enabled'] != false,
       visitLock: settings['visit_lock'] == true,

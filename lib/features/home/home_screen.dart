@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/photos.dart';
+import 'punch_extras.dart';
 import '../../core/format.dart';
 import '../../core/local_state.dart';
 import '../../core/models.dart';
@@ -164,11 +165,29 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (pos.isMocked && !_profile.allowMock)
         throw 'A fake GPS app was detected. Disable it to punch.';
+      final place = await currentPlace(fresh: true);
       String? selfie;
       if (_profile.selfieRequired) {
         final photo = await takePhoto(ImageSource.camera, selfie: true);
         if (photo == null) throw 'A selfie is required to punch.';
         selfie = base64Encode(photo);
+      }
+      String? vehicle;
+      if (punchIn && _profile.punchVehicle) {
+        if (!mounted) return;
+        vehicle = await askVehicle(context);
+        if (vehicle == null) throw 'Choose how you are travelling today.';
+      }
+      String? odometerPhoto;
+      double? odometer;
+      if (_profile.punchOdometer) {
+        final photo = await takePhoto(ImageSource.camera);
+        if (photo == null) throw 'A photo of the odometer is required.';
+        if (!mounted) return;
+        final reading = await askOdometer(context);
+        if (reading == null) throw 'Enter the odometer reading.';
+        odometerPhoto = base64Encode(photo);
+        odometer = reading;
       }
       int? battery;
       try {
@@ -180,7 +199,11 @@ class _HomeScreenState extends State<HomeScreen> {
         'accuracy': pos.accuracy,
         'mock': pos.isMocked,
         'battery': battery,
+        if (place.address.isNotEmpty) 'address': place.address,
         if (selfie != null) 'selfie': selfie,
+        if (vehicle != null) 'vehicle': vehicle,
+        if (odometer != null) 'odometer': odometer,
+        if (odometerPhoto != null) 'odometer_photo': odometerPhoto,
         // The server compares it with its own clock (queued offline work is exempt).
         'device_time': DateTime.now().toUtc().toIso8601String(),
       };
