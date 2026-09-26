@@ -548,7 +548,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 ),
             ],
           ),
-          _mapCount(located.length),
+          _mapCount(located.length, google: true),
         ],
       );
     }
@@ -618,8 +618,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
-  /// How many customers the map is showing, in the corner.
-  Widget _mapCount(int count) => Positioned(
+  /// How many customers the map is showing, and which map is drawing them.
+  Widget _mapCount(int count, {bool google = false}) => Positioned(
           left: 12,
           bottom: 12,
           child: Container(
@@ -629,8 +629,16 @@ class _ClientsScreenState extends State<ClientsScreen> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: const [BoxShadow(color: Color(0x1A0F1B3D), blurRadius: 10, offset: Offset(0, 3))],
             ),
-            child: Text('$count on the map',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(google ? Icons.verified_rounded : Icons.public_rounded,
+                    size: 13, color: google ? AppColors.success : AppColors.muted),
+                const SizedBox(width: 5),
+                Text('$count on the map · ${google ? 'Google map (free)' : 'Free map'}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              ],
+            ),
           ),
       );
 

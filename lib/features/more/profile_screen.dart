@@ -13,6 +13,7 @@ import '../../widgets/avatar.dart';
 import '../../core/models.dart';
 import '../../widgets/common.dart';
 import '../../widgets/member_picker.dart';
+import '../../widgets/sdk_map.dart';
 import '../../widgets/sync_status.dart';
 import '../auth/login_screen.dart';
 
@@ -123,6 +124,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _details(profile),
           const SizedBox(height: 12),
           _work(profile),
+          const SizedBox(height: 12),
+          _maps(profile),
           const SizedBox(height: 12),
           _permissions(profile),
           const SizedBox(height: 12),
@@ -410,6 +413,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       );
+
+  static const _mapModes = {
+    'sdk': 'Google map inside the app (free)',
+    'google': 'Google everywhere (billed)',
+    'open': 'Open maps everywhere (free)',
+    'hybrid': 'Google maps, free addresses',
+  };
+
+  Widget _maps(Profile profile) {
+    final mode = _mapModes[profile.mapMode] ?? profile.mapMode;
+    final sdkReady = SdkMap.available;
+    return _section(
+      icon: Icons.map_rounded,
+      title: 'Maps',
+      children: [
+        _row(Icons.layers_rounded, 'Chosen in Odoo', mode),
+        _row(
+          sdkReady ? Icons.verified_rounded : Icons.public_rounded,
+          'This phone is using',
+          sdkReady ? "Google's own map" : 'The free map',
+          tint: sdkReady ? AppColors.success : AppColors.muted,
+          last: true,
+        ),
+      ],
+    );
+  }
 
   Widget _permissions(Profile profile) => _section(
         icon: Icons.verified_user_rounded,
