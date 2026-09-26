@@ -75,6 +75,26 @@ class _DayJourneyScreenState extends State<DayJourneyScreen> with SingleTickerPr
 
   num get _km => (_data?['distance_km'] as num?) ?? 0;
 
+  Map<String, dynamic> get _activity =>
+      (_data?['activity'] as Map?)?.cast<String, dynamic>() ?? const {};
+
+  List<Map<String, dynamic>> get _work =>
+      ((_activity['items'] as List?) ?? []).cast<Map<String, dynamic>>();
+
+  String? get _currency => _activity['currency'] as String?;
+
+  /// How each kind of work looks in the list.
+  static const _look = {
+    'order': (Icons.shopping_bag_rounded, AppColors.primary, 'Order taken'),
+    'demand': (Icons.assignment_rounded, AppColors.sky, 'Demand taken'),
+    'collection': (Icons.payments_rounded, AppColors.success, 'Money collected'),
+    'expense': (Icons.receipt_long_rounded, AppColors.danger, 'Expense'),
+    'return': (Icons.assignment_return_rounded, AppColors.warning, 'Return'),
+    'stock_count': (Icons.inventory_rounded, AppColors.purple, 'Stock counted'),
+    'form': (Icons.fact_check_rounded, AppColors.teal, 'Form filled'),
+    'task': (Icons.task_alt_rounded, AppColors.success, 'Task done'),
+  };
+
   bool get _isToday => fmtDate(_day) == fmtDate(DateTime.now());
 
   @override
@@ -152,6 +172,29 @@ class _DayJourneyScreenState extends State<DayJourneyScreen> with SingleTickerPr
         ));
       }
     }
+    for (final row in _work) {
+      final at = DateTime.tryParse('${row['at']}')?.toLocal();
+      if (at == null) continue;
+      final look = _look[row['kind']] ?? (Icons.circle_rounded, AppColors.muted, 'Activity');
+      final partner = (row['partner'] as Map?)?.cast<String, dynamic>();
+      final amount = row['amount'] as num?;
+      moments.add(_Moment(
+        at: at,
+        icon: look.$1,
+        colour: look.$2,
+        title: [
+          look.$3,
+          if (amount != null && amount > 0) fmtMoney(amount, _currency),
+        ].join(' · '),
+        detail: [
+          if (partner != null) '${partner['name']}',
+          if (asText(row['title']) != null) '${row['title']}',
+          if (asText(row['detail']) != null) '${row['detail']}',
+          if (asText(row['state']) != null) '${row['state']}',
+        ].join(' · '),
+        clientId: partner?['id'] as int?,
+      ));
+    }
     for (final visit in _visits) {
       final inAt = DateTime.tryParse('${visit['check_in_at']}')?.toLocal();
       if (inAt == null) continue;
@@ -224,11 +267,17 @@ class _DayJourneyScreenState extends State<DayJourneyScreen> with SingleTickerPr
             _figure('${_visits.length}', 'Visits', Icons.storefront_rounded, AppColors.purple),
             _figure(minutes <= 0 ? '-' : (minutes >= 60 ? '${minutes ~/ 60}h ${minutes % 60}m' : '$minutes min'),
                 'On the road', Icons.timer_rounded, AppColors.success),
+            _figure(fmtMoney(_sold, _currency), 'Sold', Icons.shopping_bag_rounded, AppColors.warning),
           ],
         ),
       ),
     );
   }
+
+  /// What the orders and demands of the day came to.
+  num get _sold => _work
+      .where((row) => row['kind'] == 'order' || row['kind'] == 'demand')
+      .fold<num>(0, (sum, row) => sum + ((row['amount'] as num?) ?? 0));
 
   Widget _figure(String value, String label, IconData icon, Color tint) => Expanded(
         child: Column(
