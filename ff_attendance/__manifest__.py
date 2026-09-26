@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Attendance',
-    'version': '19.0.1.1.4',
+    'version': '19.0.1.1.5',
     'category': 'Human Resources/Field Force',
     'summary': 'Selfie + GPS punch, shifts, late marks, monthly muster and regularisation',
     'author': 'Field Force Suite',

@@ -86,9 +86,10 @@
             <search string="Attendance by Day">
                 <field name="employee_id"/>
                 <field name="team_id"/>
-                <filter name="today" string="Today" domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter name="today" string="Today"
+                        domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
                 <filter name="this_month" string="This Month"
-                        domain="[('date', '&gt;=', (context_today().replace(day=1)).strftime('%Y-%m-%d'))]"/>
+                        domain="[('date', '&gt;=', context_today().strftime('%Y-%m-01'))]"/>
                 <separator/>
                 <filter name="still_in" string="Still Checked In" domain="[('still_in', '=', True)]"/>
                 <filter name="late" string="Late" domain="[('day_status', '=', 'late')]"/>
