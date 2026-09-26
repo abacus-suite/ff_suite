@@ -20,6 +20,7 @@ import '../../widgets/home_kit.dart';
 import '../../widgets/member_picker.dart';
 import '../notifications/notifications_screen.dart';
 import '../more/profile_screen.dart';
+import 'home_cards.dart';
 import 'month_target_card.dart';
 import 'recommendations_card.dart';
 import 'my_requests_card.dart';
@@ -241,16 +242,16 @@ class _HomeScreenState extends State<HomeScreen> {
               else if (_error != null && _status == null)
                 Card(child: ErrorView(message: _error!, onRetry: _load))
               else ...[
-                HeroBanner(
-                  routeLabel:
-                      profile.feature('routes') ? profile.routeLabel : 'Today',
-                  onExplore: () => _push(profile.feature('routes')
-                      ? const BeatTodayScreen()
-                      : const ClientsScreen()),
-                ),
-                const SizedBox(height: 14),
                 if (profile.feature('attendance')) ...[
-                  _punchRow(),
+                  _hero(profile),
+                  const SizedBox(height: 14),
+                ] else ...[
+                  HeroBanner(
+                    routeLabel: profile.feature('routes') ? profile.routeLabel : 'Today',
+                    onExplore: () => _push(profile.feature('routes')
+                        ? const BeatTodayScreen()
+                        : const ClientsScreen()),
+                  ),
                   const SizedBox(height: 14),
                 ],
                 if (_visit != null) ...[
@@ -261,18 +262,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 12),
                 if (_status?['punched_in'] == true && profile.feature('visits')) const RecommendationsCard(),
                 if (profile.feature('orders')) ...[
-                  _salesSummary(),
+                  _salesAndProducts(),
                   const SizedBox(height: 12),
                 ],
+                _travelStrip(),
+                const SizedBox(height: 12),
+                _upcomingVisits(profile),
+                const SizedBox(height: 12),
+                const MyTasksCard(),
+                const MyRequestsCard(),
+                const SizedBox(height: 12),
                 _quickActions(profile),
                 const SizedBox(height: 12),
                 _targetBanner(),
                 const SizedBox(height: 12),
                 const MonthTargetCard(),
-                const MyTasksCard(),
-                const MyRequestsCard(),
-                const SizedBox(height: 12),
-                _travelCard(),
                 const SizedBox(height: 12),
                 _lastVisited(profile),
                 const SizedBox(height: 12),
@@ -285,44 +289,198 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _punchRow() {
+  /// The day in one card: where it stands and the button that moves it on.
+  Widget _hero(Profile profile) {
     final punchedIn = _status?['punched_in'] == true;
     final current = _status?['current'] as Map<String, dynamic>?;
+    final planned = ((_today?['clients'] as List?) ?? []).length;
+    return CheckInHero(
+      punchedIn: punchedIn,
+      since: fmtTime(current?['check_in']),
+      worked: fmtHours(_status?['worked_hours_today'] as num?),
+      target: planned,
+      busy: _punching,
+      routeLabel: profile.routeLabel,
+      onPunch: () => _punch(!punchedIn),
+    );
+  }
+
+  /// Today's money on the left, what moved on the right.
+  Widget _salesAndProducts() {
+    final sales = _sales;
+    final currency = sales?['currency'] as String?;
+    final previous = (sales?['previous'] as Map<String, dynamic>?) ?? const {};
+    final hours = ((sales?['hours'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final daily = ((sales?['series'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final rows = _period == 'today' && hours.isNotEmpty ? hours : daily;
     return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: MiniCard(
+              icon: Icons.bar_chart_rounded,
+              title: switch (_period) { 'week' => "Week's Sales", 'month' => "Month's Sales", _ => "Today's Sales" },
+              action: InkWell(
+                onTap: _openSalesDetail,
+                child: const Icon(Icons.open_in_new_rounded, size: 16, color: AppColors.muted),
+              ),
+              child: SalesGlance(
+                amount: (sales?['amount_total'] as num?) ?? 0,
+                currency: currency,
+                change: (previous['amount_change'] as num?)?.toDouble(),
+                compareWith: _compareWord,
+                bars: [for (final row in rows) ((row['amount'] as num?) ?? 0).toDouble()],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: MiniCard(
+              icon: Icons.inventory_2_rounded,
+              title: 'Top Products',
+              onTap: () => _push(const CatalogScreen()),
+              child: TopProducts(
+                rows: ((sales?['top_products'] as List?) ?? []).cast<Map<String, dynamic>>(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The full sales card, with its period and person choices, on demand.
+  void _openSalesDetail() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (_, __) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.75,
+          builder: (_, controller) => Container(
+            decoration: const BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: ListView(
+              controller: controller,
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
+              children: [_salesSummary()],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _travelStrip() {
+    final travel = _travel;
+    final points = ((travel?['points'] as List?) ?? [])
+        .cast<Map<String, dynamic>>()
+        .map((p) => LatLng((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble()))
+        .toList();
+    return TravelStrip(
+      km: (travel?['distance_km'] as num?) ?? 0,
+      change: (travel?['distance_change'] as num?)?.toDouble(),
+      points: points,
+      onOpen: () => _push(const BeatTodayScreen()),
+    );
+  }
+
+  /// The customers still to be seen today, as cards you can swipe through.
+  Widget _upcomingVisits(Profile profile) {
+    final clients = ((_today?['clients'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final waiting = clients
+        .where((c) => c['visit_status'] == 'pending' && c['plan_status'] != 'cancelled')
+        .take(8)
+        .toList();
+    if (waiting.isEmpty) return const SizedBox.shrink();
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.place_rounded, size: 18, color: AppColors.primary),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text('Upcoming Visits', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                ),
+                TextButton(
+                  onPressed: () => _push(const BeatTodayScreen()),
+                  child: const Text('View All'),
+                ),
+              ],
+            ),
+            SizedBox(
+              height: 78,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: waiting.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (_, i) => _upcomingCard(waiting[i]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _upcomingCard(Map<String, dynamic> client) {
+    final address = asText(client['address']) ?? asText((client['district'] as Map?)?['name']) ?? '';
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => _push(ClientDetailScreen(clientId: client['id'] as int)),
+      child: Container(
+        width: 210,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
         child: Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          child: PunchTile(
-            title: 'Check In',
-            subtitle: punchedIn
-                ? 'Since ${fmtTime(current?['check_in'])}'
-                : 'Start Your Day',
-            hint: punchedIn ? 'You are on duty' : 'Tap to mark your location',
-            icon: Icons.place_rounded,
-            colour: AppColors.success,
-            enabled: !punchedIn,
-            busy: _punching,
-            onTap: () => _punch(true),
-          ),
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.storefront_rounded, size: 19, color: AppColors.primary),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('${client['name']}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined, size: 12, color: AppColors.muted),
+                      const SizedBox(width: 2),
+                      Expanded(
+                        child: Text(address,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.muted),
+          ],
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: PunchTile(
-            title: 'Check Out',
-            subtitle: punchedIn
-                ? 'Worked ${fmtHours(_status?['worked_hours_today'] as num?)}'
-                : 'End Your Day',
-            hint: punchedIn ? "Complete today's work" : 'Check in first',
-            icon: Icons.logout_rounded,
-            colour: AppColors.danger,
-            enabled: punchedIn,
-            busy: _punching,
-            onTap: () => _punch(false),
-          ),
-        ),
-      ],
-    ));
+      ),
+    );
   }
 
   Widget _quickActions(Profile profile) {
@@ -584,44 +742,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? '${fmtMoney(value / 1000, currency)}K'
                       .replaceAll('.0K', 'K')
                   : fmtMoney(value, currency),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _travelCard() {
-    final travel = _travel;
-    final points = ((travel?['points'] as List?) ?? [])
-        .cast<Map<String, dynamic>>()
-        .map((p) =>
-            LatLng((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble()))
-        .toList();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const CardHeader(
-                icon: Icons.route_rounded, title: 'Total Traveled'),
-            const SizedBox(height: 12),
-            RouteMiniMap(points: points),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                    '${((travel?['distance_km'] as num?) ?? 0).toStringAsFixed(1)} ',
-                    style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.text)),
-                const Text('KM today',
-                    style: TextStyle(fontSize: 13, color: AppColors.muted)),
-              ],
             ),
           ],
         ),
