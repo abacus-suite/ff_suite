@@ -81,6 +81,11 @@ class FfAttendanceDay(models.Model):
             'name': self.display_name,
             'res_model': 'hr.attendance',
             'view_mode': 'list,form',
+            'views': [
+                (self.env.ref('ff_attendance.hr_attendance_view_list_ff').id, 'list'),
+                # our own form, the one that carries the notes and followers
+                (self.env.ref('ff_attendance.hr_attendance_view_form_ff').id, 'form'),
+            ],
             'domain': [('id', 'in', self.attendance_ids.ids)],
         }
 

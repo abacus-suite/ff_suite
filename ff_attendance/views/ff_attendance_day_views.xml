@@ -20,7 +20,6 @@
                        decoration-warning="day_status == 'late'"
                        decoration-danger="day_status == 'half_day'"/>
                 <field name="late_minutes" optional="show"/>
-                <field name="vehicle_type" optional="hide"/>
                 <field name="odometer_km" optional="hide" sum="Odometer km"/>
                 <field name="in_address" optional="show"/>
                 <field name="out_address" optional="hide"/>
@@ -33,6 +32,11 @@
         <field name="model">ff.attendance.day</field>
         <field name="arch" type="xml">
             <form string="Attendance Day" create="false" edit="false">
+                <header>
+                    <button name="action_open_punches" type="object" string="Open Punches &amp; Notes"
+                            class="btn-primary"
+                            help="Opens the punches of this day, where notes and followers live."/>
+                </header>
                 <sheet>
                     <widget name="web_ribbon" title="On Duty" bg_color="text-bg-success" invisible="not still_in"/>
                     <div class="oe_title">
@@ -52,8 +56,7 @@
                         <group>
                             <field name="day_status"/>
                             <field name="late_minutes"/>
-                            <field name="vehicle_type"/>
-                            <field name="odometer_km"/>
+                            <field name="odometer_km" string="Odometer km (day)"/>
                             <field name="distance_km"/>
                         </group>
                     </group>
@@ -70,12 +73,18 @@
                                     <field name="worked_hours" widget="float_time" sum="Worked"/>
                                     <field name="ff_source"/>
                                     <field name="ff_vehicle_type" optional="show"/>
-                                    <field name="ff_vehicle_note" optional="hide"/>
-                                    <field name="ff_odometer_km" optional="hide"/>
+                                    <field name="ff_vehicle_note" optional="show"/>
+                                    <field name="ff_in_odometer" optional="show"/>
+                                    <field name="ff_out_odometer" optional="show"/>
+                                    <field name="ff_odometer_km" optional="show" sum="Odometer km"/>
                                     <field name="ff_in_address"/>
                                     <field name="ff_out_address" optional="hide"/>
                                     <field name="ff_in_selfie" widget="image" options="{'size': [48, 48]}"/>
                                     <field name="ff_out_selfie" widget="image" options="{'size': [48, 48]}"/>
+                                    <field name="ff_in_odometer_photo" string="Meter (in)" widget="image"
+                                           options="{'size': [48, 48]}"/>
+                                    <field name="ff_out_odometer_photo" string="Meter (out)" widget="image"
+                                           options="{'size': [48, 48]}"/>
                                 </list>
                             </field>
                         </page>
