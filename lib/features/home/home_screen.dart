@@ -21,6 +21,7 @@ import '../../widgets/member_picker.dart';
 import '../notifications/notifications_screen.dart';
 import '../more/profile_screen.dart';
 import 'home_cards.dart';
+import 'sales_cards.dart';
 import 'month_target_card.dart';
 import 'recommendations_card.dart';
 import 'my_requests_card.dart';
@@ -297,10 +298,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 12),
                 if (_status?['punched_in'] == true && profile.feature('visits')) const RecommendationsCard(),
                 if (profile.feature('orders')) ...[
-                  _salesAndProducts(),
+                  _salesCard(),
+                  const SizedBox(height: 12),
+                  _topProductsCard(),
                   const SizedBox(height: 12),
                 ],
-                _travelStrip(),
+                _travelCard(),
                 const SizedBox(height: 12),
                 _upcomingVisits(profile),
                 const SizedBox(height: 12),
@@ -342,51 +345,38 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Today's money on the left, what moved on the right.
-  Widget _salesAndProducts() {
+  /// What was sold, in its own wide card.
+  Widget _salesCard() {
     final sales = _sales;
-    final currency = sales?['currency'] as String?;
     final previous = (sales?['previous'] as Map<String, dynamic>?) ?? const {};
     final hours = ((sales?['hours'] as List?) ?? []).cast<Map<String, dynamic>>();
     final daily = ((sales?['series'] as List?) ?? []).cast<Map<String, dynamic>>();
     final rows = _period == 'today' && hours.isNotEmpty ? hours : daily;
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: MiniCard(
-              icon: Icons.bar_chart_rounded,
-              title: switch (_period) { 'week' => "Week's Sales", 'month' => "Month's Sales", _ => "Today's Sales" },
-              action: InkWell(
-                onTap: _openSalesDetail,
-                child: const Icon(Icons.open_in_new_rounded, size: 16, color: AppColors.muted),
-              ),
-              child: SalesGlance(
-                amount: (sales?['amount_total'] as num?) ?? 0,
-                currency: currency,
-                change: (previous['amount_change'] as num?)?.toDouble(),
-                compareWith: _compareWord,
-                count: (sales?['count'] as num?)?.toInt(),
-                bars: [for (final row in rows) ((row['amount'] as num?) ?? 0).toDouble()],
-                labels: [for (final row in rows) '${row['label']}'],
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: MiniCard(
-              icon: Icons.inventory_2_rounded,
-              title: 'Top Products',
-              tint: AppColors.purple,
-              onTap: () => _push(const CatalogScreen()),
-              child: TopProducts(
-                rows: ((sales?['top_products'] as List?) ?? []).cast<Map<String, dynamic>>(),
-              ),
-            ),
-          ),
-        ],
-      ),
+    final today = DateTime.now();
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return SalesCard(
+      amount: (sales?['amount_total'] as num?) ?? 0,
+      currency: sales?['currency'] as String?,
+      change: (previous['amount_change'] as num?)?.toDouble(),
+      compareWith: _compareWord,
+      count: ((sales?['count'] as num?) ?? 0).toInt(),
+      points: [for (final row in rows) ((row['amount'] as num?) ?? 0).toDouble()],
+      labels: [for (final row in rows) '${row['label']}'],
+      period: _period,
+      onPeriod: _reloadSales,
+      subtitle: '${today.day} ${months[today.month - 1]} ${today.year}, ${days[today.weekday - 1]}',
+      onOpen: _openSalesDetail,
+    );
+  }
+
+  /// What moved most, in its own wide card.
+  Widget _topProductsCard() {
+    return TopProductsCard(
+      rows: ((_sales?['top_products'] as List?) ?? []).cast<Map<String, dynamic>>(),
+      period: _period,
+      onPeriod: _reloadSales,
+      onViewAll: () => _push(const CatalogScreen()),
     );
   }
 
@@ -416,16 +406,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _travelStrip() {
+  Widget _travelCard() {
     final travel = _travel;
-    final points = ((travel?['points'] as List?) ?? [])
-        .cast<Map<String, dynamic>>()
+    final raw = ((travel?['points'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final points = raw
         .map((p) => LatLng((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble()))
         .toList();
-    return TravelStrip(
+    // How long the day has been moving: first position to last.
+    final first = raw.isEmpty ? null : DateTime.tryParse('${raw.first['ts']}');
+    final last = raw.isEmpty ? null : DateTime.tryParse('${raw.last['ts']}');
+    final minutes = first != null && last != null ? last.difference(first).inMinutes : 0;
+    return TravelCard(
       km: (travel?['distance_km'] as num?) ?? 0,
-      change: (travel?['distance_change'] as num?)?.toDouble(),
       points: points,
+      visits: _visits.length,
+      minutes: minutes,
       onOpen: () => _push(const BeatTodayScreen()),
     );
   }
