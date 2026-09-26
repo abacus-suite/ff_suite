@@ -94,35 +94,60 @@ class _SdkMapState extends State<SdkMap> {
     for (final pin in widget.pins) {
       final icon = pin.count > 1
           ? await _bubbleIcon(pin.count, pin.colour)
-          : await _pinIcon(pin.colour);
+          : await _pinIcon(pin.colour, pin.label);
       markers.add(g.Marker(
         markerId: g.MarkerId(pin.id),
         position: g.LatLng(pin.point.latitude, pin.point.longitude),
         icon: icon,
+        // A bubble sits on its middle; a pin stands on its point.
         anchor: pin.count > 1 ? const Offset(0.5, 0.5) : const Offset(0.5, 1),
-        infoWindow: pin.count > 1 || pin.label == null
-            ? g.InfoWindow.noText
-            : g.InfoWindow(title: pin.label),
+        infoWindow: g.InfoWindow.noText,
         onTap: pin.onTap,
       ));
     }
     if (mounted) setState(() => _markers = markers);
   }
 
-  /// The blue bubble with a number, drawn once per count and colour.
+  /// The bubble with a number: a soft halo, a deep blue face and a white ring.
   Future<g.BitmapDescriptor> _bubbleIcon(int count, Color colour) async {
-    final text = count > 100 ? '100+' : '$count';
-    final size = (count >= 100 ? 130.0 : (count >= 50 ? 118.0 : (count >= 10 ? 106.0 : 94.0)));
+    final text = count > 999 ? '999+' : '$count';
+    final face = count >= 100 ? 108.0 : (count >= 50 ? 98.0 : (count >= 10 ? 88.0 : 78.0));
+    final size = face + 44;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     final centre = Offset(size / 2, size / 2);
-    canvas.drawCircle(centre, size / 2, Paint()..color = colour.withValues(alpha: 0.28));
-    canvas.drawCircle(centre, size / 2 - 8, Paint()..color = colour);
+    final tint = Color.lerp(colour, AppColors.sky, 0.25) ?? colour;
+
+    // Two soft rings, so the bubble lifts off the map.
+    canvas.drawCircle(centre, face / 2 + 20, Paint()..color = colour.withValues(alpha: 0.10));
+    canvas.drawCircle(centre, face / 2 + 10, Paint()..color = colour.withValues(alpha: 0.18));
+    canvas.drawCircle(
+      centre,
+      face / 2,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(centre.dx - face / 2, centre.dy - face / 2),
+          Offset(centre.dx + face / 2, centre.dy + face / 2),
+          [tint, colour],
+        ),
+    );
+    canvas.drawCircle(
+      centre,
+      face / 2,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4
+        ..color = Colors.white.withValues(alpha: 0.9),
+    );
+
     final painter = TextPainter(
       text: TextSpan(
         text: text,
         style: TextStyle(
-            color: Colors.white, fontSize: size * 0.3, fontWeight: FontWeight.w800),
+            color: Colors.white,
+            fontSize: face * (text.length > 3 ? 0.26 : 0.34),
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -130,20 +155,77 @@ class _SdkMapState extends State<SdkMap> {
     return _toIcon(recorder, size.round(), size.round());
   }
 
-  /// A teardrop pin for a single shop.
-  Future<g.BitmapDescriptor> _pinIcon(Color colour) async {
-    const width = 70.0;
-    const height = 92.0;
+  /// One shop: its name on a white chip, over a teardrop pin with a shop glyph.
+  Future<g.BitmapDescriptor> _pinIcon(Color colour, String? label) async {
+    const pinWidth = 76.0;
+    const pinHeight = 100.0;
+    const gap = 8.0;
+
+    TextPainter? name;
+    if (label != null && label.isNotEmpty) {
+      final short = label.length > 18 ? '${label.substring(0, 17)}…' : label;
+      name = TextPainter(
+        text: TextSpan(
+          text: short,
+          style: const TextStyle(
+              color: AppColors.text, fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.2),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+    }
+    final chipWidth = name == null ? 0.0 : name.width + 30;
+    final chipHeight = name == null ? 0.0 : name.height + 18;
+    final width = math.max(pinWidth, chipWidth) + 16;
+    final height = pinHeight + (name == null ? 0 : chipHeight + gap);
+
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
+
+    if (name != null) {
+      final chip = RRect.fromRectAndRadius(
+        Rect.fromLTWH((width - chipWidth) / 2, 0, chipWidth, chipHeight),
+        const Radius.circular(16),
+      );
+      canvas.drawShadow(ui.Path()..addRRect(chip), Colors.black38, 4, true);
+      canvas.drawRRect(chip, Paint()..color = Colors.white);
+      name.paint(canvas, Offset((width - name.width) / 2, 9));
+    }
+
+    final top = name == null ? 0.0 : chipHeight + gap;
+    final head = Offset(width / 2, top + pinWidth / 2);
     final body = ui.Path()
-      ..addOval(Rect.fromCircle(center: const Offset(width / 2, width / 2), radius: width / 2 - 4))
-      ..moveTo(width / 2 - 14, width - 14)
-      ..lineTo(width / 2, height - 4)
-      ..lineTo(width / 2 + 14, width - 14)
+      ..addOval(Rect.fromCircle(center: head, radius: pinWidth / 2 - 4))
+      ..moveTo(head.dx - 15, head.dy + pinWidth / 2 - 14)
+      ..quadraticBezierTo(head.dx, top + pinHeight, head.dx, top + pinHeight - 2)
+      ..quadraticBezierTo(head.dx, top + pinHeight, head.dx + 15, head.dy + pinWidth / 2 - 14)
       ..close();
-    canvas.drawPath(body, Paint()..color = colour);
-    canvas.drawCircle(const Offset(width / 2, width / 2), width / 6, Paint()..color = Colors.white);
+    canvas.drawShadow(body, Colors.black45, 3, true);
+    canvas.drawPath(
+      body,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(head.dx - 30, head.dy - 30),
+          Offset(head.dx + 30, head.dy + 40),
+          [Color.lerp(colour, Colors.white, 0.18) ?? colour, colour],
+        ),
+    );
+    canvas.drawCircle(head, pinWidth / 2 - 12, Paint()..color = Colors.white);
+
+    // The shop glyph, painted from the icon font the app already ships.
+    final glyph = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(Icons.storefront_rounded.codePoint),
+        style: TextStyle(
+          fontSize: 34,
+          fontFamily: Icons.storefront_rounded.fontFamily,
+          package: Icons.storefront_rounded.fontPackage,
+          color: colour,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    glyph.paint(canvas, head - Offset(glyph.width / 2, glyph.height / 2));
+
     return _toIcon(recorder, width.round(), height.round());
   }
 
