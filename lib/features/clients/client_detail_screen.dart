@@ -310,6 +310,19 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                   const SizedBox(height: 8),
                   Wrap(spacing: 6, children: [for (final r in routes) Chip(label: Text('${r['name']}'), visualDensity: VisualDensity.compact)]),
                 ],
+                if (asText(c['gst']) != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.receipt_long_rounded, size: 16, color: AppColors.muted),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text('GST ${c['gst']}',
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -318,6 +331,18 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           child: Column(
             children: [
               if (c['address'] != null) ListTile(leading: const Icon(Icons.place_rounded), title: Text('${c['address']}')),
+              if (asText(c['city']) != null)
+                ListTile(
+                  leading: const Icon(Icons.location_city_rounded),
+                  title: Text('${c['city']}'),
+                  subtitle: routes.isEmpty ? null : Text('Beat: ${routes.first['name']}'),
+                ),
+              if (asText(c['gst']) != null)
+                ListTile(
+                  leading: const Icon(Icons.receipt_long_rounded),
+                  title: Text('${c['gst']}'),
+                  subtitle: const Text('GST number'),
+                ),
               if (c['phone'] != null)
                 ListTile(
                   leading: const Icon(Icons.phone_rounded),

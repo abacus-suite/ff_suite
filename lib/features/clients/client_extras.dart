@@ -260,15 +260,42 @@ class _EditClientScreenState extends State<EditClientScreen> {
   late final _name = TextEditingController(text: '${widget.client['name'] ?? ''}');
   late final _phone = TextEditingController(text: '${widget.client['phone'] ?? ''}');
   late final _email = TextEditingController(text: '${widget.client['email'] ?? ''}');
-  final _street = TextEditingController();
-  final _city = TextEditingController();
-  final _zip = TextEditingController();
+  late final _gst = TextEditingController(text: '${widget.client['gst'] ?? ''}');
+  late final _street = TextEditingController(text: '${widget.client['street'] ?? ''}');
+  late final _city = TextEditingController(text: '${widget.client['city'] ?? ''}');
+  late final _zip = TextEditingController(text: '${widget.client['zip'] ?? ''}');
+  late int? _categoryId = (widget.client['category'] as Map?)?['id'] as int?;
+  late int? _routeId = ((widget.client['routes'] as List?) ?? []).isEmpty
+      ? null
+      : ((widget.client['routes'] as List).first as Map)['id'] as int?;
+  List<Map<String, dynamic>> _categories = [];
+  List<Map<String, dynamic>> _routes = [];
   bool _moveLocation = false;
   bool _busy = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadChoices();
+  }
+
+  /// The kinds of contact and the routes this person may pick from.
+  Future<void> _loadChoices() async {
+    try {
+      final categories = await Services.api.get('/api/v1/contact-categories') as List;
+      if (mounted) setState(() => _categories = categories.cast<Map<String, dynamic>>());
+    } catch (_) {
+      // The chooser simply stays on what the contact already has.
+    }
+    try {
+      final routes = await Services.api.get('/api/v1/my-routes') as List;
+      if (mounted) setState(() => _routes = routes.cast<Map<String, dynamic>>());
+    } catch (_) {}
+  }
+
+  @override
   void dispose() {
-    for (final c in [_name, _phone, _email, _street, _city, _zip]) {
+    for (final c in [_name, _phone, _email, _gst, _street, _city, _zip]) {
       c.dispose();
     }
     super.dispose();
@@ -281,9 +308,12 @@ class _EditClientScreenState extends State<EditClientScreen> {
         'name': _name.text.trim(),
         'phone': _phone.text.trim(),
         'email': _email.text.trim(),
-        if (_street.text.trim().isNotEmpty) 'street': _street.text.trim(),
-        if (_city.text.trim().isNotEmpty) 'city': _city.text.trim(),
-        if (_zip.text.trim().isNotEmpty) 'zip': _zip.text.trim(),
+        'gst': _gst.text.trim(),
+        'street': _street.text.trim(),
+        'city': _city.text.trim(),
+        'zip': _zip.text.trim(),
+        if (_categoryId != null) 'category_id': _categoryId,
+        if (_routeId != null) 'route_id': _routeId,
       };
       if (_moveLocation) {
         final pos = await currentPosition();
@@ -301,41 +331,212 @@ class _EditClientScreenState extends State<EditClientScreen> {
     }
   }
 
-  Widget _field(TextEditingController c, String label, {TextInputType? type, String? hint}) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: TextField(controller: c, keyboardType: type, decoration: InputDecoration(labelText: label, hintText: hint)),
+  Widget _field(TextEditingController c, String label, IconData icon,
+          {TextInputType? type, String? hint, bool caps = false}) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: TextField(
+          controller: c,
+          keyboardType: type,
+          textCapitalization: caps ? TextCapitalization.characters : TextCapitalization.sentences,
+          decoration: InputDecoration(
+            labelText: label,
+            hintText: hint,
+            prefixIcon: Icon(icon, size: 19, color: AppColors.primary),
+            filled: true,
+            fillColor: Colors.white,
+          ),
+        ),
       );
+
+  Widget _card({required String title, required IconData icon, Widget? action, required List<Widget> children}) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(icon, size: 18, color: AppColors.primary),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                ),
+                if (action != null) action,
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final name = '${widget.client['name'] ?? ''}';
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit customer')),
+      appBar: AppBar(title: const Text('Edit Customer')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          _field(_name, 'Name'),
-          _field(_phone, 'Phone', type: TextInputType.phone),
-          _field(_email, 'Email', type: TextInputType.emailAddress),
-          if (widget.client['address'] != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text('Current address: ${widget.client['address']}', style: const TextStyle(color: AppColors.muted)),
+          Container(
+            padding: const EdgeInsets.all(14),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.primary.withValues(alpha: 0.12), AppColors.sky.withValues(alpha: 0.04)],
+              ),
             ),
-          _field(_street, 'Street / area', hint: 'Leave empty to keep'),
-          _field(_city, 'City', hint: 'Leave empty to keep'),
-          _field(_zip, 'PIN code', type: TextInputType.number, hint: 'Leave empty to keep'),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                  child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                          color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 22)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 6,
+                        children: [
+                          if (asText((widget.client['category'] as Map?)?['name']) != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                              decoration:
+                                  BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+                              child: Text('${(widget.client['category'] as Map)['name']}',
+                                  style: const TextStyle(
+                                      fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                            ),
+                          if (asText(widget.client['city']) != null)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.location_on_outlined, size: 13, color: AppColors.muted),
+                                Text('${widget.client['city']}',
+                                    style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _card(
+            title: 'Contact',
+            icon: Icons.badge_rounded,
+            children: [
+              _field(_name, 'Name', Icons.person_rounded),
+              _field(_phone, 'Phone', Icons.call_rounded, type: TextInputType.phone),
+              _field(_email, 'Email', Icons.mail_rounded, type: TextInputType.emailAddress),
+              _field(_gst, 'GST number', Icons.receipt_long_rounded,
+                  hint: '22AAAAA0000A1Z5', caps: true),
+            ],
+          ),
+          _card(
+            title: 'Type & route',
+            icon: Icons.category_rounded,
+            children: [
+              if (_categories.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: DropdownButtonFormField<int>(
+                    initialValue: _categories.any((c) => c['id'] == _categoryId) ? _categoryId : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Contact type',
+                      prefixIcon: Icon(Icons.storefront_rounded, size: 19, color: AppColors.primary),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    items: [
+                      for (final category in _categories)
+                        DropdownMenuItem(value: category['id'] as int, child: Text('${category['name']}')),
+                    ],
+                    onChanged: (value) => setState(() => _categoryId = value),
+                  ),
+                ),
+              if (_routes.isNotEmpty)
+                DropdownButtonFormField<int>(
+                  initialValue: _routes.any((r) => r['id'] == _routeId) ? _routeId : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Beat / route',
+                    prefixIcon: Icon(Icons.route_rounded, size: 19, color: AppColors.primary),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  items: [
+                    for (final route in _routes)
+                      DropdownMenuItem(
+                        value: route['id'] as int,
+                        child: Text([
+                          '${route['name']}',
+                          if (asText(route['city']) != null) '· ${route['city']}',
+                        ].join(' ')),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    setState(() => _routeId = value);
+                    // A route covers one city: fill it in when the field is empty.
+                    final route = _routes.where((r) => r['id'] == value).firstOrNull;
+                    if (_city.text.trim().isEmpty && asText(route?['city']) != null) {
+                      _city.text = '${route!['city']}';
+                    }
+                  },
+                ),
+            ],
+          ),
+          _card(
+            title: 'Address',
+            icon: Icons.location_on_rounded,
+            children: [
+              _field(_street, 'Street / area', Icons.apartment_rounded),
+              _field(_city, 'City', Icons.location_city_rounded),
+              _field(_zip, 'PIN code', Icons.markunread_mailbox_rounded, type: TextInputType.number),
+            ],
+          ),
           Card(
+            margin: const EdgeInsets.only(bottom: 12),
             child: SwitchListTile(
               value: _moveLocation,
               onChanged: (v) => setState(() => _moveLocation = v),
               secondary: const Icon(Icons.my_location_rounded, color: AppColors.primary),
-              title: const Text('Put the pin where I am standing'),
-              subtitle: Text(widget.client['lat'] == null
-                  ? 'This customer has no location yet'
-                  : 'Only when you are at the shop · the office sees the change'),
+              title: const Text('Put the pin where I am standing',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              subtitle: Text(
+                  widget.client['lat'] == null
+                      ? 'This customer has no location yet'
+                      : 'Only when you are at the shop · the office sees the change',
+                  style: const TextStyle(fontSize: 12)),
             ),
           ),
-          const SizedBox(height: 12),
           GradientButton(label: 'Save changes', icon: Icons.check_rounded, busy: _busy, onPressed: _save),
         ],
       ),
