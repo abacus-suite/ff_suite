@@ -32,21 +32,6 @@
                         <setting help="Require a selfie photo when punching in and out from the app.">
                             <field name="ff_selfie_required"/>
                         </setting>
-                        <setting string="Ask if they are still working" help="While somebody is on duty the app asks now and then; no answer and it closes the day at the moment they were last seen.">
-                            <div class="content-group">
-                                <div class="row">
-                                    <label for="ff_duty_check_minutes" class="col-lg-6 o_light_label"/>
-                                    <field name="ff_duty_check_minutes"/>
-                                </div>
-                                <div class="row">
-                                    <label for="ff_duty_reply_minutes" class="col-lg-6 o_light_label"/>
-                                    <field name="ff_duty_reply_minutes"/>
-                                </div>
-                            </div>
-                        </setting>
-                        <setting string="Close a forgotten day at midnight" help="A punch left open is closed at the end of its own day, so the next day is counted on its own.">
-                            <field name="ff_close_day_at_midnight"/>
-                        </setting>
                         <setting string="One check-in per day" help="After checking out, the day is closed: no further check-in until tomorrow. With it off, people may check in and out as often as they like and the hours add up.">
                             <field name="ff_single_punch_day"/>
                         </setting>

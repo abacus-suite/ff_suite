@@ -2,7 +2,7 @@ from odoo import fields, http
 from odoo.http import request
 
 from odoo.addons.ff_attendance.models.ff_regularisation import REASONS
-from odoo.addons.ff_base.tools import get_settings, parse_client_dt, to_iso
+from odoo.addons.ff_base.tools import parse_client_dt
 
 from .common import ApiError, api_route, attendance_data, body, ok, regularisation_data, check_device_clock
 
@@ -28,7 +28,6 @@ class FieldForceAttendanceApi(http.Controller):
 
     @api_route('/api/v1/attendance/status', methods=('GET',))
     def status(self, employee, **kw):
-        settings = get_settings(request.env)
         today = employee._ff_today()
         start, end = employee._ff_day_bounds(today)
         todays = request.env['hr.attendance'].sudo().search([
@@ -42,12 +41,6 @@ class FieldForceAttendanceApi(http.Controller):
             'today': [attendance_data(a) for a in todays],
             'worked_hours_today': round(sum(todays.mapped('worked_hours')), 2),
             'shift': _shift_data(employee, open_att, today),
-            'punch_count': len(todays),
-            'last_check_out': to_iso(todays[-1:].check_out) if todays and todays[-1:].check_out else None,
-            # Checked out but the day may be picked up again: the app offers Resume.
-            'can_resume': bool(todays) and not open_att and not settings['single_punch_day'],
-            'duty_check_minutes': settings['duty_check_minutes'],
-            'duty_reply_minutes': settings['duty_reply_minutes'],
         })
 
     @api_route('/api/v1/attendance/punch-in', methods=('POST',))

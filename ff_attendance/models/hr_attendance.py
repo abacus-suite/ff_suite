@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from odoo import api, fields, models
 
 VEHICLES = [
@@ -37,14 +35,6 @@ class HrAttendance(models.Model):
         VEHICLES, string='Vehicle', help='How the person travelled on this day, chosen at check-in.')
     ff_vehicle_note = fields.Char(
         string='Vehicle Note', help='What "Other" was: a lift, a hired vehicle, a company van...')
-    ff_auto_closed = fields.Boolean(
-        string='Closed by the System', readonly=True, tracking=True,
-        help='Nobody checked out: the app or the nightly job closed this day.')
-    ff_close_reason = fields.Selection(
-        [('no_reply', 'No answer to "still working?"'),
-         ('midnight', 'End of the day'),
-         ('shift_end', 'End of the shift')],
-        string='Closed Because', readonly=True)
     ff_early_reason = fields.Char(
         string='Early Check-out Reason', help='Why the day was ended before the shift ended.')
     ff_early_minutes = fields.Integer(
@@ -74,46 +64,6 @@ class HrAttendance(models.Model):
         hours, minutes = divmod(min(int(round(shift.end_time * 60)), 24 * 60 - 1), 60)
         end = local.replace(hour=hours, minute=minutes, second=0, microsecond=0)
         return max(0, int((end - local).total_seconds() // 60))
-
-    @api.model
-    def _cron_close_open_days(self):
-        """Close punches left open on a day that has already ended.
-
-        Somebody who forgets to check out should not have one punch running
-        across two days: the day is closed at its own end, and tomorrow starts
-        with a clean record.
-        """
-        params = self.env['ir.config_parameter'].sudo()
-        if params.get_param('ff_base.close_day_at_midnight', 'True') == 'False':
-            return 0
-        open_punches = self.sudo().search([('check_out', '=', False), ('check_in', '!=', False)])
-        closed = 0
-        for attendance in open_punches:
-            employee = attendance.employee_id
-            if not employee:
-                continue
-            local_in = employee._ff_to_local(attendance.check_in)
-            if local_in.date() >= employee._ff_today():
-                continue  # still today's punch; leave it running
-            # The last moment of the day it belongs to.
-            _start, end = employee._ff_day_bounds(local_in.date())
-            last_seen = self._ff_last_seen(employee, attendance.check_in, end)
-            attendance.write({
-                'check_out': last_seen,
-                'ff_auto_closed': True,
-                'ff_close_reason': 'midnight',
-            })
-            attendance.message_post(body=self.env._(
-                'No check-out was made, so the day was closed at %(when)s.', when=last_seen))
-            closed += 1
-        return closed
-
-    def _ff_last_seen(self, employee, since, before):
-        """The last position of that day, or the end of the day when there is none."""
-        ping = self.env['ff.location.ping'].sudo().search(
-            [('employee_id', '=', employee.id), ('ts', '>=', since), ('ts', '<', before)],
-            order='ts desc', limit=1)
-        return ping.ts if ping else before - timedelta(seconds=1)
 
     @api.depends('ff_in_odometer', 'ff_out_odometer')
     def _compute_ff_odometer_km(self):
