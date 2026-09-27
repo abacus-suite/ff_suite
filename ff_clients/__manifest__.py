@@ -11,6 +11,7 @@
         'views/ff_contact_category_views.xml',
         'views/ff_district_views.xml',
         'views/res_partner_views.xml',
+        'views/hr_employee_app_contacts_views.xml',
         'views/ff_clients_menus.xml',
     ],
     'installable': True,
