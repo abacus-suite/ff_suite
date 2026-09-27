@@ -52,7 +52,14 @@ class HrEmployee(models.Model):
         settings = get_settings(self.env)
         lat, lng = data.get('lat'), data.get('lng')
         if lat in (None, '') or lng in (None, ''):
-            raise UserError(self.env._('Location is required to punch. Turn on GPS and try again.'))
+            # A day the app closes by itself has no fresh fix: the last known
+            # position stands in, so the day can still be closed properly.
+            if action == 'out' and data.get('auto'):
+                last = self.env['ff.location.ping'].sudo().search(
+                    [('employee_id', '=', employee.id)], order='ts desc', limit=1)
+                lat, lng = (last.latitude, last.longitude) if last else (0.0, 0.0)
+            else:
+                raise UserError(self.env._('Location is required to punch. Turn on GPS and try again.'))
         lat, lng = float(lat), float(lng)
         is_mock = bool(data.get('mock'))
         if is_mock and not settings['allow_mock']:
@@ -135,6 +142,8 @@ class HrEmployee(models.Model):
                 'ff_out_accuracy': accuracy,
                 'ff_out_is_mock': is_mock,
                 'ff_out_selfie': selfie,
+                'ff_auto_closed': bool(data.get('auto')),
+                'ff_close_reason': data.get('close_reason') if data.get('auto') else False,
                 'ff_early_minutes': early,
                 'ff_early_reason': reason or False,
                 'ff_out_odometer': odometer or 0.0,

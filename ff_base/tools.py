@@ -17,6 +17,9 @@ PARAM_DEFAULTS = {
     'selfie_required': False,    # set to True by module data
     'early_checkout_reason': False,  # ask why when somebody ends the day before the shift does
     'single_punch_day': False,   # one check-in and one check-out a day; no going back in
+    'duty_check_minutes': 30,    # ask "still working?" this often; 0 = never ask
+    'duty_reply_minutes': 5,     # how long to wait for the answer before closing the day
+    'close_day_at_midnight': True,   # a day left open is closed at the end of it
     'punch_vehicle': False,      # ask how the person travels today when punching in
     'punch_odometer': False,     # ask for the odometer photo and reading at both punches
     'geofence_radius': 150,      # metres around a client counted as "at client"
