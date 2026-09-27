@@ -34,6 +34,18 @@ class ResConfigSettings(models.TransientModel):
     ff_early_checkout_reason = fields.Boolean(
         string='Reason for an Early Check-out', config_parameter='ff_base.early_checkout_reason',
         help='Somebody checking out before their shift ends must say why. The reason is kept on the attendance.')
+    ff_duty_check_minutes = fields.Integer(
+        string='Ask "Still Working?" Every (min)', config_parameter='ff_base.duty_check_minutes', default=30,
+        help='While somebody is checked in the app asks whether they are still working. '
+             '0 = never ask.')
+    ff_duty_reply_minutes = fields.Integer(
+        string='Wait for the Answer (min)', config_parameter='ff_base.duty_reply_minutes', default=5,
+        help='No answer in this time and the app checks them out by itself, at the moment they were last seen.')
+    ff_close_day_at_midnight = fields.Boolean(
+        string='Close a Forgotten Day at Midnight', config_parameter='ff_base.close_day_at_midnight',
+        default=True,
+        help='A day left open is closed at the end of it, so tomorrow starts clean instead of '
+             'running one punch across two days.')
     ff_single_punch_day = fields.Boolean(
         string='One Check-in per Day', config_parameter='ff_base.single_punch_day',
         help='Once somebody has checked out, they cannot check in again that day. '
