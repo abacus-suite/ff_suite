@@ -13,12 +13,19 @@ class FfBeatPlanApp(models.Model):
 
     @api.model
     def ff_app_routes(self, employee):
-        """Routes this employee may plan, their own first."""
-        routes = employee.sudo().ff_route_ids
-        if not routes:
+        """Routes this employee may plan.
+
+        With shared contacts the whole field plans from every beat; otherwise
+        they plan their own, and only fall back to all when they have none.
+        """
+        shared = self.env['res.partner']._ff_contact_access() == 'open'
+        own = employee.sudo().ff_route_ids
+        if shared or not own:
             routes = self.env['ff.beat'].sudo().search(
                 [('company_id', 'in', (False, employee.company_id.id))])
-        return routes.sorted('display_name')
+            # Their own beats first: that is still where most of the work is.
+            return (own | routes).sorted(lambda route: (route not in own, route.display_name))
+        return own.sorted('display_name')
 
     @api.model
     def ff_app_route_customers(self, employee, route, date=None):
@@ -42,6 +49,37 @@ class FfBeatPlanApp(models.Model):
         return day, customers
 
     @api.model
+    def ff_already_planned(self, employee, route, date):
+        """Who else has this beat, or one of its customers, planned for that day.
+
+        The same shop may well be called on by two people on the same day, so
+        this only tells them; it never stands in the way.
+        """
+        if not date:
+            return {'beat': [], 'customers': []}
+        others = self.sudo().search([
+            ('date', '=', date), ('employee_id', '!=', employee.id),
+        ])
+        same_beat = others.filtered(lambda day: day.beat_id == route)
+        wanted = route.sudo().line_ids.partner_id
+        customers = {}
+        for day in others:
+            for line in day.customer_line_ids:
+                if not line.selected or line.partner_id not in wanted:
+                    continue
+                row = customers.setdefault(line.partner_id.id, {
+                    'id': line.partner_id.id,
+                    'name': line.partner_id.name,
+                    'people': [],
+                })
+                if day.employee_id.name not in row['people']:
+                    row['people'].append(day.employee_id.name)
+        return {
+            'beat': [{'id': day.employee_id.id, 'name': day.employee_id.name} for day in same_beat],
+            'customers': list(customers.values()),
+        }
+
+    @api.model
     def ff_plan_from_app(self, employee, data):
         """Create or update one planned day. ``partner_ids`` are the customers the
         employee kept; everything else on the route is left out."""
@@ -49,8 +87,9 @@ class FfBeatPlanApp(models.Model):
         route = self.env['ff.beat'].sudo().browse(int(data.get('beat_id') or 0)).exists()
         if not route:
             raise UserError(self.env._('Choose a route to plan.'))
+        shared = self.env['res.partner']._ff_contact_access() == 'open'
         allowed = employee.sudo().ff_route_ids
-        if allowed and route not in allowed:
+        if not shared and allowed and route not in allowed:
             raise UserError(self.env._('%s is not one of your routes.', route.display_name))
         if date < employee._ff_today():
             raise UserError(self.env._('A past day cannot be planned.'))

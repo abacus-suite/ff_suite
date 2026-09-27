@@ -35,6 +35,9 @@ class FieldForceRoutePlanApi(http.Controller):
         return ok({
             'route': ref(route),
             'day': plan_data(day) if day else None,
+            # The same shop can be called on twice in a day; this only says so.
+            'already_planned': request.env['ff.beat.plan'].ff_already_planned(
+                employee, route, fields.Date.to_date(date) if date else None),
             'customers': [dict(client_data(row['partner']),
                                sequence=row['sequence'],
                                selected=row['selected'],
