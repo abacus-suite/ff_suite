@@ -139,6 +139,15 @@ function classesFor(gl, styleUrl) {
             const p = toLatLng(point);
             this.gl.easeTo({ center: [p.lng(), p.lat()] });
         }
+        addListener(event, handler) {
+            // The map settles after a pan or a zoom: that is when the pins regroup.
+            const name = { idle: "moveend", zoom_changed: "zoomend", click: "click" }[event];
+            if (!name) {
+                return { remove() {} };
+            }
+            this.gl.on(name, handler);
+            return { remove: () => this.gl.off(name, handler) };
+        }
         fitBounds(bounds, padding = 40) {
             if (!bounds || bounds.isEmpty()) {
                 return;

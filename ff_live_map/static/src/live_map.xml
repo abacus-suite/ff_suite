@@ -153,6 +153,18 @@
                                 <span t-esc="item.label"/>
                             </span>
                         </t>
+                        <span class="me-2 ms-2 fw-bold">
+                            <span class="ff_live_map_dot" style="background: #1A56DB"/>
+                            <t t-esc="onMap.people"/> on the map
+                        </span>
+                        <span class="me-2 fw-bold" t-if="state.showClients">
+                            <span class="ff_live_map_dot" style="background: #14B8A6"/>
+                            <t t-esc="onMap.clients"/> customers
+                        </span>
+                        <button class="btn btn-sm btn-light ms-auto" t-on-click="toggleGrouping"
+                                t-attf-title="{{ state.groupPins === false ? 'Group nearby pins' : 'Show every pin' }}">
+                            <i class="fa" t-attf-class="fa {{ state.groupPins === false ? 'fa-object-group' : 'fa-object-ungroup' }}"/>
+                        </button>
                     </div>
                 </div>
             </div>
