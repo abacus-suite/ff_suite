@@ -34,6 +34,11 @@ class ResConfigSettings(models.TransientModel):
     ff_early_checkout_reason = fields.Boolean(
         string='Reason for an Early Check-out', config_parameter='ff_base.early_checkout_reason',
         help='Somebody checking out before their shift ends must say why. The reason is kept on the attendance.')
+    ff_single_punch_day = fields.Boolean(
+        string='One Check-in per Day', config_parameter='ff_base.single_punch_day',
+        help='Once somebody has checked out, they cannot check in again that day. '
+             'Leave it off to let people check in and out as often as they need; the day is still '
+             'counted once, with the hours added up.')
     ff_punch_vehicle = fields.Boolean(
         string='Ask the Vehicle on Punch-in', config_parameter='ff_base.punch_vehicle',
         help='At check-in the app asks how the person is travelling today (two-wheeler, car, public transport, on foot). '

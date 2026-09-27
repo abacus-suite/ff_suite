@@ -819,6 +819,18 @@ export class FieldForcePanel extends Component {
         return start ? [[field, ">=", start]] : [];
     }
 
+    /// "Present today", or "Present on 26 Sep" when another day was asked for.
+    attendanceDayLabel(word) {
+        const report = this.state.report;
+        const end = report && report.end;
+        const today = new Date().toISOString().slice(0, 10);
+        if (!end || end === today) {
+            return `${word} today`;
+        }
+        const date = new Date(end);
+        return `${word} on ${date.toLocaleDateString([], { day: "numeric", month: "short" })}`;
+    }
+
     drillAttendance(extra) {
         this.openModel(
             "hr.attendance",
@@ -979,12 +991,12 @@ export class FieldForcePanel extends Component {
             { key: "total", label: "Total Employees", value: report.kpis.headcount, icon: "fa-users", color: "#1a56db",
               change: null, series: null,
               open: () => this.openModel("hr.employee", "Employees", [["id", "in", this.reportEmployeeIds]]) },
-            { key: "present", label: "Present Today", value: report.kpis.present_today, icon: "fa-check", color: "#16a34a",
+            { key: "present", label: this.attendanceDayLabel("Present"), value: report.kpis.present_today, icon: "fa-check", color: "#16a34a",
               change: change(present), series: present, open: () => this.drillAttendance() },
-            { key: "late", label: "Late Punches", value: report.kpis.late, icon: "fa-clock-o", color: "#f59e0b",
+            { key: "late", label: "Late arrivals", value: report.kpis.late, icon: "fa-clock-o", color: "#f59e0b",
               change: change(late), series: late, bad: true,
               open: () => this.drillAttendance([["ff_late_minutes", ">", 0]]) },
-            { key: "absent", label: "Absent Today", value: absent.length ? absent[absent.length - 1] : 0,
+            { key: "absent", label: this.attendanceDayLabel("Absent"), value: absent.length ? absent[absent.length - 1] : 0,
               icon: "fa-times", color: "#dc2626", change: change(absent), series: absent, bad: true,
               open: () => this.drillAttendance() },
             { key: "punches", label: "Total Punches", value: report.kpis.punches, icon: "fa-hourglass-half",

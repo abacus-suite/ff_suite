@@ -89,6 +89,15 @@ class HrEmployee(models.Model):
         if action == 'in':
             if attendance:
                 raise UserError(self.env._('You are already punched in.'))
+            if settings['single_punch_day']:
+                start_of_day, end_of_day = employee._ff_day_bounds(employee._ff_to_local(now).date())
+                closed = self.env['hr.attendance'].sudo().search_count([
+                    ('employee_id', '=', employee.id), ('check_in', '>=', start_of_day),
+                    ('check_in', '<', end_of_day), ('check_out', '!=', False)])
+                if closed:
+                    raise UserError(self.env._(
+                        'Your day is already closed. The office allows one check-in a day; '
+                        'ask them to reopen it if you need to work again today.'))
             attendance = self.env['hr.attendance'].sudo().create({
                 'employee_id': employee.id,
                 'check_in': now,

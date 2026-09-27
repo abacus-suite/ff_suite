@@ -2022,7 +2022,7 @@
                                             <th>Employee</th>
                                             <th class="text-center">Present</th>
                                             <th class="text-center">Absent</th>
-                                            <th class="text-center">Late</th>
+                                            <th class="text-center" title="Days the first check-in was after the shift start">Late days</th>
                                             <th class="text-center">Hours</th>
                                             <th class="text-center">Avg / Day</th>
                                             <th>Last Punch</th>
