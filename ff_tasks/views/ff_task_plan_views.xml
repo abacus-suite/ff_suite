@@ -12,7 +12,7 @@
                 <field name="next_run"/>
                 <field name="last_run" optional="show"/>
                 <field name="open_count" string="Open"/>
-                <field name="missed_count" string="Missed"/>
+                <field name="missed_count" string="Missed" decoration-danger="missed_count > 0"/>
                 <field name="active" widget="boolean_toggle"/>
             </list>
         </field>
@@ -102,8 +102,7 @@
                 <field name="employee_ids"/>
                 <filter name="due_soon" string="Due in the next week"
                         domain="[('next_run', '&lt;=', (context_today() + datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
-                <filter name="with_missed" string="Has missed tasks"
-                        domain="[('task_ids.is_missed', '=', True)]"/>
+                <filter name="with_missed" string="Has missed tasks" domain="[('missed_count', '>', 0)]"/>
                 <group>
                     <filter name="group_repeat" string="Repeat" context="{'group_by': 'repeat'}"/>
                     <filter name="group_mode" string="Given to" context="{'group_by': 'assign_mode'}"/>
