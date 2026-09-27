@@ -110,17 +110,17 @@ class ResPartner(models.Model):
                 ('ff_category_id', 'in', categories.ids),
             ] + self._ff_ownership_domain(employee) + approval
 
-        # Open access: everything on a beat, plus this person's own leads.
+        # Open access: every contact the company works with, whether or not a
+        # beat has been set on it yet, plus this person's own leads. A lead
+        # stays with whoever added it and the managers above them.
         mine = (employee | employee._ff_subordinates()).ids
-        shared = self.sudo().search([
+        return [
             ('ff_is_client', '=', True),
+            ('company_id', 'in', (False, employee.company_id.id)),
+            '|',
             ('ff_category_type', '!=', 'lead'),
-        ]).filtered(lambda p: p.ff_route_ids) if 'ff_route_ids' in self._fields else self.browse()
-        own_leads = self.sudo().search([
-            ('ff_is_client', '=', True), ('ff_category_type', '=', 'lead'),
             '|', ('ff_created_by_employee_id', 'in', mine), ('ff_employee_ids', 'in', mine),
-        ])
-        return [('id', 'in', (shared | own_leads).ids)] + approval
+        ] + approval
 
     @api.model
     def ff_action_open_clients(self):
