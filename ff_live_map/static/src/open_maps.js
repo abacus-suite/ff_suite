@@ -179,6 +179,11 @@ function classesFor(gl, styleUrl) {
             box.appendChild(dot);
             return { anchor: "center" };
         }
+        if (icon.html) {
+            // A living bubble: CSS can then animate it, which a picture cannot.
+            box.innerHTML = icon.html;
+            return { anchor: icon.anchor || "center" };
+        }
         if (icon.url) {
             const img = document.createElement("img");
             img.src = icon.url;

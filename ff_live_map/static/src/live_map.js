@@ -31,6 +31,16 @@ function since(iso) {
     return hours < 24 ? `${hours} h ago` : `${Math.floor(hours / 24)} d ago`;
 }
 
+/** The bubble the phone app draws: a soft halo, a gradient face and a count. */
+function bubbleHtml(count, kind) {
+    const text = count > 999 ? "999+" : String(count);
+    const size = count >= 100 ? 54 : count >= 50 ? 50 : count >= 10 ? 46 : 42;
+    return `<div class="ff_map_bubble ff_map_bubble_${kind}" style="--ff-bubble: ${size}px">
+        <span class="ff_map_bubble_ring"></span>
+        <span class="ff_map_bubble_face">${text}</span>
+    </div>`;
+}
+
 /** A round bubble with a number in it, used for a group of pins. */
 function bubbleIcon(count, colour, core) {
     const text = count > 999 ? "999+" : String(count);
@@ -292,6 +302,14 @@ export class FieldForceLiveMap extends Component {
         this.state.mapError = message;
     }
 
+    /// The counted bubble: a live element on the free map, a picture on Google's.
+    bubble(count, kind) {
+        if (this.mapProvider !== "google") {
+            return { html: bubbleHtml(count, kind), anchor: "center" };
+        }
+        return bubbleIcon(count, kind === "people" ? "#1A56DB" : "#0F9D8C", this.core);
+    }
+
     markerIcon(person) {
         return pinIcon(this.stateColor(person.state), this.core);
     }
@@ -330,7 +348,7 @@ export class FieldForceLiveMap extends Component {
             let marker = this.markers.get(id);
             const icon = single
                 ? this.markerIcon(person)
-                : bubbleIcon(cluster.members.length, "#1A56DB", this.core);
+                : this.bubble(cluster.members.length, "people");
             if (marker) {
                 marker.setPosition(position);
                 marker.setIcon(icon);
@@ -404,7 +422,7 @@ export class FieldForceLiveMap extends Component {
                 title: single ? client.name : `${cluster.members.length} customers`,
                 icon: single
                     ? pinIcon("#14B8A6", this.core)
-                    : bubbleIcon(cluster.members.length, "#0F9D8C", this.core),
+                    : this.bubble(cluster.members.length, "clients"),
                 zIndex: single ? 5 : 6,
             });
             marker.addListener("click", () => {

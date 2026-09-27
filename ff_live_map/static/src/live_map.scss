@@ -272,3 +272,74 @@
         min-height: 0;
     }
 }
+
+// ---- counted bubbles, as the phone app draws them -------------------------
+.ff_map_bubble {
+    position: relative;
+    width: var(--ff-bubble);
+    height: var(--ff-bubble);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: transform 160ms ease;
+
+    &:hover {
+        transform: scale(1.08);
+    }
+
+    .ff_map_bubble_ring {
+        position: absolute;
+        inset: calc(var(--ff-bubble) * -0.18);
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.18;
+        animation: ff_map_pulse 2.4s ease-out infinite;
+    }
+
+    .ff_map_bubble_face {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-weight: 800;
+        font-size: calc(var(--ff-bubble) * 0.34);
+        letter-spacing: -0.3px;
+        border: 3px solid rgba(255, 255, 255, 0.92);
+        box-shadow: 0 6px 16px rgba(15, 27, 61, 0.28);
+    }
+}
+
+// Staff are blue, customers teal, so a glance tells them apart.
+.ff_map_bubble_people {
+    color: #1a56db;
+
+    .ff_map_bubble_face {
+        background: linear-gradient(135deg, #4b83ff 0%, #1a56db 100%);
+    }
+}
+
+.ff_map_bubble_clients {
+    color: #14b8a6;
+
+    .ff_map_bubble_face {
+        background: linear-gradient(135deg, #34d3c0 0%, #0f9d8c 100%);
+    }
+}
+
+@keyframes ff_map_pulse {
+    0% {
+        transform: scale(0.9);
+        opacity: 0.3;
+    }
+    70% {
+        transform: scale(1.25);
+        opacity: 0.05;
+    }
+    100% {
+        transform: scale(0.9);
+        opacity: 0.3;
+    }
+}
