@@ -824,6 +824,20 @@
                     <t t-if="state.peopleView === 'org'">
                         <button class="ff_icon_btn" title="Expand all" t-on-click="expandAll"><i class="fa fa-plus-square-o"/></button>
                         <button class="ff_icon_btn" title="Collapse all" t-on-click="collapseAll"><i class="fa fa-minus-square-o"/></button>
+                        <t t-if="state.orgView === 'tree'">
+                            <span class="ff_org_zoom">
+                                <button class="ff_icon_btn" title="Zoom out" t-on-click="() => this.zoomOrg(-0.1)">
+                                    <i class="fa fa-search-minus"/>
+                                </button>
+                                <button class="ff_icon_btn ff_org_zoom_level" title="Reset the zoom"
+                                        t-on-click="resetOrgZoom">
+                                    <t t-esc="Math.round(state.orgZoom * 100)"/>%
+                                </button>
+                                <button class="ff_icon_btn" title="Zoom in" t-on-click="() => this.zoomOrg(0.1)">
+                                    <i class="fa fa-search-plus"/>
+                                </button>
+                            </span>
+                        </t>
                     </t>
                     <button class="ff_outline_btn" t-on-click="() => this.openModel('hr.employee', 'Employees')">
                         <i class="fa fa-external-link me-1"/>Open in Odoo
@@ -949,8 +963,9 @@
                                 <div><div class="small text-muted">Teams</div><b t-esc="state.org.teams"/></div></div>
                         </div>
                     </div>
-                    <div class="ff_chart_wrap" t-if="state.org">
-                        <div class="ff_chart">
+                    <div class="ff_chart_wrap ff_org_canvas" t-if="state.org" t-on-wheel="onOrgWheel">
+                        <div class="ff_chart ff_org_scale"
+                             t-attf-style="transform: scale({{ state.orgZoom }}); transform-origin: top center;">
                             <ul class="ff_tree">
                                 <t t-foreach="state.org.roots" t-as="root" t-key="root.id">
                                     <t t-call="ff_dashboard.OrgNode">

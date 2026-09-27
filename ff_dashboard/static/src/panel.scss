@@ -2483,3 +2483,33 @@
     }
 
 }
+
+// ---- the hierarchy can be drawn bigger or smaller -------------------------
+.ff_panel {
+    .ff_org_zoom {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        margin-left: 6px;
+        padding: 2px;
+        border-radius: 12px;
+        background: #f3f6fc;
+    }
+
+    .ff_org_zoom_level {
+        min-width: 3.2rem;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--ff-ink);
+    }
+
+    // The chart keeps its scroll while it grows, so nothing is cut off.
+    .ff_org_canvas {
+        overflow: auto;
+    }
+
+    .ff_org_scale {
+        transition: transform 140ms ease;
+        will-change: transform;
+    }
+}

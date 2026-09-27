@@ -92,6 +92,7 @@ export class FieldForcePanel extends Component {
             peopleStatus: "",
             peopleSort: "az",
             collapsedNodes: [],
+            orgZoom: 1,
             report: null,
             reportLoading: false,
             exporting: false,
@@ -1387,6 +1388,25 @@ export class FieldForcePanel extends Component {
 
     expandAll() {
         this.state.collapsedNodes = [];
+    }
+
+    /// The chart can be drawn bigger or smaller, for a wide team or a deep one.
+    zoomOrg(step) {
+        const next = Math.round((this.state.orgZoom + step) * 100) / 100;
+        this.state.orgZoom = Math.min(Math.max(next, 0.4), 1.6);
+    }
+
+    resetOrgZoom() {
+        this.state.orgZoom = 1;
+    }
+
+    /// Ctrl and the wheel zooms, as people expect on a chart.
+    onOrgWheel(ev) {
+        if (!ev.ctrlKey) {
+            return;
+        }
+        ev.preventDefault();
+        this.zoomOrg(ev.deltaY < 0 ? 0.1 : -0.1);
     }
 
     collapseAll() {
