@@ -21,6 +21,7 @@ import '../../widgets/member_picker.dart';
 import '../notifications/notifications_screen.dart';
 import '../more/profile_screen.dart';
 import 'home_cards.dart';
+import '../../core/duty_watch.dart';
 import 'day_journey_screen.dart';
 import 'sales_cards.dart';
 import 'month_target_card.dart';
@@ -127,6 +128,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _optional(Services.api.get('/api/v1/visits')),
       ]);
       final status = results[0] as Map<String, dynamic>;
+      // While the day is open the app asks now and then whether it still is.
+      DutyWatch.instance.update(
+        onDuty: status['punched_in'] == true,
+        askEvery: ((status['duty_check_minutes'] as num?) ?? 0).toInt(),
+        waitFor: ((status['duty_reply_minutes'] as num?) ?? 5).toInt(),
+      );
       if (status['punched_in'] == true && !Services.tracker.active.value) {
         await Services.tracker.start(profile);
       } else if (status['punched_in'] != true &&
@@ -329,8 +336,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final raw = ((_travel?['points'] as List?) ?? []).cast<Map<String, dynamic>>();
     final first = raw.isEmpty ? null : DateTime.tryParse('${raw.first['ts']}');
     final last = raw.isEmpty ? null : DateTime.tryParse('${raw.last['ts']}');
+    final punches = ((_status?['punch_count'] as num?) ?? 0).toInt();
     return CheckInHero(
       punchedIn: punchedIn,
+      punchesToday: punches,
+      lastCheckOut: fmtTime(_status?['last_check_out']),
+      canResume: _status?['can_resume'] == true,
       since: fmtTime(current?['check_in']),
       worked: fmtHours(_status?['worked_hours_today'] as num?),
       target: planned,

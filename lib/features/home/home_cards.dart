@@ -28,6 +28,9 @@ class CheckInHero extends StatefulWidget {
     this.visits = 0,
     this.travelMinutes = 0,
     this.onOpenDay,
+    this.punchesToday = 0,
+    this.lastCheckOut = '',
+    this.canResume = false,
     this.routeLabel = 'Today',
   });
 
@@ -55,6 +58,13 @@ class CheckInHero extends StatefulWidget {
   /// Opens the day's journey when the figures are tapped.
   final VoidCallback? onOpenDay;
 
+  /// How many times the person checked in today, and when they last left.
+  final int punchesToday;
+  final String lastCheckOut;
+
+  /// The day was closed but may be picked up again.
+  final bool canResume;
+
   @override
   State<CheckInHero> createState() => _CheckInHeroState();
 }
@@ -76,6 +86,9 @@ class _CheckInHeroState extends State<CheckInHero> {
     _tick?.cancel();
     super.dispose();
   }
+
+  /// The day was opened and closed already, and may be picked up again.
+  bool get _resumable => widget.canResume && widget.punchesToday > 0;
 
   Duration get _onDuty {
     final since = widget.onDutySince;
@@ -130,7 +143,9 @@ class _CheckInHeroState extends State<CheckInHero> {
           ),
           const SizedBox(height: 12),
           Text(
-            green ? 'Your Field Day is Running' : 'Ready to Start\nYour Field Day?',
+            green
+                ? 'Your Field Day is Running'
+                : (_resumable ? 'Your Day is Paused' : 'Ready to Start\nYour Field Day?'),
             style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, height: 1.2, color: AppColors.text),
           ),
           const SizedBox(height: 6),
@@ -162,12 +177,49 @@ class _CheckInHeroState extends State<CheckInHero> {
             const SizedBox(height: 12),
             _figures(),
           ],
+          if (!green && _resumable) ...[
+            const SizedBox(height: 10),
+            _resumeNote(),
+          ],
           const SizedBox(height: 12),
           green ? _footRow() : _button(green),
         ],
       ),
     );
   }
+
+  /// What already happened today, when the day has been closed once.
+  Widget _resumeNote() => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(color: const Color(0xCCFFFFFF), borderRadius: BorderRadius.circular(16)),
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.history_rounded, size: 16, color: AppColors.warning),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                      widget.punchesToday == 1
+                          ? 'Checked out at ${widget.lastCheckOut}'
+                          : '${widget.punchesToday} check-ins today · last out ${widget.lastCheckOut}',
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
+                  const Text('Resume to carry on with the same day.',
+                      style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
 
   Widget _statusPill(bool green) => Align(
         alignment: Alignment.centerLeft,
@@ -338,16 +390,23 @@ class _CheckInHeroState extends State<CheckInHero> {
                   width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : Row(
                   children: [
-                    Icon(green ? Icons.stop_circle_rounded : Icons.play_circle_fill_rounded, size: 26),
+                    Icon(
+                        green
+                            ? Icons.stop_circle_rounded
+                            : (_resumable ? Icons.replay_rounded : Icons.play_circle_fill_rounded),
+                        size: 26),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(green ? 'Check Out' : 'Check In',
+                          Text(green ? 'Check Out' : (_resumable ? 'Resume' : 'Check In'),
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                          Text(green ? 'End your day' : 'Start your day now',
+                          Text(
+                              green
+                                  ? 'End your day'
+                                  : (_resumable ? 'Carry on with today' : 'Start your day now'),
                               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
                         ],
                       ),
