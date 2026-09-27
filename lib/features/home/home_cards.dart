@@ -29,6 +29,7 @@ class CheckInHero extends StatefulWidget {
     this.travelMinutes = 0,
     this.onOpenDay,
     this.punchesToday = 0,
+    this.firstCheckIn = '',
     this.lastCheckOut = '',
     this.canResume = false,
     this.routeLabel = 'Today',
@@ -58,8 +59,10 @@ class CheckInHero extends StatefulWidget {
   /// Opens the day's journey when the figures are tapped.
   final VoidCallback? onOpenDay;
 
-  /// How many times the person checked in today, and when they last left.
+  /// How many times the person checked in today, when the day began, and when
+  /// they last left.
   final int punchesToday;
+  final String firstCheckIn;
   final String lastCheckOut;
 
   /// The day was closed but may be picked up again.
@@ -177,6 +180,10 @@ class _CheckInHeroState extends State<CheckInHero> {
             const SizedBox(height: 12),
             _figures(),
           ],
+          if (green && widget.punchesToday > 1) ...[
+            const SizedBox(height: 10),
+            _historyNote(),
+          ],
           if (!green && _resumable) ...[
             const SizedBox(height: 10),
             _resumeNote(),
@@ -187,6 +194,26 @@ class _CheckInHeroState extends State<CheckInHero> {
       ),
     );
   }
+
+  /// The day has been opened more than once: say so plainly.
+  Widget _historyNote() => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(color: const Color(0xCCFFFFFF), borderRadius: BorderRadius.circular(16)),
+        child: Row(
+          children: [
+            const Icon(Icons.repeat_rounded, size: 16, color: AppColors.warning),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                  '${widget.punchesToday} check-ins today'
+                  '${widget.firstCheckIn.isEmpty ? '' : ' · first in ${widget.firstCheckIn}'}'
+                  '${widget.lastCheckOut.isEmpty ? '' : ' · last out ${widget.lastCheckOut}'}',
+                  maxLines: 2,
+                  style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      );
 
   /// What already happened today, when the day has been closed once.
   Widget _resumeNote() => Container(
@@ -233,20 +260,25 @@ class _CheckInHeroState extends State<CheckInHero> {
                   width: 9,
                   height: 9,
                   decoration: BoxDecoration(
-                      color: green ? AppColors.success : AppColors.muted, shape: BoxShape.circle)),
+                      color: green
+                          ? AppColors.success
+                          : (_resumable ? AppColors.warning : AppColors.muted),
+                      shape: BoxShape.circle)),
               const SizedBox(width: 7),
-              Text(green ? 'Checked In' : 'Not checked in today',
+              Text(green ? 'Checked In' : (_resumable ? 'Checked Out' : 'Not checked in today'),
                   style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.text)),
-              if (green) ...[
+              if (green || _resumable) ...[
                 Container(
                   width: 1,
                   height: 14,
                   margin: const EdgeInsets.symmetric(horizontal: 9),
                   color: AppColors.border,
                 ),
-                Text(widget.since,
-                    style: const TextStyle(
-                        fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.success)),
+                Text(green ? widget.since : widget.lastCheckOut,
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: green ? AppColors.success : AppColors.danger)),
               ],
             ],
           ),
@@ -347,9 +379,12 @@ class _CheckInHeroState extends State<CheckInHero> {
               children: [
                 const Icon(Icons.schedule_rounded, size: 16, color: AppColors.muted),
                 const SizedBox(width: 7),
-                const Text('Check-in', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                Text(widget.punchesToday > 1 ? 'Day started' : 'Check-in',
+                    style: const TextStyle(fontSize: 12, color: AppColors.muted)),
                 const Spacer(),
-                Text(widget.since,
+                Text(widget.punchesToday > 1 && widget.firstCheckIn.isNotEmpty
+                        ? widget.firstCheckIn
+                        : widget.since,
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.text)),
               ],
             ),

@@ -340,6 +340,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return CheckInHero(
       punchedIn: punchedIn,
       punchesToday: punches,
+      firstCheckIn: fmtTime(((_status?['today'] as List?) ?? []).isEmpty
+          ? null
+          : (((_status!['today'] as List).first as Map)['check_in'])),
       lastCheckOut: fmtTime(_status?['last_check_out']),
       canResume: _status?['can_resume'] == true,
       since: fmtTime(current?['check_in']),
