@@ -139,6 +139,10 @@ function classesFor(gl, styleUrl) {
             const p = toLatLng(point);
             this.gl.easeTo({ center: [p.lng(), p.lat()] });
         }
+        /** Resolves once the style is loaded; markers added earlier never move. */
+        whenReady() {
+            return this.ready;
+        }
         addListener(event, handler) {
             // The map settles after a pan or a zoom: that is when the pins regroup.
             const name = { idle: "moveend", zoom_changed: "zoomend", click: "click" }[event];

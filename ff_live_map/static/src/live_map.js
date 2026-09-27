@@ -265,6 +265,11 @@ export class FieldForceLiveMap extends Component {
             fullscreenControl: true,
             clickableIcons: false,
         });
+        // MapLibre places a marker only once its style is up: markers added
+        // before that sit in the corner of the map instead of on their place.
+        if (this.map.whenReady) {
+            await this.map.whenReady();
+        }
         this.infoWindow = new this.InfoWindowClass();
         // Pins regroup once the map settles, so a bubble always counts what is
         // really under it at this zoom.
@@ -349,8 +354,9 @@ export class FieldForceLiveMap extends Component {
                 });
                 this.markers.set(id, marker);
             }
+            // Names only once the map is close enough for them to mean something.
             marker.setLabel(
-                this.state.showLabels && single
+                this.state.showLabels && single && zoom >= 9
                     ? { text: person.name, className: "ff_live_map_label", color: "#0F1B3D", fontSize: "11px" }
                     : null
             );
