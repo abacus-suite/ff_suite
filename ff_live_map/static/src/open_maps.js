@@ -210,15 +210,21 @@ function classesFor(gl, styleUrl) {
 
     class Marker {
         constructor(options = {}) {
+            // MapLibre places the marker by setting "position: absolute" on this
+            // element through its stylesheet. An inline position here would win
+            // over that and leave every pin stacked in the corner of the map, so
+            // the inner box carries the layout instead.
             this.root = document.createElement("div");
             this.root.className = "ff_open_marker";
             this.root.style.cursor = "pointer";
-            this.root.style.position = "relative";
+            this.inner = document.createElement("div");
+            this.inner.style.position = "relative";
+            this.root.appendChild(this.inner);
             this.iconBox = document.createElement("div");
-            this.root.appendChild(this.iconBox);
+            this.inner.appendChild(this.iconBox);
             this.labelBox = document.createElement("div");
             this.labelBox.className = "ff_open_marker_label";
-            this.root.appendChild(this.labelBox);
+            this.inner.appendChild(this.labelBox);
             if (options.title) {
                 this.root.title = options.title;
             }
