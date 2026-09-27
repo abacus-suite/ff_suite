@@ -115,6 +115,8 @@ export class FieldForcePanel extends Component {
             timelineLoading: false,
             playing: false,
             playIndex: 0,
+            activeEvent: "",
+            passedEvents: [],
             tab: "visits",
             day: null,
             dayLoading: false,
@@ -1605,6 +1607,7 @@ export class FieldForcePanel extends Component {
                 continue;
             }
             number++;
+            const eventKey = `e${event.kind}-${event.at}`;
             const marker = new this.google.Marker({
                 map: this.liveMap,
                 position: { lat: event.lat, lng: event.lng },
@@ -1618,6 +1621,7 @@ export class FieldForcePanel extends Component {
                 );
                 this.liveInfo.open({ map: this.liveMap, anchor: marker });
             });
+            this.markers.set(eventKey, marker);
             this.markers.set(`e${number}`, marker);
             bounds.extend({ lat: event.lat, lng: event.lng });
         }
@@ -1689,6 +1693,12 @@ export class FieldForcePanel extends Component {
             });
         }
         this.playMarker.setMap(this.liveMap);
+        if (this.travelledLine) {
+            this.travelledLine.setMap(null);
+            this.travelledLine = null;
+        }
+        this.state.passedEvents = [];
+        this.state.activeEvent = "";
         this.playTimer = setInterval(() => this.stepPlay(), 120);
     }
 
@@ -1709,6 +1719,77 @@ export class FieldForcePanel extends Component {
         this.playMarker.setIcon({ ...icon, rotation: heading });
         this.liveMap.panTo({ lat: point.lat, lng: point.lng });
         this.state.playIndex = index + 1;
+        this.paintTravelled();
+        this.markPassedEvents(point.at);
+    }
+
+    /// The road already covered, drawn over the route in a brighter colour.
+    paintTravelled() {
+        const path = this.state.timeline ? this.state.timeline.path : [];
+        const walked = path.slice(0, this.state.playIndex + 1).map((p) => ({ lat: p.lat, lng: p.lng }));
+        if (walked.length < 2) {
+            return;
+        }
+        if (this.travelledLine) {
+            this.travelledLine.setPath(walked);
+            return;
+        }
+        this.travelledLine = new this.google.Polyline({
+            map: this.liveMap,
+            path: walked,
+            strokeColor: "#1A56DB",
+            strokeOpacity: 1,
+            strokeWeight: 6,
+            zIndex: 40,
+        });
+    }
+
+    /// Everything that had happened by this moment is lit up in the list.
+    markPassedEvents(at) {
+        const events = (this.state.timeline && this.state.timeline.events) || [];
+        const reached = events.filter((event) => event.at && at && event.at <= at);
+        const current = reached.length ? reached[reached.length - 1] : null;
+        const id = current ? `${current.kind}-${current.at}` : "";
+        if (id === this.state.activeEvent) {
+            return;
+        }
+        this.state.activeEvent = id;
+        this.state.passedEvents = reached.map((event) => `${event.kind}-${event.at}`);
+        if (current) {
+            // Keep the moment in view in the list beside the map.
+            const row = document.querySelector(`[data-ff-event="${id}"]`);
+            if (row && row.scrollIntoView) {
+                row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            }
+            this.bounceEvent(current);
+        }
+    }
+
+    /// A short lift of the pin the person has just reached.
+    bounceEvent(event) {
+        const marker = this.markers.get(`e${event.kind}-${event.at}`);
+        if (!marker || !marker.setAnimation || !this.google.core.Animation) {
+            return;
+        }
+        marker.setAnimation(this.google.core.Animation.BOUNCE);
+        setTimeout(() => marker.setAnimation(null), 1400);
+    }
+
+    /// Clicking a moment in the list takes the map to it.
+    focusEvent(event) {
+        if (!event.lat || !event.lng || !this.liveMap) {
+            return;
+        }
+        this.state.activeEvent = `${event.kind}-${event.at}`;
+        this.liveMap.panTo({ lat: event.lat, lng: event.lng });
+        this.liveMap.setZoom(Math.max(this.liveMap.getZoom ? this.liveMap.getZoom() : 15, 16));
+        const marker = this.markers.get(`e${event.kind}-${event.at}`);
+        if (marker) {
+            this.liveInfo.setContent(
+                `<strong>${event.title}</strong><div class="text-muted">${this.clock(event.at)}</div>`
+            );
+            this.liveInfo.open({ map: this.liveMap, anchor: marker });
+        }
     }
 
     stopPlay() {

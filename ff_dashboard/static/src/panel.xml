@@ -734,7 +734,13 @@
                                         </div>
                                     </t>
                                     <t t-else="">
-                                        <div class="ff_tl_row">
+                                        <div class="ff_tl_row"
+                                             t-attf-data-ff-event="{{ event.kind }}-{{ event.at }}"
+                                             t-att-class="{
+                                                 'ff_tl_row_active': state.activeEvent === event.kind + '-' + event.at,
+                                                 'ff_tl_row_passed': state.passedEvents.includes(event.kind + '-' + event.at),
+                                             }"
+                                             t-on-click="() => this.focusEvent(event)">
                                             <div class="ff_tl_time">
                                                 <div class="fw-bold" t-esc="clock(event.at)"/>
                                                 <div class="text-muted small" t-if="event.duration_min">
