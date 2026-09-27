@@ -390,7 +390,9 @@ class FieldForceClientsApi(http.Controller):
 
     @api_route('/api/v1/contact-categories', methods=('GET',))
     def contact_categories(self, employee, **kw):
-        categories = request.env['ff.contact.category'].ff_for_employee(employee)
+        # The field only ever adds these three; the rest are the office's business.
+        categories = request.env['ff.contact.category'].ff_for_employee(employee).filtered(
+            lambda c: c.category_type in ('lead', 'outlet', 'distributor'))
         return ok([{
             'id': c.id,
             'name': c.name,

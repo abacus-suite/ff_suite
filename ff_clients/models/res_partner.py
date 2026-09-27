@@ -62,25 +62,65 @@ class ResPartner(models.Model):
         self.ensure_one()
         return self.ff_geofence_radius or get_param(self.env, 'geofence_radius')
 
+    @api.constrains('ff_is_client', 'ff_category_id')
+    def _check_beat_required(self):
+        """An outlet or a distributor belongs on a beat; a lead need not."""
+        required = self.env['ir.config_parameter'].sudo().get_param('ff_base.beat_required', 'True') != 'False'
+        if not required or 'ff_route_ids' not in self._fields:
+            return
+        for partner in self:
+            if not partner.ff_is_client or partner.ff_category_type not in ('outlet', 'distributor'):
+                continue
+            if not partner.ff_route_ids:
+                raise ValidationError(self.env._(
+                    '%(name)s is an %(kind)s, so it needs a beat. Choose one before saving.',
+                    name=partner.name or '', kind=dict(partner._fields['ff_category_type'].selection or [])
+                    .get(partner.ff_category_type, partner.ff_category_type)))
+
     @api.model
     def _ff_ownership_domain(self, employee):
         """Which contacts "belong" to an employee. Other modules widen this."""
         return [('ff_employee_ids', 'in', employee._ff_scope_employees().ids)]
 
     @api.model
+    def _ff_contact_access(self):
+        """'scoped' keeps contacts with their owner; 'open' shares the beats."""
+        access = self.env['ir.config_parameter'].sudo().get_param('ff_base.contact_access')
+        return access if access in ('scoped', 'open') else 'scoped'
+
+    @api.model
     def _ff_visible_domain(self, employee):
-        """Contacts an employee may see in the app: theirs (or of people in their
-        data access), in a category of their department, approved or their own
-        pending ones."""
+        """Contacts an employee may see in the app.
+
+        Scoped: their own and those of people in their data access.
+        Open: every contact that sits on a beat, so a shared territory works
+        and the same outlet can be called on by more than one person.
+        A lead is private either way - only whoever added it and the managers
+        above them see it, until it becomes a real customer with a beat.
+        """
         employee = employee.sudo()
         categories = self.env['ff.contact.category'].ff_for_employee(employee)
-        return [
-            ('ff_is_client', '=', True),
-            ('ff_category_id', 'in', categories.ids),
-        ] + self._ff_ownership_domain(employee) + [
+        approval = [
             '|', ('ff_approval_state', '=', 'approved'),
             '&', ('ff_approval_state', '=', 'pending'), ('ff_created_by_employee_id', '=', employee.id),
         ]
+        if self._ff_contact_access() != 'open':
+            return [
+                ('ff_is_client', '=', True),
+                ('ff_category_id', 'in', categories.ids),
+            ] + self._ff_ownership_domain(employee) + approval
+
+        # Open access: everything on a beat, plus this person's own leads.
+        mine = (employee | employee._ff_subordinates()).ids
+        shared = self.sudo().search([
+            ('ff_is_client', '=', True),
+            ('ff_category_type', '!=', 'lead'),
+        ]).filtered(lambda p: p.ff_route_ids) if 'ff_route_ids' in self._fields else self.browse()
+        own_leads = self.sudo().search([
+            ('ff_is_client', '=', True), ('ff_category_type', '=', 'lead'),
+            '|', ('ff_created_by_employee_id', 'in', mine), ('ff_employee_ids', 'in', mine),
+        ])
+        return [('id', 'in', (shared | own_leads).ids)] + approval
 
     @api.model
     def ff_action_open_clients(self):

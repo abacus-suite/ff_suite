@@ -47,6 +47,18 @@ class ResConfigSettings(models.TransientModel):
         string='Odometer Photo on Punch', config_parameter='ff_base.punch_odometer',
         help='At check-in and check-out the app asks for a photo of the odometer and the reading on it. '
              'The photo carries the place and time, and the day\'s kilometres are worked out from the two readings.')
+    ff_contact_access = fields.Selection(
+        [('scoped', 'Only their own contacts and their team\'s'),
+         ('open', 'Every beat and every contact on a beat')],
+        string='Who Sees Which Contacts', config_parameter='ff_base.contact_access', default='scoped',
+        help='Open access suits a team that shares outlets: everybody sees every beat and every contact '
+             'on one, and the same shop can be visited by more than one person on the same day. '
+             'Leads stay private to whoever added them and to their managers, either way.')
+    ff_beat_required = fields.Boolean(
+        string='Beat Required for Outlets and Distributors', config_parameter='ff_base.beat_required',
+        default=True,
+        help='An outlet or a distributor must sit on a beat. A lead may be added without one and gets '
+             'its beat when it becomes a real customer.')
     ff_geofence_radius = fields.Integer(
         string='Client Geofence (m)', config_parameter='ff_base.geofence_radius', default=150)
     ff_visit_block_outside = fields.Boolean(

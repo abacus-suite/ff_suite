@@ -91,6 +91,14 @@
                             <field name="ff_open_map_style" widget="radio"/>
                         </setting>
                     </block>
+                    <block title="Contacts" name="ff_contact_settings">
+                        <setting string="Who sees which contacts" help="Open access lets the whole field share the beats and their outlets; leads stay with whoever added them.">
+                            <field name="ff_contact_access" widget="radio"/>
+                        </setting>
+                        <setting string="Beat required" help="Outlets and distributors must sit on a beat. Leads may be added without one.">
+                            <field name="ff_beat_required"/>
+                        </setting>
+                    </block>
                     <block title="Field Features" name="ff_feature_settings">
                         <setting help="Field staff cannot leave a visit in the app before checking out.">
                             <field name="ff_visit_lock"/>
