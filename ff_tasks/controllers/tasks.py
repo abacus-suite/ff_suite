@@ -23,11 +23,6 @@ def task_data(task):
         'started_at': to_iso(task.started_at),
         'done_at': to_iso(task.done_at),
         'done_note': task.done_note or None,
-        'missed': task.is_missed if 'is_missed' in task._fields else False,
-        'promised_date': task.promised_date.isoformat()
-        if 'promised_date' in task._fields and task.promised_date else None,
-        'promised_note': (task.promised_note or None) if 'promised_note' in task._fields else None,
-        'standing': task.plan_id.name if 'plan_id' in task._fields and task.plan_id else None,
     }
 
 
@@ -68,14 +63,6 @@ class FieldForceTasksApi(http.Controller):
         if action not in states:
             raise ApiError('Unknown action.', 404, 'not_found')
         task = _task(employee, task_id).ff_set_state(employee, states[action], body())
-        return ok(task_data(task))
-
-    @api_route('/api/v1/tasks/<int:task_id>/promise', methods=('POST',))
-    def promise(self, employee, task_id, **kw):
-        """A missed task: the person says which day they will do it."""
-        data = body()
-        task = _task(employee, task_id)
-        task.ff_promise(employee, data.get('date'), data.get('note') or '')
         return ok(task_data(task))
 
     @api_route('/api/v1/tasks', methods=('POST',))

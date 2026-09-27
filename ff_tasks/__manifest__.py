@@ -8,7 +8,6 @@
     'data': [
         'security/ir.model.access.csv',
         'views/ff_task_views.xml',
-        'views/ff_task_plan_views.xml',
     ],
     'installable': True,
     'license': 'LGPL-3',
