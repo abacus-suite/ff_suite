@@ -22,6 +22,9 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
   List<Map<String, dynamic>> _routes = [];
   final List<Map<String, dynamic>> _chosen = [];
   final Map<int, List<Map<String, dynamic>>> _customers = {};
+
+  /// Who else has this beat, or one of its customers, planned for the same day.
+  final Map<int, Map<String, dynamic>> _alsoPlanned = {};
   final Map<int, Set<int>> _selected = {};
   final Set<int> _loadingRoutes = {};
   bool _loading = true;
@@ -75,6 +78,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
       if (!mounted) return;
       setState(() {
         _customers[id] = customers;
+        _alsoPlanned[id] = (data['already_planned'] as Map?)?.cast<String, dynamic>() ?? const {};
         _selected[id] = customers.where((c) => c['selected'] == true).map((c) => c['id'] as int).toSet();
       });
     } catch (e) {
@@ -322,6 +326,49 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
     );
   }
 
+  /// A quiet note when somebody else is going there too. Never a block: two
+  /// people calling on the same shop on the same day is normal work.
+  Widget _alsoPlannedNote(int routeId) {
+    final planned = _alsoPlanned[routeId] ?? const {};
+    final onBeat = ((planned['beat'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final onCustomers = ((planned['customers'] as List?) ?? []).cast<Map<String, dynamic>>();
+    if (onBeat.isEmpty && onCustomers.isEmpty) return const SizedBox.shrink();
+    final lines = <String>[
+      if (onBeat.isNotEmpty)
+        '${onBeat.map((e) => '${e['name']}').join(', ')} already planned this beat today.',
+      for (final row in onCustomers.take(4))
+        '${row['name']}: also planned by ${((row['people'] as List?) ?? []).join(', ')}.',
+      if (onCustomers.length > 4) 'and ${onCustomers.length - 4} more customers.',
+    ];
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline_rounded, size: 17, color: AppColors.warning),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final line in lines)
+                  Text(line, style: const TextStyle(fontSize: 12, color: AppColors.text)),
+                const SizedBox(height: 2),
+                const Text('You can still plan it; two people may visit the same day.',
+                    style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _routeSection(Map<String, dynamic> route) {
     final id = route['id'] as int;
     final customers = _customers[id] ?? [];
@@ -333,6 +380,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
         title: Text('${route['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Text(_loadingRoutes.contains(id) ? 'Loading customers…' : '${selected.length} of ${customers.length} customers'),
         children: [
+          _alsoPlannedNote(id),
           if (customers.isNotEmpty)
             Align(
               alignment: Alignment.centerRight,
