@@ -72,6 +72,9 @@ export class FieldForcePanel extends Component {
         this.sections = SECTIONS;
         this.mapRef = useRef("liveMap");
         this.markers = new Map();
+        // The day's events keep their own markers: the live refresh sweeps away
+        // anything in this.markers that is not a person on duty right now.
+        this.timelineMarkers = new Map();
         this.clientMarkers = new Map();
         this.state = useState({
             section: "dashboard",
@@ -347,8 +350,12 @@ export class FieldForcePanel extends Component {
             for (const marker of this.clientMarkers.values()) {
                 marker.setMap(null);
             }
+            for (const marker of this.timelineMarkers.values()) {
+                marker.setMap(null);
+            }
             this.markers.clear();
             this.clientMarkers.clear();
+            this.timelineMarkers.clear();
             this.liveMap = null;
         }
         if (!this.liveMap) {
@@ -1596,10 +1603,10 @@ export class FieldForcePanel extends Component {
         }
 
         // Numbered stops.
-        for (const marker of this.markers.values()) {
+        for (const marker of this.timelineMarkers.values()) {
             marker.setMap(null);
         }
-        this.markers.clear();
+        this.timelineMarkers.clear();
         const bounds = new this.google.core.LatLngBounds();
         let number = 0;
         for (const event of timeline.events) {
@@ -1621,8 +1628,8 @@ export class FieldForcePanel extends Component {
                 );
                 this.liveInfo.open({ map: this.liveMap, anchor: marker });
             });
-            this.markers.set(eventKey, marker);
-            this.markers.set(`e${number}`, marker);
+            this.timelineMarkers.set(eventKey, marker);
+            this.timelineMarkers.set(`e${number}`, marker);
             bounds.extend({ lat: event.lat, lng: event.lng });
         }
         for (const point of path) {
@@ -1767,7 +1774,7 @@ export class FieldForcePanel extends Component {
 
     /// A short lift of the pin the person has just reached.
     bounceEvent(event) {
-        const marker = this.markers.get(`e${event.kind}-${event.at}`);
+        const marker = this.timelineMarkers.get(`e${event.kind}-${event.at}`);
         if (!marker || !marker.setAnimation || !this.google.core.Animation) {
             return;
         }
@@ -1783,7 +1790,7 @@ export class FieldForcePanel extends Component {
         this.state.activeEvent = `${event.kind}-${event.at}`;
         this.liveMap.panTo({ lat: event.lat, lng: event.lng });
         this.liveMap.setZoom(Math.max(this.liveMap.getZoom ? this.liveMap.getZoom() : 15, 16));
-        const marker = this.markers.get(`e${event.kind}-${event.at}`);
+        const marker = this.timelineMarkers.get(`e${event.kind}-${event.at}`);
         if (marker) {
             this.liveInfo.setContent(
                 `<strong>${event.title}</strong><div class="text-muted">${this.clock(event.at)}</div>`
