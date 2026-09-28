@@ -89,7 +89,9 @@ class FfBeatPlanApp(models.Model):
         under a group of their own, because that is how the field thinks of them.
         """
         Partner = self.env['res.partner'].sudo()
-        domain = Partner._ff_visible_domain(employee) + [('ff_approval_state', '=', 'approved')]
+        domain = Partner._ff_visible_domain(employee) + [
+            '|', ('ff_approval_state', '=', 'approved'), ('ff_approval_state', '=', False),
+        ]
         if query:
             domain += ['|', '|', ('name', 'ilike', query), ('city', 'ilike', query),
                        ('ff_client_code', 'ilike', query)]

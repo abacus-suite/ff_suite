@@ -47,35 +47,28 @@ class FieldForceRoutePlanApi(http.Controller):
 
     @api_route('/api/v1/route-plan/contacts', methods=('GET',))
     def plan_contacts(self, employee, date=None, q=None, member=None, **kw):
-        """Everything plannable, grouped by beat, for picking customers instead of a route.
+        """Everything plannable, as one list, for picking customers instead of a route.
 
-        A lead has no beat, so it can never be reached through a route; here it
-        sits in its own group and is planned like anything else.
+        One list rather than a heap of beats: a lead has no beat at all, and
+        somebody looking for a shop by name should not have to know which beat
+        it is on first. Each row still says which beat it sits on.
         """
         employee, _label = _one(employee, member)
         day = fields.Date.to_date(date) if date else None
         Plan = request.env['ff.beat.plan']
         partners, chosen, visited = Plan.ff_app_plan_contacts(employee, day, (q or '').strip())
         also = Plan.ff_already_planned_partners(employee, partners, day)
-        groups = {}
-        for partner in partners:
-            route = partner.ff_route_ids[:1]
-            key = route.id or 0
-            group = groups.setdefault(key, {
-                'beat': ref(route) if route else None,
-                # Leads and anybody else off the map: named so they can be found.
-                'name': route.display_name if route else 'No beat yet',
-                'customers': [],
-            })
-            group['customers'].append(dict(
-                client_data(partner),
-                selected=partner.id in chosen,
-                visited=partner.id in visited,
-                also_planned_by=also.get(partner.id) or [],
-            ))
-        # Real beats first, in name order; the beat-less group last.
-        rows = sorted(groups.values(), key=lambda g: (g['beat'] is None, g['name']))
-        return ok({'total': len(partners), 'groups': rows})
+        rows = [dict(
+            client_data(partner),
+            beat=ref(partner.ff_route_ids[:1]),
+            selected=partner.id in chosen,
+            visited=partner.id in visited,
+            also_planned_by=also.get(partner.id) or [],
+        ) for partner in partners]
+        # Never visited first, then the longest unvisited: the ones worth a day out.
+        rows.sort(key=lambda row: (-(row['days_since_visit'] if row['days_since_visit'] is not None else 10 ** 6),
+                                   row['name'] or ''))
+        return ok({'total': len(partners), 'contacts': rows})
 
     @api_route('/api/v1/route-plan/days', methods=('GET',))
     def days(self, employee, start=None, end=None, member=None, **kw):
