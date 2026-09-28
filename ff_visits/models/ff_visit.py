@@ -12,6 +12,15 @@ OUTCOMES = [
     ('closed', 'Shop closed'),
     ('other', 'Other'),
 ]
+
+# Why the visit was made. It decides what has to be done before checking out,
+# so it is asked at check-out, when the person knows how the call actually went.
+PURPOSES = [
+    ('client_visit', 'Client Visit'),
+    ('chiller_update', 'Weekly Chiller Update'),
+    ('other', 'Other'),
+]
+
 MAX_PHOTOS = 5
 AUTO_CLOSE_HOURS = 10
 
@@ -65,6 +74,9 @@ class FfVisit(models.Model):
     offsite_reason = fields.Char()
     ff_offline = fields.Boolean(string='Recorded Offline', readonly=True,
                                 help='Checked in without network; synced later with the real times.')
+    purpose = fields.Selection(PURPOSES, string='Visit Purpose', index=True, tracking=True,
+                               help='What the call was for. A client visit is written up with notes '
+                                    'and a photo; a chiller update is counted and then photographed.')
     outcome = fields.Selection(OUTCOMES, string='Outcome Code')
     outcome_id = fields.Many2one('ff.visit.outcome', string='Outcome', index=True)
     productive = fields.Boolean(related='outcome_id.productive', store=True)
@@ -202,6 +214,29 @@ class FfVisit(models.Model):
         lat, lng = _num(data.get('lat')), _num(data.get('lng'))
         note = (data.get('note') or '').strip() or False
         photos = [p for p in (data.get('photos') or []) if isinstance(p, str) and p][:MAX_PHOTOS]
+        auto = bool(data.get('auto'))
+        purpose = data.get('purpose') if data.get('purpose') in dict(PURPOSES) else False
+        if not auto:
+            # The purpose decides what a finished visit has to carry, so nothing
+            # is written up until it is known.
+            if not purpose:
+                raise UserError(self.env._('Choose what this visit was for before checking out.'))
+            if purpose == 'client_visit':
+                if not note:
+                    raise UserError(self.env._('Write the visit notes before checking out.'))
+                if not photos and not visit.photo_count:
+                    raise UserError(self.env._('Take the closing photo before checking out.'))
+            elif purpose == 'chiller_update':
+                counted = self.env['ff.stock.count'].sudo().search_count([
+                    ('partner_id', '=', visit.partner_id.id),
+                    ('employee_id', '=', visit.employee_id.id),
+                    '|', ('visit_id', '=', visit.id), ('date', '>=', visit.check_in_at),
+                ]) if 'ff.stock.count' in self.env else 1
+                if not counted:
+                    raise UserError(self.env._('Count the stock before checking out.'))
+                if not photos and not visit.photo_count:
+                    raise UserError(self.env._('Take the photo of the counted stock before checking out.'))
+
         outcome = self._ff_resolve_outcome(visit, data)
         if outcome.requires_note and not note:
             raise UserError(self.env._('Add a note for "%s".', outcome.name))
@@ -212,11 +247,11 @@ class FfVisit(models.Model):
             at, offline = client_time(data)
         except ValueError as error:
             raise UserError(str(error))
-        auto = bool(data.get('auto'))
         if auto and not note:
             note = self.env._('Closed by the app: left the customer.')
         visit.write({
             'auto_end': auto,
+            'purpose': purpose or visit.purpose or ('other' if auto else False),
             'state': 'done',
             'check_out_at': max(at, visit.check_in_at),
             'ff_offline': visit.ff_offline or offline,

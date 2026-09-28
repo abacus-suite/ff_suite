@@ -57,6 +57,7 @@ def visit_data(visit):
         'visit_type': visit.visit_type,
         'auto_start': visit.auto_start,
         'outcome': visit.outcome or None,
+        'purpose': visit.purpose or None,
         'outcome_type': ref(visit.outcome_id),
         'productive': visit.productive,
         'note': visit.note or None,
