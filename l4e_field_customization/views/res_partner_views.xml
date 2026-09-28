@@ -14,11 +14,21 @@
                 <field name="contact_person" placeholder="e.g. Store Manager Name"/>
             </xpath>
 
+            <!-- Address block fields from Studio -->
+            <xpath expr="//div[hasclass('o_address_format')]" position="after">
+                <field name="x_studio_district"/>
+                <field name="x_studio_contact_country_code"/>
+                <field name="x_studio_id"/>
+                <field name="x_studio_internal_client_id"/>
+                <field name="x_studio_category"/>
+            </xpath>
+
             <xpath expr="//field[@name='category_id']" position="after">
                 <field name="client_prospect"/>
                 <field name="client_status"/>
-                <field name="visible_to_id"/>
                 <field name="delivery_day"/>
+                <field name="x_studio_visible_to_1"/>
+                <field name="visible_to_id" invisible="1"/>
             </xpath>
 
             <!-- Hidden helper field for dynamic tab visibility -->
@@ -99,6 +109,8 @@
                 <field name="margin_percentage"/>
                 <field name="outlet_onboard_date" options="{'numeric': true}"/>
                 <field name="marketing_material_id"/>
+                <field name="x_studio_marketing_materials"/>
+                <field name="x_studio_credit_days"/>
             </xpath>
 
         </field>
