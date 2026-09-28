@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Sent on to the distributor as it stands, so it is printed on the
+         company's own letterhead and says nothing about Odoo. -->
+    <record id="action_report_ff_distributor_summary" model="ir.actions.report">
+        <field name="name">Distributor Outlet Order Summary</field>
+        <field name="model">sale.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">ff_demand.report_ff_distributor_summary</field>
+        <field name="report_file">ff_demand.report_ff_distributor_summary</field>
+        <field name="print_report_name">'Order Summary - %s' % (object.partner_id.name or '')</field>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <template id="report_ff_distributor_summary">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="company" t-value="doc.company_id"/>
+                <t t-set="distributor" t-value="doc.partner_id"/>
+                <t t-set="outlets" t-value="doc.ff_summary_outlets()"/>
+                <t t-set="products" t-value="doc.ff_summary_products()"/>
+                <div class="page ff-summary">
+                    <style>
+                        .ff-summary { font-family: Arial, Helvetica, sans-serif; color: #1f2d3d; font-size: 11px; }
+                        .ff-summary h1 { font-size: 17px; font-weight: bold; color: #10357a; margin: 0; letter-spacing: .4px; }
+                        .ff-band { border-bottom: 2px solid #10357a; padding-bottom: 6px; margin-bottom: 12px; }
+                        .ff-card { border: 1px solid #d5dced; border-radius: 4px; }
+                        .ff-card-head { background: #eef3fb; color: #10357a; font-weight: bold; padding: 5px 8px; border-bottom: 1px solid #d5dced; }
+                        .ff-card-body { padding: 7px 8px; }
+                        .ff-meta { background: #f6f8fc; border: 1px solid #d5dced; border-radius: 4px; padding: 6px 8px; margin: 10px 0 14px; }
+                        .ff-outlet-head { background: #10357a; color: #fff; border-radius: 3px 3px 0 0; padding: 6px 9px; }
+                        .ff-outlet-no { background: #fff; color: #10357a; font-weight: bold; border-radius: 3px; padding: 1px 6px; margin-right: 8px; }
+                        .ff-outlet { margin-bottom: 14px; }
+                        table.ff-table { width: 100%; border-collapse: collapse; }
+                        table.ff-table th { background: #eef3fb; color: #10357a; font-weight: bold; text-align: left;
+                                            border: 1px solid #d5dced; padding: 4px 7px; font-size: 10.5px; }
+                        table.ff-table td { border: 1px solid #e3e8f2; padding: 4px 7px; }
+                        table.ff-table tr.ff-total td { background: #eef3fb; font-weight: bold; }
+                        .ff-green .ff-outlet-head { background: #1f7a4d; }
+                        .ff-green table.ff-table th { background: #e9f6ee; color: #1f7a4d; border-color: #cfe7d9; }
+                        .ff-label { color: #6b7a90; }
+                        .ff-right { text-align: right; }
+                        .ff-center { text-align: center; }
+                    </style>
+
+                    <!-- The company's own header strip, uploaded in Settings. -->
+                    <div t-if="company.ff_report_header_image" class="mb-2">
+                        <img t-att-src="image_data_uri(company.ff_report_header_image)"
+                             style="width: 100%; display: block;"/>
+                    </div>
+
+                    <div class="ff-band row">
+                        <div class="col-8">
+                            <h1>DISTRIBUTOR OUTLET ORDER SUMMARY</h1>
+                        </div>
+                        <div class="col-4 ff-right">
+                            <span class="ff-label">Date</span>
+                            <strong class="ms-2" t-out="doc.date_order" t-options="{'widget': 'date'}"/>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="ff-card">
+                                <div class="ff-card-head">From (Company)</div>
+                                <div class="ff-card-body">
+                                    <strong t-out="company.name"/>
+                                    <div t-out="doc._ff_one_line_address(company.partner_id)"/>
+                                    <table style="margin-top: 5px;">
+                                        <tr t-if="company.vat">
+                                            <td class="ff-label" style="width: 52px;">GSTIN</td>
+                                            <td style="width: 10px;">:</td>
+                                            <td t-out="company.vat"/>
+                                        </tr>
+                                        <tr t-if="company.phone">
+                                            <td class="ff-label">Phone</td><td>:</td><td t-out="company.phone"/>
+                                        </tr>
+                                        <tr t-if="company.email">
+                                            <td class="ff-label">Email</td><td>:</td><td t-out="company.email"/>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="ff-card">
+                                <div class="ff-card-head">Billing To (Distributor)</div>
+                                <div class="ff-card-body">
+                                    <strong t-out="distributor.name"/>
+                                    <div t-out="doc._ff_one_line_address(distributor)"/>
+                                    <table style="margin-top: 5px;">
+                                        <tr t-if="distributor.vat">
+                                            <td class="ff-label" style="width: 52px;">GSTIN</td>
+                                            <td style="width: 10px;">:</td>
+                                            <td t-out="distributor.vat"/>
+                                        </tr>
+                                        <tr t-if="distributor.phone">
+                                            <td class="ff-label">Phone</td><td>:</td><td t-out="distributor.phone"/>
+                                        </tr>
+                                        <tr t-if="distributor.email">
+                                            <td class="ff-label">Email</td><td>:</td><td t-out="distributor.email"/>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ff-meta row">
+                        <div class="col-4">
+                            <span class="ff-label">Sales Person</span><br/>
+                            <strong t-out="doc.ff_employee_id.name or doc.user_id.name or ''"/>
+                        </div>
+                        <div class="col-4">
+                            <span class="ff-label">Document No.</span><br/>
+                            <strong t-out="doc.name"/>
+                        </div>
+                        <div class="col-4">
+                            <span class="ff-label">Date</span><br/>
+                            <strong t-out="doc.date_order" t-options="{'widget': 'date'}"/>
+                        </div>
+                    </div>
+
+                    <!-- One block per outlet: what that shop asked for. -->
+                    <div t-foreach="outlets" t-as="block" class="ff-outlet">
+                        <div class="ff-outlet-head row">
+                            <div class="col-5">
+                                <span class="ff-outlet-no" t-out="'%02d' % (block_index + 1)"/>
+                                <strong t-out="block['outlet'].name"/>
+                            </div>
+                            <div class="col-7 ff-right" style="font-size: 10px; padding-top: 2px;"
+                                 t-out="block['address']"/>
+                        </div>
+                        <table class="ff-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 8%;">S.No</th>
+                                    <th style="width: 44%;">Product</th>
+                                    <th style="width: 20%;">Product Code</th>
+                                    <th style="width: 14%;">Qty</th>
+                                    <th style="width: 14%;">UOM</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="block['lines']" t-as="row">
+                                    <td t-out="row_index + 1"/>
+                                    <td t-out="row['product'].name"/>
+                                    <td t-out="row['code']"/>
+                                    <td t-out="row['quantity']" t-options="{'widget': 'float', 'precision': 0}"/>
+                                    <td t-out="row['uom']"/>
+                                </tr>
+                                <tr class="ff-total">
+                                    <td colspan="3" class="ff-right">Outlet Total Qty:</td>
+                                    <td t-out="block['total_qty']" t-options="{'widget': 'float', 'precision': 0}"/>
+                                    <td/>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- What the distributor actually has to send out. -->
+                    <div class="ff-outlet ff-green">
+                        <div class="ff-outlet-head">
+                            <strong>Overall Product Summary (All Outlets)</strong>
+                        </div>
+                        <table class="ff-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 8%;">S.No</th>
+                                    <th style="width: 44%;">Product</th>
+                                    <th style="width: 20%;">Product Code</th>
+                                    <th style="width: 14%;">Total Qty</th>
+                                    <th style="width: 14%;">UOM</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="products" t-as="row">
+                                    <td t-out="row_index + 1"/>
+                                    <td t-out="row['product'].name"/>
+                                    <td t-out="row['code']"/>
+                                    <td t-out="row['quantity']" t-options="{'widget': 'float', 'precision': 0}"/>
+                                    <td t-out="row['uom']"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div t-if="company.ff_report_footer_image" class="mt-3">
+                        <img t-att-src="image_data_uri(company.ff_report_footer_image)"
+                             style="width: 100%; display: block;"/>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <!-- The letterhead is the header and the footer, so Odoo's own are left off. -->
+    <record id="ff_distributor_summary_paperformat" model="report.paperformat">
+        <field name="name">Field Force Summary A4</field>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">7</field>
+        <field name="margin_bottom">7</field>
+        <field name="margin_left">7</field>
+        <field name="margin_right">7</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">96</field>
+    </record>
+
+    <record id="action_report_ff_distributor_summary" model="ir.actions.report">
+        <field name="paperformat_id" ref="ff_distributor_summary_paperformat"/>
+    </record>
+</odoo>

@@ -137,6 +137,14 @@ class ResConfigSettings(models.TransientModel):
         help='Key from your Google Cloud project. Odoo uses it for the live map; the app receives '
              'it at login and uses it for its maps. Leave empty to use the free OpenStreetMap basemap.')
 
+    # The letterhead lives on the company, so it is edited here through it.
+    ff_report_header_image = fields.Image(
+        related='company_id.ff_report_header_image', readonly=False,
+        string='Report Header', max_width=2400, max_height=600)
+    ff_report_footer_image = fields.Image(
+        related='company_id.ff_report_footer_image', readonly=False,
+        string='Report Footer', max_width=2400, max_height=600)
+
     def action_ff_apply_timezone(self):
         """Give the field timezone to every employee and user still on UTC or none."""
         self.ensure_one()

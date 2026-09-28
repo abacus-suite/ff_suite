@@ -174,6 +174,18 @@
                             <field name="ff_max_clock_skew"/>
                         </setting>
                     </block>
+                    <block title="Printed Documents" name="ff_report_letterhead">
+                        <setting string="Letterhead" help="Printed across the top and the bottom of every Field Force PDF, such as the distributor order summary the field sends on. Wide, short images work best - about 2400 x 400 pixels.">
+                            <div class="row mt-2">
+                                <label for="ff_report_header_image" class="col-lg-3 o_light_label"/>
+                                <field name="ff_report_header_image" widget="image" class="oe_avatar" options="{'size': [300, 80]}"/>
+                            </div>
+                            <div class="row mt-3">
+                                <label for="ff_report_footer_image" class="col-lg-3 o_light_label"/>
+                                <field name="ff_report_footer_image" widget="image" class="oe_avatar" options="{'size': [300, 80]}"/>
+                            </div>
+                        </setting>
+                    </block>
                     <block title="Client Visits" name="ff_visit_settings">
                         <setting string="Client geofence" help="Default radius (metres) around a client inside which a visit counts as on-site. Can be overridden per client.">
                             <field name="ff_geofence_radius"/>

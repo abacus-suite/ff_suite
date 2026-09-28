@@ -195,6 +195,60 @@ class FfDemand(models.Model):
             } for line in self.line_ids]
         return data
 
+    @api.model
+    def ff_submit_to_distributor(self, employee, demands, distributor):
+        """Turn a pile of outlet demands into one order for this distributor.
+
+        Same product across ten outlets becomes one line with the total, priced
+        at PTS, on an order addressed to the distributor. Each demand keeps its
+        link, so the printed summary can still show who asked for what, and the
+        quantities are written back so nothing is sent on twice.
+        """
+        if not employee.sudo().ff_can_submit_demand:
+            raise UserError(self.env._('You cannot send demand to a distributor. Ask the office.'))
+        if not distributor or not distributor.sudo().ff_is_distributor:
+            raise UserError(self.env._('Choose a distributor.'))
+        mine = employee | employee._ff_subordinates()
+        demands = demands.sudo().filtered(lambda d: d.employee_id in mine)
+        if not demands:
+            raise UserError(self.env._('Choose the demands to send.'))
+        stale = demands.filtered(lambda d: d.state in ('cancelled', 'supplied'))
+        if stale:
+            raise UserError(self.env._('%s cannot be sent again.', ', '.join(stale.mapped('name'))))
+
+        rows = {}
+        for line in demands.mapped('line_ids'):
+            pending = line.pending_quantity
+            if pending <= 0:
+                continue
+            row = rows.setdefault(line.product_id, {'quantity': 0.0,
+                                                    'price_unit': line.product_id.ff_distributor_price()})
+            row['quantity'] += pending
+        if not rows:
+            raise UserError(self.env._('Everything on these demands has already been sent.'))
+
+        order = self.env['sale.order'].sudo().create({
+            'partner_id': distributor.id,
+            'origin': ', '.join(demands.mapped('name')[:8]),
+            'ff_employee_id': employee.id,
+            'ff_source': 'app',
+            'order_line': [(0, 0, {
+                'product_id': product.id,
+                'product_uom_qty': row['quantity'],
+                'price_unit': row['price_unit'],
+            }) for product, row in rows.items()],
+        })
+        # Write back what this order covers, so a second send picks up only the rest.
+        for line in demands.mapped('line_ids'):
+            pending = line.pending_quantity
+            if pending <= 0:
+                continue
+            line.quoted_quantity += pending
+        demands.write({'order_ids': [(4, order.id)]})
+        demands.filtered(lambda d: not d.distributor_id).write({'distributor_id': distributor.id})
+        demands._ff_refresh_state()
+        return order
+
     # ------------------------------------------------------------------
     # Office actions
     # ------------------------------------------------------------------

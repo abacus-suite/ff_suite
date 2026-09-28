@@ -304,6 +304,8 @@ def employee_profile(employee):
             'google_maps_key': google_maps_key(request.env)
             if _app_map_provider() in ('google', 'sdk') else '',
             'order_flow': request.env['ir.config_parameter'].sudo().get_param('ff_base.order_flow') or 'direct',
+            # Sending demand on to a distributor is settled per employee.
+            'demand_submit': bool(getattr(employee, 'ff_can_submit_demand', False)),
         },
     }
 

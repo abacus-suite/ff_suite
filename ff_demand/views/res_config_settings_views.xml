@@ -15,6 +15,9 @@
                             to bring products already in the system onto their PTS.
                         </div>
                     </setting>
+                    <setting string="Send demand to distributor" help="The field picks its outlet demands in the app, chooses a distributor and sends them on as one order, then shares the printed outlet summary. Each employee can be moved off this on their own form.">
+                        <field name="ff_demand_submit"/>
+                    </setting>
                 </block>
             </xpath>
         </field>
