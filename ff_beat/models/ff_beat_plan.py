@@ -15,7 +15,10 @@ class FfBeatPlan(models.Model):
     team_id = fields.Many2one(related='employee_id.ff_team_id', store=True)
     department_id = fields.Many2one(related='employee_id.department_id', store=True)
     employee_route_ids = fields.Many2many(related='employee_id.ff_route_ids', string='Allowed Routes')
-    beat_id = fields.Many2one('ff.beat', string='Route', required=True, ondelete='restrict')
+    beat_id = fields.Many2one(
+        'ff.beat', string='Route', ondelete='restrict',
+        help='The route this day follows. A day planned customer by customer - a lead has no route '
+             'yet, and somebody may want a handful of shops from here and there - has none.')
     route_type_id = fields.Many2one(related='beat_id.route_type_id', store=True)
     district_id = fields.Many2one(related='beat_id.district_id', store=True)
     date = fields.Date(required=True, index=True, default=fields.Date.context_today)
@@ -44,9 +47,19 @@ class FfBeatPlan(models.Model):
     _employee_date_beat_uniq = models.Constraint(
         'UNIQUE(employee_id, date, beat_id)', 'This route is already planned for the employee on that day.')
 
+    @api.constrains('employee_id', 'date', 'beat_id')
+    def _check_one_free_day(self):
+        """At most one customer-picked day per person per date; the rest are routes."""
+        for day in self.filtered(lambda d: not d.beat_id):
+            if self.sudo().search_count([('employee_id', '=', day.employee_id.id),
+                                         ('date', '=', day.date), ('beat_id', '=', False)]) > 1:
+                raise ValidationError(self.env._(
+                    '%(employee)s already has a customer plan for %(date)s. Add the customers to it.',
+                    employee=day.employee_id.name, date=day.date))
+
     @api.constrains('employee_id', 'beat_id')
     def _check_assigned_route(self):
-        for day in self:
+        for day in self.filtered('beat_id'):
             routes = day.employee_id.sudo().ff_route_ids
             if routes and day.beat_id not in routes:
                 raise ValidationError(self.env._(
@@ -74,7 +87,10 @@ class FfBeatPlan(models.Model):
     @api.depends('employee_id', 'beat_id', 'date')
     def _compute_display_name(self):
         for day in self:
-            day.display_name = '%s - %s (%s)' % (day.employee_id.name or '', day.beat_id.display_name or '', day.date or '')
+            day.display_name = '%s - %s (%s)' % (
+                day.employee_id.name or '',
+                day.beat_id.display_name or self.env._('Chosen customers'),
+                day.date or '')
 
     @api.depends('customer_line_ids.status', 'customer_line_ids.selected', 'visit_ids.partner_id')
     def _compute_stats(self):

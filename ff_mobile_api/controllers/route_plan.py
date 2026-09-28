@@ -45,6 +45,38 @@ class FieldForceRoutePlanApi(http.Controller):
                                visited=row['visited']) for row in customers],
         })
 
+    @api_route('/api/v1/route-plan/contacts', methods=('GET',))
+    def plan_contacts(self, employee, date=None, q=None, member=None, **kw):
+        """Everything plannable, grouped by beat, for picking customers instead of a route.
+
+        A lead has no beat, so it can never be reached through a route; here it
+        sits in its own group and is planned like anything else.
+        """
+        employee, _label = _one(employee, member)
+        day = fields.Date.to_date(date) if date else None
+        Plan = request.env['ff.beat.plan']
+        partners, chosen, visited = Plan.ff_app_plan_contacts(employee, day, (q or '').strip())
+        also = Plan.ff_already_planned_partners(employee, partners, day)
+        groups = {}
+        for partner in partners:
+            route = partner.ff_route_ids[:1]
+            key = route.id or 0
+            group = groups.setdefault(key, {
+                'beat': ref(route) if route else None,
+                # Leads and anybody else off the map: named so they can be found.
+                'name': route.display_name if route else 'No beat yet',
+                'customers': [],
+            })
+            group['customers'].append(dict(
+                client_data(partner),
+                selected=partner.id in chosen,
+                visited=partner.id in visited,
+                also_planned_by=also.get(partner.id) or [],
+            ))
+        # Real beats first, in name order; the beat-less group last.
+        rows = sorted(groups.values(), key=lambda g: (g['beat'] is None, g['name']))
+        return ok({'total': len(partners), 'groups': rows})
+
     @api_route('/api/v1/route-plan/days', methods=('GET',))
     def days(self, employee, start=None, end=None, member=None, **kw):
         """What is already planned (for me, my team or one member)."""
@@ -65,6 +97,9 @@ class FieldForceRoutePlanApi(http.Controller):
         target, _label = _one(employee, data.get('member'))
         # sudo: the result set is read afterwards, and an empty non-sudo set would take the union's access rights.
         Plan = request.env['ff.beat.plan'].sudo()
+        # Picked customer by customer: no route, one day, whatever beats they sit on.
+        if data.get('partner_ids') and not data.get('beat_id'):
+            return ok(plan_data(Plan.ff_plan_contacts_from_app(target, data)), status=201)
         if data.get('routes'):
             days = Plan.browse()
             for row in data['routes']:

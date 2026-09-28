@@ -80,6 +80,98 @@ class FfBeatPlanApp(models.Model):
         }
 
     @api.model
+    def ff_app_plan_contacts(self, employee, date=None, query='', limit=400):
+        """Every contact this person may plan, and what is already ticked for that day.
+
+        Planning by customer is how a lead gets planned at all: it has no beat
+        until it becomes a real customer, so there is no route to pick it from.
+        The app still groups what comes back by beat, with the beat-less ones
+        under a group of their own, because that is how the field thinks of them.
+        """
+        Partner = self.env['res.partner'].sudo()
+        domain = Partner._ff_visible_domain(employee) + [('ff_approval_state', '=', 'approved')]
+        if query:
+            domain += ['|', '|', ('name', 'ilike', query), ('city', 'ilike', query),
+                       ('ff_client_code', 'ilike', query)]
+        partners = Partner.search(domain, limit=limit)
+
+        chosen, visited = set(), set()
+        if date:
+            for day in self.sudo().search([('employee_id', '=', employee.id), ('date', '=', date)]):
+                for line in day.customer_line_ids:
+                    if line.selected:
+                        chosen.add(line.partner_id.id)
+                    if line.visit_id:
+                        visited.add(line.partner_id.id)
+        return partners, chosen, visited
+
+    @api.model
+    def ff_already_planned_partners(self, employee, partners, date):
+        """Who else is calling on these customers that day. A note, never a block."""
+        if not date or not partners:
+            return {}
+        others = self.sudo().search([('date', '=', date), ('employee_id', '!=', employee.id)])
+        found = {}
+        for day in others:
+            for line in day.customer_line_ids:
+                if not line.selected or line.partner_id not in partners:
+                    continue
+                people = found.setdefault(line.partner_id.id, [])
+                if day.employee_id.name not in people:
+                    people.append(day.employee_id.name)
+        return found
+
+    @api.model
+    def ff_plan_contacts_from_app(self, employee, data):
+        """Plan a day from a plain list of customers, whatever beats they sit on.
+
+        Everything chosen lands in one day with no route: the person picked
+        shops, not a route, and one day keeps "one route per day" honest for
+        those who work that way. A customer already planned on a route for that
+        day is left where it is, so the two ways of planning do not fight.
+        """
+        date = fields.Date.to_date(data.get('date')) or employee._ff_today()
+        if date < employee._ff_today():
+            raise UserError(self.env._('A past day cannot be planned.'))
+        kept = set(int(pid) for pid in (data.get('partner_ids') or []))
+        if not kept:
+            raise UserError(self.env._('Choose at least one customer.'))
+        Partner = self.env['res.partner'].sudo()
+        allowed = Partner.search(Partner._ff_visible_domain(employee) + [('id', 'in', list(kept))])
+        if len(allowed) != len(kept):
+            raise UserError(self.env._('Some of those customers are not yours to plan.'))
+
+        route_days = self.sudo().search(
+            [('employee_id', '=', employee.id), ('date', '=', date), ('beat_id', '!=', False)])
+        on_routes = route_days.customer_line_ids.filtered('selected').partner_id
+
+        day = self.sudo().search(
+            [('employee_id', '=', employee.id), ('date', '=', date), ('beat_id', '=', False)], limit=1)
+        if not day:
+            day = self.sudo().create({'employee_id': employee.id, 'date': date})
+        day._ff_sync_plan_month()
+
+        Line = self.env['ff.route.plan.customer'].sudo()
+        existing = {line.partner_id.id: line for line in day.customer_line_ids}
+        sequence = 0
+        for partner in allowed:
+            if partner in on_routes:
+                continue
+            sequence += 10
+            line = existing.pop(partner.id, None)
+            if line:
+                if not line.visit_id:
+                    line.write({'selected': True, 'sequence': sequence})
+            else:
+                Line.create({'day_id': day.id, 'partner_id': partner.id,
+                             'sequence': sequence, 'selected': True})
+        # Whatever was unticked this time drops out, unless it has already been visited.
+        for line in existing.values():
+            if not line.visit_id:
+                line.write({'selected': False})
+        return day
+
+    @api.model
     def ff_plan_from_app(self, employee, data):
         """Create or update one planned day. ``partner_ids`` are the customers the
         employee kept; everything else on the route is left out."""

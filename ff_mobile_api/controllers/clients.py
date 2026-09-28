@@ -196,10 +196,19 @@ class FieldForceClientsApi(http.Controller):
         visits = request.env['ff.visit'].sudo().search([('partner_id', '=', partner.id)], limit=5)
         sites = partner.child_ids.filtered(lambda c: c.ff_is_client and c.ff_approval_state == 'approved')
         data = client_data(partner, to_float(lat), to_float(lng))
+        # Checking in on arrival only happens where the person meant to go today,
+        # so the app is told whether this customer is on the day's plan.
+        planned = request.env['ff.route.plan.customer'].sudo().search_count([
+            ('day_id.employee_id', '=', employee.id),
+            ('day_id.date', '=', employee._ff_today()),
+            ('partner_id', '=', partner.id),
+            ('selected', '=', True),
+        ])
         data.update(
             sites=[client_data(s) for s in sites],
             recent_visits=[visit_data(v) for v in visits],
             allow_orders=bool(partner.ff_category_id.allow_orders),
+            planned_today=bool(planned),
         )
         return ok(data)
 
