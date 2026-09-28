@@ -102,7 +102,7 @@
                             <field name="ff_geocode_provider" widget="radio"/>
                         </setting>
                         <setting string="Free map style" invisible="ff_map_mode == 'google'"
-                                 help="How the free web map looks. The app uses CARTO's Voyager map, which is free and needs no key.">
+                                 help="How the free web map looks. The app uses OpenStreetMap's own tiles, which are free and need no key.">
                             <field name="ff_open_map_style" widget="radio"/>
                         </setting>
                     </block>
