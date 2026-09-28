@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_demo_purge_admin,ff.demo.purge admin,model_ff_demo_purge,ff_base.group_ff_admin,1,1,1,1
+access_ff_demo_purge_system,ff.demo.purge system,model_ff_demo_purge,base.group_system,1,1,1,1

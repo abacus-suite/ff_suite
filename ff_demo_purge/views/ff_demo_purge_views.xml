@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_demo_purge_view_form" model="ir.ui.view">
+        <field name="name">ff.demo.purge.form</field>
+        <field name="model">ff.demo.purge</field>
+        <field name="arch" type="xml">
+            <form string="Remove Demo Data">
+                <sheet>
+                    <div class="oe_title">
+                        <h2 invisible="done">Remove the demo data</h2>
+                        <h2 invisible="not done">Done</h2>
+                        <div class="text-muted" invisible="done">
+                            The demo modules built their data in Python, so uninstalling them left it
+                            behind. This removes what they made and nothing else: a record goes only
+                            when it belongs to a demo login, a demo employee or a demo customer, or
+                            carries "(Demo)" in its own name.
+                        </div>
+                    </div>
+                    <group invisible="done">
+                        <field name="preview" nolabel="1" readonly="1" widget="text"
+                               style="font-family: monospace; white-space: pre;"/>
+                    </group>
+                    <group invisible="not done">
+                        <field name="removed" nolabel="1" readonly="1" widget="text"
+                               style="font-family: monospace; white-space: pre;"/>
+                        <div class="text-muted">
+                            Anything still listed above could not be deleted - usually because real
+                            work now points at it. The server log names each one.
+                        </div>
+                    </group>
+                    <field name="done" invisible="1"/>
+                    <div class="alert alert-warning" role="alert" invisible="done">
+                        This cannot be undone. Take a backup first if you are not certain.
+                    </div>
+                </sheet>
+                <footer>
+                    <button name="action_purge" type="object" string="Remove it" class="btn-danger"
+                            invisible="done"
+                            confirm="Delete the demo employees, customers and their history? This cannot be undone."/>
+                    <button string="Close" class="btn-secondary" special="cancel" invisible="done"/>
+                    <button string="Close" class="btn-primary" special="cancel" invisible="not done"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_demo_purge_action" model="ir.actions.act_window">
+        <field name="name">Remove Demo Data</field>
+        <field name="res_model">ff.demo.purge</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="ff_demo_purge_menu"
+              name="Remove Demo Data"
+              parent="ff_base.menu_ff_config"
+              action="ff_demo_purge_action"
+              groups="ff_base.group_ff_admin"
+              sequence="900"/>
+</odoo>
