@@ -41,9 +41,12 @@ class ResConfigSettings(models.TransientModel):
     ff_duty_reply_minutes = fields.Integer(
         string='Wait for the Answer (min)', config_parameter='ff_base.duty_reply_minutes', default=5,
         help='No answer in this time and the app checks them out by itself, at the moment they were last seen.')
+    # Settings that are on unless switched off cannot use config_parameter: Odoo
+    # deletes the parameter when the box is unticked, and the field's own default
+    # then turns it straight back on. These write 'False' and mean it.
     ff_close_day_at_midnight = fields.Boolean(
-        string='Close a Forgotten Day at Midnight', config_parameter='ff_base.close_day_at_midnight',
-        default=True,
+        string='Close a Forgotten Day at Midnight',
+        compute='_compute_ff_on_by_default', inverse='_inverse_ff_close_day_at_midnight', readonly=False,
         help='A day left open is closed at the end of it, so tomorrow starts clean instead of '
              'running one punch across two days.')
     ff_single_punch_day = fields.Boolean(
@@ -72,8 +75,8 @@ class ResConfigSettings(models.TransientModel):
              'on one, and the same shop can be visited by more than one person on the same day. '
              'Leads stay private to whoever added them and to their managers, either way.')
     ff_beat_required = fields.Boolean(
-        string='Beat Required for Outlets and Distributors', config_parameter='ff_base.beat_required',
-        default=True,
+        string='Beat Required for Outlets and Distributors',
+        compute='_compute_ff_on_by_default', inverse='_inverse_ff_beat_required', readonly=False,
         help='An outlet or a distributor must sit on a beat. A lead may be added without one and gets '
              'its beat when it becomes a real customer.')
     ff_geofence_radius = fields.Integer(
@@ -144,6 +147,27 @@ class ResConfigSettings(models.TransientModel):
     ff_report_footer_image = fields.Image(
         related='company_id.ff_report_footer_image', readonly=False,
         string='Report Footer', max_width=2400, max_height=600)
+
+    def _ff_flag(self, key):
+        """A parameter that is on unless it was explicitly turned off."""
+        return self.env['ir.config_parameter'].sudo().get_param(key, 'True') != 'False'
+
+    def _ff_set_flag(self, key, value):
+        # 'False' as a string: passing Python False would delete the parameter.
+        self.env['ir.config_parameter'].sudo().set_param(key, 'True' if value else 'False')
+
+    def _compute_ff_on_by_default(self):
+        for record in self:
+            record.ff_close_day_at_midnight = self._ff_flag('ff_base.close_day_at_midnight')
+            record.ff_beat_required = self._ff_flag('ff_base.beat_required')
+
+    def _inverse_ff_close_day_at_midnight(self):
+        for record in self:
+            self._ff_set_flag('ff_base.close_day_at_midnight', record.ff_close_day_at_midnight)
+
+    def _inverse_ff_beat_required(self):
+        for record in self:
+            self._ff_set_flag('ff_base.beat_required', record.ff_beat_required)
 
     def action_ff_apply_timezone(self):
         """Give the field timezone to every employee and user still on UTC or none."""

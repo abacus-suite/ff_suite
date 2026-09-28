@@ -15,10 +15,23 @@ class ResConfigSettings(models.TransientModel):
     ff_map_budget = fields.Float(
         string='Monthly Map Budget', config_parameter='ff_base.map_budget',
         help='The live map warns once the estimated cost passes this. 0 = no budget.')
+    # On unless switched off, so it writes its own parameter: config_parameter
+    # deletes the record when unticked and the default turns it back on.
     ff_map_free_guard = fields.Boolean(
-        string='Stay Within the Free Tier', config_parameter='ff_base.map_free_guard', default=True,
+        string='Stay Within the Free Tier',
+        compute='_compute_ff_map_free_guard', inverse='_inverse_ff_map_free_guard', readonly=False,
         help='Switch to the free maps once this share of a Google free allowance is used; Google comes '
              'back on the 1st of next month.')
+
+    def _compute_ff_map_free_guard(self):
+        for record in self:
+            record.ff_map_free_guard = self.env['ir.config_parameter'].sudo().get_param(
+                'ff_base.map_free_guard', 'True') != 'False'
+
+    def _inverse_ff_map_free_guard(self):
+        for record in self:
+            self.env['ir.config_parameter'].sudo().set_param(
+                'ff_base.map_free_guard', 'True' if record.ff_map_free_guard else 'False')
     ff_map_guard_percent = fields.Integer(
         string='Switch to Free Maps At (%)', config_parameter='ff_base.map_guard_percent', default=90)
     ff_map_free_geocode = fields.Integer(

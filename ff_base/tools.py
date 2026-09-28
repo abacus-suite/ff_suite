@@ -43,6 +43,10 @@ def get_param(env, key):
     default = PARAM_DEFAULTS[key]
     raw = env['ir.config_parameter'].sudo().get_param('ff_base.%s' % key)
     if isinstance(default, bool):
+        # An untouched setting keeps its default; only 'False' turns one off,
+        # which is what the settings screen writes when a box is unticked.
+        if raw in (None, False, ''):
+            return default
         return raw == 'True'
     if raw in (None, False, ''):
         return default
