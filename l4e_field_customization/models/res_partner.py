@@ -64,6 +64,51 @@ class ResPartner(models.Model):
         string='Marketing Materials',
     )
 
+    # ── Studio Custom Fields (Preserved Live Data) ───────────────────────────
+    x_studio_district = fields.Char(
+        string='District',
+    )
+    x_studio_contact_country_code = fields.Char(
+        string='Contact Country Code',
+    )
+    x_studio_id = fields.Char(
+        string='ID',
+    )
+    x_studio_internal_client_id = fields.Char(
+        string='Internal Client ID',
+    )
+    x_studio_marketing_materials = fields.Char(
+        string='Marketing Materials',
+    )
+    x_studio_credit_days = fields.Char(
+        string='Credit Days',
+    )
+    x_studio_territory = fields.Char(
+        string='Territory',
+    )
+    x_studio_category = fields.Selection(
+        selection=[
+            ('Others', 'Others'),
+            ('Retailer', 'Retailer'),
+            ('End customer', 'End customer'),
+            ('Supplier', 'Supplier'),
+            ('Dealer', 'Dealer'),
+            ('Distributor', 'Distributor'),
+        ],
+        string='Category',
+    )
+    x_studio_visible_to_1 = fields.Selection(
+        selection=[
+            ('Team: Default', 'Team: Default'),
+            ('Everyone', 'Everyone'),
+            ('Team: TVM', 'Team: TVM'),
+            ('CHRISMON CHERIYAN', 'CHRISMON CHERIYAN'),
+            ('Team: THRISSUR', 'Team: THRISSUR'),
+            ('Team: CALICUT', 'Team: CALICUT'),
+        ],
+        string='visible To',
+    )
+
     # ── Chiller Details ───────────────────────────────────────────────────────
     chiller_availability = fields.Selection(
         selection=[
@@ -143,6 +188,15 @@ class ResPartner(models.Model):
             ("business_category_id", "INTEGER"),
             ("visible_to_id", "INTEGER"),
             ("marketing_material_id", "INTEGER"),
+            ("x_studio_district", "VARCHAR"),
+            ("x_studio_contact_country_code", "VARCHAR"),
+            ("x_studio_id", "VARCHAR"),
+            ("x_studio_internal_client_id", "VARCHAR"),
+            ("x_studio_marketing_materials", "VARCHAR"),
+            ("x_studio_credit_days", "VARCHAR"),
+            ("x_studio_territory", "VARCHAR"),
+            ("x_studio_category", "VARCHAR"),
+            ("x_studio_visible_to_1", "VARCHAR"),
         ]
         for col_name, col_type in cols:
             cr.execute(f"ALTER TABLE res_partner ADD COLUMN IF NOT EXISTS {col_name} {col_type};")
