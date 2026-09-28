@@ -95,9 +95,12 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       _clock?.cancel();
       _clock = null;
     }
+    // Only where they meant to go today. Walking past a shop that is not on the
+    // plan - or standing near a lead nobody planned - is not a visit.
     final wantWatch = located &&
         (profile?.autoVisit ?? false) &&
         (profile?.feature('visits') ?? false) &&
+        (_client?['planned_today'] == true || _atThisClient) &&
         (_current == null || _atThisClient);
     if (wantWatch && _watch == null) {
       _watch = Timer.periodic(const Duration(seconds: 20), (_) => _watchFence());
@@ -686,7 +689,14 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
               lat == null ? 'No GPS location yet' : 'Geofence: ${c['geofence_radius']} m',
               lat == null
                   ? 'It is saved at your first check-in'
-                  : (distance == null ? '' : 'You are ${fmtDistance(distance)} away'),
+                  : [
+                      if (distance != null) 'You are ${fmtDistance(distance)} away',
+                      // Say why arrival check-in is or is not watching here.
+                      if (Services.auth.profile!.autoVisit)
+                        c['planned_today'] == true
+                            ? 'Checks you in on arrival'
+                            : "Not on today's plan - check in by hand",
+                    ].join(' · '),
               trailing: lat == null
                   ? null
                   : Container(

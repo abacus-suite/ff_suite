@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
@@ -30,6 +32,19 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
   bool _loading = true;
   bool _busy = false;
   String? _error;
+
+  /// 'beat' picks a route and works through its customers; 'customer' picks the
+  /// customers themselves. A lead has no beat, so it can only be planned the
+  /// second way - and sometimes a day is simply a handful of shops.
+  String _mode = 'beat';
+
+  /// Contacts grouped by their beat, the beat-less ones last.
+  List<Map<String, dynamic>> _groups = [];
+  final Set<int> _picked = {};
+  final Set<int> _visited = {};
+  bool _loadingContacts = false;
+  String _search = '';
+  Timer? _searchDebounce;
 
   String get _memberParam => _member == null ? 'me' : '${_member!['id']}';
 
@@ -88,6 +103,41 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
     }
   }
 
+  /// Everything this person may plan, grouped by beat, with today's ticks kept.
+  Future<void> _loadContacts() async {
+    setState(() => _loadingContacts = true);
+    try {
+      final data = await Services.api.get('/api/v1/route-plan/contacts', query: {
+        'date': fmtDate(_date),
+        'member': _memberParam,
+        if (_search.trim().isNotEmpty) 'q': _search.trim(),
+      }) as Map<String, dynamic>;
+      final groups = ((data['groups'] as List?) ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      setState(() {
+        _groups = groups;
+        // Ticks already saved for that day come back ticked; a search must not lose them.
+        for (final group in groups) {
+          for (final c in ((group['customers'] as List?) ?? []).cast<Map<String, dynamic>>()) {
+            final id = c['id'] as int;
+            if (c['selected'] == true) _picked.add(id);
+            if (c['visited'] == true) _visited.add(id);
+          }
+        }
+      });
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _loadingContacts = false);
+    }
+  }
+
+  void _onSearch(String value) {
+    _search = value;
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), _loadContacts);
+  }
+
   Future<void> _pickMember() async {
     final picked = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
@@ -132,9 +182,21 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
     );
     if (picked == null) return;
     setState(() => _date = picked);
+    if (_mode == 'customer') {
+      _picked.clear();
+      _visited.clear();
+      await _loadContacts();
+      return;
+    }
     for (final route in List.of(_chosen)) {
       await _loadCustomers(route);
     }
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
   }
 
   Future<void> _pickRoutes(String routeLabel) async {
@@ -218,6 +280,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
   }
 
   Future<void> _save() async {
+    if (_mode == 'customer') return _saveCustomers();
     final routes = [
       for (final r in _chosen)
         if ((_selected[r['id']] ?? {}).isNotEmpty) {'beat_id': r['id'], 'partner_ids': _selected[r['id']]!.toList()},
@@ -253,10 +316,45 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
     }
   }
 
+  /// The day is the customers themselves: one plan, whatever beats they sit on.
+  Future<void> _saveCustomers() async {
+    if (_picked.isEmpty) {
+      showSnack(context, 'Choose at least one customer.');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final result = await Services.outbox.submit('/api/v1/route-plan/days', {
+        'uuid': const Uuid().v4(),
+        'date': fmtDate(_date),
+        'member': _memberParam,
+        'partner_ids': _picked.toList(),
+      });
+      Services.refresh.value++;
+      if (!mounted) return;
+      if (result.queued) {
+        showSnack(context, 'Saved on the phone; it will be planned when you are online.');
+      }
+      Navigator.of(context).pushReplacement(MaterialPageRoute(
+        builder: (_) => PlannedDaysScreen(
+          member: _memberParam,
+          memberName: _member == null ? null : '${_member!['name']}',
+          start: _date,
+        ),
+      ));
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final routeLabel = Services.auth.profile!.routeLabel;
-    final total = _selected.values.fold<int>(0, (s, v) => s + v.length);
+    final total = _mode == 'customer'
+        ? _picked.length
+        : _selected.values.fold<int>(0, (s, v) => s + v.length);
     return Scaffold(
       appBar: AppBar(title: const Text('Create Beat Plan')),
       body: _loading && _routes.isEmpty
@@ -288,6 +386,11 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
                               onTap: _pickDate,
                             ),
                           ),
+                          _modeToggle(routeLabel),
+                          if (_mode == 'customer') ...[
+                            const SizedBox(height: 6),
+                            ..._contactPicker(),
+                          ] else
                           Card(
                             child: ListTile(
                               leading: const Icon(Icons.route_rounded, color: AppColors.primary),
@@ -306,7 +409,8 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          for (final route in _chosen) _routeSection(route),
+                          if (_mode == 'beat')
+                            for (final route in _chosen) _routeSection(route),
                         ],
                       ),
                     ),
@@ -317,12 +421,158 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
                           label: total == 0 ? 'Save Plan' : 'Save Plan · $total customers',
                           icon: Icons.event_available_rounded,
                           busy: _busy,
-                          onPressed: _busy || _chosen.isEmpty ? null : _save,
+                          onPressed: _busy || total == 0 ? null : _save,
                         ),
                       ),
                     ),
                   ],
                 ),
+    );
+  }
+
+  /// Which way the day is planned. Beat wise is the old flow untouched.
+  Widget _modeToggle(String routeLabel) => Card(
+        margin: const EdgeInsets.only(bottom: 4),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Plan by', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<String>(
+                  segments: [
+                    ButtonSegment(
+                      value: 'beat',
+                      label: Text('${routeLabel[0].toUpperCase()}${routeLabel.substring(1)} wise'),
+                      icon: const Icon(Icons.route_rounded, size: 17),
+                    ),
+                    const ButtonSegment(
+                      value: 'customer',
+                      label: Text('Customer wise'),
+                      icon: Icon(Icons.storefront_rounded, size: 17),
+                    ),
+                  ],
+                  showSelectedIcon: false,
+                  selected: {_mode},
+                  onSelectionChanged: (choice) async {
+                    setState(() => _mode = choice.first);
+                    if (_mode == 'customer' && _groups.isEmpty) await _loadContacts();
+                  },
+                ),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                _mode == 'customer'
+                    ? 'Pick the customers themselves. They are grouped by $routeLabel, and a lead with no '
+                        '$routeLabel yet sits in its own group.'
+                    : 'Pick a $routeLabel and work through its customers.',
+                style: const TextStyle(fontSize: 12, color: AppColors.muted),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  /// The customer picker: a search box and one section per beat.
+  List<Widget> _contactPicker() {
+    return [
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  onChanged: _onSearch,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search_rounded),
+                    hintText: 'Search customers, leads, city',
+                    isDense: true,
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+              if (_loadingContacts)
+                const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+            ],
+          ),
+        ),
+      ),
+      if (_picked.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 8, 4, 2),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text('${_picked.length} chosen for ${fmtDate(_date)}',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              ),
+              TextButton(onPressed: () => setState(_picked.clear), child: const Text('Clear')),
+            ],
+          ),
+        ),
+      if (!_loadingContacts && _groups.isEmpty)
+        const Padding(
+          padding: EdgeInsets.only(top: 24),
+          child: EmptyView(icon: Icons.person_search_rounded, text: 'No contacts match'),
+        ),
+      for (final group in _groups) _contactGroup(group),
+      const SizedBox(height: 8),
+    ];
+  }
+
+  Widget _contactGroup(Map<String, dynamic> group) {
+    final customers = ((group['customers'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final free = group['beat'] == null;
+    final chosen = customers.where((c) => _picked.contains(c['id'])).length;
+    return Card(
+      child: ExpansionTile(
+        initiallyExpanded: _groups.length <= 2 || chosen > 0,
+        leading: Icon(free ? Icons.person_pin_circle_rounded : Icons.route_rounded,
+            color: free ? AppColors.purple : AppColors.primary),
+        title: Text('${group['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text('$chosen of ${customers.length} chosen'),
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => setState(() {
+                final ids = customers
+                    .where((c) => !_visited.contains(c['id']))
+                    .map((c) => c['id'] as int)
+                    .toList();
+                if (chosen >= ids.length) {
+                  _picked.removeAll(ids);
+                } else {
+                  _picked.addAll(ids);
+                }
+              }),
+              child: Text(chosen >= customers.length ? 'Clear all' : 'Select all'),
+            ),
+          ),
+          for (final c in customers)
+            CheckboxListTile(
+              dense: true,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _picked.contains(c['id']),
+              onChanged: _visited.contains(c['id'])
+                  ? null
+                  : (on) => setState(() =>
+                      on == true ? _picked.add(c['id'] as int) : _picked.remove(c['id'])),
+              title: Text('${c['name']}'),
+              subtitle: Text([
+                if (_visited.contains(c['id'])) 'Visited on this day' else lastVisitLabel(c),
+                if (c['city'] != null) '${c['city']}',
+                // Two people may call on the same shop; this only says so.
+                if ((c['also_planned_by'] as List?)?.isNotEmpty == true)
+                  'also planned by ${(c['also_planned_by'] as List).join(', ')}',
+              ].join(' · ')),
+            ),
+        ],
+      ),
     );
   }
 
@@ -493,11 +743,16 @@ class _PlannedDaysScreenState extends State<PlannedDaysScreen> {
                         for (final d in byDate[date]!)
                           Card(
                             child: ListTile(
-                              leading: const CircleAvatar(
-                                backgroundColor: Color(0xFFE8EFFF),
-                                child: Icon(Icons.route_rounded, color: AppColors.primary),
+                              leading: CircleAvatar(
+                                backgroundColor: const Color(0xFFE8EFFF),
+                                child: Icon(
+                                    d['beat'] == null
+                                        ? Icons.person_pin_circle_rounded
+                                        : Icons.route_rounded,
+                                    color: d['beat'] == null ? AppColors.purple : AppColors.primary),
                               ),
-                              title: Text('${(d['beat'] as Map?)?['name'] ?? ''}',
+                              // A day picked customer by customer has no route to name.
+                              title: Text('${(d['beat'] as Map?)?['name'] ?? 'Chosen customers'}',
                                   style: const TextStyle(fontWeight: FontWeight.w700)),
                               subtitle: Text([
                                 if (d['employee'] is Map && widget.member == 'team') (d['employee'] as Map)['name'],
