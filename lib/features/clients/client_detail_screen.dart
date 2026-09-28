@@ -340,6 +340,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         visit: _current!,
         note: _visitNote.text.trim(),
         photos: _visitPhotos,
+        stockDone: _stockDone,
       ),
     ));
     if (done == true && mounted) {

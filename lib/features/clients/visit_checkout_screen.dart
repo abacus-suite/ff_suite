@@ -32,6 +32,7 @@ class VisitCheckoutScreen extends StatefulWidget {
     required this.visit,
     this.note = '',
     this.photos = const [],
+    this.stockDone = false,
   });
 
   final Map<String, dynamic> visit;
@@ -40,6 +41,10 @@ class VisitCheckoutScreen extends StatefulWidget {
   /// only carries them to the server.
   final String note;
   final List<Uint8List> photos;
+
+  /// The stock was counted during this visit. Checked against the server too,
+  /// for a check-out reached from somewhere other than the customer's screen.
+  final bool stockDone;
 
   @override
   State<VisitCheckoutScreen> createState() => _VisitCheckoutScreenState();
@@ -91,6 +96,7 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
     _purpose = widget.visit['purpose'] as String?;
     _note.text = widget.note;
     _photos.addAll(widget.photos);
+    _stockDone = widget.stockDone;
     _load();
   }
 
@@ -119,6 +125,25 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
       _forms = (results[1] as List).cast<Map<String, dynamic>>();
       _loading = false;
     });
+    if (_needsStock && !_stockDone) await _checkStockTaken();
+  }
+
+  /// Was the stock counted during this visit? The count is saved to the server
+  /// the moment it is taken, so the server is the one that knows.
+  Future<void> _checkStockTaken() async {
+    try {
+      final last = await Services.api.get('/api/v1/stock/last', query: {'partner_id': _clientId})
+          as Map<String, dynamic>?;
+      final taken = parseServerTime(last?['date']);
+      final since = parseServerTime(widget.visit['check_in_at']);
+      if (taken == null || since == null) return;
+      // A minute's grace: the phone's clock and the server's are never quite level.
+      if (!taken.isBefore(since.subtract(const Duration(minutes: 1))) && mounted) {
+        setState(() => _stockDone = true);
+      }
+    } catch (_) {
+      // Only a convenience: the count button is still there to be pressed.
+    }
   }
 
   Future<void> _addPhoto() async {
