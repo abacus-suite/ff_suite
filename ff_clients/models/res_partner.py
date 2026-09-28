@@ -105,14 +105,20 @@ class ResPartner(models.Model):
         """
         employee = employee.sudo()
         categories = self.env['ff.contact.category'].ff_for_employee(employee)
+        # A contact that has never been through approval has no state at all -
+        # everything brought across from an older system is like that - and it
+        # is not pending anybody's decision, so it counts as settled.
         approval = [
-            '|', ('ff_approval_state', '=', 'approved'),
+            '|', '|', ('ff_approval_state', '=', 'approved'), ('ff_approval_state', '=', False),
             '&', ('ff_approval_state', '=', 'pending'), ('ff_created_by_employee_id', '=', employee.id),
         ]
         if self._ff_contact_access() != 'open':
             return [
                 ('ff_is_client', '=', True),
-                ('ff_category_id', 'in', categories.ids),
+                # Uncategorised contacts are shown too: an import arrives before
+                # anybody has said what each one is, and hiding them would hide
+                # the very list somebody has to work through to say so.
+                '|', ('ff_category_id', 'in', categories.ids), ('ff_category_id', '=', False),
             ] + self._ff_ownership_domain(employee) + approval
 
         # Open access: every contact the company works with, whether or not a
