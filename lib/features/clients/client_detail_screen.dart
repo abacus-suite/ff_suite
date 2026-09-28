@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/format.dart';
@@ -9,7 +12,6 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/map.dart';
-import '../beat/plan_beat_screen.dart';
 import '../collections/collect_payment_screen.dart';
 import '../forms/form_fill_screen.dart';
 import '../orders/catalog_screen.dart';
@@ -44,6 +46,18 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   /// Where I am, drawn on the customer's map beside the shop.
   LatLng? _me;
 
+  /// Ticks the visit clock; runs only while checked in here.
+  Timer? _clock;
+
+  /// Watches the distance to the shop, for checking in and out by itself.
+  Timer? _watch;
+
+  /// Since when the person has been outside the fence. Null while they are inside.
+  DateTime? _awaySince;
+
+  /// One arrival check-in per screen: it should not keep retrying after a refusal.
+  bool _arriving = false;
+
   /// Demand, returns and payments only once checked in here (or when visits are not used at all).
   bool get _canAct => _atThisClient || !(Services.auth.profile?.feature('visits') ?? false);
 
@@ -59,6 +73,162 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     super.initState();
     _loadMe();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    _watch?.cancel();
+    super.dispose();
+  }
+
+  /// The clock runs while a visit is open here; the watcher, while arrival
+  /// check-in is switched on and this customer has a location to arrive at.
+  void _syncTimers() {
+    final profile = Services.auth.profile;
+    final located = _client?['lat'] != null && _client?['lng'] != null;
+    if (_atThisClient && _clock == null) {
+      _clock = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else if (!_atThisClient) {
+      _clock?.cancel();
+      _clock = null;
+    }
+    final wantWatch = located &&
+        (profile?.autoVisit ?? false) &&
+        (profile?.feature('visits') ?? false) &&
+        (_current == null || _atThisClient);
+    if (wantWatch && _watch == null) {
+      _watch = Timer.periodic(const Duration(seconds: 20), (_) => _watchFence());
+      _watchFence();
+    } else if (!wantWatch) {
+      _watch?.cancel();
+      _watch = null;
+      _awaySince = null;
+    }
+  }
+
+  /// Checks in on reaching the shop, and out once they have really left it.
+  ///
+  /// Leaving is judged with a margin and over time, so that a walk to the car
+  /// or one poor GPS fix does not end a visit somebody is still on. A visit
+  /// started by hand - an offsite one, say - is never closed this way: the app
+  /// only undoes what the app itself did.
+  Future<void> _watchFence() async {
+    final client = _client;
+    final profile = Services.auth.profile;
+    if (!mounted || client == null || profile == null) return;
+    final lat = (client['lat'] as num?)?.toDouble();
+    final lng = (client['lng'] as num?)?.toDouble();
+    if (lat == null || lng == null) return;
+    Position here;
+    try {
+      here = await currentPosition(recentOk: true);
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+    final away = Geolocator.distanceBetween(here.latitude, here.longitude, lat, lng);
+    setState(() => _me = LatLng(here.latitude, here.longitude));
+    final radius = ((client['geofence_radius'] as num?) ?? 150).toDouble();
+
+    if (_atThisClient) {
+      if (_current!['auto_start'] != true) return;
+      if (away <= radius + profile.autoVisitExitM) {
+        _awaySince = null;
+        return;
+      }
+      _awaySince ??= DateTime.now();
+      if (DateTime.now().difference(_awaySince!).inSeconds < profile.autoVisitLeaveSecs) return;
+      _awaySince = null;
+      if (await autoCheckOut(_current!) && mounted) {
+        showSnack(context, 'Checked out - you left ${client['name']}');
+        await _load();
+      }
+      return;
+    }
+    if (_current != null || _arriving || away > radius) return;
+    _arriving = true;
+    final visit = await autoCheckIn(client);
+    if (visit != null && mounted) {
+      showSnack(context, 'Checked in - you are at ${client['name']}');
+      await _load();
+    }
+  }
+
+  /// A visit the person asks for again on a chosen day: a note to themselves.
+  Future<void> _planVisit(Map<String, dynamic> c) async {
+    var day = DateUtils.dateOnly(DateTime.now().add(const Duration(days: 1)));
+    final reason = TextEditingController();
+    final planned = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => StatefulBuilder(
+        builder: (sheet, setSheet) => AlertDialog(
+          icon: const Icon(Icons.event_available_rounded, color: AppColors.purple, size: 34),
+          title: Text('Plan a visit to ${c['name']}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.calendar_month_rounded, color: AppColors.primary),
+                title: const Text('Day', style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
+                subtitle: Text(fmtDate(day),
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.text)),
+                trailing: const Icon(Icons.edit_calendar_rounded, size: 20),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: sheet,
+                    initialDate: day,
+                    firstDate: DateUtils.dateOnly(DateTime.now()),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (picked != null) setSheet(() => day = DateUtils.dateOnly(picked));
+                },
+              ),
+              const SizedBox(height: 4),
+              TextField(
+                controller: reason,
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Why go back?',
+                  hintText: 'e.g. owner away, collect payment next week',
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text('It waits for you as a task on that day.',
+                  style: TextStyle(fontSize: 12, color: AppColors.muted)),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(sheet, false), child: const Text('Cancel')),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(sheet, true),
+              icon: const Icon(Icons.check_rounded),
+              label: const Text('Plan it'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (planned != true || !mounted) return;
+    final why = reason.text.trim();
+    try {
+      await Services.api.post('/api/v1/tasks', {
+        'name': 'Visit ${c['name']}',
+        if (why.isNotEmpty) 'description': why,
+        'employee_id': Services.auth.profile!.employeeId,
+        'partner_id': c['id'],
+        'date_deadline': '${day.year.toString().padLeft(4, '0')}-'
+            '${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}',
+      });
+      if (mounted) showSnack(context, 'Planned for ${fmtDate(day)}');
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+    }
   }
 
   Future<List<Map<String, dynamic>>> _formsFor(String trigger, {int? visitId}) async {
@@ -116,6 +286,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         _steps = steps;
         _error = null;
       });
+      _syncTimers();
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -408,21 +579,15 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         AppColors.primary,
         lat == null || lng == null ? null : () => openDirections(lat, lng)
       ),
-      // Checking in is the thing people reach for at the shop, so it sits here.
+      (Icons.event_available_rounded, 'Plan Visit', AppColors.purple, () => _planVisit(c)),
+      // Checking in and out lives here now; there is no second button below.
       if (profile.feature('visits'))
         (
           _atThisClient ? Icons.logout_rounded : Icons.login_rounded,
           _atThisClient ? 'Check Out' : 'Check In',
           _atThisClient ? AppColors.danger : AppColors.warning,
-          _busy ? null : (_atThisClient ? _checkOut : _checkIn)
+          _busy || (_current != null && !_atThisClient) ? null : (_atThisClient ? _checkOut : _checkIn)
         ),
-      (
-        Icons.event_available_rounded,
-        'Plan Visit',
-        AppColors.purple,
-        () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => PlannedDaysScreen(start: DateUtils.dateOnly(DateTime.now()))))
-      ),
     ];
     return IntrinsicHeight(
       child: Row(
@@ -678,14 +843,24 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         const SizedBox(height: 12),
         _quickRow(c, profile),
         const SizedBox(height: 12),
+        if (_atThisClient) ...[
+          const SizedBox(height: 12),
+          _visitClock(),
+        ],
+        if (_current != null && !_atThisClient) ...[
+          const SizedBox(height: 12),
+          _elsewhereNote(),
+        ],
+        const SizedBox(height: 12),
         _locationCard(c, lat, lng, distance),
-        const SizedBox(height: 10),
-        ClientBalanceCard(clientId: widget.clientId),
-        const SizedBox(height: 10),
-        if (profile.feature('visits')) _visitAction(),
+        // A lead owes us nothing yet, so an empty balance card is only noise.
+        if (c['category_type'] != 'lead') ...[
+          const SizedBox(height: 12),
+          ClientBalanceCard(clientId: widget.clientId),
+        ],
         // Checked in at another customer: nothing to take here until they check out there.
         if (profile.feature('orders') && _canAct && c['allow_orders'] != false && c['approval_state'] == 'approved') ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => _takeOrder(c),
             icon: const Icon(Icons.shopping_cart_rounded),
@@ -807,25 +982,111 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     );
   }
 
-  Widget _visitAction() {
-    final current = _current;
-    if (_atThisClient) {
-      return GradientButton(
-        label: 'Check out (since ${fmtTime(current!['check_in_at'])})',
-        icon: Icons.logout_rounded,
-        gradient: AppColors.dangerGradient,
-        onPressed: _checkOut,
-      );
-    }
-    if (current != null) {
-      return Card(
-        child: ListTile(
-          leading: const Icon(Icons.warning_amber_rounded, color: AppColors.warning),
-          title: Text('You are checked in at ${(current['client'] as Map)['name']}'),
-          subtitle: const Text('Check out there first.'),
+  /// How long this visit has been running, counted live.
+  ///
+  /// Time at the customer is what the visit is measured by, so it is shown
+  /// counting rather than left to be worked out from a check-in time.
+  Widget _visitClock() {
+    final started = parseServerTime(_current!['check_in_at']) ?? DateTime.now();
+    final spent = DateTime.now().difference(started);
+    final auto = _current!['auto_start'] == true;
+    String two(int value) => value.toString().padLeft(2, '0');
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        gradient: AppColors.successGradient,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.success.withValues(alpha: 0.28),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), shape: BoxShape.circle),
+            child: const Icon(Icons.timer_rounded, color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Time at this customer',
+                    style: TextStyle(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(
+                  '${two(spent.inHours)}:${two(spent.inMinutes % 60)}:${two(spent.inSeconds % 60)}',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 27,
+                      fontWeight: FontWeight.w900,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                      height: 1.05),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  auto
+                      ? 'Started on arrival at ${fmtTime(_current!['check_in_at'])} - it closes when you leave'
+                      : 'Since ${fmtTime(_current!['check_in_at'])}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 11.5),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: _checkOut,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.logout_rounded, size: 17, color: AppColors.success),
+                    SizedBox(width: 6),
+                    Text('Check out',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.success)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Checked in somewhere else: say where, so the greyed-out buttons make sense.
+  Widget _elsewhereNote() => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'You are checked in at ${(_current!['client'] as Map)['name']}. '
+                'Check out there before working here.',
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
         ),
       );
-    }
-    return GradientButton(label: 'Check in', icon: Icons.login_rounded, busy: _busy, onPressed: _checkIn);
-  }
 }

@@ -23,6 +23,9 @@ class Profile {
     this.punchOdometer = false,
     required this.allowMock,
     required this.trackingEnabled,
+    required this.autoVisit,
+    required this.autoVisitExitM,
+    required this.autoVisitLeaveSecs,
     required this.visitLock,
     required this.visitSteps,
     required this.stockCount,
@@ -77,6 +80,15 @@ class Profile {
   final bool punchOdometer;
   final bool allowMock;
   final bool trackingEnabled;
+  /// Reaching a customer starts the visit by itself, and leaving ends it.
+  final bool autoVisit;
+
+  /// Metres past the geofence before the app counts the person as gone.
+  final int autoVisitExitM;
+
+  /// How long they must stay away before the visit closes on its own.
+  final int autoVisitLeaveSecs;
+
   final bool visitLock;
   final bool visitSteps;
   final bool stockCount;
@@ -152,6 +164,9 @@ class Profile {
       punchOdometer: settings['punch_odometer'] == true,
       allowMock: settings['allow_mock'] == true,
       trackingEnabled: employee['tracking_enabled'] != false,
+      autoVisit: settings['auto_visit'] == true,
+      autoVisitExitM: (settings['auto_visit_exit_m'] as num? ?? 60).toInt(),
+      autoVisitLeaveSecs: (settings['auto_visit_leave_secs'] as num? ?? 90).toInt(),
       visitLock: settings['visit_lock'] == true,
       visitSteps: settings['visit_steps'] == true,
       stockCount: settings['stock_count'] == true,

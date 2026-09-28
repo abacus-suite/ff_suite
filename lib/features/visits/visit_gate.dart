@@ -111,6 +111,58 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
   }
 }
 
+/// Checks in at a customer the person has just walked up to, without asking.
+///
+/// Only called from inside the geofence, so there is no offsite question to
+/// put and nothing to confirm: they are at the shop, and the visit starts.
+/// Anything in the way - no attendance, no GPS, somebody else's visit still
+/// open - simply leaves the visit unstarted, to be tapped by hand as before.
+Future<Map<String, dynamic>?> autoCheckIn(Map<String, dynamic> client) async {
+  try {
+    final current = await Services.api.get('/api/v1/visits/current') as Map<String, dynamic>?;
+    if (current != null) return null;
+    if (Services.auth.profile!.feature('attendance')) {
+      final status = await Services.api.get('/api/v1/attendance/status') as Map<String, dynamic>;
+      if (status['punched_in'] != true) return null;
+    }
+    final pos = await currentPosition(recentOk: true);
+    final result = await Services.api.post('/api/v1/visits/check-in', {
+      'partner_id': client['id'],
+      'lat': pos.latitude,
+      'lng': pos.longitude,
+      'accuracy': pos.accuracy,
+      'mock': pos.isMocked,
+      'auto': true,
+      'uuid': const Uuid().v4(),
+      'device_time': DateTime.now().toUtc().toIso8601String(),
+    }) as Map<String, dynamic>;
+    Services.refresh.value++;
+    return result;
+  } catch (_) {
+    // Arrival check-in is a convenience: when it cannot happen, the button still can.
+    return null;
+  }
+}
+
+/// Closes a visit the app started on arrival, once the person has left.
+Future<bool> autoCheckOut(Map<String, dynamic> visit) async {
+  try {
+    final pos = await lastKnownPosition();
+    await Services.api.post('/api/v1/visits/check-out', {
+      'auto': true,
+      if (visit['id'] != null) 'visit_id': visit['id'],
+      if (visit['uuid'] != null) 'visit_uuid': visit['uuid'],
+      if (pos != null) 'lat': pos.latitude,
+      if (pos != null) 'lng': pos.longitude,
+      'device_time': DateTime.now().toUtc().toIso8601String(),
+    });
+    Services.refresh.value++;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 Future<Map<String, dynamic>> _checkIn(
     BuildContext context, Map<String, dynamic> payload, Map<String, dynamic> client) async {
   final result = await Services.outbox.submit('/api/v1/visits/check-in', payload, label: 'Check in · ${client['name']}');
