@@ -14,6 +14,33 @@ import '../core/theme.dart';
 /// the way the office gets Google's roads and shop names without a bill. It is
 /// used when the office chose "Google map inside the app" and a key was built
 /// into this app; everything else falls back to the free tiled map.
+/// Where the map is looking: the zoom, the middle, and the corners.
+class MapView {
+  const MapView({
+    required this.zoom,
+    required this.centre,
+    required this.south,
+    required this.west,
+    required this.north,
+    required this.east,
+  });
+
+  final double zoom;
+  final LatLng centre;
+  final double south, west, north, east;
+
+  /// Is this point on screen? Grown by a margin, so a bubble just off the edge
+  /// is still counted and the map does not flicker as it is nudged about.
+  bool holds(double lat, double lng, {double margin = 0.25}) {
+    final padLat = (north - south).abs() * margin;
+    final padLng = (east - west).abs() * margin;
+    if (lat < south - padLat || lat > north + padLat) return false;
+    // The date line: west is greater than east only when the view crosses it.
+    if (west <= east) return lng >= west - padLng && lng <= east + padLng;
+    return lng >= west - padLng || lng <= east + padLng;
+  }
+}
+
 class SdkMap extends StatefulWidget {
   const SdkMap({
     super.key,
@@ -42,8 +69,9 @@ class SdkMap extends StatefulWidget {
   final double circleMetres;
   final bool interactive;
 
-  /// Called with the zoom once the map settles, so bubbles can regroup.
-  final void Function(double zoom, LatLng centre)? onCameraIdle;
+  /// Called once the map settles, so bubbles can regroup around what is on
+  /// screen. Nothing off screen needs grouping: it is not being looked at.
+  final void Function(MapView view)? onCameraIdle;
 
   /// Whether this build of the app can draw Google's map at all.
   static bool get available =>
@@ -102,14 +130,39 @@ class _SdkMapState extends State<SdkMap> {
   void didUpdateWidget(SdkMap old) {
     super.didUpdateWidget(old);
     if (old.pins != widget.pins) _drawPins();
+    // A tap on a bubble asks for a closer look by raising the zoom.
+    if ((widget.zoom - old.zoom).abs() > 0.4) {
+      _controller?.animateCamera(g.CameraUpdate.newLatLngZoom(
+        g.LatLng((widget.centre ?? old.centre ?? const LatLng(0, 0)).latitude,
+            (widget.centre ?? old.centre ?? const LatLng(0, 0)).longitude),
+        widget.zoom,
+      ));
+    }
+  }
+
+  /// Drawn icons, kept by what they look like. Panning a map of thousands of
+  /// customers redraws the same handful of bubbles over and over otherwise,
+  /// and each one is a canvas and an image encode.
+  final Map<String, g.BitmapDescriptor> _icons = {};
+
+  Future<g.BitmapDescriptor> _icon(SdkPin pin) async {
+    final key = pin.count > 1
+        ? 'b${pin.count}:${pin.colour.toARGB32()}'
+        : 'p${pin.colour.toARGB32()}:${pin.label ?? ''}';
+    final known = _icons[key];
+    if (known != null) return known;
+    final drawn = pin.count > 1
+        ? await _bubbleIcon(pin.count, pin.colour)
+        : await _pinIcon(pin.colour, pin.label);
+    // A label is a customer's name, so the cache would grow with the database.
+    if (pin.count > 1 || pin.label == null || _icons.length < 400) _icons[key] = drawn;
+    return drawn;
   }
 
   Future<void> _drawPins() async {
     final markers = <g.Marker>{};
     for (final pin in widget.pins) {
-      final icon = pin.count > 1
-          ? await _bubbleIcon(pin.count, pin.colour)
-          : await _pinIcon(pin.colour, pin.label);
+      final icon = await _icon(pin);
       markers.add(g.Marker(
         markerId: g.MarkerId(pin.id),
         position: g.LatLng(pin.point.latitude, pin.point.longitude),
@@ -303,7 +356,14 @@ class _SdkMapState extends State<SdkMap> {
           (bounds.northeast.latitude + bounds.southwest.latitude) / 2,
           (bounds.northeast.longitude + bounds.southwest.longitude) / 2,
         );
-        widget.onCameraIdle!(zoom, middle);
+        widget.onCameraIdle!(MapView(
+          zoom: zoom,
+          centre: middle,
+          south: bounds.southwest.latitude,
+          west: bounds.southwest.longitude,
+          north: bounds.northeast.latitude,
+          east: bounds.northeast.longitude,
+        ));
       },
     );
   }

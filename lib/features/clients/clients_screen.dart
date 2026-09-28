@@ -49,6 +49,23 @@ class _ClientsScreenState extends State<ClientsScreen> {
   final MapController _mapController = MapController();
   double _zoom = 12;
 
+  /// Every located contact, as points. The list is paged; the map is not, or
+  /// it would be a map of the first page rather than of the customers.
+  List<Map<String, dynamic>> _points = [];
+  bool _pointsLoading = false;
+
+  /// Where the map is looking, so only what is on screen has to be grouped.
+  MapView? _view;
+
+  /// Where to put the map next, when a tap on a bubble asks for a closer look.
+  LatLng? _centre;
+
+  /// The last grouping, kept until the zoom step or the view really changes:
+  /// regrouping nine thousand points on every frame of a pinch is what made
+  /// the map crawl.
+  List<MapCluster> _clusters = const [];
+  String _clusterKey = '';
+
   String get _clientLabel => Services.auth.profile!.label('client', 'Client');
 
   @override
@@ -64,6 +81,29 @@ class _ClientsScreenState extends State<ClientsScreen> {
     _mapController.dispose();
     _search.dispose();
     super.dispose();
+  }
+
+  /// The map's own fetch: id, name and a coordinate, for everything visible.
+  Future<void> _loadPoints() async {
+    if (_pointsLoading) return;
+    setState(() => _pointsLoading = true);
+    try {
+      final query = <String, dynamic>{};
+      final q = _search.text.trim();
+      if (q.isNotEmpty) query['q'] = q;
+      if (_categoryId != null) query['category_id'] = _categoryId;
+      if (_member != 'me') query['member'] = _member;
+      final data = await Services.api.get('/api/v1/clients/map', query: query) as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _points = ((data['points'] as List?) ?? []).cast<Map<String, dynamic>>();
+        _clusterKey = '';
+      });
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _pointsLoading = false);
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -102,6 +142,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
         _counts = (data['counts'] as Map?)?.cast<String, dynamic>() ?? const {};
         _sortClients();
       });
+      // The map shows the same filter, so its points are refetched with the list.
+      if (_showMap) unawaited(_loadPoints());
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -112,6 +154,17 @@ class _ClientsScreenState extends State<ClientsScreen> {
   void _onSearch(String _) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 400), _load);
+  }
+
+  /// A map point holds only an id and a name, so it is opened by id.
+  Future<void> _openPoint(Map<String, dynamic> point) async {
+    if (widget.pickMode) {
+      Navigator.of(context).pop(point);
+      return;
+    }
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => ClientDetailScreen(clientId: point['id'] as int)));
+    _load();
   }
 
   Future<void> _open(Map<String, dynamic> client) async {
@@ -463,7 +516,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
               children: [
                 _viewButton(Icons.format_list_bulleted_rounded, 'List', !_showMap,
                     () => setState(() => _showMap = false)),
-                _viewButton(Icons.map_rounded, 'Map', _showMap, () => setState(() => _showMap = true)),
+                _viewButton(Icons.map_rounded, 'Map', _showMap, () { setState(() => _showMap = true); if (_points.isEmpty) _loadPoints(); }),
               ],
             ),
           ),
@@ -514,15 +567,42 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
+  /// What to draw right now: the points on screen, grouped for this zoom.
+  ///
+  /// Worked out once per view rather than per frame. Grouping is cheap, but
+  /// nine thousand points times sixty frames a second is not, and the bubbles
+  /// only ever change when the zoom step or the view does.
+  List<MapCluster> _visibleClusters() {
+    final view = _view;
+    final step = _zoom.round();
+    final key = view == null
+        ? 'all:$step:${_points.length}'
+        : '$step:${view.south.toStringAsFixed(2)}:${view.west.toStringAsFixed(2)}:'
+            '${view.north.toStringAsFixed(2)}:${view.east.toStringAsFixed(2)}:${_points.length}';
+    if (key == _clusterKey) return _clusters;
+    final inView = view == null
+        ? _points
+        : _points
+            .where((p) => view.holds((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble()))
+            .toList();
+    _clusters = clusterPoints(inView, step.toDouble());
+    _clusterKey = key;
+    return _clusters;
+  }
+
   Widget _map() {
-    final located = _clients.where((c) => c['lat'] != null).toList();
+    final located = _points.isNotEmpty
+        ? _points
+        : _clients.where((c) => c['lat'] != null).toList();
     if (located.isEmpty && _me == null) {
-      return const EmptyView(icon: Icons.location_off_rounded, text: 'No contacts with a GPS location');
+      return _pointsLoading
+          ? const Center(child: CircularProgressIndicator())
+          : const EmptyView(icon: Icons.location_off_rounded, text: 'No contacts with a GPS location');
     }
-    final centre =
-        _me ?? LatLng((located.first['lat'] as num).toDouble(), (located.first['lng'] as num).toDouble());
-    // Far out the pins gather into counted bubbles; zooming in breaks them apart.
-    final clusters = clusterPoints(located, _zoom);
+    final centre = _centre ??
+        _me ??
+        LatLng((located.first['lat'] as num).toDouble(), (located.first['lng'] as num).toDouble());
+    final clusters = _visibleClusters();
     if (SdkMap.available) {
       // Google's own map, drawn by the phone: no charge, and the roads people know.
       return Stack(
@@ -531,24 +611,47 @@ class _ClientsScreenState extends State<ClientsScreen> {
             centre: centre,
             zoom: _zoom,
             myLocation: _me,
-            onCameraIdle: (zoom, _) {
-              if ((zoom - _zoom).abs() > 0.15 && mounted) setState(() => _zoom = zoom);
+            onCameraIdle: (view) {
+              if (!mounted) return;
+              // Redraw only when the bubbles could actually differ.
+              final moved = _view == null ||
+                  (view.zoom.round() != _zoom.round()) ||
+                  ((view.centre.latitude - _view!.centre.latitude).abs() >
+                      (view.north - view.south).abs() * 0.25) ||
+                  ((view.centre.longitude - _view!.centre.longitude).abs() >
+                      (view.east - view.west).abs() * 0.25);
+              if (!moved) return;
+              setState(() {
+                _view = view;
+                _zoom = view.zoom;
+              });
             },
             pins: [
-              for (final (i, cluster) in clusters.indexed)
+              for (final cluster in clusters)
                 SdkPin(
-                  id: 'c$i-${cluster.items.length}-${cluster.centre.latitude}',
+                  // Steady ids: a bubble that has not changed is not redrawn.
+                  id: '${cluster.centre.latitude.toStringAsFixed(4)},'
+                      '${cluster.centre.longitude.toStringAsFixed(4)}x${cluster.items.length}',
                   point: cluster.centre,
                   count: cluster.items.length,
                   label: cluster.isSingle ? '${cluster.items.first['name']}' : null,
                   colour: cluster.isSingle && cluster.items.first['approval_state'] != 'approved'
                       ? AppColors.warning
                       : AppColors.primary,
-                  onTap: () => cluster.isSingle ? _open(cluster.items.first) : _openCluster(cluster),
+                  onTap: () => cluster.isSingle ? _openPoint(cluster.items.first) : _openCluster(cluster),
                 ),
             ],
           ),
           _mapCount(located.length, google: true),
+          if (_pointsLoading)
+            const Positioned(
+              top: 10,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
+              ),
+            ),
         ],
       );
     }
@@ -644,10 +747,15 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   /// Zoom into a bubble; when it holds customers at one spot, list them instead.
   void _openCluster(MapCluster cluster) {
-    final camera = _mapController.camera;
-    if (camera.zoom < 16) {
-      _mapController.move(cluster.centre, math.min(camera.zoom + 2.5, 17));
-      setState(() => _zoom = math.min(camera.zoom + 2.5, 17));
+    // Far out, a bubble means "look closer here" rather than "list these".
+    if (_zoom < 15.5) {
+      final closer = math.min(_zoom + 2.5, 17.0);
+      if (!SdkMap.available) _mapController.move(cluster.centre, closer);
+      setState(() {
+        _zoom = closer;
+        _centre = cluster.centre;
+        _clusterKey = '';
+      });
       return;
     }
     showModalBottomSheet<void>(
@@ -663,12 +771,26 @@ class _ClientsScreenState extends State<ClientsScreen> {
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
             ),
             for (final client in cluster.items)
-              ClientTile(
-                  client: client,
+              if (client.containsKey('category'))
+                ClientTile(
+                    client: client,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _open(client);
+                    })
+              else
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE8EFFF),
+                    child: Icon(Icons.storefront_rounded, color: AppColors.primary),
+                  ),
+                  title: Text('${client['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
                     Navigator.of(context).pop();
-                    _open(client);
-                  }),
+                    _openPoint(client);
+                  },
+                ),
           ],
         ),
       ),
