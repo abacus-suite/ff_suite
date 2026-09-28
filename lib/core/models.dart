@@ -65,7 +65,7 @@ class Profile {
   /// Key set in Odoo settings; empty means the app uses the free basemap.
   final String googleMapsKey;
 
-  /// 'google' (paid tiles, needs the key) or 'open' (free CARTO / OpenStreetMap tiles).
+  /// 'google' (paid tiles, needs the key) or 'open' (free OpenStreetMap tiles).
   final String mapProvider;
 
   /// 'direct' books a sale order at the outlet; 'demand' collects demand for

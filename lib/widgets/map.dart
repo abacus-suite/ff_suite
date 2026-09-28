@@ -9,18 +9,19 @@ import '../core/map_usage.dart';
 import '../core/services.dart';
 import '../core/theme.dart';
 
-/// CARTO basemaps: the clean, label-light look people know from Google Maps,
-/// free to use with attribution and no API key.
-const _voyagerTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-const _darkTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png';
-const _subdomains = ['a', 'b', 'c', 'd'];
+/// OpenStreetMap's own tiles: free, no API key, no account.
+///
+/// CARTO's free basemaps started asking for a key and stamped "API KEY
+/// REQUIRED" across the map, so the basemap is OpenStreetMap itself. There is
+/// no dark version of it, so dark mode darkens these tiles as they are drawn.
+const _openTiles = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const mapUserAgent = 'com.abs.fieldforce';
 
 /// Kept for anything that still asks for a raw tile URL.
-const osmTiles = _voyagerTiles;
+const osmTiles = _openTiles;
 
 /// The basemap: Google's own tiles when the office has set a key in Odoo,
-/// otherwise the free CARTO basemap.
+/// otherwise OpenStreetMap's free tiles.
 class BaseMapLayer extends StatefulWidget {
   const BaseMapLayer({super.key});
 
@@ -48,9 +49,10 @@ class _BaseMapLayerState extends State<BaseMapLayer> {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final google = _googleUrl;
     return TileLayer(
-      urlTemplate: google ?? (dark ? _darkTiles : _voyagerTiles),
-      subdomains: google == null ? _subdomains : const [],
-      retinaMode: google == null && RetinaMode.isHighDensity(context),
+      urlTemplate: google ?? _openTiles,
+      retinaMode: google != null && RetinaMode.isHighDensity(context),
+      // Google's tiles are already dark when asked; OpenStreetMap's are darkened here.
+      tileBuilder: dark && google == null ? darkModeTileBuilder : null,
       userAgentPackageName: mapUserAgent,
       // Google bills per tile, so count only the tiles that come from Google.
       tileProvider: google == null ? NetworkTileProvider() : CountingTileProvider(),
@@ -58,8 +60,8 @@ class _BaseMapLayerState extends State<BaseMapLayer> {
   }
 }
 
-/// Google asks for its name on the map; OpenStreetMap and CARTO ask for theirs.
-String mapCredit() => Services.googleTiles.available ? 'Google' : '© OpenStreetMap · CARTO';
+/// Google asks for its name on the map; OpenStreetMap asks for its own.
+String mapCredit() => Services.googleTiles.available ? 'Google' : '© OpenStreetMap';
 
 /// A map with the basemap, attribution and the controls people expect:
 /// zoom buttons and a recentre button.
