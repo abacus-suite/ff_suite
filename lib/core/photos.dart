@@ -171,7 +171,7 @@ Future<img.Image?> _mapThumb(double lat, double lng) async {
     final latRad = lat * math.pi / 180.0;
     final y = ((1 - (math.log(math.tan(latRad) + 1 / math.cos(latRad)) / math.pi)) / 2 * n).floor();
     final bytes = await TileCache.get(
-      'https://a.basemaps.cartocdn.com/rastertiles/voyager/$zoom/$x/$y.png',
+      'https://tile.openstreetmap.org/$zoom/$x/$y.png',
       paid: false,
     );
     return img.decodeImage(bytes);
