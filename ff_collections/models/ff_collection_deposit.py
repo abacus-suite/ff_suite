@@ -28,6 +28,9 @@ class FfCollectionDeposit(models.Model):
         ('received', 'Received'),
         ('rejected', 'Rejected'),
     ], default='submitted', required=True, index=True, tracking=True)
+    payment_ids = fields.Many2many('account.payment', string='Payments',
+                                   compute='_compute_payments', help='Posted when the money was received.')
+    payment_count = fields.Integer(compute='_compute_payments')
     client_uuid = fields.Char(index=True, copy=False)
 
     _client_uuid_uniq = models.Constraint('UNIQUE(client_uuid)', 'This deposit was already received.')
@@ -37,6 +40,36 @@ class FfCollectionDeposit(models.Model):
         for deposit in self:
             deposit.amount = sum(deposit.collection_ids.mapped('amount'))
             deposit.collection_count = len(deposit.collection_ids)
+
+    @api.depends('collection_ids.payment_id')
+    def _compute_payments(self):
+        for deposit in self:
+            payments = deposit.collection_ids.payment_id
+            deposit.payment_ids = payments
+            deposit.payment_count = len(payments)
+
+    def action_open_payments(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': self.env._('Payments'),
+            'res_model': 'account.payment',
+            'domain': [('id', 'in', self.payment_ids.ids)],
+            'view_mode': 'list,form',
+        }
+
+    def action_receive_money(self):
+        """Receiving opens the payment form: the money is posted as it is taken in."""
+        self.ensure_one()
+        self._ff_check_approver()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': self.env._('Receive Money'),
+            'res_model': 'ff.deposit.payment',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'active_id': self.id, 'active_model': self._name, 'default_deposit_id': self.id},
+        }
 
     @api.model_create_multi
     def create(self, vals_list):

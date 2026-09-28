@@ -7,3 +7,5 @@ access_ff_collection_admin,ff.collection admin,model_ff_collection,ff_base.group
 access_ff_collection_deposit_officer,ff.collection.deposit officer,model_ff_collection_deposit,ff_base.group_ff_officer,1,0,0,0
 access_ff_collection_deposit_manager,ff.collection.deposit manager,model_ff_collection_deposit,ff_base.group_ff_manager,1,1,1,0
 access_ff_collection_deposit_admin,ff.collection.deposit admin,model_ff_collection_deposit,ff_base.group_ff_admin,1,1,1,1
+access_ff_deposit_payment_manager,ff.deposit.payment manager,model_ff_deposit_payment,ff_base.group_ff_manager,1,1,1,1
+access_ff_deposit_payment_admin,ff.deposit.payment admin,model_ff_deposit_payment,ff_base.group_ff_admin,1,1,1,1
