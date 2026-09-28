@@ -81,6 +81,14 @@ def client_domain(employee, member=None):
     # Customers on the routes these people work, or planned for one of their
     # days, belong in the list even when nobody assigned them by name.
     extra = _route_partner_ids(people)
+    Partner = request.env['res.partner']
+    if Partner._ff_contact_access() == 'open':
+        # The office shares the contacts: everybody's list is the company's list,
+        # narrowed only when somebody is picked out of the team.
+        domain = Partner._ff_visible_domain(employee)
+        if member not in ('team', 'me'):
+            domain = domain + [('ff_employee_ids', 'in', people.ids)]
+        return domain
     if employee.ff_access_scope == 'all':
         domain = [('ff_is_client', '=', True), ('ff_approval_state', '!=', 'rejected')]
         # Somebody who sees everything only narrows down when they pick a person.
