@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_visit_view_form_steps" model="ir.ui.view">
+        <field name="name">ff.visit.form.steps</field>
+        <field name="model">ff.visit</field>
+        <field name="inherit_id" ref="ff_visits.ff_visit_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='note']" position="before">
+                <separator string="Steps" invisible="not step_record_ids"/>
+                <field name="step_record_ids" readonly="1" invisible="not step_record_ids">
+                    <list>
+                        <field name="sequence" optional="hide"/>
+                        <field name="step_id"/>
+                        <field name="step_type"/>
+                        <field name="state" widget="badge"
+                               decoration-success="state == 'done'" decoration-warning="state == 'skipped'"/>
+                        <field name="note"/>
+                        <field name="skip_reason"/>
+                        <field name="done_at"/>
+                    </list>
+                </field>
+                <separator string="Stock Counts" invisible="not stock_count_ids"/>
+                <field name="stock_count_ids" readonly="1" invisible="not stock_count_ids">
+                    <list>
+                        <field name="date"/>
+                        <field name="item_count"/>
+                    </list>
+                </field>
+            </xpath>
+        </field>
+    </record>
+</odoo>

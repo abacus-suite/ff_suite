@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_partner_view_form_ff_demand" model="ir.ui.view">
+        <field name="name">res.partner.form.ff_demand</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <field name="vat" position="after">
+                <field name="ff_is_distributor"/>
+                <field name="ff_distributor_id" invisible="ff_is_distributor"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="ff_distributor_action" model="ir.actions.act_window">
+        <field name="name">Distributors</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('ff_is_distributor', '=', True)]</field>
+        <field name="context">{'default_ff_is_distributor': True}</field>
+    </record>
+</odoo>

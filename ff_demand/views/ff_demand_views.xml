@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_demand_view_list" model="ir.ui.view">
+        <field name="name">ff.demand.list</field>
+        <field name="model">ff.demand</field>
+        <field name="arch" type="xml">
+            <list decoration-warning="state == 'partial'" decoration-muted="state == 'cancelled'"
+                  decoration-success="state == 'supplied'">
+                <field name="name"/>
+                <field name="date"/>
+                <field name="employee_id"/>
+                <field name="partner_id"/>
+                <field name="route_id" optional="show"/>
+                <field name="distributor_id"/>
+                <field name="quantity_total" sum="Units"/>
+                <field name="amount_total" sum="Demand Value"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="quoted_ratio" widget="percentage" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'submitted'"
+                       decoration-warning="state == 'partial'"
+                       decoration-success="state in ('quoted', 'supplied')"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_demand_view_form" model="ir.ui.view">
+        <field name="name">ff.demand.form</field>
+        <field name="model">ff.demand</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="%(ff_demand_quotation_action)d" type="action" string="Create Distributor Quotation"
+                            class="btn-primary" context="{'active_ids': [id]}"
+                            invisible="state in ('cancelled', 'supplied')"
+                            groups="ff_base.group_ff_manager"/>
+                    <button name="action_cancel" type="object" string="Cancel"
+                            invisible="state in ('cancelled', 'supplied')" groups="ff_base.group_ff_manager"/>
+                    <button name="action_reset" type="object" string="Reset to Submitted"
+                            invisible="state != 'cancelled'" groups="ff_base.group_ff_manager"/>
+                    <field name="state" widget="statusbar" statusbar_visible="submitted,quoted,supplied"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_orders" type="object" class="oe_stat_button" icon="fa-file-text-o"
+                                invisible="order_count == 0">
+                            <field name="order_count" widget="statinfo" string="Quotations"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="employee_id"/>
+                            <field name="route_id"/>
+                            <field name="district_id"/>
+                        </group>
+                        <group>
+                            <field name="distributor_id"/>
+                            <field name="date"/>
+                            <field name="visit_id"/>
+                            <field name="quoted_ratio" widget="percentage"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <field name="line_ids">
+                        <list editable="bottom">
+                            <field name="product_id"/>
+                            <field name="quantity"/>
+                            <field name="uom_id"/>
+                            <field name="price_unit"/>
+                            <field name="subtotal" sum="Total"/>
+                            <field name="quoted_quantity" readonly="1"/>
+                            <field name="currency_id" column_invisible="1"/>
+                        </list>
+                    </field>
+                    <group class="oe_subtotal_footer">
+                        <field name="amount_total"/>
+                    </group>
+                    <field name="note" placeholder="What the outlet said..."/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_demand_view_search" model="ir.ui.view">
+        <field name="name">ff.demand.search</field>
+        <field name="model">ff.demand</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="employee_id"/>
+                <field name="distributor_id"/>
+                <field name="route_id"/>
+                <filter name="to_quote" string="To Quote" domain="[('state', 'in', ['submitted', 'partial'])]"/>
+                <filter name="no_distributor" string="No Distributor" domain="[('distributor_id', '=', False)]"/>
+                <filter name="quoted" string="Quoted" domain="[('state', '=', 'quoted')]"/>
+                <filter name="supplied" string="Supplied" domain="[('state', '=', 'supplied')]"/>
+                <filter name="date" string="Date" date="date"/>
+                <group>
+                    <filter name="group_distributor" string="Distributor" context="{'group_by': 'distributor_id'}"/>
+                    <filter name="group_route" string="Route" context="{'group_by': 'route_id'}"/>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_demand_view_pivot" model="ir.ui.view">
+        <field name="name">ff.demand.line.pivot</field>
+        <field name="model">ff.demand.line</field>
+        <field name="arch" type="xml">
+            <pivot string="Demand by Product">
+                <field name="product_id" type="row"/>
+                <field name="distributor_id" type="col"/>
+                <field name="quantity" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="ff_demand_line_view_list" model="ir.ui.view">
+        <field name="name">ff.demand.line.list</field>
+        <field name="model">ff.demand.line</field>
+        <field name="arch" type="xml">
+            <list create="0">
+                <field name="date"/>
+                <field name="partner_id"/>
+                <field name="product_id"/>
+                <field name="quantity" sum="Demanded"/>
+                <field name="quoted_quantity" sum="Quoted"/>
+                <field name="distributor_id"/>
+                <field name="employee_id" optional="hide"/>
+                <field name="state" widget="badge"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_demand_action" model="ir.actions.act_window">
+        <field name="name">Demands</field>
+        <field name="res_model">ff.demand</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_to_quote': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No demand yet</p>
+            <p>When the order flow is set to demand, every order the field takes at an outlet
+               lands here. Select several and raise one quotation per distributor.</p>
+        </field>
+    </record>
+
+    <record id="ff_demand_line_action" model="ir.actions.act_window">
+        <field name="name">Demand by Product</field>
+        <field name="res_model">ff.demand.line</field>
+        <field name="view_mode">pivot,list</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'pivot', 'view_id': ref('ff_demand_view_pivot')}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('ff_demand_line_view_list')})]"/>
+    </record>
+</odoo>

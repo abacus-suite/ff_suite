@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_allowance_policy_officer,ff.allowance.policy officer,model_ff_allowance_policy,ff_base.group_ff_officer,1,0,0,0
+access_ff_allowance_policy_admin,ff.allowance.policy admin,model_ff_allowance_policy,ff_base.group_ff_admin,1,1,1,1
+access_ff_allowance_claim_officer,ff.allowance.claim officer,model_ff_allowance_claim,ff_base.group_ff_officer,1,0,0,0
+access_ff_allowance_claim_manager,ff.allowance.claim manager,model_ff_allowance_claim,ff_base.group_ff_manager,1,1,0,0
+access_ff_allowance_claim_admin,ff.allowance.claim admin,model_ff_allowance_claim,ff_base.group_ff_admin,1,1,1,1
+access_ff_allowance_claim_line_officer,ff.allowance.claim.line officer,model_ff_allowance_claim_line,ff_base.group_ff_officer,1,0,0,0
+access_ff_allowance_claim_line_admin,ff.allowance.claim.line admin,model_ff_allowance_claim_line,ff_base.group_ff_admin,1,1,1,1

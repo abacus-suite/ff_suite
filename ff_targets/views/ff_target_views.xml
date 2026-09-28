@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_target_view_list" model="ir.ui.view">
+        <field name="name">ff.target.list</field>
+        <field name="model">ff.target</field>
+        <field name="arch" type="xml">
+            <list decoration-success="achievement &gt;= 100" decoration-warning="achievement &lt; 50">
+                <field name="month" widget="date"/>
+                <field name="scope" widget="badge"/>
+                <field name="name"/>
+                <field name="parent_id" optional="show"/>
+                <field name="owner_id" optional="show" widget="many2one_avatar_employee"/>
+                <field name="visit_target"/>
+                <field name="visit_actual" optional="hide"/>
+                <field name="customer_target" optional="hide"/>
+                <field name="customer_actual" optional="hide"/>
+                <field name="sales_target"/>
+                <field name="sales_actual" optional="show"/>
+                <field name="collection_target"/>
+                <field name="collection_actual" optional="show"/>
+                <field name="achievement" widget="progressbar"/>
+                <field name="unallocated" optional="show"/>
+                <field name="incentive_earned" optional="show"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_target_view_form" model="ir.ui.view">
+        <field name="name">ff.target.form</field>
+        <field name="model">ff.target</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_open_split" type="object" string="Split This Target" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="month"/>
+                            <field name="scope"/>
+                            <field name="employee_id" invisible="scope != 'employee'" required="scope == 'employee'"/>
+                            <field name="team_id" invisible="scope not in ('team', 'employee')"
+                                   readonly="scope == 'employee'" required="scope == 'team'"/>
+                            <field name="department_id" invisible="scope not in ('department', 'employee')"
+                                   readonly="scope == 'employee'" required="scope == 'department'"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group>
+                            <field name="parent_id"/>
+                            <field name="owner_id"/>
+                            <field name="assigned_by_id" invisible="not assigned_by_id"/>
+                            <field name="achievement" widget="progressbar"/>
+                            <field name="unallocated" invisible="not unallocated"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group string="Target and done so far">
+                        <group>
+                            <field name="visit_target"/>
+                            <field name="customer_target"/>
+                            <field name="sales_target"/>
+                            <field name="collection_target"/>
+                        </group>
+                        <group>
+                            <field name="visit_actual"/>
+                            <field name="customer_actual"/>
+                            <field name="sales_actual"/>
+                            <field name="collection_actual"/>
+                        </group>
+                    </group>
+                    <group string="Incentive">
+                        <group>
+                            <field name="incentive_rule_id"/>
+                        </group>
+                        <group invisible="not incentive_rule_id">
+                            <field name="incentive_earned"/>
+                            <field name="incentive_status"/>
+                        </group>
+                    </group>
+                    <field name="child_ids" invisible="not child_ids" readonly="1">
+                        <list>
+                            <field name="scope" widget="badge"/>
+                            <field name="name"/>
+                            <field name="visit_target"/>
+                            <field name="sales_target"/>
+                            <field name="collection_target"/>
+                            <field name="achievement" widget="progressbar"/>
+                            <field name="currency_id" column_invisible="1"/>
+                        </list>
+                    </field>
+                    <field name="note" placeholder="Note"/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_target_view_search" model="ir.ui.view">
+        <field name="name">ff.target.search</field>
+        <field name="model">ff.target</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="team_id"/>
+                <field name="department_id"/>
+                <filter name="this_month" string="This Month"
+                        domain="[('month', '=', context_today().strftime('%Y-%m-01'))]"/>
+                <separator/>
+                <filter name="top" string="Top Level" domain="[('parent_id', '=', False)]"/>
+                <filter name="employees" string="Employees" domain="[('scope', '=', 'employee')]"/>
+                <group>
+                    <filter name="group_month" string="Month" context="{'group_by': 'month:month'}"/>
+                    <filter name="group_scope" string="Level" context="{'group_by': 'scope'}"/>
+                    <filter name="group_parent" string="Split From" context="{'group_by': 'parent_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_target_action" model="ir.actions.act_window">
+        <field name="name">Targets</field>
+        <field name="res_model">ff.target</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_this_month': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Set this month's targets</p>
+            <p>Give the company, a department, a team or a person a target. Open it and
+               press <b>Split This Target</b> to hand parts of it down; managers can keep
+               splitting from the app.</p>
+        </field>
+    </record>
+
+    <record id="ff_target_action_copy_next" model="ir.actions.server">
+        <field name="name">Copy to next month</field>
+        <field name="model_id" ref="model_ff_target"/>
+        <field name="binding_model_id" ref="model_ff_target"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_copy_to_next_month()</field>
+    </record>
+
+    <record id="ff_incentive_rule_view_list" model="ir.ui.view">
+        <field name="name">ff.incentive.rule.list</field>
+        <field name="model">ff.incentive.rule</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="condition"/>
+                <field name="threshold_pct"/>
+                <field name="amount"/>
+                <field name="sales_commission_pct" optional="show"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_incentive_rule_view_form" model="ir.ui.view">
+        <field name="name">ff.incentive.rule.form</field>
+        <field name="model">ff.incentive.rule</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" placeholder="e.g. Monthly bonus"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="condition" widget="radio"/>
+                            <field name="threshold_pct"/>
+                            <field name="cap_pct" invisible="condition != 'pro_rata'"/>
+                        </group>
+                        <group>
+                            <field name="amount" invisible="condition != 'all'"/>
+                            <field name="sales_commission_pct"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group string="Amount per target" invisible="condition == 'all'">
+                        <group>
+                            <field name="visit_amount"/>
+                            <field name="customer_amount"/>
+                        </group>
+                        <group>
+                            <field name="sales_amount"/>
+                            <field name="collection_amount"/>
+                        </group>
+                    </group>
+                    <field name="note" placeholder="How this incentive is explained to the team"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_incentive_rule_action" model="ir.actions.act_window">
+        <field name="name">Incentive Rules</field>
+        <field name="res_model">ff.incentive.rule</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_ff_targets_root" name="Targets" parent="ff_base.menu_ff_group_sales" sequence="50"/>
+    <menuitem id="menu_ff_targets" name="Targets" parent="menu_ff_targets_root" action="ff_target_action" sequence="10"/>
+    <menuitem id="menu_ff_incentive_rules" name="Incentive Rules" parent="menu_ff_targets_root"
+              action="ff_incentive_rule_action" sequence="20"/>
+</odoo>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_route_plan_apply_wizard_view_form" model="ir.ui.view">
+        <field name="name">ff.route.plan.apply.wizard.form</field>
+        <field name="model">ff.route.plan.apply.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <group>
+                        <field name="template_id"/>
+                        <field name="employee_ids" widget="many2many_tags"/>
+                    </group>
+                    <group>
+                        <field name="date_from"/>
+                        <field name="date_to"/>
+                        <field name="skip_week_off"/>
+                        <field name="overwrite"/>
+                    </group>
+                </group>
+                <p class="text-muted">
+                    Each matching day gets the template's route with all its customers planned.
+                    Open the monthly plan afterwards to untick customers or change single days.
+                </p>
+                <footer>
+                    <button name="action_apply" type="object" string="Create Plans" class="btn-primary"/>
+                    <button special="cancel" string="Cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_route_plan_apply_wizard_action" model="ir.actions.act_window">
+        <field name="name">Apply Plan Template</field>
+        <field name="res_model">ff.route.plan.apply.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

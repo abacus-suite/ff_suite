@@ -1,0 +1,163 @@
+from datetime import timedelta
+
+from odoo import api, fields, models
+
+VEHICLES = [
+    ('two_wheeler', 'Two-wheeler'),
+    ('four_wheeler', 'Four-wheeler'),
+    ('public', 'Public transport'),
+    ('walk', 'On foot'),
+    ('other', 'Other'),
+]
+
+
+DAY_STATUSES = [
+    ('present', 'Present'),
+    ('late', 'Late'),
+    ('half_day', 'Half Day'),
+]
+
+
+class HrAttendance(models.Model):
+    _inherit = ['hr.attendance', 'mail.thread']
+
+    ff_source = fields.Selection([
+        ('web', 'Web / Kiosk'),
+        ('app', 'Mobile App'),
+        ('regularisation', 'Regularisation'),
+    ], string='Source', default='web')
+    ff_shift_id = fields.Many2one('ff.shift', string='Shift')
+    ff_in_address = fields.Char(string='Punch-in Address')
+    ff_offline = fields.Boolean(string='Recorded Offline', readonly=True,
+                                help='Punched without network; the app sent it later with the real time.')
+    ff_in_uuid = fields.Char(index=True, copy=False)
+    ff_out_uuid = fields.Char(index=True, copy=False)
+    ff_out_address = fields.Char(string='Punch-out Address')
+    ff_vehicle_type = fields.Selection(
+        VEHICLES, string='Vehicle', help='How the person travelled on this day, chosen at check-in.')
+    ff_vehicle_note = fields.Char(
+        string='Vehicle Note', help='What "Other" was: a lift, a hired vehicle, a company van...')
+    ff_auto_closed = fields.Boolean(
+        string='Closed by the System', readonly=True, tracking=True,
+        help='Nobody checked out: the app or the nightly job closed this day.')
+    ff_close_reason = fields.Selection(
+        [('no_reply', 'No answer to "still working?"'),
+         ('midnight', 'End of the day'),
+         ('shift_end', 'End of the shift')],
+        string='Closed Because', readonly=True)
+    ff_early_reason = fields.Char(
+        string='Early Check-out Reason', help='Why the day was ended before the shift ended.')
+    ff_early_minutes = fields.Integer(
+        string='Left Early (min)', help='Minutes between the check-out and the end of the shift.')
+    ff_in_odometer = fields.Float(string='Odometer at Punch-in', digits=(12, 1))
+    ff_out_odometer = fields.Float(string='Odometer at Punch-out', digits=(12, 1))
+    ff_in_odometer_photo = fields.Image(string='Odometer Photo (in)', max_width=1280, max_height=1280)
+    ff_out_odometer_photo = fields.Image(string='Odometer Photo (out)', max_width=1280, max_height=1280)
+    ff_odometer_km = fields.Float(string='Odometer km', compute='_compute_ff_odometer_km', store=True, digits=(12, 1),
+                                  help='Punch-out reading less the punch-in reading.')
+    ff_in_selfie = fields.Image(string='Punch-in Selfie', max_width=1024, max_height=1024)
+    ff_out_selfie = fields.Image(string='Punch-out Selfie', max_width=1024, max_height=1024)
+    ff_in_accuracy = fields.Float(string='Punch-in Accuracy (m)')
+    ff_out_accuracy = fields.Float(string='Punch-out Accuracy (m)')
+    ff_in_is_mock = fields.Boolean(string='Punch-in Mock Location')
+    ff_out_is_mock = fields.Boolean(string='Punch-out Mock Location')
+    ff_late_minutes = fields.Integer(string='Late (min)', compute='_compute_ff_day_status', store=True)
+    ff_day_status = fields.Selection(DAY_STATUSES, string='Day Status', compute='_compute_ff_day_status', store=True)
+
+    def _ff_early_minutes(self, when):
+        """How many minutes before the end of the shift ``when`` is; 0 when it is not early."""
+        self.ensure_one()
+        shift = self.ff_shift_id
+        if not shift or not self.employee_id:
+            return 0
+        local = self.employee_id._ff_to_local(when)
+        hours, minutes = divmod(min(int(round(shift.end_time * 60)), 24 * 60 - 1), 60)
+        end = local.replace(hour=hours, minute=minutes, second=0, microsecond=0)
+        return max(0, int((end - local).total_seconds() // 60))
+
+    @api.model
+    def _cron_close_open_days(self):
+        """Close punches left open on a day that has already ended.
+
+        Somebody who forgets to check out should not have one punch running
+        across two days: the day is closed at its own end, and tomorrow starts
+        with a clean record.
+        """
+        params = self.env['ir.config_parameter'].sudo()
+        if params.get_param('ff_base.close_day_at_midnight', 'True') == 'False':
+            return 0
+        open_punches = self.sudo().search([('check_out', '=', False), ('check_in', '!=', False)])
+        closed = 0
+        for attendance in open_punches:
+            employee = attendance.employee_id
+            if not employee:
+                continue
+            local_in = employee._ff_to_local(attendance.check_in)
+            if local_in.date() >= employee._ff_today():
+                continue  # still today's punch; leave it running
+            # The last moment of the day it belongs to.
+            _start, end = employee._ff_day_bounds(local_in.date())
+            last_seen = self._ff_last_seen(employee, attendance.check_in, end)
+            attendance.write({
+                'check_out': last_seen,
+                'ff_auto_closed': True,
+                'ff_close_reason': 'midnight',
+            })
+            attendance.message_post(body=self.env._(
+                'No check-out was made, so the day was closed at %(when)s.', when=last_seen))
+            closed += 1
+        return closed
+
+    def _ff_last_seen(self, employee, since, before):
+        """The last position of that day, or the end of the day when there is none."""
+        ping = self.env['ff.location.ping'].sudo().search(
+            [('employee_id', '=', employee.id), ('ts', '>=', since), ('ts', '<', before)],
+            order='ts desc', limit=1)
+        return ping.ts if ping else before - timedelta(seconds=1)
+
+    @api.depends('ff_in_odometer', 'ff_out_odometer')
+    def _compute_ff_odometer_km(self):
+        for att in self:
+            both = att.ff_in_odometer and att.ff_out_odometer
+            att.ff_odometer_km = max(att.ff_out_odometer - att.ff_in_odometer, 0.0) if both else 0.0
+
+    @api.depends('check_in', 'check_out', 'worked_hours', 'ff_shift_id')
+    def _compute_ff_day_status(self):
+        for att in self:
+            shift = att.ff_shift_id
+            late = 0
+            if shift and att.check_in and att.employee_id:
+                local_in = att.employee_id._ff_to_local(att.check_in)
+                hours, minutes = divmod(shift._ff_start_minutes(), 60)
+                start = local_in.replace(hour=hours, minute=minutes, second=0, microsecond=0)
+                late = max(0, int((local_in - start).total_seconds() // 60))
+            att.ff_late_minutes = late
+            if shift and att.check_out and att.worked_hours < shift.half_day_hours:
+                att.ff_day_status = 'half_day'
+            elif shift and late > shift.grace_minutes:
+                att.ff_day_status = 'late'
+            else:
+                att.ff_day_status = 'present'
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get('ff_shift_id') and vals.get('employee_id'):
+                employee = self.env['hr.employee'].sudo().browse(vals['employee_id'])
+                vals['ff_shift_id'] = employee.ff_shift_id.id
+        records = super().create(vals_list)
+        records.employee_id._ff_sync_punch_status()
+        return records
+
+    def write(self, vals):
+        employees = self.employee_id
+        res = super().write(vals)
+        if {'check_in', 'check_out', 'employee_id'} & set(vals):
+            (employees | self.employee_id)._ff_sync_punch_status()
+        return res
+
+    def unlink(self):
+        employees = self.employee_id
+        res = super().unlink()
+        employees.exists()._ff_sync_punch_status()
+        return res

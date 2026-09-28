@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_contact_category_user,ff.contact.category user,model_ff_contact_category,base.group_user,1,0,0,0
+access_ff_contact_category_admin,ff.contact.category admin,model_ff_contact_category,ff_base.group_ff_admin,1,1,1,1
+access_ff_district_user,ff.district user,model_ff_district,base.group_user,1,0,0,0
+access_ff_district_manager,ff.district manager,model_ff_district,ff_base.group_ff_manager,1,1,1,0
+access_ff_district_admin,ff.district admin,model_ff_district,ff_base.group_ff_admin,1,1,1,1

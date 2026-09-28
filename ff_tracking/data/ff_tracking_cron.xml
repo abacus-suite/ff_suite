@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ir_cron_ff_flag_inactive" model="ir.cron">
+        <field name="name">Field Force: flag inactive / no-signal employees</field>
+        <field name="model_id" ref="model_ff_employee_status"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_flag_inactive()</field>
+        <field name="interval_number">10</field>
+        <field name="interval_type">minutes</field>
+    </record>
+
+    <record id="ir_cron_ff_daily_track" model="ir.cron">
+        <field name="name">Field Force: compute daily travel distance</field>
+        <field name="model_id" ref="model_ff_daily_track"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_compute()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+    </record>
+
+    <record id="ir_cron_ff_purge_pings" model="ir.cron">
+        <field name="name">Field Force: purge old GPS pings</field>
+        <field name="model_id" ref="model_ff_location_ping"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_purge()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+    </record>
+</odoo>

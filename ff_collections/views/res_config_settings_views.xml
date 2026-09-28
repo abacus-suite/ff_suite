@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_ff_collections" model="ir.ui.view">
+        <field name="name">res.config.settings.form.ff_collections</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="ff_base.res_config_settings_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='ff_feature_settings']" position="after">
+                <block title="Payment Collection" name="ff_collection_settings">
+                    <setting string="Deposit within" help="Days field staff may hold money before check-in is blocked. 0 = no limit.">
+                        <field name="ff_collection_max_days"/>
+                    </setting>
+                    <setting string="Maximum held" help="When the money held goes above this, check-in is blocked until it is handed over. 0 = no limit.">
+                        <field name="ff_collection_max_amount"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,10 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_approval_flow_user,ff.approval.flow user,model_ff_approval_flow,base.group_user,1,0,0,0
+access_ff_approval_flow_admin,ff.approval.flow admin,model_ff_approval_flow,ff_base.group_ff_admin,1,1,1,1
+access_ff_approval_step_user,ff.approval.step user,model_ff_approval_step,base.group_user,1,0,0,0
+access_ff_approval_step_admin,ff.approval.step admin,model_ff_approval_step,ff_base.group_ff_admin,1,1,1,1
+access_ff_approval_line_user,ff.approval.line user,model_ff_approval_line,base.group_user,1,0,0,0
+access_ff_approval_line_manager,ff.approval.line manager,model_ff_approval_line,ff_base.group_ff_manager,1,1,1,0
+access_ff_approval_line_admin,ff.approval.line admin,model_ff_approval_line,ff_base.group_ff_admin,1,1,1,1
+access_ff_notification_user,ff.notification user,model_ff_notification,base.group_user,1,1,0,0
+access_ff_notification_admin,ff.notification admin,model_ff_notification,ff_base.group_ff_admin,1,1,1,1

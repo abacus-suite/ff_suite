@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="crm_lead_view_form_ff_attribution" model="ir.ui.view">
+        <field name="name">crm.lead.form.ff_attribution</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+        <field name="arch" type="xml">
+            <field name="team_id" position="after">
+                <field name="ff_employee_id"/>
+                <field name="ff_route_id"/>
+                <field name="ff_district_id"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="crm_lead_view_search_ff_attribution" model="ir.ui.view">
+        <field name="name">crm.lead.search.ff_attribution</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.view_crm_case_opportunities_filter"/>
+        <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="ff_employee_id"/>
+                <field name="ff_route_id"/>
+            </field>
+            <xpath expr="//search/group" position="inside">
+                <filter name="ff_group_employee" string="Field Employee" context="{'group_by': 'ff_employee_id'}"/>
+                <filter name="ff_group_route" string="Route" context="{'group_by': 'ff_route_id'}"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

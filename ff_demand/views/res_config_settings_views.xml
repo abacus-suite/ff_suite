@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_ff_demand" model="ir.ui.view">
+        <field name="name">res.config.settings.form.ff_demand</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="ff_base.res_config_settings_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='ff_feature_settings']" position="after">
+                <block title="Orders" name="ff_order_flow_settings">
+                    <setting string="Order flow" help="How an order taken in the app becomes a document in Odoo.">
+                        <field name="ff_order_flow" widget="radio"/>
+                        <div class="text-muted small mt-2" invisible="ff_order_flow != 'demand'">
+                            On this flow the quotation goes to the distributor, so the sale price of a
+                            product follows its PTS. Use "Set Sale Price from PTS" on the product list
+                            to bring products already in the system onto their PTS.
+                        </div>
+                    </setting>
+                    <setting string="Send demand to distributor" help="The field picks its outlet demands in the app, chooses a distributor and sends them on as one order, then shares the printed outlet summary. Each employee can be moved off this on their own form.">
+                        <field name="ff_demand_submit"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>
