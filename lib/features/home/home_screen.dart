@@ -77,6 +77,15 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  /// The attendance we may draw: never yesterday's, however it reached us.
+  Map<String, dynamic>? get _day => _isToday(_status) ? _status : null;
+
+  /// Is this attendance payload about the day the phone is living in?
+  bool _isToday(Map<String, dynamic>? status) {
+    final day = asText(status?['date']);
+    return day == null || day == fmtDate(DateTime.now());
+  }
+
   Future<dynamic> _optional(Future<dynamic> future) =>
       future.catchError((_) => null);
 
@@ -97,7 +106,10 @@ class _HomeScreenState extends State<HomeScreen> {
       api.peek('/api/v1/tracking/my-day'),
       api.peek('/api/v1/visits'),
     ]).catchError((_) => <dynamic>[null, null, null, null, null, null]);
+    // Yesterday's saved copy must never be drawn as today: a day that has
+    // turned over shows nothing until the server answers.
     if (!mounted || _status != null || results[0] is! Map) return;
+    if (!_isToday((results[0] as Map).cast<String, dynamic>())) return;
     setState(() {
       _status = (results[0] as Map).cast<String, dynamic>();
       _visit = (results[1] as Map?)?.cast<String, dynamic>();
@@ -280,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       if (_visit != null) _ongoingVisitCard(_visit!),
       _todaySummary(),
-      if (_status?['punched_in'] == true && profile.feature('visits')) const RecommendationsCard(),
+      if (_day?['punched_in'] == true && profile.feature('visits')) const RecommendationsCard(),
       if (profile.feature('orders')) ...[_salesCard(), _topProductsCard()],
       _upcomingVisits(profile),
       const MyTasksCard(),
@@ -330,27 +342,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// The day in one card: where it stands, how it is going, and what moves it on.
   Widget _hero(Profile profile) {
-    final punchedIn = _status?['punched_in'] == true;
-    final current = _status?['current'] as Map<String, dynamic>?;
+    final punchedIn = _day?['punched_in'] == true;
+    final current = _day?['current'] as Map<String, dynamic>?;
     final planned = ((_today?['clients'] as List?) ?? []).length;
     final raw = ((_travel?['points'] as List?) ?? []).cast<Map<String, dynamic>>();
     final first = raw.isEmpty ? null : DateTime.tryParse('${raw.first['ts']}');
     final last = raw.isEmpty ? null : DateTime.tryParse('${raw.last['ts']}');
-    final punches = ((_status?['punch_count'] as num?) ?? 0).toInt();
+    final punches = ((_day?['punch_count'] as num?) ?? 0).toInt();
     return CheckInHero(
       punchedIn: punchedIn,
       punchesToday: punches,
-      firstCheckIn: fmtTime(((_status?['today'] as List?) ?? []).isEmpty
+      firstCheckIn: fmtTime(((_day?['today'] as List?) ?? []).isEmpty
           ? null
-          : (((_status!['today'] as List).first as Map)['check_in'])),
-      lastCheckOut: fmtTime(_status?['last_check_out']),
-      canResume: _status?['can_resume'] == true,
+          : (((_day!['today'] as List).first as Map)['check_in'])),
+      lastCheckOut: fmtTime(_day?['last_check_out']),
+      canResume: _day?['can_resume'] == true,
       since: fmtTime(current?['check_in']),
-      worked: fmtHours(_status?['worked_hours_today'] as num?),
+      worked: fmtHours(_day?['worked_hours_today'] as num?),
       target: planned,
       busy: _punching,
       onDutySince: DateTime.tryParse('${current?['check_in'] ?? ''}')?.toLocal(),
-      workedHours: ((_status?['worked_hours_today'] as num?) ?? 0).toDouble(),
+      workedHours: ((_day?['worked_hours_today'] as num?) ?? 0).toDouble(),
       km: (_travel?['distance_km'] as num?) ?? 0,
       visits: _visits.length,
       travelMinutes: first != null && last != null ? last.difference(first).inMinutes : 0,
