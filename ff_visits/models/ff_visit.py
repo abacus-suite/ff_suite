@@ -151,6 +151,9 @@ class FfVisit(models.Model):
             'check_in_mock': is_mock,
             'client_uuid': uuid,
             'auto_start': bool(data.get('auto')),
+            # Asked when the visit starts: what has to be done during it depends
+            # on the answer, so it is no use asking on the way out.
+            'purpose': data.get('purpose') if data.get('purpose') in dict(PURPOSES) else False,
         }
         if partner._ff_has_location():
             distance = haversine_m(lat, lng, partner.partner_latitude, partner.partner_longitude)
@@ -215,7 +218,10 @@ class FfVisit(models.Model):
         note = (data.get('note') or '').strip() or False
         photos = [p for p in (data.get('photos') or []) if isinstance(p, str) and p][:MAX_PHOTOS]
         auto = bool(data.get('auto'))
-        purpose = data.get('purpose') if data.get('purpose') in dict(PURPOSES) else False
+        # Whatever it was opened for stands; a late answer is taken only when
+        # nobody was asked at the start, as with a check-in the app made itself.
+        purpose = visit.purpose or (
+            data.get('purpose') if data.get('purpose') in dict(PURPOSES) else False)
         if not auto:
             # The purpose decides what a finished visit has to carry, so nothing
             # is written up until it is known.

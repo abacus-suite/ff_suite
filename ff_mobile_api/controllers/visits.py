@@ -2,7 +2,7 @@ from odoo import fields, http
 from odoo.http import request
 
 from .clients import to_float, visible_client
-from odoo.addons.ff_visits.models.ff_visit import OffsiteConfirmation
+from odoo.addons.ff_visits.models.ff_visit import PURPOSES, OffsiteConfirmation
 
 from .common import ApiError, api_route, body, check_device_clock, ok, ref, require_punched_in
 from .field_data import client_data, plan_data, visit_data
@@ -62,6 +62,23 @@ class FieldForceVisitsApi(http.Controller):
     @api_route('/api/v1/visits/<int:visit_id>/check-out', methods=('POST',))
     def check_out(self, employee, visit_id, **kw):
         return ok(visit_data(_own_visit(employee, visit_id).ff_check_out(body())))
+
+    @api_route('/api/v1/visits/<int:visit_id>/purpose', methods=('POST',))
+    def set_purpose(self, employee, visit_id, **kw):
+        """Say what an open visit is for.
+
+        A visit the app started on arrival was never asked, so it is asked on
+        the customer's screen instead. Once answered it stands: the work the
+        answer calls for is what the visit will be judged on.
+        """
+        visit = _own_visit(employee, visit_id)
+        purpose = body().get('purpose')
+        if purpose not in dict(PURPOSES):
+            raise ApiError('Choose what this visit is for.')
+        if visit.state != 'ongoing':
+            raise ApiError('This visit is already closed.', 409, 'conflict')
+        visit.sudo().write({'purpose': purpose})
+        return ok(visit_data(visit))
 
     @api_route('/api/v1/visits/current', methods=('GET',))
     def current(self, employee, **kw):
