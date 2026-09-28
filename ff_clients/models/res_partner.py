@@ -62,20 +62,25 @@ class ResPartner(models.Model):
         self.ensure_one()
         return self.ff_geofence_radius or get_param(self.env, 'geofence_radius')
 
-    @api.constrains('ff_is_client', 'ff_category_id')
-    def _check_beat_required(self):
-        """An outlet or a distributor belongs on a beat; a lead need not."""
-        required = self.env['ir.config_parameter'].sudo().get_param('ff_base.beat_required', 'True') != 'False'
-        if not required or 'ff_route_ids' not in self._fields:
-            return
-        for partner in self:
-            if not partner.ff_is_client or partner.ff_category_type not in ('outlet', 'distributor'):
-                continue
-            if not partner.ff_route_ids:
-                raise ValidationError(self.env._(
-                    '%(name)s is an %(kind)s, so it needs a beat. Choose one before saving.',
-                    name=partner.name or '', kind=dict(partner._fields['ff_category_type'].selection or [])
-                    .get(partner.ff_category_type, partner.ff_category_type)))
+    @api.model
+    def _ff_beat_required(self):
+        """Must an outlet or a distributor sit on a beat?
+
+        This is checked where a person chooses the type - the app, and the
+        contact form - rather than on every write: a contact is often created
+        first and put on its beat a moment later, and a rule that fires in
+        between would stop imports and demo data dead.
+        """
+        return self.env['ir.config_parameter'].sudo().get_param('ff_base.beat_required', 'True') != 'False'
+
+    @api.model
+    def _ff_check_beat(self, category, routes):
+        """Raise when this kind of contact needs a beat and none was given."""
+        kind = category.category_type if category else False
+        if kind in ('outlet', 'distributor') and self._ff_beat_required() and not routes:
+            raise ValidationError(self.env._(
+                'An %(kind)s needs a beat. Choose one, or add it as a lead for now.',
+                kind=dict(self.env['ff.contact.category']._fields['category_type'].selection).get(kind, kind)))
 
     @api.model
     def _ff_ownership_domain(self, employee):

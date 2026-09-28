@@ -300,7 +300,11 @@ class FieldForceClientsApi(http.Controller):
         if 'gst' in data:
             vals['vat'] = (data.get('gst') or '').strip().upper() or False
         if data.get('category_id'):
-            vals['ff_category_id'] = category_for(employee, data['category_id']).id
+            category = category_for(employee, data['category_id'])
+            vals['ff_category_id'] = category.id
+            # Becoming a real customer means picking a beat for it.
+            request.env['res.partner']._ff_check_beat(
+                category, data.get('route_id') or partner.ff_route_ids)
         if data.get('district_id'):
             vals['ff_district_id'] = to_int(data['district_id']) or False
         if data.get('route_id'):
@@ -361,6 +365,9 @@ class FieldForceClientsApi(http.Controller):
             'ff_category_id': category_for(employee, data.get('category_id')).id,
             'ff_district_id': to_int(data.get('district_id')) or False,
         }
+        # An outlet or a distributor needs a beat; a lead may wait for one.
+        request.env['res.partner']._ff_check_beat(
+            category_for(employee, data.get('category_id')), data.get('route_id'))
         if data.get('parent_id'):
             vals.update(parent_id=visible_client(employee, int(data['parent_id'])).id, type='other')
         if data.get('route_id'):
