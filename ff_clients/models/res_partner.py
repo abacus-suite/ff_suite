@@ -32,13 +32,15 @@ class ResPartner(models.Model):
                                                 readonly=True, copy=False)
     ff_map_url = fields.Char(string='Map', compute='_compute_ff_map_url')
 
-    @api.constrains('ff_is_client', 'ff_category_id', 'ff_employee_ids')
+    @api.constrains('ff_is_client', 'ff_category_id')
     def _check_ff_contact(self):
+        # Nobody assigned is allowed: contacts arrive from an older system long
+        # before anybody knows who will call on them, and a contact waiting to
+        # be handed out is better than one that cannot be saved. Until somebody
+        # is on it, only shared access and the managers will see it.
         for partner in self.filtered('ff_is_client'):
             if not partner.ff_category_id:
                 raise ValidationError(self.env._('Field contact "%s" needs a contact category.', partner.display_name))
-            if not partner.ff_employee_ids:
-                raise ValidationError(self.env._('Field contact "%s" needs at least one field employee.', partner.display_name))
 
     @api.onchange('ff_district_id')
     def _onchange_ff_district_id(self):
