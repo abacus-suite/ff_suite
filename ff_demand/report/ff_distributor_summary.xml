@@ -60,12 +60,16 @@
                                          letter-spacing: .4px; display: block; }
                         .ff-meta .ff-v { font-weight: bold; font-size: 9pt; }
                         .ff-block { margin-bottom: 11px; }
-                        .ff-head { width: 100%; background: #000000; border-collapse: collapse; }
-                        .ff-head td { padding: 5px 8px; color: #ffffff; vertical-align: middle; }
-                        .ff-no { background: #ffffff; color: #000000; font-weight: bold; font-size: 8.5pt;
-                                 padding: 1px 5px; margin-right: 7px; }
-                        .ff-head .ff-shop { font-size: 10pt; font-weight: bold; color: #ffffff; }
-                        .ff-head .ff-where { font-size: 7.5pt; color: #dddddd; text-align: right; }
+                        /* The block header is set apart by its rule and its weight rather
+                           than by a filled bar: less ink, and it prints the same anywhere. */
+                        .ff-head { width: 100%; background: #ffffff; border-collapse: collapse;
+                                   border: 1px solid #000000; border-bottom: none; }
+                        .ff-head td { padding: 5px 8px; color: #000000; vertical-align: middle; }
+                        .ff-no { border: 1px solid #000000; color: #000000; font-weight: bold;
+                                 font-size: 8.5pt; padding: 1px 5px; margin-right: 7px; }
+                        .ff-head .ff-shop { font-size: 10pt; font-weight: bold; color: #000000;
+                                            letter-spacing: .2px; }
+                        .ff-head .ff-where { font-size: 7.5pt; color: #555555; text-align: right; }
                         table.ff-table { width: 100%; border-collapse: collapse; }
                         table.ff-table th { background: #ededed; color: #000000; font-weight: bold;
                                             text-align: left; border: 1px solid #000000;
