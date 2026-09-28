@@ -32,15 +32,13 @@ class ResPartner(models.Model):
                                                 readonly=True, copy=False)
     ff_map_url = fields.Char(string='Map', compute='_compute_ff_map_url')
 
-    @api.constrains('ff_is_client', 'ff_category_id')
-    def _check_ff_contact(self):
-        # Nobody assigned is allowed: contacts arrive from an older system long
-        # before anybody knows who will call on them, and a contact waiting to
-        # be handed out is better than one that cannot be saved. Until somebody
-        # is on it, only shared access and the managers will see it.
-        for partner in self.filtered('ff_is_client'):
-            if not partner.ff_category_id:
-                raise ValidationError(self.env._('Field contact "%s" needs a contact category.', partner.display_name))
+    # A field contact used to need a category and somebody assigned to it before
+    # it could be saved. Both are worth having and neither is worth refusing an
+    # import over: contacts arrive from an older system long before anybody has
+    # decided what they are or who calls on them, and a contact waiting to be
+    # sorted out is better than one that could not be brought across at all.
+    # Without a category a contact has no contact type, so the app's Lead /
+    # Outlet / Distributor lists pass over it until one is set.
 
     @api.onchange('ff_district_id')
     def _onchange_ff_district_id(self):
