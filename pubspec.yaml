@@ -27,7 +27,9 @@ dependencies:
   latlong2: ^0.9.1
   url_launcher: ^6.3.1
   file_picker: ^12.3.0
+  share_plus: ^13.3.0
   google_maps_flutter: ^2.18.2
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

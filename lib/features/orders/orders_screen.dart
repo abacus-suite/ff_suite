@@ -9,6 +9,8 @@ import '../../widgets/common.dart';
 import '../../widgets/group_kit.dart';
 import '../../widgets/member_picker.dart';
 import 'catalog_screen.dart';
+import 'distributor_submit.dart';
+import 'distributor_orders_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key, this.embedded = false});
@@ -33,6 +35,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Timer? _debounce;
   final Set<String> _collapsed = {};
   String _sort = 'latest';
+
+  /// Demands ticked to be sent on to a distributor. Empty means nothing is
+  /// being picked, and the list behaves as it always did.
+  final Set<int> _picked = {};
+  bool _sending = false;
   String _base = '';
   Map<String, String> _headers = const {};
 
@@ -63,6 +70,34 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   bool get _demandFlow => Services.auth.profile?.isDemandFlow ?? false;
+
+  /// Sending demand on is a commercial act, so not everybody has it.
+  bool get _canSend => _demandFlow && (Services.auth.profile?.demandSubmit ?? false);
+
+  /// A demand already sent on, or cancelled, cannot be sent again.
+  bool _sendable(Map<String, dynamic> o) => o['state'] == 'submitted' || o['state'] == 'draft';
+
+  Future<void> _sendPicked() async {
+    final demands = _orders.where((o) => _picked.contains(o['id'])).toList();
+    if (demands.isEmpty) return;
+    final distributor = await pickDistributor(context, demandCount: demands.length);
+    if (distributor == null || !mounted) return;
+    setState(() => _sending = true);
+    try {
+      final result = await Services.api.post('/api/v1/demands/submit', {
+        'demand_ids': demands.map((o) => o['id']).toList(),
+        'distributor_id': distributor['id'],
+      }) as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(_picked.clear);
+      await _load();
+      if (mounted) await showSubmittedSheet(context, result);
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
 
   Map<String, dynamic> get _query => {
         'member': _member,
@@ -215,11 +250,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
       'quoted' || 'partial' => AppColors.warning,
       _ => AppColors.primary,
     };
+    final id = o['id'] as int;
+    final picking = _picked.isNotEmpty;
+    final pickable = _canSend && _sendable(o);
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => _showOrder(o['id'] as int),
+        // While demands are being picked, a tap ticks instead of opening.
+        onTap: picking && pickable
+            ? () => setState(() => _picked.contains(id) ? _picked.remove(id) : _picked.add(id))
+            : () => _showOrder(id),
+        onLongPress: pickable && !picking ? () => setState(() => _picked.add(id)) : null,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
           child: Column(
@@ -228,14 +270,25 @@ class _OrdersScreenState extends State<OrdersScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                        color: tone.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(13)),
-                    child: Icon(_demandFlow ? Icons.assignment_rounded : Icons.receipt_long_rounded,
-                        size: 20, color: tone),
-                  ),
+                  if (picking && pickable)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 2),
+                      child: Icon(
+                          _picked.contains(id)
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked_rounded,
+                          size: 26,
+                          color: _picked.contains(id) ? AppColors.primary : AppColors.border),
+                    )
+                  else
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                          color: tone.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(13)),
+                      child: Icon(_demandFlow ? Icons.assignment_rounded : Icons.receipt_long_rounded,
+                          size: 20, color: tone),
+                    ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -461,7 +514,61 @@ class _OrdersScreenState extends State<OrdersScreen> {
     };
     final sections = _sections();
     final periodLabel = Periods.choices.firstWhere((p) => p.$1 == _period).$2;
+    final sendable = _visible.where(_sendable).toList();
     return Scaffold(
+      bottomNavigationBar: _picked.isEmpty
+          ? null
+          : SafeArea(
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: AppColors.border)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('${_picked.length} of ${sendable.length} chosen',
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                          GestureDetector(
+                            onTap: () => setState(() {
+                              if (_picked.length == sendable.length) {
+                                _picked.clear();
+                              } else {
+                                _picked
+                                  ..clear()
+                                  ..addAll(sendable.map((o) => o['id'] as int));
+                              }
+                            }),
+                            child: Text(
+                                _picked.length == sendable.length ? 'Clear all' : 'Select all',
+                                style: const TextStyle(
+                                    fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    FilledButton.icon(
+                      onPressed: _sending ? null : _sendPicked,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      icon: _sending
+                          ? const SizedBox(
+                              width: 16, height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.local_shipping_rounded, size: 18),
+                      label: const Text('Send to distributor'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -486,6 +593,27 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       ],
                     ),
                   ),
+                  if (_picked.isNotEmpty)
+                    IconButton(
+                      tooltip: 'Stop choosing',
+                      onPressed: () => setState(_picked.clear),
+                      icon: const Icon(Icons.close_rounded),
+                    )
+                  else if (_canSend) ...[
+                    IconButton(
+                      tooltip: 'Distributor orders',
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const DistributorOrdersScreen())),
+                      icon: const Icon(Icons.local_shipping_outlined),
+                    ),
+                    IconButton(
+                      tooltip: 'Choose demands to send',
+                      onPressed: _visible.where(_sendable).isEmpty
+                          ? null
+                          : () => setState(() => _picked.add(_visible.firstWhere(_sendable)['id'] as int)),
+                      icon: const Icon(Icons.checklist_rounded),
+                    ),
+                  ],
                   FilledButton.icon(
                     onPressed: () async {
                       await Navigator.of(context)

@@ -35,6 +35,7 @@ class Profile {
     this.mapProvider = 'open',
     this.mapMode = 'open',
     this.orderFlow = 'direct',
+    this.demandSubmit = false,
     this.photoVersion,
     this.idleLogoutHours = 0,
     this.code,
@@ -110,6 +111,9 @@ class Profile {
   /// the office to consolidate into distributor quotations.
   final String orderFlow;
 
+  /// May send their outlet demands on to a distributor as one order.
+  final bool demandSubmit;
+
   /// Changes when the profile photo does; null when there is none.
   final String? photoVersion;
 
@@ -176,6 +180,7 @@ class Profile {
       mapProvider: '${settings['map_provider'] ?? ((settings['google_maps_key'] ?? '') != '' ? 'google' : 'open')}',
       mapMode: '${settings['map_mode'] ?? 'open'}',
       orderFlow: '${settings['order_flow'] ?? 'direct'}',
+      demandSubmit: settings['demand_submit'] == true,
       photoVersion: employee['photo_version'] as String?,
       idleLogoutHours: (settings['idle_logout_hours'] as num? ?? 0).toInt(),
       routeLabel: employee['route_label'] as String? ?? 'Beat',
