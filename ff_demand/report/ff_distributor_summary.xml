@@ -31,51 +31,47 @@
                            not printing here, which is the gap above the logo. */
                         html, body { margin: 0 !important; padding: 0 !important; }
                         .article, div.article { margin: 0 !important; padding: 0 !important; }
-                        .ff-summary { font-family: Arial, Helvetica, sans-serif; color: #253345;
+                        .ff-summary { font-family: Arial, Helvetica, sans-serif; color: #000000;
                                       font-size: 9pt; line-height: 1.35; padding: 0; margin: 0; }
                         .ff-summary div, .ff-summary td, .ff-summary th, .ff-summary span,
                         .ff-summary strong, .ff-summary p { font-size: 9pt; }
                         .ff-summary img { display: block; }
-                        .ff-title { font-size: 13.5pt; font-weight: bold; color: #10357a;
+                        .ff-title { font-size: 13.5pt; font-weight: bold; color: #000000;
                                     letter-spacing: .3px; margin: 0; }
-                        .ff-band { border-bottom: 2px solid #10357a; padding: 10px 0 5px; margin-bottom: 9px; }
+                        .ff-band { border-bottom: 2px solid #000000; padding: 10px 0 5px; margin-bottom: 9px; }
                         .ff-grid { width: 100%; border-collapse: separate; border-spacing: 0; }
                         /* Both parties are cells of one row, so the taller one sets the
                            height and the two borders come out level. */
-                        .ff-card { border: 1px solid #ccd6e8; border-radius: 3px;
-                                   padding: 0; vertical-align: top; }
+                        .ff-card { border: 1px solid #000000; padding: 0; vertical-align: top; }
                         .ff-gap { width: 14px; border: none; padding: 0; }
-                        .ff-card-head { background: #eaf0f9; color: #10357a; font-weight: bold;
-                                        font-size: 8.5pt; padding: 4px 7px; border-bottom: 1px solid #ccd6e8; }
+                        .ff-card-head { background: #ededed; color: #000000; font-weight: bold;
+                                        font-size: 8.5pt; padding: 4px 7px; border-bottom: 1px solid #000000; }
                         .ff-card-body { padding: 6px 7px; }
-                        .ff-name { font-size: 10pt; font-weight: bold; color: #17233a; }
-                        .ff-addr { color: #52627a; font-size: 8.5pt; }
+                        .ff-name { font-size: 10pt; font-weight: bold; color: #000000; }
+                        .ff-addr { color: #444444; font-size: 8.5pt; }
                         .ff-kv td { font-size: 8.5pt; padding: 1px 0; vertical-align: top; }
-                        .ff-kv .ff-k { color: #6b7a90; width: 46px; }
-                        .ff-kv .ff-c { width: 8px; color: #6b7a90; }
-                        .ff-meta { width: 100%; background: #f5f8fc; border: 1px solid #ccd6e8;
-                                   border-radius: 3px; border-collapse: collapse; margin: 9px 0 11px; }
-                        .ff-meta td { padding: 5px 9px; border-right: 1px solid #dce4f1; width: 33.33%; }
+                        .ff-kv .ff-k { color: #555555; width: 46px; }
+                        .ff-kv .ff-c { width: 8px; color: #555555; }
+                        .ff-meta { width: 100%; background: #f5f5f5; border: 1px solid #000000;
+                                   border-collapse: collapse; margin: 9px 0 11px; }
+                        .ff-meta td { padding: 5px 9px; border-right: 1px solid #999999; width: 33.33%; }
                         .ff-meta td:last-child { border-right: none; }
-                        .ff-meta .ff-k { color: #6b7a90; font-size: 7.5pt; text-transform: uppercase;
+                        .ff-meta .ff-k { color: #555555; font-size: 7.5pt; text-transform: uppercase;
                                          letter-spacing: .4px; display: block; }
                         .ff-meta .ff-v { font-weight: bold; font-size: 9pt; }
                         .ff-block { margin-bottom: 11px; }
-                        .ff-head { width: 100%; background: #10357a; border-collapse: collapse; }
+                        .ff-head { width: 100%; background: #000000; border-collapse: collapse; }
                         .ff-head td { padding: 5px 8px; color: #ffffff; vertical-align: middle; }
-                        .ff-no { background: #ffffff; color: #10357a; font-weight: bold; font-size: 8.5pt;
-                                 padding: 1px 5px; border-radius: 2px; margin-right: 7px; }
+                        .ff-no { background: #ffffff; color: #000000; font-weight: bold; font-size: 8.5pt;
+                                 padding: 1px 5px; margin-right: 7px; }
                         .ff-head .ff-shop { font-size: 10pt; font-weight: bold; color: #ffffff; }
-                        .ff-head .ff-where { font-size: 7.5pt; color: #d6e0f2; text-align: right; }
+                        .ff-head .ff-where { font-size: 7.5pt; color: #dddddd; text-align: right; }
                         table.ff-table { width: 100%; border-collapse: collapse; }
-                        table.ff-table th { background: #eaf0f9; color: #10357a; font-weight: bold;
-                                            text-align: left; border: 1px solid #ccd6e8;
+                        table.ff-table th { background: #ededed; color: #000000; font-weight: bold;
+                                            text-align: left; border: 1px solid #000000;
                                             padding: 4px 8px; font-size: 8pt; }
-                        table.ff-table td { border: 1px solid #dce4f1; padding: 4px 8px; font-size: 8.5pt; }
-                        table.ff-table tr.ff-total td { background: #eaf0f9; font-weight: bold; }
-                        .ff-green .ff-head { background: #1f7a4d; }
-                        .ff-green .ff-head .ff-shop { color: #ffffff; }
-                        .ff-green table.ff-table th { background: #e8f5ee; color: #1f7a4d; border-color: #c9e3d6; }
+                        table.ff-table td { border: 1px solid #999999; padding: 4px 8px; font-size: 8.5pt; }
+                        table.ff-table tr.ff-total td { background: #ededed; font-weight: bold; }
                         .ff-num { text-align: right; }
                         .ff-right { text-align: right; }
                         /* Fixed, so the letterhead sits on the foot of the page and not
@@ -95,7 +91,7 @@
                                 <span class="ff-title">DISTRIBUTOR OUTLET ORDER SUMMARY</span>
                             </td>
                             <td class="ff-right" style="vertical-align: bottom; width: 150px;">
-                                <span style="color: #6b7a90; font-size: 8pt;">Date</span>
+                                <span style="color: #555555; font-size: 8pt;">Date</span>
                                 <strong style="margin-left: 5px; font-size: 9pt;"
                                         t-out="doc.date_order" t-options="{'widget': 'date'}"/>
                             </td>
@@ -209,7 +205,7 @@
                     </div>
 
                     <!-- What the distributor actually has to send out. -->
-                    <div class="ff-block ff-green">
+                    <div class="ff-block">
                         <table class="ff-head">
                             <tr>
                                 <td><span class="ff-shop">OVERALL PRODUCT SUMMARY (ALL OUTLETS)</span></td>
