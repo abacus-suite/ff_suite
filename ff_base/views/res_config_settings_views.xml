@@ -118,6 +118,19 @@
                         </setting>
                     </block>
                     <block title="Field Features" name="ff_feature_settings">
+                        <setting string="Check in on arrival" help="Reaching a customer starts the visit by itself, and leaving it closes the visit. A visit started away from the shop is left alone.">
+                            <field name="ff_auto_visit"/>
+                            <div class="content-group" invisible="not ff_auto_visit">
+                                <div class="row mt-2">
+                                    <label for="ff_auto_visit_exit_m" class="col-lg-8 o_light_label"/>
+                                    <field name="ff_auto_visit_exit_m"/>
+                                </div>
+                                <div class="row">
+                                    <label for="ff_auto_visit_leave_secs" class="col-lg-8 o_light_label"/>
+                                    <field name="ff_auto_visit_leave_secs"/>
+                                </div>
+                            </div>
+                        </setting>
                         <setting help="Field staff cannot leave a visit in the app before checking out.">
                             <field name="ff_visit_lock"/>
                         </setting>

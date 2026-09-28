@@ -71,6 +71,12 @@ class FfVisit(models.Model):
     note = fields.Text()
     photo_count = fields.Integer(compute='_compute_photo_count')
     client_uuid = fields.Char(index=True, copy=False)
+    auto_start = fields.Boolean(
+        string='Started on Arrival', readonly=True,
+        help='The app opened this visit when the person reached the customer.')
+    auto_end = fields.Boolean(
+        string='Closed on Leaving', readonly=True,
+        help='The app closed this visit when the person left the customer.')
 
     _client_uuid_uniq = models.Constraint('UNIQUE(client_uuid)', 'This visit was already received.')
 
@@ -132,6 +138,7 @@ class FfVisit(models.Model):
             'check_in_accuracy': _num(data.get('accuracy')) or 0.0,
             'check_in_mock': is_mock,
             'client_uuid': uuid,
+            'auto_start': bool(data.get('auto')),
         }
         if partner._ff_has_location():
             distance = haversine_m(lat, lng, partner.partner_latitude, partner.partner_longitude)
@@ -205,7 +212,11 @@ class FfVisit(models.Model):
             at, offline = client_time(data)
         except ValueError as error:
             raise UserError(str(error))
+        auto = bool(data.get('auto'))
+        if auto and not note:
+            note = self.env._('Closed by the app: left the customer.')
         visit.write({
+            'auto_end': auto,
             'state': 'done',
             'check_out_at': max(at, visit.check_in_at),
             'ff_offline': visit.ff_offline or offline,

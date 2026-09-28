@@ -24,6 +24,9 @@ PARAM_DEFAULTS = {
     'punch_odometer': False,     # ask for the odometer photo and reading at both punches
     'geofence_radius': 150,      # metres around a client counted as "at client"
     'visit_block_outside': False,  # refuse visit check-in outside the geofence
+    'auto_visit': False,         # reaching a customer starts the visit by itself
+    'auto_visit_exit_m': 60,     # metres past the geofence that count as having left
+    'auto_visit_leave_secs': 90,  # how long they must stay away before it closes
     'visit_lock': False,           # app blocks leaving a visit before check-out (data sets True)
     'visit_steps': False,          # guided step-by-step visits
     'stock_count': False,          # stock count step and history

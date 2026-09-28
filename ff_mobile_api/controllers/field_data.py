@@ -55,6 +55,7 @@ def visit_data(visit):
         'inside_geofence': visit.inside_geofence,
         'location_captured': visit.location_captured,
         'visit_type': visit.visit_type,
+        'auto_start': visit.auto_start,
         'outcome': visit.outcome or None,
         'outcome_type': ref(visit.outcome_id),
         'productive': visit.productive,

@@ -80,6 +80,17 @@ class ResConfigSettings(models.TransientModel):
         string='Client Geofence (m)', config_parameter='ff_base.geofence_radius', default=150)
     ff_visit_block_outside = fields.Boolean(
         string='Block Check-in Outside Geofence', config_parameter='ff_base.visit_block_outside')
+    ff_auto_visit = fields.Boolean(
+        string='Check In on Arrival', config_parameter='ff_base.auto_visit',
+        help='Reaching a customer inside its geofence starts the visit by itself, and walking away '
+             'closes it. A visit started by hand away from the shop is never closed this way.')
+    ff_auto_visit_exit_m = fields.Integer(
+        string='Counts as Left After (m)', config_parameter='ff_base.auto_visit_exit_m', default=60,
+        help='Metres beyond the geofence before the app treats the person as having left.')
+    ff_auto_visit_leave_secs = fields.Integer(
+        string='Away For (seconds)', config_parameter='ff_base.auto_visit_leave_secs', default=90,
+        help='How long they must stay away before the visit closes by itself. It keeps a walk to the '
+             'car or a weak GPS fix from ending the visit.')
     ff_visit_lock = fields.Boolean(
         string='Lock the Visit Until Check-out', config_parameter='ff_base.visit_lock',
         help='In the app, field staff cannot leave the visit screen before checking out.')
