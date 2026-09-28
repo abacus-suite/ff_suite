@@ -38,8 +38,11 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
   /// second way - and sometimes a day is simply a handful of shops.
   String _mode = 'beat';
 
-  /// Contacts grouped by their beat, the beat-less ones last.
-  List<Map<String, dynamic>> _groups = [];
+  /// Every contact this person may plan, in one list.
+  List<Map<String, dynamic>> _contacts = [];
+
+  /// Narrows the list to one kind of contact, or to the ones nobody has been to.
+  String _filter = 'all';
   final Set<int> _picked = {};
   final Set<int> _visited = {};
   bool _loadingContacts = false;
@@ -103,7 +106,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
     }
   }
 
-  /// Everything this person may plan, grouped by beat, with today's ticks kept.
+  /// Everything this person may plan, in one list, with today's ticks kept.
   Future<void> _loadContacts() async {
     setState(() => _loadingContacts = true);
     try {
@@ -112,17 +115,17 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
         'member': _memberParam,
         if (_search.trim().isNotEmpty) 'q': _search.trim(),
       }) as Map<String, dynamic>;
-      final groups = ((data['groups'] as List?) ?? []).cast<Map<String, dynamic>>();
+      final contacts = ((data['contacts'] as List?) ?? []).cast<Map<String, dynamic>>();
       if (!mounted) return;
       setState(() {
-        _groups = groups;
-        // Ticks already saved for that day come back ticked; a search must not lose them.
-        for (final group in groups) {
-          for (final c in ((group['customers'] as List?) ?? []).cast<Map<String, dynamic>>()) {
-            final id = c['id'] as int;
-            if (c['selected'] == true) _picked.add(id);
-            if (c['visited'] == true) _visited.add(id);
-          }
+        _contacts = contacts;
+        // Ticks already saved for that day come back ticked, and what was
+        // chosen before a search must survive the search.
+        for (final c in contacts) {
+          final id = c['id'] as int;
+          if (c['selected'] == true) _picked.add(id);
+          if (c['visited'] == true) _visited.add(id);
+          _known[id] = c;
         }
       });
     } catch (e) {
@@ -130,6 +133,17 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
     } finally {
       if (mounted) setState(() => _loadingContacts = false);
     }
+  }
+
+  /// Everything seen so far, so a chosen contact can still be named and
+  /// unticked after a search has scrolled it out of the list.
+  final Map<int, Map<String, dynamic>> _known = {};
+
+  /// What the list shows now: the filter, applied to what the server sent.
+  List<Map<String, dynamic>> get _shown {
+    if (_filter == 'all') return _contacts;
+    if (_filter == 'new') return _contacts.where((c) => c['last_visit_at'] == null).toList();
+    return _contacts.where((c) => c['category_type'] == _filter).toList();
   }
 
   void _onSearch(String value) {
@@ -185,6 +199,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
     if (_mode == 'customer') {
       _picked.clear();
       _visited.clear();
+      _known.clear();
       await _loadContacts();
       return;
     }
@@ -459,15 +474,15 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
                   selected: {_mode},
                   onSelectionChanged: (choice) async {
                     setState(() => _mode = choice.first);
-                    if (_mode == 'customer' && _groups.isEmpty) await _loadContacts();
+                    if (_mode == 'customer' && _contacts.isEmpty) await _loadContacts();
                   },
                 ),
               ),
               const SizedBox(height: 7),
               Text(
                 _mode == 'customer'
-                    ? 'Pick the customers themselves. They are grouped by $routeLabel, and a lead with no '
-                        '$routeLabel yet sits in its own group.'
+                    ? 'Pick the customers themselves, from one list. Search by name or city; '
+                        'a lead with no $routeLabel is in there too.'
                     : 'Pick a $routeLabel and work through its customers.',
                 style: const TextStyle(fontSize: 12, color: AppColors.muted),
               ),
@@ -477,104 +492,323 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
       );
 
   /// The customer picker: a search box and one section per beat.
+  /// The customer picker: search, a few filters, then one list.
+  ///
+  /// One list, not a heap of beats. Somebody looking for a shop by name should
+  /// not have to remember which beat it sits on first, and a lead has no beat
+  /// to be filed under at all. Each row says where it belongs instead.
   List<Widget> _contactPicker() {
+    final shown = _shown;
+    final pickable = shown.where((c) => !_visited.contains(c['id'])).toList();
+    final allPicked = pickable.isNotEmpty && pickable.every((c) => _picked.contains(c['id']));
     return [
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  onChanged: _onSearch,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search_rounded),
-                    hintText: 'Search customers, leads, city',
-                    isDense: true,
-                    border: InputBorder.none,
-                  ),
+      // Search
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        child: Row(
+          children: [
+            const Icon(Icons.search_rounded, size: 20, color: AppColors.muted),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                onChanged: _onSearch,
+                textInputAction: TextInputAction.search,
+                decoration: const InputDecoration(
+                  hintText: 'Search by name or city',
+                  border: InputBorder.none,
+                  isDense: true,
                 ),
               ),
-              if (_loadingContacts)
-                const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-            ],
-          ),
+            ),
+            if (_loadingContacts)
+              const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+          ],
         ),
       ),
-      if (_picked.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 8, 4, 2),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text('${_picked.length} chosen for ${fmtDate(_date)}',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-              ),
-              TextButton(onPressed: () => setState(_picked.clear), child: const Text('Clear')),
-            ],
-          ),
-        ),
-      if (!_loadingContacts && _groups.isEmpty)
-        const Padding(
-          padding: EdgeInsets.only(top: 24),
-          child: EmptyView(icon: Icons.person_search_rounded, text: 'No contacts match'),
-        ),
-      for (final group in _groups) _contactGroup(group),
-      const SizedBox(height: 8),
-    ];
-  }
+      const SizedBox(height: 10),
 
-  Widget _contactGroup(Map<String, dynamic> group) {
-    final customers = ((group['customers'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final free = group['beat'] == null;
-    final chosen = customers.where((c) => _picked.contains(c['id'])).length;
-    return Card(
-      child: ExpansionTile(
-        initiallyExpanded: _groups.length <= 2 || chosen > 0,
-        leading: Icon(free ? Icons.person_pin_circle_rounded : Icons.route_rounded,
-            color: free ? AppColors.purple : AppColors.primary),
-        title: Text('${group['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('$chosen of ${customers.length} chosen'),
+      // Filters
+      SizedBox(
+        height: 34,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            _filterChip('all', 'All', _contacts.length),
+            _filterChip('outlet', 'Outlets',
+                _contacts.where((c) => c['category_type'] == 'outlet').length),
+            _filterChip('lead', 'Leads', _contacts.where((c) => c['category_type'] == 'lead').length),
+            _filterChip('distributor', 'Distributors',
+                _contacts.where((c) => c['category_type'] == 'distributor').length),
+            _filterChip('new', 'Never visited',
+                _contacts.where((c) => c['last_visit_at'] == null).length),
+          ],
+        ),
+      ),
+      const SizedBox(height: 10),
+
+      // What is chosen, and a way back out of it
+      if (_picked.isNotEmpty) _chosenBar(),
+
+      // The list
+      Row(
         children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
+          Expanded(
+            child: Text('${shown.length} ${shown.length == 1 ? 'contact' : 'contacts'}',
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.muted)),
+          ),
+          if (pickable.isNotEmpty)
+            TextButton(
               onPressed: () => setState(() {
-                final ids = customers
-                    .where((c) => !_visited.contains(c['id']))
-                    .map((c) => c['id'] as int)
-                    .toList();
-                if (chosen >= ids.length) {
+                final ids = pickable.map((c) => c['id'] as int);
+                if (allPicked) {
                   _picked.removeAll(ids);
                 } else {
                   _picked.addAll(ids);
                 }
               }),
-              child: Text(chosen >= customers.length ? 'Clear all' : 'Select all'),
-            ),
-          ),
-          for (final c in customers)
-            CheckboxListTile(
-              dense: true,
-              controlAffinity: ListTileControlAffinity.leading,
-              value: _picked.contains(c['id']),
-              onChanged: _visited.contains(c['id'])
-                  ? null
-                  : (on) => setState(() =>
-                      on == true ? _picked.add(c['id'] as int) : _picked.remove(c['id'])),
-              title: Text('${c['name']}'),
-              subtitle: Text([
-                if (_visited.contains(c['id'])) 'Visited on this day' else lastVisitLabel(c),
-                if (c['city'] != null) '${c['city']}',
-                // Two people may call on the same shop; this only says so.
-                if ((c['also_planned_by'] as List?)?.isNotEmpty == true)
-                  'also planned by ${(c['also_planned_by'] as List).join(', ')}',
-              ].join(' · ')),
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              child: Text(allPicked ? 'Clear these' : 'Select all'),
             ),
         ],
       ),
+      if (!_loadingContacts && shown.isEmpty)
+        const Padding(
+          padding: EdgeInsets.only(top: 30),
+          child: EmptyView(icon: Icons.person_search_rounded, text: 'Nothing matches'),
+        ),
+      for (final contact in shown) _contactRow(contact),
+      const SizedBox(height: 4),
+    ];
+  }
+
+  Widget _filterChip(String key, String label, int count) {
+    final on = _filter == key;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: on ? AppColors.primary : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => setState(() => _filter = key),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: on ? Colors.white : AppColors.text)),
+                if (count > 0) ...[
+                  const SizedBox(width: 6),
+                  Text('$count',
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: on ? Colors.white70 : AppColors.muted)),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
+
+  /// The chosen ones, named, so a search never hides what is already in the day.
+  Widget _chosenBar() => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, size: 17, color: AppColors.primary),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text('${_picked.length} chosen for ${fmtDate(_date)}',
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                ),
+                GestureDetector(
+                  onTap: () => setState(_picked.clear),
+                  child: const Text('Clear',
+                      style: TextStyle(
+                          fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.danger)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final id in _picked.take(12))
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(9, 4, 4, 4),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 130),
+                          child: Text('${_known[id]?['name'] ?? 'Customer'}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        ),
+                        InkWell(
+                          onTap: () => setState(() => _picked.remove(id)),
+                          child: const Padding(
+                            padding: EdgeInsets.all(3),
+                            child: Icon(Icons.close_rounded, size: 13, color: AppColors.muted),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_picked.length > 12)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: Text('and ${_picked.length - 12} more',
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+  Widget _contactRow(Map<String, dynamic> c) {
+    final id = c['id'] as int;
+    final visited = _visited.contains(id);
+    final on = _picked.contains(id);
+    final name = '${c['name']}';
+    final beat = asText((c['beat'] as Map?)?['name']);
+    final others = ((c['also_planned_by'] as List?) ?? []).cast<String>();
+    final tint = switch (c['category_type']) {
+      'lead' => AppColors.purple,
+      'distributor' => AppColors.warning,
+      _ => AppColors.primary,
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: on ? AppColors.primary.withValues(alpha: 0.06) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: visited
+              ? null
+              : () => setState(() => on ? _picked.remove(id) : _picked.add(id)),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(11, 10, 11, 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: on ? AppColors.primary : Colors.transparent, width: 1.3),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: tint.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(name.isEmpty ? '?' : name[0].toUpperCase(),
+                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: tint)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+                      const SizedBox(height: 2),
+                      Text(
+                        [
+                          if (visited) 'Visited on this day' else lastVisitLabel(c),
+                          if (c['city'] != null) '${c['city']}',
+                        ].join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                      ),
+                      if (beat != null || others.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Wrap(
+                          spacing: 5,
+                          runSpacing: 4,
+                          children: [
+                            if (beat != null) _tag(Icons.route_rounded, beat, AppColors.primary),
+                            if (others.isNotEmpty)
+                              _tag(Icons.people_alt_rounded,
+                                  others.length == 1 ? others.first : '${others.length} others',
+                                  AppColors.warning),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                    visited
+                        ? Icons.lock_rounded
+                        : on
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                    size: 23,
+                    color: visited
+                        ? AppColors.border
+                        : on
+                            ? AppColors.primary
+                            : AppColors.border),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tag(IconData icon, String text, Color tint) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: tint.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 11, color: tint),
+            const SizedBox(width: 4),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 150),
+              child: Text(text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: tint)),
+            ),
+          ],
+        ),
+      );
 
   /// A quiet note when somebody else is going there too. Never a block: two
   /// people calling on the same shop on the same day is normal work.
