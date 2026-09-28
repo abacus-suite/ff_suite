@@ -8,6 +8,9 @@ from odoo.addons.ff_base.tools import haversine_m, to_iso
 from .common import ApiError, api_route, body, ok, ref
 from .field_data import client_data, visit_data
 
+# A map of more points than this is a solid colour anyway, and the phone
+# has to draw every one of them.
+MAX_MAP_POINTS = 20000
 MAX_LIMIT = 200
 DEFAULT_RADIUS_KM = 25.0
 
@@ -156,6 +159,40 @@ def _category_counts(employee, member=None):
 
 
 class FieldForceClientsApi(http.Controller):
+
+    @api_route('/api/v1/clients/map', methods=('GET',))
+    def clients_map(self, employee, q=None, category_id=None, member=None, **kw):
+        """Every located contact, as points, for the map.
+
+        The list is paged - nobody scrolls nine thousand rows - but a map that
+        only shows the first page is a map of the wrong thing entirely. This
+        hands over the whole set, carrying no more than a pin needs: the name to
+        show when the pin stands alone, and enough to colour it.
+
+        read_group over the table rather than the ORM's own records: at this
+        size the difference is the whole response time.
+        """
+        domain = client_domain(employee, member) + [('partner_latitude', '!=', False)]
+        if q:
+            domain += ['|', '|', '|', ('name', 'ilike', q), ('ff_client_code', 'ilike', q),
+                       ('phone', 'ilike', q), ('city', 'ilike', q)]
+        if category_id:
+            domain.append(('ff_category_id', '=', to_int(category_id)))
+        rows = request.env['res.partner'].sudo().search_read(
+            domain, ['id', 'name', 'partner_latitude', 'partner_longitude',
+                     'ff_approval_state', 'ff_category_type'],
+            limit=MAX_MAP_POINTS)
+        return ok({
+            'total': len(rows),
+            'points': [{
+                'id': row['id'],
+                'name': row['name'],
+                'lat': row['partner_latitude'],
+                'lng': row['partner_longitude'],
+                'approval_state': row['ff_approval_state'],
+                'category_type': row['ff_category_type'],
+            } for row in rows if row['partner_latitude'] or row['partner_longitude']],
+        })
 
     @api_route('/api/v1/clients', methods=('GET',))
     def clients(self, employee, q=None, category_id=None, lat=None, lng=None, radius_km=None,
