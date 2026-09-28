@@ -9,6 +9,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../core/format.dart';
 import '../../core/local_state.dart';
+import 'visit_purpose.dart';
 
 /// Demands, orders and payments are taken at a customer, so they start with a
 /// check-in there. Returns the open visit, or null when the person backed out.
@@ -46,23 +47,10 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
       }
     }
     if (!context.mounted) return null;
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        icon: const Icon(Icons.storefront_rounded, color: AppColors.primary, size: 36),
-        title: Text('Check in at $name?'),
-        content: const Text('Your location is matched with the customer before you start.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
-          FilledButton.icon(
-            onPressed: () => Navigator.pop(dialog, true),
-            icon: const Icon(Icons.place_rounded),
-            label: const Text('Check in'),
-          ),
-        ],
-      ),
-    );
-    if (go != true || !context.mounted) return null;
+    // What the call is for is asked on the way in, not on the way out: it
+    // decides what has to be done while they are there.
+    final purpose = await askVisitPurpose(context, name);
+    if (purpose == null || !context.mounted) return null;
 
     final pos = await currentPosition();
     final payload = {
@@ -72,6 +60,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
       'accuracy': pos.accuracy,
       'mock': pos.isMocked,
       'uuid': const Uuid().v4(),
+      'purpose': purpose,
       'device_time': DateTime.now().toUtc().toIso8601String(),
     };
     try {

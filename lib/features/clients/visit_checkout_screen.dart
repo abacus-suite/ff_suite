@@ -13,6 +13,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../forms/form_fill_screen.dart';
 import '../visits/stock_count_screen.dart';
+import '../visits/visit_purpose.dart';
 
 /// Used when the server has no outcome master configured.
 const legacyOutcomes = <String, String>{
@@ -23,20 +24,22 @@ const legacyOutcomes = <String, String>{
   'other': 'Other',
 };
 
-/// What the call was for. It decides what has to be done before leaving, so it
-/// is the first thing asked and nothing else opens until it is answered.
-const visitPurposes = <(String, String, String, IconData)>[
-  ('client_visit', 'Client Visit', 'Write the visit up and photograph it', Icons.handshake_rounded),
-  ('chiller_update', 'Weekly Chiller Update', 'Count the stock, then photograph it', Icons.kitchen_rounded),
-  ('other', 'Other', 'Nothing else needed', Icons.more_horiz_rounded),
-];
-
 const _maxPhotos = 3;
 
 class VisitCheckoutScreen extends StatefulWidget {
-  const VisitCheckoutScreen({super.key, required this.visit});
+  const VisitCheckoutScreen({
+    super.key,
+    required this.visit,
+    this.note = '',
+    this.photos = const [],
+  });
 
   final Map<String, dynamic> visit;
+
+  /// Written and taken at the counter, on the customer's screen. This form
+  /// only carries them to the server.
+  final String note;
+  final List<Uint8List> photos;
 
   @override
   State<VisitCheckoutScreen> createState() => _VisitCheckoutScreenState();
@@ -52,7 +55,7 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
   bool _loading = true;
   bool _busy = false;
 
-  /// Which of the three the visit was. Nothing is asked before this is answered.
+  /// Which of the three the visit was. Settled at check-in, shown here.
   String? _purpose;
 
   /// The chiller count has been taken during this check-out.
@@ -76,7 +79,6 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
 
   /// Everything still standing between this visit and its check-out.
   List<String> get _pending => [
-        if (_purpose == null) 'Choose what this visit was for',
         if (_needsNote && _note.text.trim().isEmpty) 'Write the visit notes',
         if (_needsStock && !_stockDone) 'Count the stock',
         if (_needsPhoto && _photos.isEmpty) 'Take the closing photo',
@@ -86,6 +88,9 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
   @override
   void initState() {
     super.initState();
+    _purpose = widget.visit['purpose'] as String?;
+    _note.text = widget.note;
+    _photos.addAll(widget.photos);
     _load();
   }
 
@@ -231,7 +236,7 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               children: [
-                _purposePicker(),
+                _purposeCard(),
                 if (_purpose != null) ...[
                   const SizedBox(height: 14),
                   ..._tasks(),
@@ -250,74 +255,38 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
     );
   }
 
-  Widget _purposePicker() => Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+  /// What the visit was for, settled on the way in and shown here.
+  Widget _purposeCard() {
+    final purpose = purposeOf(_purpose);
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12)),
+              child: Icon(purpose?.icon ?? Icons.storefront_rounded,
+                  size: 19, color: AppColors.primary),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('What was this visit for?',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
-                  const Spacer(),
+                  Text(purpose?.name ?? 'Visit',
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
                   Text('In since ${fmtTime(widget.visit['check_in_at'])}',
-                      style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                      style: const TextStyle(fontSize: 12, color: AppColors.muted)),
                 ],
               ),
-              const SizedBox(height: 10),
-              for (final (code, name, hint, icon) in visitPurposes)
-                _purposeTile(code, name, hint, icon),
-            ],
-          ),
-        ),
-      );
-
-  Widget _purposeTile(String code, String name, String hint, IconData icon) {
-    final on = _purpose == code;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: on ? AppColors.primary.withValues(alpha: 0.10) : AppColors.background,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () => setState(() => _purpose = code),
-          child: Container(
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                  color: on ? AppColors.primary : Colors.transparent, width: 1.4),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: on ? AppColors.primary : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, size: 19, color: on ? Colors.white : AppColors.primary),
-                ),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-                      Text(hint, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
-                    ],
-                  ),
-                ),
-                Icon(on ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
-                    size: 20, color: on ? AppColors.primary : AppColors.border),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
     );
