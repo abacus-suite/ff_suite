@@ -351,14 +351,29 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     _load();
   }
 
-  /// A visit the app opened on arrival was never asked what it was for.
+  /// What this visit is for: asked when the app opened it on arrival, and
+  /// changeable afterwards - somebody goes in for one thing and ends up doing
+  /// another often enough that being held to the first answer is worse than
+  /// starting its work again.
   Future<void> _askPurpose() async {
-    final chosen = await askVisitPurpose(context, '${_client?['name'] ?? ''}',
-        current: _current?['purpose'] as String?);
-    if (chosen == null || !mounted) return;
+    final was = _current?['purpose'] as String?;
+    final chosen = await askVisitPurpose(context, '${_client?['name'] ?? ''}', current: was);
+    if (chosen == null || !mounted || chosen == was) return;
     try {
       await Services.api.post('/api/v1/visits/${_current!['id']}/purpose', {'purpose': chosen});
+      if (!mounted) return;
+      // A different visit asks for different work, so what was done for the
+      // old one is cleared rather than counted towards the new one. The stock
+      // count is the exception: it is already saved against this visit.
+      setState(() {
+        _visitNote.clear();
+        _visitPhotos.clear();
+        if (purposeOf(chosen)?.needsStock != true) _stockDone = false;
+      });
       await _load();
+      if (mounted && was != null) {
+        showSnack(context, 'Changed to ${purposeOf(chosen)?.name ?? 'this visit'}');
+      }
     } catch (e) {
       if (mounted) showSnack(context, e.toString());
     }
@@ -1194,7 +1209,31 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   Widget _visitWork() {
     final purpose = _purpose;
     if (purpose == null) return _askPurposeCard();
-    if (purpose.tasks.isEmpty) return const SizedBox.shrink();
+    // Nothing to do for this one, but it still says what it is and can be
+    // changed: somebody looks in for one thing and ends up doing another.
+    if (purpose.tasks.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(13, 10, 9, 10),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        child: Row(
+          children: [
+            Icon(purpose.icon, size: 18, color: AppColors.primary),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text('${purpose.name} · nothing required',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+            ),
+            TextButton(
+              onPressed: _askPurpose,
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              child: const Text('Change'),
+            ),
+          ],
+        ),
+      );
+    }
     final pending = _pending;
     final done = purpose.tasks.length - pending.length;
     return Container(
@@ -1219,8 +1258,29 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(purpose.name,
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(purpose.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+                        ),
+                        const SizedBox(width: 6),
+                        InkWell(
+                          onTap: _askPurpose,
+                          borderRadius: BorderRadius.circular(20),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            child: Text('Change',
+                                style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.primary)),
+                          ),
+                        ),
+                      ],
+                    ),
                     Text('$done of ${purpose.tasks.length} done',
                         style: const TextStyle(fontSize: 12, color: AppColors.muted)),
                   ],
