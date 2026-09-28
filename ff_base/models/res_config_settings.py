@@ -59,6 +59,11 @@ class ResConfigSettings(models.TransientModel):
         string='Odometer Photo on Punch', config_parameter='ff_base.punch_odometer',
         help='At check-in and check-out the app asks for a photo of the odometer and the reading on it. '
              'The photo carries the place and time, and the day\'s kilometres are worked out from the two readings.')
+    ff_api_log = fields.Boolean(
+        string='Log App Requests', config_parameter='ff_base.api_log',
+        help='Writes every request the app makes, and the size of each answer, to the server log. '
+             'Photos, tokens and passwords are never written. Leave it off except while looking '
+             'into a problem: the log grows quickly.')
     ff_contact_access = fields.Selection(
         [('scoped', 'Only their own contacts and their team\'s'),
          ('open', 'Every beat and every contact on a beat')],

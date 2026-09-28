@@ -107,6 +107,9 @@
                         </setting>
                     </block>
                     <block title="Contacts" name="ff_contact_settings">
+                        <setting string="Log app requests" help="For working out what the app asked for and what came back. Photos and tokens are never logged. Turn it off again afterwards.">
+                            <field name="ff_api_log"/>
+                        </setting>
                         <setting string="Who sees which contacts" help="Open access lets the whole field share the beats and their outlets; leads stay with whoever added them.">
                             <field name="ff_contact_access" widget="radio"/>
                         </setting>

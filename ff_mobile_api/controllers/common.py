@@ -9,6 +9,7 @@ Authentication uses the employee's own app login (not an Odoo user):
 the "Data Access" scope on their employee record.
 """
 import functools
+import json
 import hashlib
 import logging
 
@@ -124,6 +125,73 @@ def current_employee(manager=False):
     return employee
 
 
+# Words that must never reach a log file, whatever the app sends.
+_SECRETS = ('password', 'token', 'selfie', 'photo', 'image', 'signature', 'odometer_photo')
+
+
+def _api_logging():
+    """Is API logging switched on? Off unless the office turns it on."""
+    try:
+        return request.env['ir.config_parameter'].sudo().get_param('ff_base.api_log') == 'True'
+    except Exception:
+        return False
+
+
+def _short(value, limit=400):
+    """A value fit for a log line: short, and with nothing private in it."""
+    if isinstance(value, dict):
+        return {key: ('***' if any(word in key.lower() for word in _SECRETS) else _short(item, 120))
+                for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_short(item, 120) for item in value[:5]] + (['...'] if len(value) > 5 else [])
+    text = str(value)
+    return text if len(text) <= limit else text[:limit] + '...'
+
+
+def _log_call(route, kwargs, employee):
+    """What came in: who asked, for what, with which parameters."""
+    if not _api_logging():
+        return
+    params = {key: value for key, value in kwargs.items() if key != 'employee'}
+    body_text = ''
+    if request.httprequest.method == 'POST':
+        try:
+            body_text = _short(body())
+        except Exception:
+            body_text = '<unreadable body>'
+    _logger.info('FF API > %s %s | %s | params=%s%s',
+                 request.httprequest.method, route,
+                 employee.name if employee else 'public',
+                 _short(params),
+                 ' body=%s' % (body_text,) if body_text else '')
+
+
+def _log_result(route, response):
+    """What went out: the status, the size, and how many rows it carried."""
+    if not _api_logging():
+        return
+    try:
+        text = response.get_data(as_text=True)
+    except Exception:
+        _logger.info('FF API < %s | (no body)', route)
+        return
+    rows = ''
+    try:
+        payload = json.loads(text)
+        data = payload.get('data') if isinstance(payload, dict) else None
+        if isinstance(data, list):
+            rows = ' rows=%d' % len(data)
+        elif isinstance(data, dict):
+            counted = {key: len(value) for key, value in data.items() if isinstance(value, list)}
+            if counted:
+                rows = ' rows=%s' % counted
+            if 'total' in data:
+                rows += ' total=%s' % data['total']
+    except Exception:
+        pass
+    _logger.info('FF API < %s | %s | %d bytes%s', route, response.status_code, len(text or ''), rows)
+
+
 def api_route(route, methods=('GET',), public=False, manager=False):
     """Declare a JSON API route; authenticated routes get an ``employee`` kwarg."""
     def decorator(func):
@@ -133,6 +201,7 @@ def api_route(route, methods=('GET',), public=False, manager=False):
             try:
                 if not public:
                     kwargs['employee'] = current_employee(manager=manager)
+                _log_call(route, kwargs, kwargs.get('employee'))
                 uuid = _request_uuid() if not public and request.httprequest.method == 'POST' else None
                 if uuid:
                     # Sent before (queued offline, or an answer lost on the way): same answer again.
@@ -141,6 +210,7 @@ def api_route(route, methods=('GET',), public=False, manager=False):
                         return request.make_response(seen.response, status=seen.status, headers=[
                             ('Content-Type', 'application/json; charset=utf-8'), ('X-Replayed', '1')])
                 response = func(self, *args, **kwargs)
+                _log_result(route, response)
                 if uuid and 200 <= response.status_code < 300:
                     request.env['ff.api.receipt'].ff_store(
                         uuid, kwargs.get('employee'), request.httprequest.path,
