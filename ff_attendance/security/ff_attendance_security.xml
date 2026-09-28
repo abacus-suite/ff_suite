@@ -26,4 +26,17 @@
         <field name="domain_force">[(1, '=', 1)]</field>
         <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
     </record>
+
+    <record id="rule_ff_attendance_day_scope" model="ir.rule">
+        <field name="name">Attendance day: field data access scope</field>
+        <field name="model_id" ref="model_ff_attendance_day"/>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_manager'))]"/>
+    </record>
+    <record id="rule_ff_attendance_day_admin" model="ir.rule">
+        <field name="name">Attendance day: field admin all</field>
+        <field name="model_id" ref="model_ff_attendance_day"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
+    </record>
 </odoo>

@@ -734,7 +734,13 @@
                                         </div>
                                     </t>
                                     <t t-else="">
-                                        <div class="ff_tl_row">
+                                        <div class="ff_tl_row"
+                                             t-attf-data-ff-event="{{ event.kind }}-{{ event.at }}"
+                                             t-att-class="{
+                                                 'ff_tl_row_active': state.activeEvent === event.kind + '-' + event.at,
+                                                 'ff_tl_row_passed': state.passedEvents.includes(event.kind + '-' + event.at),
+                                             }"
+                                             t-on-click="() => this.focusEvent(event)">
                                             <div class="ff_tl_time">
                                                 <div class="fw-bold" t-esc="clock(event.at)"/>
                                                 <div class="text-muted small" t-if="event.duration_min">
@@ -824,6 +830,18 @@
                     <t t-if="state.peopleView === 'org'">
                         <button class="ff_icon_btn" title="Expand all" t-on-click="expandAll"><i class="fa fa-plus-square-o"/></button>
                         <button class="ff_icon_btn" title="Collapse all" t-on-click="collapseAll"><i class="fa fa-minus-square-o"/></button>
+                        <span class="ff_org_zoom">
+                                <button class="ff_icon_btn" title="Zoom out" t-on-click="() => this.zoomOrg(-0.1)">
+                                    <i class="fa fa-search-minus"/>
+                                </button>
+                                <button class="ff_icon_btn ff_org_zoom_level" title="Reset the zoom"
+                                        t-on-click="resetOrgZoom">
+                                    <t t-esc="Math.round(state.orgZoom * 100)"/>%
+                                </button>
+                            <button class="ff_icon_btn" title="Zoom in" t-on-click="() => this.zoomOrg(0.1)">
+                                <i class="fa fa-search-plus"/>
+                            </button>
+                        </span>
                     </t>
                     <button class="ff_outline_btn" t-on-click="() => this.openModel('hr.employee', 'Employees')">
                         <i class="fa fa-external-link me-1"/>Open in Odoo
@@ -949,8 +967,9 @@
                                 <div><div class="small text-muted">Teams</div><b t-esc="state.org.teams"/></div></div>
                         </div>
                     </div>
-                    <div class="ff_chart_wrap" t-if="state.org">
-                        <div class="ff_chart">
+                    <div class="ff_chart_wrap ff_org_canvas" t-if="state.org" t-on-wheel="onOrgWheel">
+                        <div class="ff_chart ff_org_scale"
+                             t-attf-style="transform: scale({{ state.orgZoom }}); transform-origin: top center;">
                             <ul class="ff_tree">
                                 <t t-foreach="state.org.roots" t-as="root" t-key="root.id">
                                     <t t-call="ff_dashboard.OrgNode">
@@ -2009,7 +2028,7 @@
                                             <th>Employee</th>
                                             <th class="text-center">Present</th>
                                             <th class="text-center">Absent</th>
-                                            <th class="text-center">Late</th>
+                                            <th class="text-center" title="Days the first check-in was after the shift start">Late days</th>
                                             <th class="text-center">Hours</th>
                                             <th class="text-center">Avg / Day</th>
                                             <th>Last Punch</th>

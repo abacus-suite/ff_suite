@@ -30,26 +30,36 @@ class FfDashboardReports(models.AbstractModel):
             ('check_in', '>=', start_dt), ('check_in', '<', end_dt)], order='check_in')
         days = (end - start).days + 1
         worked = sum(attendances.mapped('worked_hours'))
-        late = attendances.filtered(lambda a: a.ff_late_minutes > 0) if attendances else attendances
+
+        # Somebody who checks in and out three times is still one person, late
+        # once or not at all: lateness is judged on the first punch of the day.
+        first_punch = {}
+        for attendance in attendances:
+            day = fields.Date.to_date(attendance.check_in)
+            key = (attendance.employee_id.id, day)
+            if key not in first_punch:
+                first_punch[key] = attendance
+        late_days = {key for key, att in first_punch.items() if att.ff_late_minutes > 0}
 
         by_day = {}
         for attendance in attendances:
             day = fields.Date.to_date(attendance.check_in)
-            row = by_day.setdefault(day, {'present': set(), 'hours': 0.0, 'late': 0})
+            row = by_day.setdefault(day, {'present': set(), 'hours': 0.0, 'late': set()})
             row['present'].add(attendance.employee_id.id)
             row['hours'] += attendance.worked_hours
-            row['late'] += 1 if attendance.ff_late_minutes else 0
+            if (attendance.employee_id.id, day) in late_days:
+                row['late'].add(attendance.employee_id.id)
 
         series = []
         for index in range(days):
             day = start + timedelta(days=index)
-            row = by_day.get(day, {'present': set(), 'hours': 0.0, 'late': 0})
+            row = by_day.get(day, {'present': set(), 'hours': 0.0, 'late': set()})
             series.append({
                 'day': day.isoformat(),
                 'label': day.strftime('%d-%m'),
                 'present': len(row['present']),
                 'absent': 0 if day > today else max(len(employees) - len(row['present']), 0),
-                'late': row['late'],
+                'late': len(row['late']),
                 'hours': round(row['hours'] / (len(row['present']) or 1), 2),
             })
 
@@ -64,7 +74,7 @@ class FfDashboardReports(models.AbstractModel):
                 'avatar': '/web/image/hr.employee/%s/avatar_128' % employee.id,
                 'present': present_days,
                 'absent': max(days - present_days, 0),
-                'late': len(own.filtered(lambda a: a.ff_late_minutes > 0)),
+                'late': len({day for (employee_id, day) in late_days if employee_id == employee.id}),
                 'hours': round(sum(own.mapped('worked_hours')), 1),
                 'avg_hours': round(sum(own.mapped('worked_hours')) / present_days, 1) if present_days else 0.0,
                 'last_in': to_iso(own[-1:].check_in) if own else False,
@@ -80,10 +90,12 @@ class FfDashboardReports(models.AbstractModel):
             'end': end.isoformat(),
             'kpis': {
                 'headcount': len(employees),
+                # The last day of the chosen period: "today" only when today was asked for.
                 'present_today': len({a.employee_id.id for a in attendances
-                                      if fields.Date.to_date(a.check_in) == today}),
+                                      if fields.Date.to_date(a.check_in) == min(end, today)}),
+                'present_days': len({(a.employee_id.id, fields.Date.to_date(a.check_in)) for a in attendances}),
                 'punches': len(attendances),
-                'late': len(late),
+                'late': len(late_days),
                 'hours': round(worked, 1),
                 'avg_hours': round(worked / len(attendances), 1) if attendances else 0.0,
             },

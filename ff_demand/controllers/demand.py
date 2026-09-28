@@ -39,6 +39,7 @@ def demand_data(demand, with_lines=False):
     if with_lines == 'brief':
         # Just enough for grouping by product in the list.
         data['products'] = [{'id': line.product_id.id, 'name': line.product_id.display_name,
+                             'has_image': bool(line.product_id.image_128),
                              'qty': line.quantity, 'subtotal': line.subtotal}
                             for line in demand.line_ids if line.product_id]
     elif with_lines:
@@ -100,6 +101,56 @@ class FieldForceDemandApi(http.Controller):
         if not allowed:
             raise ApiError('Demand not found.', 404, 'not_found')
         return ok(demand_data(demand, with_lines=True))
+
+    @api_route('/api/v1/demands/submit', methods=('POST',))
+    def submit_to_distributor(self, employee, **kw):
+        """Send the chosen demands on as one order for a distributor."""
+        data = body()
+        ids = [to_int(value) for value in (data.get('demand_ids') or [])]
+        ids = [value for value in ids if value]
+        if not ids:
+            raise ApiError('Choose the demands to send.')
+        demands = request.env['ff.demand'].sudo().browse(ids).exists()
+        distributor = request.env['res.partner'].sudo().browse(to_int(data.get('distributor_id')) or 0).exists()
+        order = request.env['ff.demand'].ff_submit_to_distributor(employee, demands, distributor)
+        return ok({
+            'order': {'id': order.id, 'name': order.name},
+            'distributor': ref(distributor),
+            'demands': [demand_data(demand) for demand in demands],
+        }, status=201)
+
+    @api_route('/api/v1/distributors', methods=('GET',))
+    def distributors(self, employee, q=None, **kw):
+        """Who can be billed for a demand."""
+        domain = [('ff_is_distributor', '=', True),
+                  ('company_id', 'in', (False, employee.company_id.id))]
+        if q:
+            domain += ['|', ('name', 'ilike', q), ('city', 'ilike', q)]
+        partners = request.env['res.partner'].sudo().search(domain, order='name', limit=200)
+        return ok([{
+            'id': partner.id,
+            'name': partner.name,
+            'city': partner.city or None,
+            'phone': partner.phone or None,
+            'gst': partner.vat or None,
+        } for partner in partners])
+
+    @api_route('/api/v1/orders/<int:order_id>/summary.pdf', methods=('GET',))
+    def order_summary_pdf(self, employee, order_id, **kw):
+        """The outlet-by-outlet summary, ready to be passed on to the distributor."""
+        order = request.env['sale.order'].sudo().browse(order_id).exists()
+        allowed = order and (order.ff_employee_id == employee
+                             or order.ff_employee_id in employee._ff_subordinates())
+        if not allowed:
+            raise ApiError('Order not found.', 404, 'not_found')
+        report = request.env.ref('ff_demand.action_report_ff_distributor_summary').sudo()
+        pdf, _kind = report._render_qweb_pdf(report.report_name, res_ids=order.ids)
+        name = 'Order Summary - %s.pdf' % (order.name or order.id)
+        return request.make_response(pdf, headers=[
+            ('Content-Type', 'application/pdf'),
+            ('Content-Length', len(pdf)),
+            ('Content-Disposition', 'attachment; filename="%s"' % name),
+        ])
 
     @api_route('/api/v1/order-flow', methods=('GET',))
     def flow(self, employee, **kw):

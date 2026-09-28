@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_deposit_payment_view_form" model="ir.ui.view">
+        <field name="name">ff.deposit.payment.form</field>
+        <field name="model">ff.deposit.payment</field>
+        <field name="arch" type="xml">
+            <form string="Receive Money">
+                <sheet>
+                    <div class="oe_title">
+                        <h2>
+                            <field name="amount" widget="monetary" readonly="1" nolabel="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </h2>
+                        <div class="text-muted">
+                            from <field name="employee_id" readonly="1" nolabel="1" class="oe_inline"/>,
+                            <field name="collection_count" readonly="1" nolabel="1" class="oe_inline"/> collections
+                            from <field name="partner_count" readonly="1" nolabel="1" class="oe_inline"/> customers
+                        </div>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="journal_id" options="{'no_create': True}"/>
+                            <field name="available_method_line_ids" invisible="1"/>
+                            <field name="payment_method_line_id" options="{'no_create': True}"
+                                   invisible="not available_method_line_ids"/>
+                            <field name="payment_date"/>
+                        </group>
+                        <group>
+                            <field name="memo"/>
+                            <field name="group_payments" widget="radio"/>
+                            <field name="single_partner_id" options="{'no_create': True}"
+                                   invisible="group_payments != 'single'"
+                                   required="group_payments == 'single'"/>
+                            <field name="deposit_id" invisible="1"/>
+                            <field name="company_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <div class="text-muted">
+                        Confirming posts the customer payments and marks the deposit received.
+                    </div>
+                </sheet>
+                <footer>
+                    <button name="action_confirm" type="object" string="Confirm" class="btn-primary"
+                            data-hotkey="q"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel" data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_deposit_payment_action" model="ir.actions.act_window">
+        <field name="name">Receive Money</field>
+        <field name="res_model">ff.deposit.payment</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

@@ -70,13 +70,25 @@ PRODUCTS = [
 ]
 
 
+def _fit(env, model, vals):
+    """Keep only the fields this Odoo really has.
+
+    Odoo moves fields between versions - a contact's separate mobile number is
+    one that went away - and demo data that names a missing field takes the
+    whole step down with it.
+    """
+    known = env[model]._fields
+    return {key: value for key, value in vals.items() if key in known}
+
+
 def _step(env, label, fn, *args):
     """Run one part of the demo in a savepoint; a refusal is logged, not fatal."""
     try:
         with env.cr.savepoint():
             return fn(*args)
-    except Exception:  # noqa: BLE001 - a demo part that fails must not stop the install
-        _logger.exception('South India demo: %s skipped', label)
+    except Exception as error:  # noqa: BLE001 - a demo part that fails must not stop the install
+        _logger.error('South India demo: %s skipped - %s', label, error)
+        _logger.exception('South India demo: %s, in full', label)
         return None
 
 
@@ -295,14 +307,14 @@ class Demo:
                 if state else env['ff.district']
             area_people = [e for k, e in self.people.items() if self.area_of.get(k) == key]
             reps = [e for k, e in self.people.items() if self.area_of.get(k) == key and self.level[k] == 4]
-            distributor = env['res.partner'].create({
+            distributor = env['res.partner'].create(_fit(env, 'res.partner', {
                 'name': '%s Distributors (Demo)' % city, 'is_company': True, 'city': city,
                 'state_id': state.id if state else False, 'country_id': env.ref('base.in').id,
                 'ff_is_client': True, 'ff_is_distributor': True, 'ff_category_id': distributor_category.id,
                 'ff_approval_state': 'approved', 'partner_latitude': centre[0] + 0.01,
                 'partner_longitude': centre[1] - 0.01, 'phone': '+91 44 2%03d %04d' % (number, 5000 + number),
                 'email': 'orders.%s@%s' % (key, DOMAIN), 'ff_employee_ids': [(6, 0, [e.id for e in area_people])],
-            })
+            }))
             self.distributors[key] = distributor
             beats, customers = env['ff.beat'], env['res.partner']
             for beat_index in range(2):
@@ -326,7 +338,7 @@ class Demo:
                     radius = 0.018 + (number % 5) * 0.007
                     lat, lng = centre[0] + radius * math.sin(angle), centre[1] + radius * math.cos(angle)
                     owner = random.choice(reps or area_people)
-                    customer = env['res.partner'].create({
+                    customer = env['res.partner'].create(_fit(env, 'res.partner', {
                         'name': '%s %s' % (SHOP_NAMES[number % len(SHOP_NAMES)], SHOP_WORDS[(number * 3) % len(SHOP_WORDS)]),
                         'is_company': True, 'street': '%d, %s' % (5 + number, locality), 'street2': locality,
                         'city': city.replace(' North', '').replace(' South', ''),
@@ -343,7 +355,7 @@ class Demo:
                         'ff_employee_ids': [(6, 0, [e.id for e in area_people])],
                         'ff_team_ids': [(6, 0, self.teams[key].ids)],
                         'ff_distributor_id': distributor.id, 'ff_created_by_employee_id': owner.id,
-                    })
+                    }))
                     customers |= customer
                     lines.append((0, 0, {'partner_id': customer.id, 'sequence': slot + 1}))
                     number += 1

@@ -29,6 +29,11 @@ def client_data(partner, lat=None, lng=None):
         'last_visit_by': ref(partner.ff_last_visit_employee_id),
         'days_since_visit': partner.ff_days_since_visit if partner.ff_days_since_visit >= 0 else None,
         'routes': [ref(route) for route in partner.ff_route_ids],
+        'assigned_to': [ref(person) for person in partner.ff_employee_ids[:3]],
+        'gst': partner.vat or None,
+        'city': partner.city or None,
+        'zip': partner.zip or None,
+        'street': partner.street or None,
         'distance_m': int(haversine_m(lat, lng, partner.partner_latitude, partner.partner_longitude))
         if located and lat is not None and lng is not None else None,
     }
@@ -50,7 +55,9 @@ def visit_data(visit):
         'inside_geofence': visit.inside_geofence,
         'location_captured': visit.location_captured,
         'visit_type': visit.visit_type,
+        'auto_start': visit.auto_start,
         'outcome': visit.outcome or None,
+        'purpose': visit.purpose or None,
         'outcome_type': ref(visit.outcome_id),
         'productive': visit.productive,
         'note': visit.note or None,

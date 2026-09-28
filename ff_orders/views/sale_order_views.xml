@@ -11,6 +11,8 @@
                         <group>
                             <field name="ff_source"/>
                             <field name="ff_employee_id"/>
+                <field name="ff_outlet_id" optional="show"/>
+                            <field name="ff_outlet_id"/>
                             <field name="ff_visit_id"/>
                         </group>
                         <group>

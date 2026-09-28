@@ -10,7 +10,7 @@ import time
 
 import requests
 
-from odoo import fields, models
+from odoo import api, fields, models
 
 from odoo.addons.ff_base.tools import geocode_provider, google_maps_key, haversine_m
 
@@ -81,6 +81,22 @@ class FfEmployeeStatusGeocode(models.Model):
             self.env['ff.map.usage'].ff_record('geocode', 1, employee=status.employee_id)
         self._ff_note_problem(problem)
         return self
+
+    @api.model
+    def ff_address_at(self, latitude, longitude):
+        """A readable place for one point, for the stamp the app writes on photos.
+
+        Free by default (OpenStreetMap); Google only when the office chose it
+        and this month's free lookups are not used up.
+        """
+        google = geocode_provider(self.env) == 'google' and self.env['ff.map.usage'].ff_google_allowed('geocode')
+        if google:
+            address, _problem = self._ff_reverse_geocode(latitude, longitude, google_maps_key(self.env))
+            if address:
+                self.env['ff.map.usage'].ff_record('geocode', 1)
+                return address
+        address, _problem = self._ff_reverse_open(latitude, longitude)
+        return address or ''
 
     def _ff_resolve_open(self):
         """The free path: Nominatim, a few people per refresh, a second apart as its policy asks."""

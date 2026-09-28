@@ -31,6 +31,78 @@ function since(iso) {
     return hours < 24 ? `${hours} h ago` : `${Math.floor(hours / 24)} d ago`;
 }
 
+/** The bubble the phone app draws: a soft halo, a gradient face and a count. */
+function bubbleHtml(count, kind) {
+    const text = count > 999 ? "999+" : String(count);
+    const size = count >= 100 ? 54 : count >= 50 ? 50 : count >= 10 ? 46 : 42;
+    return `<div class="ff_map_bubble ff_map_bubble_${kind}" style="--ff-bubble: ${size}px">
+        <span class="ff_map_bubble_ring"></span>
+        <span class="ff_map_bubble_face">${text}</span>
+    </div>`;
+}
+
+/** A round bubble with a number in it, used for a group of pins. */
+function bubbleIcon(count, colour, core) {
+    const text = count > 999 ? "999+" : String(count);
+    const size = count >= 100 ? 54 : count >= 50 ? 50 : count >= 10 ? 46 : 42;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size + 14}" height="${size + 14}">
+        <circle cx="${(size + 14) / 2}" cy="${(size + 14) / 2}" r="${size / 2 + 6}" fill="${colour}" opacity="0.18"/>
+        <circle cx="${(size + 14) / 2}" cy="${(size + 14) / 2}" r="${size / 2}" fill="${colour}"
+                stroke="#ffffff" stroke-width="3"/>
+        <text x="${(size + 14) / 2}" y="${(size + 14) / 2 + 5}" text-anchor="middle"
+              font-family="Inter, sans-serif" font-size="${text.length > 3 ? 13 : 15}"
+              font-weight="800" fill="#ffffff">${text}</text>
+    </svg>`;
+    return {
+        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+        scaledSize: new core.Size(size + 14, size + 14),
+        anchor: new core.Point((size + 14) / 2, (size + 14) / 2),
+    };
+}
+
+/** Groups points that sit within ``pixels`` of each other at this zoom. */
+function clusterAt(rows, zoom, pixels = 70) {
+    const scale = 256 * Math.pow(2, zoom);
+    const points = rows
+        .filter((row) => row.lat && row.lng)
+        .map((row) => {
+            const x = ((row.lng + 180) / 360) * scale;
+            const sin = Math.min(Math.max(Math.sin((row.lat * Math.PI) / 180), -0.9999), 0.9999);
+            const y = (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale;
+            return { row, x, y };
+        });
+    const taken = new Set();
+    const clusters = [];
+    for (let i = 0; i < points.length; i++) {
+        if (taken.has(i)) {
+            continue;
+        }
+        const members = [];
+        let sumLat = 0;
+        let sumLng = 0;
+        for (let j = i; j < points.length; j++) {
+            if (taken.has(j)) {
+                continue;
+            }
+            const dx = points[j].x - points[i].x;
+            const dy = points[j].y - points[i].y;
+            if (Math.sqrt(dx * dx + dy * dy) > pixels) {
+                continue;
+            }
+            taken.add(j);
+            members.push(points[j].row);
+            sumLat += points[j].row.lat;
+            sumLng += points[j].row.lng;
+        }
+        clusters.push({
+            lat: sumLat / members.length,
+            lng: sumLng / members.length,
+            members,
+        });
+    }
+    return clusters;
+}
+
 export class FieldForceLiveMap extends Component {
     static template = "ff_live_map.LiveMap";
     // Client actions receive action, actionId, className... from the action service.
@@ -52,6 +124,7 @@ export class FieldForceLiveMap extends Component {
             updatedAt: "",
             usage: null,
             clients: [],
+            groupPins: true,
             showClients: false,
             showLabels: true,
         });
@@ -109,6 +182,22 @@ export class FieldForceLiveMap extends Component {
 
     get legend() {
         return Object.entries(STATES).map(([key, value]) => ({ key, ...value }));
+    }
+
+    /// How many of each kind are on the map right now.
+    get onMap() {
+        const clients = this.state.showClients ? (this.state.clients || []).filter((c) => c.lat && c.lng) : [];
+        return { people: this.located.length, clients: clients.length };
+    }
+
+    /// Pins grouped into counted bubbles, or every pin on its own.
+    toggleGrouping() {
+        this.state.groupPins = this.state.groupPins === false;
+        this.markers.forEach((marker) => marker.setMap(null));
+        this.markers.clear();
+        this.clientMarkers.forEach((marker) => marker.setMap(null));
+        this.clientMarkers.clear();
+        this.drawMarkers();
     }
 
     /// "10:44 AM" from an ISO timestamp.
@@ -186,7 +275,23 @@ export class FieldForceLiveMap extends Component {
             fullscreenControl: true,
             clickableIcons: false,
         });
+        // MapLibre places a marker only once its style is up: markers added
+        // before that sit in the corner of the map instead of on their place.
+        if (this.map.whenReady) {
+            await this.map.whenReady();
+        }
         this.infoWindow = new this.InfoWindowClass();
+        // Pins regroup once the map settles, so a bubble always counts what is
+        // really under it at this zoom.
+        if (this.map.addListener) {
+            this.map.addListener("idle", () => {
+                const zoom = this.map.getZoom ? Math.round(this.map.getZoom() * 4) : 0;
+                if (zoom !== this.lastZoomStep) {
+                    this.lastZoomStep = zoom;
+                    this.drawMarkers();
+                }
+            });
+        }
         this.state.mapError = "";
     }
 
@@ -195,6 +300,14 @@ export class FieldForceLiveMap extends Component {
         // banner on the map says the same thing and disappears once it works.
         this.mapPromise = null;
         this.state.mapError = message;
+    }
+
+    /// The counted bubble: a live element on the free map, a picture on Google's.
+    bubble(count, kind) {
+        if (this.mapProvider !== "google") {
+            return { html: bubbleHtml(count, kind), anchor: "center" };
+        }
+        return bubbleIcon(count, kind === "people" ? "#1A56DB" : "#0F9D8C", this.core);
     }
 
     markerIcon(person) {
@@ -221,34 +334,52 @@ export class FieldForceLiveMap extends Component {
         if (!this.map) {
             return;
         }
+        const zoom = this.map.getZoom ? this.map.getZoom() : 12;
+        const clusters = this.state.groupPins === false ? this.located.map((p) => ({ lat: p.lat, lng: p.lng, members: [p] })) : clusterAt(this.located, zoom);
         const visible = new Set();
         const bounds = new this.core.LatLngBounds();
         let count = 0;
-        for (const person of this.located) {
-            visible.add(person.id);
-            const position = { lat: person.lat, lng: person.lng };
-            let marker = this.markers.get(person.id);
+        for (const cluster of clusters) {
+            const single = cluster.members.length === 1;
+            const person = cluster.members[0];
+            const id = single ? `p${person.id}` : `g${Math.round(cluster.lat * 1e4)}:${Math.round(cluster.lng * 1e4)}:${cluster.members.length}`;
+            visible.add(id);
+            const position = { lat: cluster.lat, lng: cluster.lng };
+            let marker = this.markers.get(id);
+            const icon = single
+                ? this.markerIcon(person)
+                : this.bubble(cluster.members.length, "people");
             if (marker) {
                 marker.setPosition(position);
-                marker.setIcon(this.markerIcon(person));
+                marker.setIcon(icon);
             } else {
                 marker = new this.MarkerClass({
                     map: this.map,
                     position,
-                    title: person.name,
-                    icon: this.markerIcon(person),
-                    zIndex: 10,
+                    title: single ? person.name : `${cluster.members.length} employees`,
+                    icon,
+                    zIndex: single ? 10 : 20,
                 });
-                marker.addListener("click", () => this.select(person));
-                this.markers.set(person.id, marker);
+                marker.addListener("click", () => {
+                    if (single) {
+                        this.select(person);
+                    } else {
+                        // Open the group: zoom in on what it holds.
+                        this.map.setCenter(position);
+                        this.map.setZoom(Math.min((this.map.getZoom ? this.map.getZoom() : 12) + 2, 17));
+                        this.drawMarkers();
+                    }
+                });
+                this.markers.set(id, marker);
             }
+            // Names only once the map is close enough for them to mean something.
             marker.setLabel(
-                this.state.showLabels
+                this.state.showLabels && single && zoom >= 9
                     ? { text: person.name, className: "ff_live_map_label", color: "#0F1B3D", fontSize: "11px" }
                     : null
             );
             bounds.extend(position);
-            count++;
+            count += cluster.members.length;
         }
         this.drawClients();
         for (const [id, marker] of this.markers) {
@@ -273,33 +404,42 @@ export class FieldForceLiveMap extends Component {
             return;
         }
         const wanted = this.state.showClients ? this.state.clients : [];
+        const zoom = this.map.getZoom ? this.map.getZoom() : 12;
+        const clusters = this.state.groupPins === false ? wanted.filter((c) => c.lat && c.lng).map((c) => ({ lat: c.lat, lng: c.lng, members: [c] })) : clusterAt(wanted, zoom);
         const seen = new Set();
-        for (const client of wanted) {
-            seen.add(client.id);
-            if (this.clientMarkers.has(client.id)) {
+        for (const cluster of clusters) {
+            const single = cluster.members.length === 1;
+            const client = cluster.members[0];
+            const id = single ? `c${client.id}` : `cg${Math.round(cluster.lat * 1e4)}:${Math.round(cluster.lng * 1e4)}:${cluster.members.length}`;
+            seen.add(id);
+            if (this.clientMarkers.has(id)) {
                 continue;
             }
+            const position = { lat: cluster.lat, lng: cluster.lng };
             const marker = new this.MarkerClass({
                 map: this.map,
-                position: { lat: client.lat, lng: client.lng },
-                title: client.name,
-                zIndex: 1,
-                icon: {
-                    path: this.core.SymbolPath.CIRCLE,
-                    scale: 6,
-                    fillColor: "#7C5CFC",
-                    fillOpacity: 1,
-                    strokeColor: "#FFFFFF",
-                    strokeWeight: 2,
-                },
+                position,
+                title: single ? client.name : `${cluster.members.length} customers`,
+                icon: single
+                    ? pinIcon("#14B8A6", this.core)
+                    : this.bubble(cluster.members.length, "clients"),
+                zIndex: single ? 5 : 6,
             });
             marker.addListener("click", () => {
-                this.infoWindow.setContent(
-                    `<div class="ff_live_map_info"><strong>${client.name}</strong><div class="text-muted">${client.category || "Customer"}</div></div>`
-                );
+                if (!single) {
+                    this.map.setCenter(position);
+                    this.map.setZoom(Math.min((this.map.getZoom ? this.map.getZoom() : 12) + 2, 17));
+                    this.drawClients();
+                    return;
+                }
+                this.infoWindow.setContent(`<div class="ff_live_map_info">
+                    <strong>${client.name}</strong>
+                    <div class="text-muted">${client.address || ""}</div>
+                    ${client.phone ? `<div>${client.phone}</div>` : ""}
+                </div>`);
                 this.infoWindow.open({ map: this.map, anchor: marker });
             });
-            this.clientMarkers.set(client.id, marker);
+            this.clientMarkers.set(id, marker);
         }
         for (const [id, marker] of this.clientMarkers) {
             if (!seen.has(id)) {
@@ -307,16 +447,6 @@ export class FieldForceLiveMap extends Component {
                 this.clientMarkers.delete(id);
             }
         }
-    }
-
-    async toggleClients(ev) {
-        this.state.showClients = ev.target.checked;
-        await this.load();
-    }
-
-    toggleLabels(ev) {
-        this.state.showLabels = ev.target.checked;
-        this.drawMarkers();
     }
 
     select(person) {

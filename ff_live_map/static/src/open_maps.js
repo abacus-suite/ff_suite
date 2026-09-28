@@ -106,7 +106,7 @@ function classesFor(gl, styleUrl) {
                 style: styleUrl,
                 center: [center.lng, center.lat],
                 zoom: options.zoom ?? 5,
-                attributionControl: { compact: true },
+                attributionControl: false,
             });
             this.gl.addControl(new gl.NavigationControl({ showCompass: false }), "bottom-right");
             if (options.fullscreenControl !== false) {
@@ -139,6 +139,19 @@ function classesFor(gl, styleUrl) {
             const p = toLatLng(point);
             this.gl.easeTo({ center: [p.lng(), p.lat()] });
         }
+        /** Resolves once the style is loaded; markers added earlier never move. */
+        whenReady() {
+            return this.ready;
+        }
+        addListener(event, handler) {
+            // The map settles after a pan or a zoom: that is when the pins regroup.
+            const name = { idle: "moveend", zoom_changed: "zoomend", click: "click" }[event];
+            if (!name) {
+                return { remove() {} };
+            }
+            this.gl.on(name, handler);
+            return { remove: () => this.gl.off(name, handler) };
+        }
         fitBounds(bounds, padding = 40) {
             if (!bounds || bounds.isEmpty()) {
                 return;
@@ -165,6 +178,11 @@ function classesFor(gl, styleUrl) {
             dot.style.cssText = "width:14px;height:14px;border-radius:50%;background:#1a56db;border:2px solid #fff";
             box.appendChild(dot);
             return { anchor: "center" };
+        }
+        if (icon.html) {
+            // A living bubble: CSS can then animate it, which a picture cannot.
+            box.innerHTML = icon.html;
+            return { anchor: icon.anchor || "center" };
         }
         if (icon.url) {
             const img = document.createElement("img");
@@ -197,15 +215,21 @@ function classesFor(gl, styleUrl) {
 
     class Marker {
         constructor(options = {}) {
+            // MapLibre places the marker by setting "position: absolute" on this
+            // element through its stylesheet. An inline position here would win
+            // over that and leave every pin stacked in the corner of the map, so
+            // the inner box carries the layout instead.
             this.root = document.createElement("div");
             this.root.className = "ff_open_marker";
             this.root.style.cursor = "pointer";
-            this.root.style.position = "relative";
+            this.inner = document.createElement("div");
+            this.inner.style.position = "relative";
+            this.root.appendChild(this.inner);
             this.iconBox = document.createElement("div");
-            this.root.appendChild(this.iconBox);
+            this.inner.appendChild(this.iconBox);
             this.labelBox = document.createElement("div");
             this.labelBox.className = "ff_open_marker_label";
-            this.root.appendChild(this.labelBox);
+            this.inner.appendChild(this.labelBox);
             if (options.title) {
                 this.root.title = options.title;
             }

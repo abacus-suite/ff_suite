@@ -2,7 +2,9 @@
 <odoo>
     <menuitem id="menu_ff_attendance" name="Attendance &amp; Leave" parent="ff_base.menu_ff_group_team" sequence="20"/>
     <menuitem id="menu_ff_attendance_list" name="Attendance" parent="menu_ff_attendance"
-              action="ff_attendance_action" sequence="10"/>
+              action="ff_attendance_day_action" sequence="10"/>
+    <menuitem id="menu_ff_attendance_punches" name="All Punches" parent="menu_ff_attendance"
+              action="ff_attendance_action" sequence="15"/>
     <menuitem id="menu_ff_regularisation" name="Regularisation Requests" parent="menu_ff_attendance"
               action="ff_regularisation_action" sequence="20"/>
 

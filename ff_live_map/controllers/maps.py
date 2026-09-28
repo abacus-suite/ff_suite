@@ -2,10 +2,19 @@
 from odoo import http
 from odoo.http import request
 
-from odoo.addons.ff_mobile_api.controllers.common import api_route, body, ok
+from odoo.addons.ff_mobile_api.controllers.common import ApiError, api_route, body, ok
 
 
 class FieldForceMapUsageApi(http.Controller):
+
+    @api_route('/api/v1/geo/address', methods=('GET',))
+    def address(self, employee, lat=None, lng=None, **kw):
+        """The place at a point, so the app can stamp photos with it."""
+        try:
+            latitude, longitude = float(lat), float(lng)
+        except (TypeError, ValueError):
+            raise ApiError('lat and lng are required.')
+        return ok({'address': request.env['ff.employee.status'].ff_address_at(latitude, longitude)})
 
     @api_route('/api/v1/maps/usage', methods=('POST',))
     def usage(self, employee, **kw):

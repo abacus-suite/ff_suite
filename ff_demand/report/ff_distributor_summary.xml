@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Sent on to the distributor as it stands, so it is printed on the
+         company's own letterhead and says nothing about Odoo.
+
+         Everything here is laid out with tables and explicit sizes rather than
+         with the grid and the type scale the web client uses: wkhtmltopdf sees
+         none of that reliably, and a document that goes out to a customer of
+         our customer cannot be left to fall back. -->
+    <record id="action_report_ff_distributor_summary" model="ir.actions.report">
+        <field name="name">Distributor Outlet Order Summary</field>
+        <field name="model">sale.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">ff_demand.report_ff_distributor_summary</field>
+        <field name="report_file">ff_demand.report_ff_distributor_summary</field>
+        <field name="print_report_name">'Order Summary - %s' % (object.partner_id.name or '')</field>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <template id="report_ff_distributor_summary">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="company" t-value="doc.company_id"/>
+                <t t-set="distributor" t-value="doc.partner_id"/>
+                <t t-set="outlets" t-value="doc.ff_summary_outlets()"/>
+                <t t-set="products" t-value="doc.ff_summary_products()"/>
+                <div class="page ff-summary">
+                    <style>
+                        /* Odoo's own report wrapper pads the page for a letterhead it is
+                           not printing here, which is the gap above the logo. */
+                        html, body { margin: 0 !important; padding: 0 !important; }
+                        .article, div.article { margin: 0 !important; padding: 0 !important; }
+                        .ff-summary { font-family: Arial, Helvetica, sans-serif; color: #000000;
+                                      font-size: 9pt; line-height: 1.35; padding: 0; margin: 0; }
+                        .ff-summary div, .ff-summary td, .ff-summary th, .ff-summary span,
+                        .ff-summary strong, .ff-summary p { font-size: 9pt; }
+                        .ff-summary img { display: block; }
+                        .ff-title { font-size: 13.5pt; font-weight: bold; color: #000000;
+                                    letter-spacing: .3px; margin: 0; }
+                        .ff-band { border-bottom: 2px solid #000000; padding: 10px 0 5px; margin-bottom: 9px; }
+                        .ff-grid { width: 100%; border-collapse: separate; border-spacing: 0; }
+                        /* Both parties are cells of one row, so the taller one sets the
+                           height and the two borders come out level. */
+                        .ff-card { border: 1px solid #000000; padding: 0; vertical-align: top; }
+                        .ff-gap { width: 14px; border: none; padding: 0; }
+                        .ff-card-head { background: #ededed; color: #000000; font-weight: bold;
+                                        font-size: 8.5pt; padding: 4px 7px; border-bottom: 1px solid #000000; }
+                        .ff-card-body { padding: 6px 7px; }
+                        .ff-name { font-size: 10pt; font-weight: bold; color: #000000; }
+                        .ff-addr { color: #444444; font-size: 8.5pt; }
+                        .ff-kv td { font-size: 8.5pt; padding: 1px 0; vertical-align: top; }
+                        .ff-kv .ff-k { color: #555555; width: 46px; }
+                        .ff-kv .ff-c { width: 8px; color: #555555; }
+                        .ff-meta { width: 100%; background: #f5f5f5; border: 1px solid #000000;
+                                   border-collapse: collapse; margin: 9px 0 11px; }
+                        .ff-meta td { padding: 5px 9px; border-right: 1px solid #999999; width: 33.33%; }
+                        .ff-meta td:last-child { border-right: none; }
+                        .ff-meta .ff-k { color: #555555; font-size: 7.5pt; text-transform: uppercase;
+                                         letter-spacing: .4px; display: block; }
+                        .ff-meta .ff-v { font-weight: bold; font-size: 9pt; }
+                        .ff-block { margin-bottom: 11px; }
+                        /* The block header is set apart by its rule and its weight rather
+                           than by a filled bar: less ink, and it prints the same anywhere. */
+                        .ff-head { width: 100%; background: #ffffff; border-collapse: collapse;
+                                   border: 1px solid #000000; border-bottom: none; }
+                        .ff-head td { padding: 5px 8px; color: #000000; vertical-align: middle; }
+                        .ff-no { border: 1px solid #000000; color: #000000; font-weight: bold;
+                                 font-size: 8.5pt; padding: 1px 5px; margin-right: 7px; }
+                        .ff-head .ff-shop { font-size: 10pt; font-weight: bold; color: #000000;
+                                            letter-spacing: .2px; }
+                        .ff-head .ff-where { font-size: 7.5pt; color: #555555; text-align: right; }
+                        table.ff-table { width: 100%; border-collapse: collapse; }
+                        table.ff-table th { background: #ededed; color: #000000; font-weight: bold;
+                                            text-align: left; border: 1px solid #000000;
+                                            padding: 4px 8px; font-size: 8pt; }
+                        table.ff-table td { border: 1px solid #999999; padding: 4px 8px; font-size: 8.5pt; }
+                        table.ff-table tr.ff-total td { background: #ededed; font-weight: bold; }
+                        .ff-num { text-align: right; }
+                        .ff-right { text-align: right; }
+                        /* Fixed, so the letterhead sits on the foot of the page and not
+                           wherever the last table happened to end. */
+                        .ff-foot { position: fixed; bottom: 0; left: 0; right: 0; }
+                        .ff-foot-space { height: 95px; }
+                    </style>
+
+                    <!-- The company's own header strip, hard against the top of the page. -->
+                    <img t-if="company.ff_report_header_image"
+                         t-att-src="image_data_uri(company.ff_report_header_image)"
+                         style="width: 100%; display: block; margin: 0;"/>
+
+                    <table class="ff-grid ff-band">
+                        <tr>
+                            <td style="vertical-align: bottom;">
+                                <span class="ff-title">DISTRIBUTOR OUTLET ORDER SUMMARY</span>
+                            </td>
+                            <td class="ff-right" style="vertical-align: bottom; width: 150px;">
+                                <span style="color: #555555; font-size: 8pt;">Date</span>
+                                <strong style="margin-left: 5px; font-size: 9pt;"
+                                        t-out="doc.date_order" t-options="{'widget': 'date'}"/>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <!-- Who it is billed from and who it is billed to, side by side. -->
+                    <table class="ff-grid">
+                        <tr>
+                            <td class="ff-card" style="width: 48%;">
+                                <div class="ff-card-head">BILLING FROM (COMPANY)</div>
+                                <div class="ff-card-body">
+                                    <div class="ff-name" t-out="company.name"/>
+                                    <div class="ff-addr" t-out="doc._ff_one_line_address(company.partner_id)"/>
+                                    <table class="ff-kv" style="margin-top: 4px;">
+                                        <tr t-if="company.vat">
+                                            <td class="ff-k">GSTIN</td><td class="ff-c">:</td>
+                                            <td t-out="company.vat"/>
+                                        </tr>
+                                        <tr t-if="company.phone">
+                                            <td class="ff-k">Phone</td><td class="ff-c">:</td>
+                                            <td t-out="company.phone"/>
+                                        </tr>
+                                        <tr t-if="company.email">
+                                            <td class="ff-k">Email</td><td class="ff-c">:</td>
+                                            <td t-out="company.email"/>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </td>
+                            <td class="ff-gap"/>
+                            <td class="ff-card" style="width: 48%;">
+                                <div class="ff-card-head">BILLING TO (DISTRIBUTOR)</div>
+                                <div class="ff-card-body">
+                                    <div class="ff-name" t-out="distributor.name"/>
+                                    <div class="ff-addr" t-out="doc._ff_one_line_address(distributor)"/>
+                                    <table class="ff-kv" style="margin-top: 4px;">
+                                        <tr t-if="distributor.vat">
+                                            <td class="ff-k">GSTIN</td><td class="ff-c">:</td>
+                                            <td t-out="distributor.vat"/>
+                                        </tr>
+                                        <tr t-if="distributor.phone">
+                                            <td class="ff-k">Phone</td><td class="ff-c">:</td>
+                                            <td t-out="distributor.phone"/>
+                                        </tr>
+                                        <tr t-if="distributor.email">
+                                            <td class="ff-k">Email</td><td class="ff-c">:</td>
+                                            <td t-out="distributor.email"/>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table class="ff-meta">
+                        <tr>
+                            <td>
+                                <span class="ff-k">Sales Person</span>
+                                <span class="ff-v" t-out="doc.ff_employee_id.name or doc.user_id.name or ''"/>
+                            </td>
+                            <td>
+                                <span class="ff-k">Document No.</span>
+                                <span class="ff-v" t-out="doc.name"/>
+                            </td>
+                            <td>
+                                <span class="ff-k">Date</span>
+                                <span class="ff-v" t-out="doc.date_order" t-options="{'widget': 'date'}"/>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <!-- One block per outlet: what that shop asked for. -->
+                    <div t-foreach="outlets" t-as="block" class="ff-block">
+                        <table class="ff-head">
+                            <tr>
+                                <td style="width: 45%;">
+                                    <span class="ff-no" t-out="'%02d' % (block_index + 1)"/>
+                                    <span class="ff-shop" t-out="block['outlet'].name"/>
+                                </td>
+                                <td class="ff-where" t-out="block['address']"/>
+                            </tr>
+                        </table>
+                        <table class="ff-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 9%;">S.No</th>
+                                    <th style="width: 43%;">Product</th>
+                                    <th style="width: 20%;">Product Code</th>
+                                    <th style="width: 14%;" class="ff-num">Qty</th>
+                                    <th style="width: 14%;">UOM</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="block['lines']" t-as="row">
+                                    <td t-out="row_index + 1"/>
+                                    <td t-out="row['product'].name"/>
+                                    <td t-out="row['code']"/>
+                                    <td class="ff-num" t-out="row['quantity']"
+                                        t-options="{'widget': 'float', 'precision': 0}"/>
+                                    <td t-out="row['uom']"/>
+                                </tr>
+                                <tr class="ff-total">
+                                    <td colspan="3" class="ff-right">Outlet Total Qty</td>
+                                    <td class="ff-num" t-out="block['total_qty']"
+                                        t-options="{'widget': 'float', 'precision': 0}"/>
+                                    <td/>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- What the distributor actually has to send out. -->
+                    <div class="ff-block">
+                        <table class="ff-head">
+                            <tr>
+                                <td><span class="ff-shop">OVERALL PRODUCT SUMMARY (ALL OUTLETS)</span></td>
+                            </tr>
+                        </table>
+                        <table class="ff-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 9%;">S.No</th>
+                                    <th style="width: 43%;">Product</th>
+                                    <th style="width: 20%;">Product Code</th>
+                                    <th style="width: 14%;" class="ff-num">Total Qty</th>
+                                    <th style="width: 14%;">UOM</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="products" t-as="row">
+                                    <td t-out="row_index + 1"/>
+                                    <td t-out="row['product'].name"/>
+                                    <td t-out="row['code']"/>
+                                    <td class="ff-num" t-out="row['quantity']"
+                                        t-options="{'widget': 'float', 'precision': 0}"/>
+                                    <td t-out="row['uom']"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Keeps the last table clear of the footer strip. -->
+                    <div t-if="company.ff_report_footer_image" class="ff-foot-space"/>
+                    <div t-if="company.ff_report_footer_image" class="ff-foot">
+                        <img t-att-src="image_data_uri(company.ff_report_footer_image)"
+                             style="width: 100%; display: block;"/>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <!-- The letterhead is the header and the footer, so Odoo's own are left off
+         and the page is given no margin of its own to add to them. -->
+    <record id="ff_distributor_summary_paperformat" model="report.paperformat">
+        <field name="name">Field Force Summary A4</field>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">0</field>
+        <field name="margin_bottom">0</field>
+        <field name="margin_left">6</field>
+        <field name="margin_right">6</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">96</field>
+    </record>
+
+    <record id="action_report_ff_distributor_summary" model="ir.actions.report">
+        <field name="paperformat_id" ref="ff_distributor_summary_paperformat"/>
+    </record>
+</odoo>

@@ -5,3 +5,6 @@ access_ff_regularisation_officer,ff.regularisation officer,model_ff_regularisati
 access_ff_regularisation_admin,ff.regularisation admin,model_ff_regularisation,ff_base.group_ff_admin,1,1,1,1
 access_hr_attendance_ff_manager,hr.attendance field manager,hr_attendance.model_hr_attendance,ff_base.group_ff_manager,1,0,0,0
 access_hr_attendance_ff_admin,hr.attendance field admin,hr_attendance.model_hr_attendance,ff_base.group_ff_admin,1,1,1,1
+access_ff_attendance_day_officer,ff.attendance.day officer,model_ff_attendance_day,ff_base.group_ff_officer,1,0,0,0
+access_ff_attendance_day_manager,ff.attendance.day manager,model_ff_attendance_day,ff_base.group_ff_manager,1,0,0,0
+access_ff_attendance_day_admin,ff.attendance.day admin,model_ff_attendance_day,ff_base.group_ff_admin,1,0,0,0

@@ -46,6 +46,8 @@ class FfCollection(models.Model):
     note = fields.Text()
     photo_count = fields.Integer(compute='_compute_photo_count')
     deposit_id = fields.Many2one('ff.collection.deposit', string='Deposit', ondelete='set null', index=True)
+    payment_id = fields.Many2one('account.payment', string='Payment', readonly=True, copy=False,
+                                 help='The customer payment posted when the office received this money.')
     state = fields.Selection([
         ('collected', 'With the employee'),
         ('submitted', 'Submitted to office'),

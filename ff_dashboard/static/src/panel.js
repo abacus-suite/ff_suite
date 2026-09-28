@@ -72,6 +72,9 @@ export class FieldForcePanel extends Component {
         this.sections = SECTIONS;
         this.mapRef = useRef("liveMap");
         this.markers = new Map();
+        // The day's events keep their own markers: the live refresh sweeps away
+        // anything in this.markers that is not a person on duty right now.
+        this.timelineMarkers = new Map();
         this.clientMarkers = new Map();
         this.state = useState({
             section: "dashboard",
@@ -92,6 +95,7 @@ export class FieldForcePanel extends Component {
             peopleStatus: "",
             peopleSort: "az",
             collapsedNodes: [],
+            orgZoom: 1,
             report: null,
             reportLoading: false,
             exporting: false,
@@ -114,6 +118,8 @@ export class FieldForcePanel extends Component {
             timelineLoading: false,
             playing: false,
             playIndex: 0,
+            activeEvent: "",
+            passedEvents: [],
             tab: "visits",
             day: null,
             dayLoading: false,
@@ -344,8 +350,12 @@ export class FieldForcePanel extends Component {
             for (const marker of this.clientMarkers.values()) {
                 marker.setMap(null);
             }
+            for (const marker of this.timelineMarkers.values()) {
+                marker.setMap(null);
+            }
             this.markers.clear();
             this.clientMarkers.clear();
+            this.timelineMarkers.clear();
             this.liveMap = null;
         }
         if (!this.liveMap) {
@@ -818,6 +828,18 @@ export class FieldForcePanel extends Component {
         return start ? [[field, ">=", start]] : [];
     }
 
+    /// "Present today", or "Present on 26 Sep" when another day was asked for.
+    attendanceDayLabel(word) {
+        const report = this.state.report;
+        const end = report && report.end;
+        const today = new Date().toISOString().slice(0, 10);
+        if (!end || end === today) {
+            return `${word} today`;
+        }
+        const date = new Date(end);
+        return `${word} on ${date.toLocaleDateString([], { day: "numeric", month: "short" })}`;
+    }
+
     drillAttendance(extra) {
         this.openModel(
             "hr.attendance",
@@ -978,12 +1000,12 @@ export class FieldForcePanel extends Component {
             { key: "total", label: "Total Employees", value: report.kpis.headcount, icon: "fa-users", color: "#1a56db",
               change: null, series: null,
               open: () => this.openModel("hr.employee", "Employees", [["id", "in", this.reportEmployeeIds]]) },
-            { key: "present", label: "Present Today", value: report.kpis.present_today, icon: "fa-check", color: "#16a34a",
+            { key: "present", label: this.attendanceDayLabel("Present"), value: report.kpis.present_today, icon: "fa-check", color: "#16a34a",
               change: change(present), series: present, open: () => this.drillAttendance() },
-            { key: "late", label: "Late Punches", value: report.kpis.late, icon: "fa-clock-o", color: "#f59e0b",
+            { key: "late", label: "Late arrivals", value: report.kpis.late, icon: "fa-clock-o", color: "#f59e0b",
               change: change(late), series: late, bad: true,
               open: () => this.drillAttendance([["ff_late_minutes", ">", 0]]) },
-            { key: "absent", label: "Absent Today", value: absent.length ? absent[absent.length - 1] : 0,
+            { key: "absent", label: this.attendanceDayLabel("Absent"), value: absent.length ? absent[absent.length - 1] : 0,
               icon: "fa-times", color: "#dc2626", change: change(absent), series: absent, bad: true,
               open: () => this.drillAttendance() },
             { key: "punches", label: "Total Punches", value: report.kpis.punches, icon: "fa-hourglass-half",
@@ -1389,6 +1411,25 @@ export class FieldForcePanel extends Component {
         this.state.collapsedNodes = [];
     }
 
+    /// The chart can be drawn bigger or smaller, for a wide team or a deep one.
+    zoomOrg(step) {
+        const next = Math.round((this.state.orgZoom + step) * 100) / 100;
+        this.state.orgZoom = Math.min(Math.max(next, 0.4), 1.6);
+    }
+
+    resetOrgZoom() {
+        this.state.orgZoom = 1;
+    }
+
+    /// Ctrl and the wheel zooms, as people expect on a chart.
+    onOrgWheel(ev) {
+        if (!ev.ctrlKey) {
+            return;
+        }
+        ev.preventDefault();
+        this.zoomOrg(ev.deltaY < 0 ? 0.1 : -0.1);
+    }
+
     collapseAll() {
         const ids = [];
         const walk = (nodes) => {
@@ -1562,10 +1603,10 @@ export class FieldForcePanel extends Component {
         }
 
         // Numbered stops.
-        for (const marker of this.markers.values()) {
+        for (const marker of this.timelineMarkers.values()) {
             marker.setMap(null);
         }
-        this.markers.clear();
+        this.timelineMarkers.clear();
         const bounds = new this.google.core.LatLngBounds();
         let number = 0;
         for (const event of timeline.events) {
@@ -1573,6 +1614,7 @@ export class FieldForcePanel extends Component {
                 continue;
             }
             number++;
+            const eventKey = `e${event.kind}-${event.at}`;
             const marker = new this.google.Marker({
                 map: this.liveMap,
                 position: { lat: event.lat, lng: event.lng },
@@ -1586,7 +1628,8 @@ export class FieldForcePanel extends Component {
                 );
                 this.liveInfo.open({ map: this.liveMap, anchor: marker });
             });
-            this.markers.set(`e${number}`, marker);
+            this.timelineMarkers.set(eventKey, marker);
+            this.timelineMarkers.set(`e${number}`, marker);
             bounds.extend({ lat: event.lat, lng: event.lng });
         }
         for (const point of path) {
@@ -1657,6 +1700,12 @@ export class FieldForcePanel extends Component {
             });
         }
         this.playMarker.setMap(this.liveMap);
+        if (this.travelledLine) {
+            this.travelledLine.setMap(null);
+            this.travelledLine = null;
+        }
+        this.state.passedEvents = [];
+        this.state.activeEvent = "";
         this.playTimer = setInterval(() => this.stepPlay(), 120);
     }
 
@@ -1677,6 +1726,77 @@ export class FieldForcePanel extends Component {
         this.playMarker.setIcon({ ...icon, rotation: heading });
         this.liveMap.panTo({ lat: point.lat, lng: point.lng });
         this.state.playIndex = index + 1;
+        this.paintTravelled();
+        this.markPassedEvents(point.at);
+    }
+
+    /// The road already covered, drawn over the route in a brighter colour.
+    paintTravelled() {
+        const path = this.state.timeline ? this.state.timeline.path : [];
+        const walked = path.slice(0, this.state.playIndex + 1).map((p) => ({ lat: p.lat, lng: p.lng }));
+        if (walked.length < 2) {
+            return;
+        }
+        if (this.travelledLine) {
+            this.travelledLine.setPath(walked);
+            return;
+        }
+        this.travelledLine = new this.google.Polyline({
+            map: this.liveMap,
+            path: walked,
+            strokeColor: "#1A56DB",
+            strokeOpacity: 1,
+            strokeWeight: 6,
+            zIndex: 40,
+        });
+    }
+
+    /// Everything that had happened by this moment is lit up in the list.
+    markPassedEvents(at) {
+        const events = (this.state.timeline && this.state.timeline.events) || [];
+        const reached = events.filter((event) => event.at && at && event.at <= at);
+        const current = reached.length ? reached[reached.length - 1] : null;
+        const id = current ? `${current.kind}-${current.at}` : "";
+        if (id === this.state.activeEvent) {
+            return;
+        }
+        this.state.activeEvent = id;
+        this.state.passedEvents = reached.map((event) => `${event.kind}-${event.at}`);
+        if (current) {
+            // Keep the moment in view in the list beside the map.
+            const row = document.querySelector(`[data-ff-event="${id}"]`);
+            if (row && row.scrollIntoView) {
+                row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            }
+            this.bounceEvent(current);
+        }
+    }
+
+    /// A short lift of the pin the person has just reached.
+    bounceEvent(event) {
+        const marker = this.timelineMarkers.get(`e${event.kind}-${event.at}`);
+        if (!marker || !marker.setAnimation || !this.google.core.Animation) {
+            return;
+        }
+        marker.setAnimation(this.google.core.Animation.BOUNCE);
+        setTimeout(() => marker.setAnimation(null), 1400);
+    }
+
+    /// Clicking a moment in the list takes the map to it.
+    focusEvent(event) {
+        if (!event.lat || !event.lng || !this.liveMap) {
+            return;
+        }
+        this.state.activeEvent = `${event.kind}-${event.at}`;
+        this.liveMap.panTo({ lat: event.lat, lng: event.lng });
+        this.liveMap.setZoom(Math.max(this.liveMap.getZoom ? this.liveMap.getZoom() : 15, 16));
+        const marker = this.timelineMarkers.get(`e${event.kind}-${event.at}`);
+        if (marker) {
+            this.liveInfo.setContent(
+                `<strong>${event.title}</strong><div class="text-muted">${this.clock(event.at)}</div>`
+            );
+            this.liveInfo.open({ map: this.liveMap, anchor: marker });
+        }
     }
 
     stopPlay() {

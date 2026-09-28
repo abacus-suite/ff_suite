@@ -52,7 +52,14 @@ class HrEmployee(models.Model):
         settings = get_settings(self.env)
         lat, lng = data.get('lat'), data.get('lng')
         if lat in (None, '') or lng in (None, ''):
-            raise UserError(self.env._('Location is required to punch. Turn on GPS and try again.'))
+            # A day the app closes by itself has no fresh fix: the last known
+            # position stands in, so the day can still be closed properly.
+            if action == 'out' and data.get('auto'):
+                last = self.env['ff.location.ping'].sudo().search(
+                    [('employee_id', '=', employee.id)], order='ts desc', limit=1)
+                lat, lng = (last.latitude, last.longitude) if last else (0.0, 0.0)
+            else:
+                raise UserError(self.env._('Location is required to punch. Turn on GPS and try again.'))
         lat, lng = float(lat), float(lng)
         is_mock = bool(data.get('mock'))
         if is_mock and not settings['allow_mock']:
@@ -61,6 +68,23 @@ class HrEmployee(models.Model):
         selfie = _strip_data_url(data.get('selfie'))
         if settings['selfie_required'] and not selfie:
             raise UserError(self.env._('A selfie is required to punch.'))
+        odometer_photo = _strip_data_url(data.get('odometer_photo'))
+        odometer = data.get('odometer')
+        try:
+            odometer = float(odometer) if odometer not in (None, '') else False
+        except (TypeError, ValueError):
+            raise UserError(self.env._('The odometer reading must be a number.'))
+        vehicle = data.get('vehicle') or False
+        if vehicle and vehicle not in dict(self.env['hr.attendance']._fields['ff_vehicle_type'].selection):
+            raise UserError(self.env._('That vehicle is not one of the choices.'))
+        vehicle_note = (data.get('vehicle_note') or '').strip()[:120]
+        if vehicle == 'other' and not vehicle_note:
+            raise UserError(self.env._('Say in a few words how you are travelling today.'))
+        open_attendance = employee._ff_open_attendance()
+        # Only somebody on their own two- or four-wheeler has a meter to photograph.
+        on_own_vehicle = (vehicle or (open_attendance.ff_vehicle_type if open_attendance else False))             in ('two_wheeler', 'four_wheeler')
+        if settings['punch_odometer'] and on_own_vehicle and not (odometer_photo and odometer):
+            raise UserError(self.env._('A photo of the odometer and its reading are required to punch.'))
 
         try:
             now, offline = client_time(data)
@@ -72,6 +96,15 @@ class HrEmployee(models.Model):
         if action == 'in':
             if attendance:
                 raise UserError(self.env._('You are already punched in.'))
+            if settings['single_punch_day']:
+                start_of_day, end_of_day = employee._ff_day_bounds(employee._ff_to_local(now).date())
+                closed = self.env['hr.attendance'].sudo().search_count([
+                    ('employee_id', '=', employee.id), ('check_in', '>=', start_of_day),
+                    ('check_in', '<', end_of_day), ('check_out', '!=', False)])
+                if closed:
+                    raise UserError(self.env._(
+                        'Your day is already closed. The office allows one check-in a day; '
+                        'ask them to reopen it if you need to work again today.'))
             attendance = self.env['hr.attendance'].sudo().create({
                 'employee_id': employee.id,
                 'check_in': now,
@@ -81,6 +114,10 @@ class HrEmployee(models.Model):
                 'ff_in_accuracy': accuracy,
                 'ff_in_is_mock': is_mock,
                 'ff_in_selfie': selfie,
+                'ff_vehicle_type': vehicle,
+                'ff_vehicle_note': vehicle_note or False,
+                'ff_in_odometer': odometer or 0.0,
+                'ff_in_odometer_photo': odometer_photo,
                 'ff_source': 'app',
                 'ff_in_uuid': uuid,
                 'ff_offline': offline,
@@ -88,6 +125,15 @@ class HrEmployee(models.Model):
         elif action == 'out':
             if not attendance:
                 raise UserError(self.env._('You are not punched in.'))
+            early = attendance._ff_early_minutes(now)
+            reason = (data.get('early_reason') or '').strip()[:250]
+            if settings['early_checkout_reason'] and early > 0 and not reason:
+                raise UserError(self.env._(
+                    'Your shift ends later. Say why you are ending the day now.'))
+            if odometer and attendance.ff_in_odometer and odometer < attendance.ff_in_odometer:
+                raise UserError(self.env._(
+                    'The odometer reads %(now)s, below the %(before)s at check-in. Check the number.',
+                    now=odometer, before=attendance.ff_in_odometer))
             attendance.write({
                 'check_out': now,
                 'out_latitude': lat,
@@ -96,6 +142,12 @@ class HrEmployee(models.Model):
                 'ff_out_accuracy': accuracy,
                 'ff_out_is_mock': is_mock,
                 'ff_out_selfie': selfie,
+                'ff_auto_closed': bool(data.get('auto')),
+                'ff_close_reason': data.get('close_reason') if data.get('auto') else False,
+                'ff_early_minutes': early,
+                'ff_early_reason': reason or False,
+                'ff_out_odometer': odometer or 0.0,
+                'ff_out_odometer_photo': odometer_photo,
                 'ff_out_uuid': uuid,
                 'ff_offline': attendance.ff_offline or offline,
             })

@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Demand & Distributor Quotations',
-    'version': '19.0.1.1.3',
+    'version': '19.0.1.1.5',
     'category': 'Human Resources/Field Force',
     'summary': 'Collect demand at the outlet, consolidate it per distributor, quote the distributor',
     'author': 'Field Force Suite',
@@ -15,7 +15,9 @@
         'views/res_partner_views.xml',
         'views/sale_order_views.xml',
         'views/res_config_settings_views.xml',
+        'views/hr_employee_views.xml',
         'views/ff_demand_menus.xml',
+        'report/ff_distributor_summary.xml',
     ],
     'installable': True,
     'license': 'LGPL-3',

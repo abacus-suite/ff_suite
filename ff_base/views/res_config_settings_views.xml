@@ -32,6 +32,33 @@
                         <setting help="Require a selfie photo when punching in and out from the app.">
                             <field name="ff_selfie_required"/>
                         </setting>
+                        <setting string="Ask if they are still working" help="While somebody is on duty the app asks now and then; no answer and it closes the day at the moment they were last seen.">
+                            <div class="content-group">
+                                <div class="row">
+                                    <label for="ff_duty_check_minutes" class="col-lg-6 o_light_label"/>
+                                    <field name="ff_duty_check_minutes"/>
+                                </div>
+                                <div class="row">
+                                    <label for="ff_duty_reply_minutes" class="col-lg-6 o_light_label"/>
+                                    <field name="ff_duty_reply_minutes"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Close a forgotten day at midnight" help="A punch left open is closed at the end of its own day, so the next day is counted on its own.">
+                            <field name="ff_close_day_at_midnight"/>
+                        </setting>
+                        <setting string="One check-in per day" help="After checking out, the day is closed: no further check-in until tomorrow. With it off, people may check in and out as often as they like and the hours add up.">
+                            <field name="ff_single_punch_day"/>
+                        </setting>
+                        <setting string="Reason for an early check-out" help="Ending the day before the shift ends asks for a reason, which is kept on the attendance record.">
+                            <field name="ff_early_checkout_reason"/>
+                        </setting>
+                        <setting string="Vehicle on punch-in" help="Ask how the person travels today: two-wheeler, car, public transport or on foot.">
+                            <field name="ff_punch_vehicle"/>
+                        </setting>
+                        <setting string="Odometer photo on punch" help="Ask for a photo of the odometer and its reading at check-in and check-out; the day's kilometres come from the two readings.">
+                            <field name="ff_punch_odometer"/>
+                        </setting>
                         <setting help="Accept punches and pings from fake-GPS apps. Keep this off in production.">
                             <field name="ff_allow_mock"/>
                         </setting>
@@ -63,10 +90,10 @@
                         </setting>
                     </block>
                     <block title="Maps" name="ff_map_settings">
-                        <setting string="Map provider" help="Pick who draws the maps in Odoo and in the app. Everybody's maps change on their next refresh or login.">
-                            <field name="ff_map_provider" widget="radio"/>
+                        <setting string="Maps" help="How the maps are drawn, and what they cost. The first choice is free: the phone draws Google's own map, which Google does not bill, and Odoo's web map uses the free map.">
+                            <field name="ff_map_mode" widget="radio"/>
                         </setting>
-                        <setting string="Google Maps API key" invisible="ff_map_provider != 'google'"
+                        <setting string="Google Maps API key" invisible="ff_map_mode == 'open'"
                                  help="Enable Maps JavaScript API for the web map, Map Tiles API for the phone app and Geocoding API for addresses, then paste the key here. Until a key is set, the free maps are used.">
                             <field name="ff_google_maps_key" password="True" placeholder="AIza..."/>
                         </setting>
@@ -74,12 +101,36 @@
                                  help="Background work: turning GPS points into street addresses. OpenStreetMap is free; Google counts against its 10,000 free lookups a month.">
                             <field name="ff_geocode_provider" widget="radio"/>
                         </setting>
-                        <setting string="Free map style" invisible="ff_map_provider != 'open'"
-                                 help="How the free web map looks. The app uses CARTO's Voyager map, which is free and needs no key.">
+                        <setting string="Free map style" invisible="ff_map_mode == 'google'"
+                                 help="How the free web map looks. The app uses OpenStreetMap's own tiles, which are free and need no key.">
                             <field name="ff_open_map_style" widget="radio"/>
                         </setting>
                     </block>
+                    <block title="Contacts" name="ff_contact_settings">
+                        <setting string="Log app requests" help="For working out what the app asked for and what came back. Photos and tokens are never logged. Turn it off again afterwards.">
+                            <field name="ff_api_log"/>
+                        </setting>
+                        <setting string="Who sees which contacts" help="Open access lets the whole field share the beats and their outlets; leads stay with whoever added them.">
+                            <field name="ff_contact_access" widget="radio"/>
+                        </setting>
+                        <setting string="Beat required" help="Outlets and distributors must sit on a beat. Leads may be added without one.">
+                            <field name="ff_beat_required"/>
+                        </setting>
+                    </block>
                     <block title="Field Features" name="ff_feature_settings">
+                        <setting string="Check in on arrival" help="Reaching a customer starts the visit by itself, and leaving it closes the visit. A visit started away from the shop is left alone.">
+                            <field name="ff_auto_visit"/>
+                            <div class="content-group" invisible="not ff_auto_visit">
+                                <div class="row mt-2">
+                                    <label for="ff_auto_visit_exit_m" class="col-lg-8 o_light_label"/>
+                                    <field name="ff_auto_visit_exit_m"/>
+                                </div>
+                                <div class="row">
+                                    <label for="ff_auto_visit_leave_secs" class="col-lg-8 o_light_label"/>
+                                    <field name="ff_auto_visit_leave_secs"/>
+                                </div>
+                            </div>
+                        </setting>
                         <setting help="Field staff cannot leave a visit in the app before checking out.">
                             <field name="ff_visit_lock"/>
                         </setting>
@@ -121,6 +172,18 @@
                         </setting>
                         <setting string="Phone clock check" help="Minutes a phone's clock may differ from the server. Further off, punches and check-ins are refused and logged as time tampering.">
                             <field name="ff_max_clock_skew"/>
+                        </setting>
+                    </block>
+                    <block title="Printed Documents" name="ff_report_letterhead">
+                        <setting string="Letterhead" help="Printed across the top and the bottom of every Field Force PDF, such as the distributor order summary the field sends on. Wide, short images work best - about 2400 x 400 pixels.">
+                            <div class="row mt-2">
+                                <label for="ff_report_header_image" class="col-lg-3 o_light_label"/>
+                                <field name="ff_report_header_image" widget="image" class="oe_avatar" options="{'size': [300, 80]}"/>
+                            </div>
+                            <div class="row mt-3">
+                                <label for="ff_report_footer_image" class="col-lg-3 o_light_label"/>
+                                <field name="ff_report_footer_image" widget="image" class="oe_avatar" options="{'size': [300, 80]}"/>
+                            </div>
                         </setting>
                     </block>
                     <block title="Client Visits" name="ff_visit_settings">

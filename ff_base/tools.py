@@ -15,8 +15,18 @@ PARAM_DEFAULTS = {
     'max_accuracy': 100,         # metres; worse pings are ignored for distance
     'allow_mock': False,
     'selfie_required': False,    # set to True by module data
+    'early_checkout_reason': False,  # ask why when somebody ends the day before the shift does
+    'single_punch_day': False,   # one check-in and one check-out a day; no going back in
+    'duty_check_minutes': 30,    # ask "still working?" this often; 0 = never ask
+    'duty_reply_minutes': 5,     # how long to wait for the answer before closing the day
+    'close_day_at_midnight': True,   # a day left open is closed at the end of it
+    'punch_vehicle': False,      # ask how the person travels today when punching in
+    'punch_odometer': False,     # ask for the odometer photo and reading at both punches
     'geofence_radius': 150,      # metres around a client counted as "at client"
     'visit_block_outside': False,  # refuse visit check-in outside the geofence
+    'auto_visit': False,         # reaching a customer starts the visit by itself
+    'auto_visit_exit_m': 60,     # metres past the geofence that count as having left
+    'auto_visit_leave_secs': 90,  # how long they must stay away before it closes
     'visit_lock': False,           # app blocks leaving a visit before check-out (data sets True)
     'visit_steps': False,          # guided step-by-step visits
     'stock_count': False,          # stock count step and history
@@ -33,6 +43,10 @@ def get_param(env, key):
     default = PARAM_DEFAULTS[key]
     raw = env['ir.config_parameter'].sudo().get_param('ff_base.%s' % key)
     if isinstance(default, bool):
+        # An untouched setting keeps its default; only 'False' turns one off,
+        # which is what the settings screen writes when a box is unticked.
+        if raw in (None, False, ''):
+            return default
         return raw == 'True'
     if raw in (None, False, ''):
         return default
@@ -47,15 +61,50 @@ def google_maps_key(env):
     return env['ir.config_parameter'].sudo().get_param('ff_base.google_maps_key') or ''
 
 
+# How the maps are drawn, and what each way costs.
+#   sdk    - Google's own map inside the phone app. Google does not charge for it.
+#   google - Google tiles and Google addresses everywhere; billed by the request.
+#   open   - free maps and free addresses everywhere.
+#   hybrid - Google for the maps people look at, free addresses, and a guard
+#            that falls back to the free maps before the free tier runs out.
+MAP_MODES = ('sdk', 'google', 'open', 'hybrid')
+
+
+def map_mode(env):
+    """Which of the four ways this company has chosen. Defaults to the free SDK."""
+    chosen = env['ir.config_parameter'].sudo().get_param('ff_base.map_mode')
+    if chosen in MAP_MODES:
+        return chosen
+    # Databases set up before the choice existed keep what they had.
+    old = env['ir.config_parameter'].sudo().get_param('ff_base.map_provider')
+    if old == 'google':
+        return 'hybrid'
+    if old == 'open':
+        return 'open'
+    return 'sdk'
+
+
 def map_provider(env):
-    """'google' or 'open'. Unset keeps what a company already had: Google when a key exists."""
-    params = env['ir.config_parameter'].sudo()
-    chosen = params.get_param('ff_base.map_provider')
-    if chosen not in ('google', 'open'):
-        chosen = 'google' if google_maps_key(env) else 'open'
-    if chosen == 'google' and not google_maps_key(env):
+    """What draws a map: 'sdk', 'google' or 'open'.
+
+    Odoo's own web map cannot use the phone SDK, so ``sdk`` reads as ``open``
+    on the web; the app asks for this with ``for_app=True``.
+    """
+    mode = map_mode(env)
+    if mode == 'sdk':
+        return 'sdk' if google_maps_key(env) else 'open'
+    if mode == 'open':
+        return 'open'
+    if not google_maps_key(env):
         return 'open'  # Google picked but no key yet: still show a map
+    return 'google' 
     return chosen
+
+
+def web_map_provider(env):
+    """What draws the map inside Odoo: the phone SDK is not an option here."""
+    provider = map_provider(env)
+    return 'open' if provider == 'sdk' else provider
 
 
 def geocode_provider(env):
@@ -65,7 +114,7 @@ def geocode_provider(env):
     even when Google draws the maps.
     """
     chosen = env['ir.config_parameter'].sudo().get_param('ff_base.geocode_provider') or 'open'
-    if chosen == 'google' and google_maps_key(env):
+    if chosen == 'google' and google_maps_key(env) and map_mode(env) != 'open':
         return 'google'
     return 'open'
 
@@ -78,7 +127,7 @@ def map_style(env):
 
 def map_link(env, latitude, longitude):
     """A link that opens a place in the chosen provider's website (free, no key)."""
-    if map_provider(env) == 'google':
+    if map_provider(env) in ('google', 'sdk'):
         return 'https://www.google.com/maps?q=%s,%s' % (latitude, longitude)
     return 'https://www.openstreetmap.org/?mlat=%s&mlon=%s#map=17/%s/%s' % (latitude, longitude, latitude, longitude)
 

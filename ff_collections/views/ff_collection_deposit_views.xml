@@ -27,13 +27,19 @@
         <field name="arch" type="xml">
             <form create="0">
                 <header>
-                    <button name="action_receive" type="object" string="Money Received" class="btn-primary"
+                    <button name="action_receive_money" type="object" string="Money Received" class="btn-primary"
                             invisible="state != 'submitted'" groups="ff_base.group_ff_manager"/>
                     <button name="action_reject" type="object" string="Reject"
                             invisible="state != 'submitted'" groups="ff_base.group_ff_manager"/>
                     <field name="state" widget="statusbar" statusbar_visible="submitted,received"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_payments" type="object" class="oe_stat_button"
+                                icon="fa-money" invisible="payment_count == 0">
+                            <field name="payment_count" widget="statinfo" string="Payments"/>
+                        </button>
+                    </div>
                     <div class="oe_title">
                         <h1><field name="name" readonly="1"/></h1>
                     </div>
@@ -59,11 +65,12 @@
                             <field name="reference"/>
                             <field name="amount" sum="Total"/>
                             <field name="currency_id" column_invisible="1"/>
+                            <field name="payment_id" optional="show"/>
                         </list>
                     </field>
                     <field name="note"/>
-                    <div class="text-muted">
-                        After the money is received, post the matching customer payments in Accounting.
+                    <div class="text-muted" invisible="state == 'received'">
+                        Receiving the money asks for the journal and posts the customer payments with it.
                     </div>
                 </sheet>
                 <chatter/>

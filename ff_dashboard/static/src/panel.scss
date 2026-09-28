@@ -2483,3 +2483,57 @@
     }
 
 }
+
+// ---- the hierarchy can be drawn bigger or smaller -------------------------
+.ff_panel {
+    .ff_org_zoom {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        margin-left: 6px;
+        padding: 2px;
+        border-radius: 12px;
+        background: #f3f6fc;
+    }
+
+    .ff_org_zoom_level {
+        min-width: 3.2rem;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--ff-ink);
+    }
+
+    // The chart keeps its scroll while it grows, so nothing is cut off.
+    .ff_org_canvas {
+        overflow: auto;
+    }
+
+    .ff_org_scale {
+        transition: transform 140ms ease;
+        will-change: transform;
+    }
+}
+
+// ---- the day played back: what has happened, and where it is now ---------
+.ff_panel {
+    .ff_tl_row {
+        cursor: pointer;
+        border-radius: 12px;
+        transition: background 160ms ease, box-shadow 160ms ease;
+
+        &:hover {
+            background: #f3f6ff;
+        }
+    }
+
+    // Already reached while the day plays.
+    .ff_tl_row_passed {
+        background: #f7faff;
+    }
+
+    // Where the person is at this moment of the playback.
+    .ff_tl_row_active {
+        background: #eaf0ff;
+        box-shadow: inset 3px 0 0 var(--ff-primary);
+    }
+}

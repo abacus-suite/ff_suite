@@ -1,7 +1,7 @@
 """Data behind the live map: where everybody is, right now."""
 from odoo import api, models
 
-from odoo.addons.ff_base.tools import google_maps_key, map_provider, map_style, to_iso
+from odoo.addons.ff_base.tools import google_maps_key, map_style, to_iso, web_map_provider
 
 
 class FfEmployeeStatus(models.Model):
@@ -41,7 +41,7 @@ class FfEmployeeStatus(models.Model):
         people = [self._ff_map_person(employee, statuses.get(employee.id), visits.get(employee.id))
                   for employee in employees]
         people.sort(key=lambda row: (not row['punched_in'], row['name'] or ''))
-        provider = map_provider(self.env)
+        provider = web_map_provider(self.env)
         if provider == 'google' and not self.env['ff.map.usage'].ff_google_allowed('web_map'):
             provider = 'open'  # this month's free Google map loads are used up
         data = {
