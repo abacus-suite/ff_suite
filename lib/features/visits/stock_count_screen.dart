@@ -149,100 +149,236 @@ class _StockCountScreenState extends State<StockCountScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final counted = _counted.length;
     return Scaffold(
-      appBar: AppBar(title: const Text('Stock Count')),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Stock Count'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: _loading ? const LinearProgressIndicator(minHeight: 2) : const SizedBox(height: 1),
+        ),
+      ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: GradientButton(
-            label: 'Save count (${_counted.length})',
-            icon: Icons.inventory_rounded,
-            busy: _busy,
-            onPressed: _submit,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _note,
+                decoration: InputDecoration(
+                  hintText: 'Note (optional)',
+                  isDense: true,
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 10),
+              GradientButton(
+                label: counted == 0
+                    ? 'Save count'
+                    : 'Save count · $counted ${counted == 1 ? 'product' : 'products'}',
+                icon: Icons.inventory_rounded,
+                busy: _busy,
+                onPressed: counted == 0 || _busy ? null : _submit,
+              ),
+            ],
           ),
         ),
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: TextField(
-              controller: _search,
-              onChanged: (_) {
-                _debounce?.cancel();
-                _debounce = Timer(const Duration(milliseconds: 400), _load);
-              },
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search_rounded),
-                hintText: 'Search product or SKU',
-                isDense: true,
-              ),
-            ),
-          ),
-          if (_previousDate != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                children: [
-                  const Icon(Icons.history_rounded, size: 16, color: AppColors.muted),
-                  const SizedBox(width: 6),
-                  Text('Last count ${fmtDate(_previousDate!)}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-                ],
-              ),
-            ),
-          if (_loading) const LinearProgressIndicator(),
-          if (_error != null) Padding(padding: const EdgeInsets.all(12), child: Text(_error!)),
+          _header(),
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.only(bottom: 12),
-              itemCount: _products.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (_, i) {
-                final product = _products[i];
-                final id = product['id'] as int;
-                final qty = _counted[id];
-                final previous = _previous[id];
-                final previousQty = (previous?['quantity'] as num?)?.toDouble();
-                final delta = qty != null && previousQty != null ? qty - previousQty : null;
-                return ListTile(
-                  title: Text('${product['name']}'),
-                  subtitle: Text([
-                    if (product['sku'] != null) '${product['sku']}',
-                    previousQty != null ? 'Last: ${fmtQty(previousQty)} ${product['uom']}' : 'Not counted before',
-                    if (delta != null) '${delta >= 0 ? '+' : ''}${fmtQty(delta)}',
-                  ].join(' · ')),
-                  trailing: qty == null
-                      ? IconButton.filledTonal(onPressed: () => _setQty(id, 0), icon: const Icon(Icons.add))
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                                onPressed: () => _setQty(id, qty - 1), icon: const Icon(Icons.remove_circle_outline)),
-                            InkWell(
-                              onTap: () => _typeQty(id),
-                              child: SizedBox(
-                                width: 40,
-                                child: Text(fmtQty(qty), textAlign: TextAlign.center,
-                                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            ),
-                            IconButton(onPressed: () => _setQty(id, qty + 1), icon: const Icon(Icons.add_circle_outline)),
-                          ],
-                        ),
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: TextField(
-              controller: _note,
-              decoration: const InputDecoration(labelText: 'Note (optional)', isDense: true),
-            ),
+            child: _error != null
+                ? ErrorView(message: _error!, onRetry: _load)
+                : _products.isEmpty && !_loading
+                    ? const EmptyView(icon: Icons.inventory_2_outlined, text: 'No products match')
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                        itemCount: _products.length,
+                        itemBuilder: (_, i) => _productCard(_products[i]),
+                      ),
           ),
         ],
       ),
     );
   }
+
+  /// Search, the last count's date, and how much has been counted so far.
+  Widget _header() => Container(
+        color: Colors.white,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        child: Column(
+          children: [
+            TextField(
+              controller: _search,
+              onChanged: (_) {
+                _debounce?.cancel();
+                _debounce = Timer(const Duration(milliseconds: 400), _load);
+              },
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search_rounded),
+                hintText: 'Search product or SKU',
+                isDense: true,
+                filled: true,
+                fillColor: AppColors.background,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _chip(
+                  Icons.checklist_rounded,
+                  '${_counted.length} counted',
+                  AppColors.primary,
+                ),
+                const SizedBox(width: 8),
+                _chip(
+                  Icons.history_rounded,
+                  _previousDate == null ? 'First count here' : 'Last ${fmtDate(_previousDate!)}',
+                  AppColors.muted,
+                ),
+                const Spacer(),
+                if (_counted.isNotEmpty)
+                  TextButton(
+                    onPressed: () => setState(_counted.clear),
+                    child: const Text('Clear'),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+  Widget _chip(IconData icon, String text, Color tint) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: tint.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: tint),
+            const SizedBox(width: 5),
+            Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: tint)),
+          ],
+        ),
+      );
+
+  /// One product: what it was last time, what it is now, and the difference.
+  Widget _productCard(Map<String, dynamic> product) {
+    final id = product['id'] as int;
+    final qty = _counted[id];
+    final previousQty = (_previous[id]?['quantity'] as num?)?.toDouble();
+    final delta = qty != null && previousQty != null ? qty - previousQty : null;
+    final on = qty != null;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: on ? AppColors.primary.withValues(alpha: 0.35) : AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('${product['name']}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    if (product['sku'] != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Text('${product['sku']}',
+                            style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                      ),
+                    Text(
+                      previousQty == null
+                          ? 'Not counted before'
+                          : 'Last: ${fmtQty(previousQty)} ${product['uom'] ?? ''}',
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
+                    ),
+                    if (delta != null && delta != 0) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: (delta > 0 ? AppColors.success : AppColors.danger).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text('${delta > 0 ? '+' : ''}${fmtQty(delta)}',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: delta > 0 ? AppColors.success : AppColors.danger)),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (!on)
+            OutlinedButton(
+              onPressed: () => _setQty(id, 0),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(64, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: const Text('Count'),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _stepButton(Icons.remove_rounded, () => _setQty(id, qty - 1)),
+                  InkWell(
+                    onTap: () => _typeQty(id),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      width: 46,
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Text(fmtQty(qty),
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                    ),
+                  ),
+                  _stepButton(Icons.add_rounded, () => _setQty(id, qty + 1)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepButton(IconData icon, VoidCallback onTap) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(7),
+          child: Icon(icon, size: 18, color: AppColors.primary),
+        ),
+      );
 }

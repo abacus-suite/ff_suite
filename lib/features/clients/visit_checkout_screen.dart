@@ -3,9 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:image_picker/image_picker.dart';
 
-import '../../core/photos.dart';
+import '../../core/geo_camera.dart';
 import '../../core/format.dart';
 import '../../core/local_state.dart';
 import '../../core/geo.dart';
@@ -13,6 +12,7 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../forms/form_fill_screen.dart';
+import '../visits/stock_count_screen.dart';
 
 /// Used when the server has no outcome master configured.
 const legacyOutcomes = <String, String>{
@@ -22,6 +22,14 @@ const legacyOutcomes = <String, String>{
   'closed': 'Shop closed',
   'other': 'Other',
 };
+
+/// What the call was for. It decides what has to be done before leaving, so it
+/// is the first thing asked and nothing else opens until it is answered.
+const visitPurposes = <(String, String, String, IconData)>[
+  ('client_visit', 'Client Visit', 'Write the visit up and photograph it', Icons.handshake_rounded),
+  ('chiller_update', 'Weekly Chiller Update', 'Count the stock, then photograph it', Icons.kitchen_rounded),
+  ('other', 'Other', 'Nothing else needed', Icons.more_horiz_rounded),
+];
 
 const _maxPhotos = 3;
 
@@ -38,13 +46,42 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
   List<Map<String, dynamic>> _outcomes = [];
   Map<String, dynamic>? _selected;
   String _legacy = 'met';
-  List<Map<String, dynamic>> _missingForms = [];
+  List<Map<String, dynamic>> _forms = [];
   final _note = TextEditingController();
   final List<Uint8List> _photos = [];
   bool _loading = true;
   bool _busy = false;
 
+  /// Which of the three the visit was. Nothing is asked before this is answered.
+  String? _purpose;
+
+  /// The chiller count has been taken during this check-out.
+  bool _stockDone = false;
+
   int get _clientId => (widget.visit['client'] as Map)['id'] as int;
+
+  String get _clientName => '${(widget.visit['client'] as Map)['name']}';
+
+  bool get _needsNote => _purpose == 'client_visit';
+
+  bool get _needsStock => _purpose == 'chiller_update';
+
+  /// Both kinds of visit end with a photo; the chiller one only after counting.
+  bool get _needsPhoto => _purpose == 'client_visit' || _purpose == 'chiller_update';
+
+  bool get _photoReady => !_needsStock || _stockDone;
+
+  List<Map<String, dynamic>> get _openForms =>
+      _forms.where((f) => f['filled'] != true).toList();
+
+  /// Everything still standing between this visit and its check-out.
+  List<String> get _pending => [
+        if (_purpose == null) 'Choose what this visit was for',
+        if (_needsNote && _note.text.trim().isEmpty) 'Write the visit notes',
+        if (_needsStock && !_stockDone) 'Count the stock',
+        if (_needsPhoto && _photos.isEmpty) 'Take the closing photo',
+        for (final form in _openForms.where((f) => f['mandatory'] == true)) 'Fill "${form['name']}"',
+      ];
 
   @override
   void initState() {
@@ -74,19 +111,28 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
     if (!mounted) return;
     setState(() {
       _outcomes = (results[0] as List).cast<Map<String, dynamic>>();
-      _missingForms = (results[1] as List)
-          .cast<Map<String, dynamic>>()
-          .where((f) => (f['mandatory'] == true || f['at_checkout'] == true) && f['filled'] != true)
-          .toList();
+      _forms = (results[1] as List).cast<Map<String, dynamic>>();
       _loading = false;
     });
   }
 
   Future<void> _addPhoto() async {
     if (_photos.length >= _maxPhotos) return;
-    final bytes = await takePhoto(ImageSource.camera);
+    // The geo-tagged camera: the closing photo carries where and when it was taken.
+    final bytes = await openGeoCamera(title: 'Closing photo');
     if (bytes == null) return;
     setState(() => _photos.add(bytes));
+  }
+
+  Future<void> _countStock() async {
+    final done = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => StockCountScreen(
+        clientId: _clientId,
+        visitId: widget.visit['id'] as int?,
+        visitUuid: widget.visit['uuid'] as String?,
+      ),
+    ));
+    if (done == true && mounted) setState(() => _stockDone = true);
   }
 
   Future<void> _fillForm(Map<String, dynamic> form) async {
@@ -98,12 +144,8 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
 
   Future<void> _submit() async {
     final outcome = _selected;
-    if (_missingForms.any((f) => f['mandatory'] == true)) {
-      showSnack(context, 'Fill the required forms first.');
-      return;
-    }
-    if (_outcomes.isNotEmpty && outcome == null) {
-      showSnack(context, 'Choose an outcome.');
+    if (_pending.isNotEmpty) {
+      showSnack(context, _pending.first);
       return;
     }
     if (outcome?['requires_note'] == true && _note.text.trim().isEmpty) {
@@ -127,10 +169,11 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
         if (widget.visit['uuid'] != null) 'visit_uuid': widget.visit['uuid'],
         'lat': pos?.latitude,
         'lng': pos?.longitude,
+        'purpose': _purpose,
         if (outcome != null) 'outcome_id': outcome['id'] else 'outcome': _legacy,
         'note': _note.text.trim(),
         'photos': _photos.map(base64Encode).toList(),
-      }, label: 'Check out · ${(widget.visit['client'] as Map)['name']}');
+      }, label: 'Check out · $_clientName');
       if (result.queued) {
         await LocalState.visitClosed();
         if (mounted) showSnack(context, 'Checked out · Saved on the phone · it will sync when you are back online');
@@ -146,107 +189,354 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final client = widget.visit['client'] as Map;
-    final outcome = _selected;
+    final ready = _pending.isEmpty;
     return Scaffold(
-      appBar: AppBar(title: Text('Check out · ${client['name']}')),
+      appBar: AppBar(title: Text('Check out · $_clientName')),
+      bottomNavigationBar: _loading
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!ready)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.lock_outline_rounded, size: 15, color: AppColors.muted),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(_pending.first,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    GradientButton(
+                      label: 'Complete visit',
+                      icon: Icons.check_rounded,
+                      busy: _busy,
+                      onPressed: ready && !_busy ? _submit : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               children: [
-                Text('Checked in at ${fmtTime(widget.visit['check_in_at'])}', style: const TextStyle(color: AppColors.muted)),
-                if (_missingForms.isNotEmpty)
-                  Card(
-                    color: const Color(0xFFFFF5E5),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Forms for this check-out', style: TextStyle(fontWeight: FontWeight.w700)),
-                          for (final form in _missingForms)
-                            ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: Icon(
-                                  form['mandatory'] == true ? Icons.assignment_late_rounded : Icons.assignment_rounded,
-                                  color: form['mandatory'] == true ? AppColors.warning : AppColors.primary),
-                              title: Text('${form['name']}'),
-                              subtitle: Text(form['mandatory'] == true ? 'Required' : 'Optional'),
-                              trailing: TextButton(onPressed: () => _fillForm(form), child: const Text('Fill now')),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                const Text('Outcome', style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _outcomes.isNotEmpty
-                      ? [
-                          for (final o in _outcomes)
-                            ChoiceChip(
-                              label: Text('${o['name']}'),
-                              selected: outcome?['id'] == o['id'],
-                              onSelected: (_) => setState(() => _selected = o),
-                            ),
-                        ]
-                      : [
-                          for (final entry in legacyOutcomes.entries)
-                            ChoiceChip(
-                              label: Text(entry.value),
-                              selected: _legacy == entry.key,
-                              onSelected: (_) => setState(() => _legacy = entry.key),
-                            ),
-                        ],
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _note,
-                  maxLines: 3,
-                  decoration: InputDecoration(labelText: outcome?['requires_note'] == true ? 'Notes *' : 'Notes'),
-                ),
-                const SizedBox(height: 16),
-                Text('Photos (${_photos.length}/$_maxPhotos)${outcome?['requires_photo'] == true ? ' *' : ''}',
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (var i = 0; i < _photos.length; i++)
-                      Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.memory(_photos[i], width: 96, height: 96, fit: BoxFit.cover),
-                          ),
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: IconButton.filledTonal(
-                              visualDensity: VisualDensity.compact,
-                              icon: const Icon(Icons.close, size: 16),
-                              onPressed: () => setState(() => _photos.removeAt(i)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    if (_photos.length < _maxPhotos)
-                      SizedBox(
-                        width: 96,
-                        height: 96,
-                        child: OutlinedButton(onPressed: _addPhoto, child: const Icon(Icons.add_a_photo_rounded)),
-                      ),
+                _purposePicker(),
+                if (_purpose != null) ...[
+                  const SizedBox(height: 14),
+                  ..._tasks(),
+                  if (_outcomes.isNotEmpty || _purpose == 'other') ...[
+                    const SizedBox(height: 14),
+                    _outcomeCard(),
                   ],
-                ),
-                const SizedBox(height: 24),
-                GradientButton(label: 'Complete visit', icon: Icons.check_rounded, busy: _busy, onPressed: _submit),
+                  // Forms come after the work itself, not before it.
+                  if (_forms.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _formsCard(),
+                  ],
+                ],
               ],
             ),
     );
   }
+
+  Widget _purposePicker() => Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text('What was this visit for?',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+                  const Spacer(),
+                  Text('In since ${fmtTime(widget.visit['check_in_at'])}',
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              for (final (code, name, hint, icon) in visitPurposes)
+                _purposeTile(code, name, hint, icon),
+            ],
+          ),
+        ),
+      );
+
+  Widget _purposeTile(String code, String name, String hint, IconData icon) {
+    final on = _purpose == code;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: on ? AppColors.primary.withValues(alpha: 0.10) : AppColors.background,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => setState(() => _purpose = code),
+          child: Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                  color: on ? AppColors.primary : Colors.transparent, width: 1.4),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: on ? AppColors.primary : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, size: 19, color: on ? Colors.white : AppColors.primary),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+                      Text(hint, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                    ],
+                  ),
+                ),
+                Icon(on ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
+                    size: 20, color: on ? AppColors.primary : AppColors.border),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// What this purpose asks for, in the order it has to happen.
+  List<Widget> _tasks() {
+    if (_purpose == 'other') {
+      return [
+        _taskCard(
+          title: 'Nothing required',
+          done: true,
+          child: const Text('Add a note or a photo if it helps; neither is asked for.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
+          trailing: null,
+        ),
+        const SizedBox(height: 12),
+        _noteField(optional: true),
+        const SizedBox(height: 12),
+        _photoCard(optional: true),
+      ];
+    }
+    if (_needsStock) {
+      return [
+        _taskCard(
+          title: 'Stock count',
+          done: _stockDone,
+          child: Text(
+            _stockDone ? 'Counted and saved.' : 'Count what is in the chiller before you leave.',
+            style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
+          ),
+          trailing: FilledButton.icon(
+            onPressed: _countStock,
+            icon: Icon(_stockDone ? Icons.edit_rounded : Icons.inventory_rounded, size: 17),
+            label: Text(_stockDone ? 'Edit' : 'Count'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _photoCard(),
+        const SizedBox(height: 12),
+        _noteField(optional: true),
+      ];
+    }
+    return [
+      _noteField(),
+      const SizedBox(height: 12),
+      _photoCard(),
+    ];
+  }
+
+  Widget _taskCard({required String title, required bool done, required Widget child, Widget? trailing}) => Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: done ? AppColors.success.withValues(alpha: 0.4) : AppColors.border),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(done ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                size: 21, color: done ? AppColors.success : AppColors.border),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+                  const SizedBox(height: 2),
+                  child,
+                ],
+              ),
+            ),
+            if (trailing != null) ...[const SizedBox(width: 8), trailing],
+          ],
+        ),
+      );
+
+  Widget _noteField({bool optional = false}) => _taskCard(
+        title: optional ? 'Notes' : 'Visit notes',
+        done: optional || _note.text.trim().isNotEmpty,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: TextField(
+            controller: _note,
+            maxLines: 3,
+            textCapitalization: TextCapitalization.sentences,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: optional
+                  ? 'Anything worth remembering'
+                  : 'What was discussed, what was agreed, what to do next',
+              isDense: true,
+            ),
+          ),
+        ),
+      );
+
+  Widget _photoCard({bool optional = false}) {
+    final locked = !optional && !_photoReady;
+    return _taskCard(
+      title: optional ? 'Photos' : 'Closing photo',
+      done: optional || _photos.isNotEmpty,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            locked
+                ? 'Count the stock first, then photograph it.'
+                : '${_photos.length} of $_maxPhotos · taken with the place and time on it',
+            style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
+          ),
+          if (_photos.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (var i = 0; i < _photos.length; i++)
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.memory(_photos[i], width: 84, height: 84, fit: BoxFit.cover),
+                      ),
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: IconButton.filledTonal(
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.close, size: 15),
+                          onPressed: () => setState(() => _photos.removeAt(i)),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ],
+          if (_photos.length < _maxPhotos) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: locked ? null : _addPhoto,
+              icon: const Icon(Icons.add_a_photo_rounded, size: 17),
+              label: Text(_photos.isEmpty ? 'Take photo' : 'Add another'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _outcomeCard() => Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('How did it go?', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _outcomes.isNotEmpty
+                    ? [
+                        for (final o in _outcomes)
+                          ChoiceChip(
+                            label: Text('${o['name']}'),
+                            selected: _selected?['id'] == o['id'],
+                            onSelected: (_) => setState(() => _selected = o),
+                          ),
+                      ]
+                    : [
+                        for (final entry in legacyOutcomes.entries)
+                          ChoiceChip(
+                            label: Text(entry.value),
+                            selected: _legacy == entry.key,
+                            onSelected: (_) => setState(() => _legacy = entry.key),
+                          ),
+                      ],
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Widget _formsCard() => Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Forms', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+              const Text('Filled once the visit itself is done.',
+                  style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+              for (final form in _forms)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFFEDE8FF),
+                    child: Icon(
+                        form['filled'] == true ? Icons.assignment_turned_in_rounded : Icons.assignment_rounded,
+                        color: AppColors.purple),
+                  ),
+                  title: Text('${form['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text(form['filled'] == true
+                      ? 'Filled'
+                      : form['mandatory'] == true
+                          ? 'Required'
+                          : 'Optional'),
+                  trailing: form['filled'] == true
+                      ? const StatusBadge('filled')
+                      : TextButton(onPressed: () => _fillForm(form), child: const Text('Fill now')),
+                ),
+            ],
+          ),
+        ),
+      );
 }

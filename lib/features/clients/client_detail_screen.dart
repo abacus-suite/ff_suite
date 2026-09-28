@@ -399,17 +399,6 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     }
   }
 
-  Future<void> _openForm(Map<String, dynamic> form) async {
-    final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
-      builder: (_) => FormFillScreen(
-        form: form,
-        partnerId: widget.clientId,
-        visitId: form['trigger'] == 'visit' ? (_current?['id'] as int?) : null,
-      ),
-    ));
-    if (saved == true) _load();
-  }
-
   @override
   Widget build(BuildContext context) {
     final client = _client;
@@ -841,6 +830,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     final routes = ((c['routes'] as List?) ?? []).cast<Map>();
     final distance = c['distance_m'] as num?;
     final category = asText((c['category'] as Map?)?['name']);
+    // A lead buys nothing, owes nothing and returns nothing: the trading
+    // actions would only be dead buttons on its screen.
+    final lead = c['category_type'] == 'lead';
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: [
@@ -869,7 +861,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           ClientBalanceCard(clientId: widget.clientId),
         ],
         // Checked in at another customer: nothing to take here until they check out there.
-        if (profile.feature('orders') && _canAct && c['allow_orders'] != false && c['approval_state'] == 'approved') ...[
+        if (!lead && profile.feature('orders') && _canAct && c['allow_orders'] != false && c['approval_state'] == 'approved') ...[
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => _takeOrder(c),
@@ -879,7 +871,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                 : 'Take ${profile.label('order', 'Order').toLowerCase()}'),
           ),
         ],
-        if (profile.feature('orders') && _canAct) ...[
+        if (!lead && profile.feature('orders') && _canAct) ...[
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: () async {
@@ -893,7 +885,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           ),
         ],
         // Checked in here: what this customer has taken from us, product by product.
-        if (profile.feature('orders') && _atThisClient) ...[
+        if (!lead && profile.feature('orders') && _atThisClient) ...[
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(
@@ -903,7 +895,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             label: const Text('Product history'),
           ),
         ],
-        if (profile.paymentCollection && _canAct) ...[
+        if (!lead && profile.paymentCollection && _canAct) ...[
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: () => _collectPayment(c),
@@ -911,166 +903,274 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             label: const Text('Collect payment'),
           ),
         ],
-        if (_steps.isNotEmpty)
-          SectionCard(
-            title: 'Visit steps',
-            child: Column(
-              children: [
-                for (var i = 0; i < _steps.length; i++)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      backgroundColor: (_steps[i]['state'] == 'done'
-                              ? AppColors.success
-                              : _steps[i]['state'] == 'skipped'
-                                  ? AppColors.warning
-                                  : AppColors.primary)
-                          .withValues(alpha: 0.14),
-                      child: _steps[i]['state'] == 'done'
-                          ? const Icon(Icons.check_rounded, color: AppColors.success)
-                          : Text('${i + 1}',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  color: _steps[i]['state'] == 'skipped' ? AppColors.warning : AppColors.primary)),
-                    ),
-                    title: Text('${_steps[i]['name']}${_steps[i]['mandatory'] == true ? ' *' : ''}',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(_steps[i]['state'] == 'skipped'
-                        ? 'Skipped'
-                        : asText(_steps[i]['note']) ?? asText(_steps[i]['instruction']) ?? ''),
-                    trailing: _steps[i]['state'] == 'pending'
-                        ? const Icon(Icons.chevron_right_rounded)
-                        : StatusBadge(_steps[i]['state'] == 'done' ? 'filled' : 'skipped', label: null),
-                    onTap: () => _openStep(_steps[i]),
-                  ),
-              ],
-            ),
-          ),
-        if (_forms.isNotEmpty)
-          SectionCard(
-            title: 'Forms',
-            child: Column(
-              children: [
-                for (final form in _forms)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const CircleAvatar(
-                      backgroundColor: Color(0xFFEDE8FF),
-                      child: Icon(Icons.assignment_rounded, color: AppColors.purple),
-                    ),
-                    title: Text('${form['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(form['trigger'] == 'visit' ? 'During this visit' : 'Profile'),
-                    trailing: form['filled'] == true
-                        ? const StatusBadge('filled')
-                        : form['mandatory'] == true
-                            ? const StatusBadge('required')
-                            : const Icon(Icons.chevron_right_rounded),
-                    onTap: form['filled'] == true ? null : () => _openForm(form),
-                  ),
-              ],
-            ),
-          ),
-        if (visits.isNotEmpty)
-          SectionCard(
-            title: 'Recent visits',
-            child: Column(
-              children: [
-                for (final v in visits)
-                  ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(v['state'] == 'done' ? Icons.check_circle_rounded : Icons.timelapse_rounded,
-                        color: v['state'] == 'done' ? AppColors.success : AppColors.sky),
-                    title: Text('${fmtDate(parseServerTime(v['check_in_at'])!)} · '
-                        '${fmtTime(v['check_in_at'])}–${fmtTime(v['check_out_at'])}'),
-                    subtitle: Text([(v['outcome_type'] as Map?)?['name'], v['note']].whereType<String>().join(' · ')),
-                  ),
-              ],
-            ),
-          ),
+        if (_steps.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _stepsCard(),
+        ],
+        if (visits.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _visitsCard(visits),
+        ],
       ],
     );
   }
 
-  /// How long this visit has been running, counted live.
-  ///
-  /// Time at the customer is what the visit is measured by, so it is shown
-  /// counting rather than left to be worked out from a check-in time.
-  Widget _visitClock() {
-    final started = parseServerTime(_current!['check_in_at']) ?? DateTime.now();
-    final spent = DateTime.now().difference(started);
-    final auto = _current!['auto_start'] == true;
-    String two(int value) => value.toString().padLeft(2, '0');
+  /// The steps of this visit, drawn as a line of work with what is left on it.
+  Widget _stepsCard() {
+    final done = _steps.where((step) => step['state'] == 'done').length;
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-      decoration: BoxDecoration(
-        gradient: AppColors.successGradient,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.success.withValues(alpha: 0.28),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 6),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(11)),
+                child: const Icon(Icons.checklist_rounded, size: 17, color: AppColors.primary),
+              ),
+              const SizedBox(width: 9),
+              const Expanded(
+                child: Text('Visit steps', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+              ),
+              Text('$done of ${_steps.length}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.muted)),
+            ],
           ),
+          const SizedBox(height: 9),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: LinearProgressIndicator(
+              value: _steps.isEmpty ? 0 : done / _steps.length,
+              minHeight: 5,
+              backgroundColor: AppColors.background,
+            ),
+          ),
+          const SizedBox(height: 4),
+          for (var i = 0; i < _steps.length; i++) _stepRow(i, i == _steps.length - 1),
         ],
       ),
+    );
+  }
+
+  Widget _stepRow(int i, bool last) {
+    final step = _steps[i];
+    final state = '${step['state']}';
+    final tint = state == 'done'
+        ? AppColors.success
+        : state == 'skipped'
+            ? AppColors.warning
+            : AppColors.primary;
+    final note = asText(step['note']) ?? asText(step['instruction']);
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => _openStep(step),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // The rail: a dot for this step and a line down to the next one.
+            Column(
+              children: [
+                Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    color: state == 'pending' ? Colors.white : tint,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: tint, width: 1.6),
+                  ),
+                  child: state == 'done'
+                      ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
+                      : state == 'skipped'
+                          ? const Icon(Icons.redo_rounded, size: 14, color: Colors.white)
+                          : Center(
+                              child: Text('${i + 1}',
+                                  style: TextStyle(
+                                      fontSize: 12, fontWeight: FontWeight.w800, color: tint))),
+                ),
+                if (!last) Container(width: 2, height: 20, color: AppColors.border),
+              ],
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text('${step['name']}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      ),
+                      if (step['mandatory'] == true && state == 'pending')
+                        const Text('Required',
+                            style: TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.warning)),
+                    ],
+                  ),
+                  if (note != null || state == 'skipped')
+                    Text(state == 'skipped' ? 'Skipped' : note!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                ],
+              ),
+            ),
+            if (state == 'pending')
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.muted),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The last few calls here: when, how long, and what came of them.
+  Widget _visitsCard(List<Map<String, dynamic>> visits) => Container(
+        padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                      color: AppColors.sky.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(11)),
+                  child: const Icon(Icons.history_rounded, size: 17, color: AppColors.sky),
+                ),
+                const SizedBox(width: 9),
+                const Expanded(
+                  child: Text('Recent visits', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+                ),
+                Text('${visits.length}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.muted)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            for (final v in visits) _visitRow(v),
+          ],
+        ),
+      );
+
+  Widget _visitRow(Map<String, dynamic> v) {
+    final open = v['state'] != 'done';
+    final started = parseServerTime(v['check_in_at']);
+    final minutes = (v['duration_min'] as num?)?.toInt();
+    final purpose = switch (v['purpose']) {
+      'client_visit' => 'Client visit',
+      'chiller_update' => 'Chiller update',
+      'other' => 'Other',
+      _ => null,
+    };
+    final note = asText(v['note']);
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), shape: BoxShape.circle),
-            child: const Icon(Icons.timer_rounded, color: Colors.white, size: 22),
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: (open ? AppColors.sky : AppColors.success).withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(open ? Icons.timelapse_rounded : Icons.check_rounded,
+                size: 16, color: open ? AppColors.sky : AppColors.success),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Time at this customer',
-                    style: TextStyle(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
                 Text(
-                  '${two(spent.inHours)}:${two(spent.inMinutes % 60)}:${two(spent.inSeconds % 60)}',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 27,
-                      fontWeight: FontWeight.w900,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                      height: 1.05),
+                  [
+                    if (started != null) fmtDate(started),
+                    '${fmtTime(v['check_in_at'])}${open ? ' · still here' : '-${fmtTime(v['check_out_at'])}'}',
+                  ].join(' · '),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  auto
-                      ? 'Started on arrival at ${fmtTime(_current!['check_in_at'])} - it closes when you leave'
-                      : 'Since ${fmtTime(_current!['check_in_at'])}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 11.5),
-                ),
+                if (purpose != null || (v['outcome_type'] as Map?)?['name'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      [purpose, (v['outcome_type'] as Map?)?['name']].whereType<String>().join(' · '),
+                      style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                if (note != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(note,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                  ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: _checkOut,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.logout_rounded, size: 17, color: AppColors.success),
-                    SizedBox(width: 6),
-                    Text('Check out',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.success)),
-                  ],
-                ),
-              ),
+          if (minutes != null && minutes > 0)
+            Padding(
+              padding: const EdgeInsets.only(left: 8, top: 2),
+              child: Text('$minutes min',
+                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.muted)),
             ),
+        ],
+      ),
+    );
+  }
+
+  /// A thin strip with the time at this customer counting up.
+  ///
+  /// Checking out already has its own button above, so this only keeps count.
+  Widget _visitClock() {
+    final started = parseServerTime(_current!['check_in_at']) ?? DateTime.now();
+    final spent = DateTime.now().difference(started);
+    String two(int value) => value.toString().padLeft(2, '0');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.timer_outlined, size: 17, color: AppColors.success),
+          const SizedBox(width: 8),
+          Text(
+            '${two(spent.inHours)}:${two(spent.inMinutes % 60)}:${two(spent.inSeconds % 60)}',
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: AppColors.success,
+                fontFeatures: [FontFeature.tabularFigures()]),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('at this customer · since ${fmtTime(_current!['check_in_at'])}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: AppColors.muted)),
           ),
         ],
       ),
