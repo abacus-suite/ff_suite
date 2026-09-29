@@ -52,16 +52,31 @@ class FieldForceReceivablesApi(http.Controller):
             partners = env['res.partner'].sudo().search(domain)
         families = partners.mapped('commercial_partner_id')
         move_domain = [
-            ('partner_id', 'child_of', families.ids), ('move_type', 'in', ('out_invoice', 'out_refund')),
+            ('move_type', 'in', ('out_invoice', 'out_refund')),
             ('state', '=', 'posted'), ('payment_state', 'in', ('not_paid', 'partial')),
             ('company_id', '=', company.id),
         ]
-        if filter == 'overdue':
-            move_domain.append(('invoice_date_due', '<', today))
-        elif filter == 'due_soon':
-            move_domain += [('invoice_date_due', '>=', today), ('invoice_date_due', '<=', today + timedelta(days=7))]
-        moves = env['account.move'].sudo().search(move_domain, order='invoice_date_due asc, id asc',
-                                                  limit=min(to_int(limit) or 200, 500)) if families else env['account.move']
+        # Whose money to chase: the customers this person can see, and anything
+        # billed on an order they raised. The second matters on the demand flow,
+        # where the invoice goes to a distributor the outlet's rep may not have
+        # on their own list at all - but it is still their order to collect.
+        mine = (employee | employee._ff_subordinates()).ids
+        reach = [[('partner_id', 'child_of', families.ids)]] if families else []
+        Order = env.get('sale.order')
+        if not partner_id and Order is not None and 'ff_employee_id' in Order._fields:
+            reach.append([('invoice_line_ids.sale_line_ids.order_id.ff_employee_id', 'in', mine)])
+        if not reach:
+            moves = env['account.move']
+        else:
+            move_domain += ['|'] * (len(reach) - 1) + [term for branch in reach for term in branch]
+            if filter == 'overdue':
+                move_domain.append(('invoice_date_due', '<', today))
+            elif filter == 'due_soon':
+                move_domain += [('invoice_date_due', '>=', today),
+                                ('invoice_date_due', '<=', today + timedelta(days=7))]
+            moves = env['account.move'].sudo().search(
+                move_domain, order='invoice_date_due asc, id asc',
+                limit=min(to_int(limit) or 200, 500))
         ageing = {key: 0.0 for key, _label in BUCKETS}
         rows, total, overdue = [], 0.0, 0.0
         for move in moves:
@@ -85,12 +100,23 @@ class FieldForceReceivablesApi(http.Controller):
                 'is_refund': move.move_type == 'out_refund',
                 'salesperson': move.invoice_user_id.name or None,
             })
+        # Nothing owing and nothing to show is one thing; an invoice sitting in
+        # draft is another, and it is the usual reason somebody says their
+        # receivables are missing. Count them so the app can say so.
+        drafts = 0
+        if not rows and families:
+            drafts = env['account.move'].sudo().search_count([
+                ('partner_id', 'child_of', families.ids),
+                ('move_type', 'in', ('out_invoice', 'out_refund')),
+                ('state', '=', 'draft'), ('company_id', '=', company.id),
+            ])
         return ok({
             'currency': company.currency_id.name,
             'filter': filter,
             'total': round(total, 2),
             'overdue': round(overdue, 2),
             'count': len(rows),
+            'draft_count': drafts,
             'ageing': [{'key': key, 'label': label, 'amount': round(ageing[key], 2)} for key, label in BUCKETS],
             'invoices': rows,
         })
