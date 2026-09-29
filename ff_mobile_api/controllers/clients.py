@@ -437,16 +437,27 @@ class FieldForceClientsApi(http.Controller):
 
     @api_route('/api/v1/my-routes', methods=('GET',))
     def my_routes(self, employee, **kw):
-        """The routes this person works, to choose from when editing a contact."""
-        routes = employee.sudo().ff_route_ids
+        """The routes this person works, to choose from when editing a contact.
+
+        A route still waiting for the office is here for whoever drew it, so a
+        contact can go on it straight away; a turned-down one is here for
+        nobody.
+        """
+        def usable(route):
+            return route.ff_approval_state == 'approved' or (
+                route.ff_approval_state == 'pending'
+                and route.ff_created_by_employee_id == employee)
+
+        routes = employee.sudo().ff_route_ids.filtered(usable)
         if not routes:
             routes = request.env['ff.beat'].sudo().search(
-                [('company_id', 'in', (False, employee.company_id.id))], limit=200)
+                [('company_id', 'in', (False, employee.company_id.id))], limit=200).filtered(usable)
         return ok([{
             'id': route.id,
             'name': route.name,
             'city': route.district_id.name or None,
             'district_id': route.district_id.id or None,
+            'approval_state': route.ff_approval_state,
         } for route in routes])
 
     @api_route('/api/v1/contact-categories', methods=('GET',))
