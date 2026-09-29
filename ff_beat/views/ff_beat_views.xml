@@ -4,7 +4,8 @@
         <field name="name">ff.beat.list</field>
         <field name="model">ff.beat</field>
         <field name="arch" type="xml">
-            <list>
+            <list decoration-warning="ff_approval_state == 'pending'"
+                  decoration-muted="ff_approval_state == 'rejected'">
                 <field name="route_type_id" widget="badge"/>
                 <field name="name"/>
                 <field name="code" optional="show"/>
@@ -15,6 +16,11 @@
                 <field name="planned_km" optional="show"/>
                 <field name="allowance_km" optional="hide"/>
                 <field name="employee_ids" widget="many2many_tags" optional="show"/>
+                <field name="ff_created_by_employee_id" optional="show"/>
+                <field name="ff_approval_state" widget="badge"
+                       decoration-success="ff_approval_state == 'approved'"
+                       decoration-warning="ff_approval_state == 'pending'"
+                       decoration-danger="ff_approval_state == 'rejected'"/>
             </list>
         </field>
     </record>
@@ -25,6 +31,12 @@
         <field name="arch" type="xml">
             <form>
                 <header>
+                    <button name="action_ff_approve" type="object" string="Approve" class="btn-primary"
+                            invisible="ff_approval_state != 'pending'" groups="ff_base.group_ff_manager"/>
+                    <button name="action_ff_reject" type="object" string="Reject"
+                            invisible="ff_approval_state != 'pending'" groups="ff_base.group_ff_manager"
+                            confirm="Turn down this route? Nobody will be able to plan from it."/>
+                    <field name="ff_approval_state" widget="statusbar" statusbar_visible="pending,approved"/>
                     <button name="%(ff_beat_assign_wizard_action)d" type="action" string="Plan for Employees"
                             class="btn-primary" context="{'default_beat_id': id}"/>
                     <button name="action_sync_contact_employees" type="object" string="Assign Contacts to Employees"
@@ -32,9 +44,14 @@
                 </header>
                 <sheet>
                     <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <widget name="web_ribbon" title="Turned down" bg_color="text-bg-danger"
+                            invisible="ff_approval_state != 'rejected'"/>
                     <div class="oe_title">
                         <label for="name"/>
                         <h1><field name="name" placeholder="e.g. Cherthala - Muhamma"/></h1>
+                    </div>
+                    <div invisible="not ff_created_by_employee_id" class="text-muted mb-2">
+                        Drawn in the app by <field name="ff_created_by_employee_id" readonly="1" class="oe_inline"/>
                     </div>
                     <group>
                         <group string="Route">
@@ -92,12 +109,18 @@
                 <field name="team_id"/>
                 <field name="employee_ids"/>
                 <field name="line_ids" string="Client" filter_domain="[('line_ids.partner_id', 'ilike', self)]"/>
+                <filter name="waiting" string="Waiting for approval"
+                        domain="[('ff_approval_state', '=', 'pending')]"/>
+                <filter name="from_app" string="Drawn in the app"
+                        domain="[('ff_created_by_employee_id', '!=', False)]"/>
+                <separator/>
                 <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
                 <group>
                     <filter name="group_type" string="Route Type" context="{'group_by': 'route_type_id'}"/>
                     <filter name="group_state" string="State" context="{'group_by': 'state_id'}"/>
                     <filter name="group_district" string="City / District" context="{'group_by': 'district_id'}"/>
                     <filter name="group_team" string="Team" context="{'group_by': 'team_id'}"/>
+                    <filter name="group_approval" string="Approval" context="{'group_by': 'ff_approval_state'}"/>
                 </group>
                 <searchpanel>
                     <field name="route_type_id" icon="fa-road" enable_counters="1"/>

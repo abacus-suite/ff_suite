@@ -1,5 +1,6 @@
 from . import ff_route_type
 from . import ff_beat
+from . import ff_beat_app
 from . import ff_route_plan
 from . import ff_beat_plan
 from . import ff_beat_plan_app
@@ -9,3 +10,4 @@ from . import ff_route_distance
 from . import ff_visit
 from . import hr_employee
 from . import res_partner
+from . import res_config_settings
