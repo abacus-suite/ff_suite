@@ -526,12 +526,8 @@ class _EditClientScreenState extends State<EditClientScreen> {
                         for (final route in _routes)
                           DropdownMenuItem(
                             value: route['id'] as int,
-                            child: Text(
-                                [
-                                  '${route['name']}',
-                                  if (asText(route['city']) != null) '· ${route['city']}',
-                                ].join(' '),
-                                overflow: TextOverflow.ellipsis),
+                            child: Text('${route['name']}',
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
                           ),
                       ],
                       // The address city is left alone: it is the shop's, not the route's.
