@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import 'planned_day_screen.dart';
+
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
@@ -11,14 +13,20 @@ import '../../widgets/common.dart';
 /// Create a beat plan: for me or someone in my team, one day, one or several routes,
 /// with the customers of each route ticked. Saving opens the planned days.
 class PlanBeatScreen extends StatefulWidget {
-  const PlanBeatScreen({super.key});
+  const PlanBeatScreen({super.key, this.date, this.member, this.memberName, this.startOnCustomers = false});
+
+  /// The day to plan. Given when this is opened to add to a day already made.
+  final DateTime? date;
+  final String? member;
+  final String? memberName;
+  final bool startOnCustomers;
 
   @override
   State<PlanBeatScreen> createState() => _PlanBeatScreenState();
 }
 
 class _PlanBeatScreenState extends State<PlanBeatScreen> {
-  DateTime _date = DateUtils.dateOnly(DateTime.now());
+  late DateTime _date = DateUtils.dateOnly(widget.date ?? DateTime.now());
   List<Map<String, dynamic>> _members = [];
   Map<String, dynamic>? _member; // null = me
   List<Map<String, dynamic>> _routes = [];
@@ -54,6 +62,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.startOnCustomers) _mode = 'customer';
     _start();
   }
 
@@ -61,10 +70,16 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
     try {
       final team = await Services.api.get('/api/v1/team/members') as Map<String, dynamic>;
       _members = ((team['members'] as List?) ?? []).cast<Map<String, dynamic>>();
+      // Opened to add to somebody else's day: stay on that somebody.
+      if (widget.member != null && widget.member != 'me') {
+        _member = _members.firstWhere((m) => '${m['id']}' == widget.member,
+            orElse: () => {'id': widget.member, 'name': widget.memberName ?? 'Team member'});
+      }
     } catch (_) {
       _members = [];
     }
     await _loadRoutes();
+    if (_mode == 'customer' && mounted) await _loadContacts();
   }
 
   Future<void> _loadRoutes() async {
@@ -899,7 +914,13 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
   }
 }
 
-/// Days already planned, for me or one team member, from [start] for two weeks.
+/// The days ahead, one card each, with what is planned on them.
+///
+/// The old screen listed a row per route per day, which meant reading the same
+/// date three times over and still not knowing how the day was going. A day is
+/// what somebody plans and works, so a day is what this shows: the date, how
+/// many customers are on it, and how far through it they are. What is actually
+/// on the day is one tap away.
 class PlannedDaysScreen extends StatefulWidget {
   const PlannedDaysScreen({super.key, this.member = 'me', this.memberName, required this.start});
 
@@ -931,7 +952,7 @@ class _PlannedDaysScreenState extends State<PlannedDaysScreen> {
       final list = (await Services.api.get('/api/v1/route-plan/days', query: {
         'member': widget.member,
         'start': fmtDate(widget.start),
-        'end': fmtDate(widget.start.add(const Duration(days: 13))),
+        'end': fmtDate(widget.start.add(const Duration(days: 27))),
       }) as List)
           .cast<Map<String, dynamic>>();
       if (mounted) setState(() => _days = list);
@@ -942,65 +963,226 @@ class _PlannedDaysScreenState extends State<PlannedDaysScreen> {
     }
   }
 
+  /// One entry per date, with the day's routes added up behind it.
+  List<_PlannedDay> get _byDate {
+    final days = <String, _PlannedDay>{};
+    for (final row in _days) {
+      final key = '${row['date']}';
+      final day = days.putIfAbsent(key, () => _PlannedDay(key));
+      day.plans.add(row);
+      day.planned += (row['planned_count'] as num? ?? 0).toInt();
+      day.visited += (row['completed_count'] as num? ?? 0).toInt();
+      day.missed += (row['missed_count'] as num? ?? 0).toInt();
+      day.adhoc += (row['adhoc_count'] as num? ?? 0).toInt();
+      final beat = (row['beat'] as Map?)?['name'];
+      if (beat != null) day.beats.add('$beat');
+    }
+    final list = days.values.toList()..sort((a, b) => a.date.compareTo(b.date));
+    return list;
+  }
+
+  Future<void> _openDay(_PlannedDay day) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => PlannedDayScreen(
+        date: day.day ?? DateTime.now(),
+        member: widget.member,
+        memberName: widget.memberName,
+      ),
+    ));
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final byDate = <String, List<Map<String, dynamic>>>{};
-    for (final d in _days) {
-      byDate.putIfAbsent('${d['date']}', () => []).add(d);
-    }
-    final dates = byDate.keys.toList()..sort();
+    final days = _byDate;
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(title: Text(widget.memberName == null ? 'Planned Days' : 'Plan · ${widget.memberName}')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => const PlanBeatScreen()))
+            .push(MaterialPageRoute(
+                builder: (_) => PlanBeatScreen(member: widget.member, memberName: widget.memberName)))
             .then((_) => _load()),
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Plan more'),
+        label: const Text('Plan a day'),
       ),
-      body: _loading
+      body: _loading && _days.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? ErrorView(message: _error!, onRetry: _load)
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 96),
                     children: [
-                      if (dates.isEmpty)
-                        const EmptyView(icon: Icons.event_busy_rounded, text: 'Nothing planned in the next two weeks'),
-                      for (final date in dates) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
-                          child: Text(date, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                      if (days.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 60),
+                          child: EmptyView(
+                              icon: Icons.event_busy_rounded, text: 'Nothing planned in the next four weeks'),
                         ),
-                        for (final d in byDate[date]!)
-                          Card(
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: const Color(0xFFE8EFFF),
-                                child: Icon(
-                                    d['beat'] == null
-                                        ? Icons.person_pin_circle_rounded
-                                        : Icons.route_rounded,
-                                    color: d['beat'] == null ? AppColors.purple : AppColors.primary),
-                              ),
-                              // A day picked customer by customer has no route to name.
-                              title: Text('${(d['beat'] as Map?)?['name'] ?? 'Chosen customers'}',
-                                  style: const TextStyle(fontWeight: FontWeight.w700)),
-                              subtitle: Text([
-                                if (d['employee'] is Map && widget.member == 'team') (d['employee'] as Map)['name'],
-                                '${d['planned_count']} planned',
-                                '${d['completed_count']} visited',
-                                if ((d['missed_count'] as num? ?? 0) > 0) '${d['missed_count']} missed',
-                              ].join(' · ')),
-                              trailing: StatusBadge('${d['status'] ?? 'planned'}'),
-                            ),
-                          ),
-                      ],
+                      for (final day in days) _dayCard(day),
                     ],
                   ),
                 ),
     );
   }
+
+  Widget _dayCard(_PlannedDay day) {
+    final date = day.day;
+    final today = DateUtils.dateOnly(DateTime.now());
+    final isToday = date != null && DateUtils.isSameDay(date, today);
+    final past = date != null && date.isBefore(today);
+    final done = day.planned == 0 ? 0.0 : day.visited / day.planned;
+    final tint = past && day.visited < day.planned
+        ? AppColors.danger
+        : done >= 1
+            ? AppColors.success
+            : isToday
+                ? AppColors.primary
+                : AppColors.sky;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => _openDay(day),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: isToday ? AppColors.primary : Colors.transparent, width: 1.4),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    // The date, read at a glance.
+                    Container(
+                      width: 52,
+                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      decoration: BoxDecoration(
+                        color: tint.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(date == null ? '' : _weekday(date),
+                              style: TextStyle(
+                                  fontSize: 11, fontWeight: FontWeight.w800, color: tint)),
+                          Text(date == null ? day.date : '${date.day}',
+                              style: TextStyle(
+                                  fontSize: 20, fontWeight: FontWeight.w900, color: tint, height: 1.1)),
+                          Text(date == null ? '' : _month(date),
+                              style: TextStyle(
+                                  fontSize: 10.5, fontWeight: FontWeight.w700, color: tint)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Text('${day.planned} ${day.planned == 1 ? 'customer' : 'customers'}',
+                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                              if (isToday) ...[
+                                const SizedBox(width: 7),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                      color: AppColors.primary, borderRadius: BorderRadius.circular(20)),
+                                  child: const Text('Today',
+                                      style: TextStyle(
+                                          fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white)),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            day.beats.isEmpty
+                                ? 'Chosen customers'
+                                : day.beats.length == 1
+                                    ? day.beats.first
+                                    : '${day.beats.length} ${Services.auth.profile!.routeLabel}s',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                  ],
+                ),
+                if (day.planned > 0) ...[
+                  const SizedBox(height: 11),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: LinearProgressIndicator(
+                      value: done.clamp(0.0, 1.0),
+                      minHeight: 5,
+                      backgroundColor: AppColors.background,
+                      valueColor: AlwaysStoppedAnimation(tint),
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                  Row(
+                    children: [
+                      _stat('${day.visited}', 'visited', AppColors.success),
+                      _stat('${day.planned - day.visited}', 'left', AppColors.primary),
+                      if (day.missed > 0) _stat('${day.missed}', 'missed', AppColors.danger),
+                      if (day.adhoc > 0) _stat('${day.adhoc}', 'unplanned', AppColors.warning),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _stat(String value, String label, Color tint) => Padding(
+        padding: const EdgeInsets.only(right: 14),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 7, height: 7, decoration: BoxDecoration(color: tint, shape: BoxShape.circle)),
+            const SizedBox(width: 5),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5)),
+            const SizedBox(width: 3),
+            Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+          ],
+        ),
+      );
+}
+
+String _weekday(DateTime date) =>
+    const ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'][date.weekday - 1];
+
+String _month(DateTime date) =>
+    const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        [date.month - 1];
+
+/// One date, with every route planned on it added together.
+class _PlannedDay {
+  _PlannedDay(this.date);
+
+  final String date;
+  final List<Map<String, dynamic>> plans = [];
+  final Set<String> beats = {};
+  int planned = 0;
+  int visited = 0;
+  int missed = 0;
+  int adhoc = 0;
+
+  DateTime? get day => DateTime.tryParse(date);
 }
