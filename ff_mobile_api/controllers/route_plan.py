@@ -22,6 +22,8 @@ class FieldForceRoutePlanApi(http.Controller):
             'state': ref(route.state_id),
             'customer_count': len(route.line_ids),
             'planned_km': round(route.planned_km, 1),
+            # A route drawn in the app may still be waiting for the office.
+            'approval_state': route.ff_approval_state,
         } for route in routes])
 
     @api_route('/api/v1/route-plan/customers', methods=('GET',))
@@ -44,6 +46,43 @@ class FieldForceRoutePlanApi(http.Controller):
                                status=row['status'] or None,
                                visited=row['visited']) for row in customers],
         })
+
+    @api_route('/api/v1/route-types', methods=('GET',))
+    def route_types(self, employee, **kw):
+        """The kinds of route this person's department uses."""
+        types = request.env['ff.route.type'].ff_for_employee(employee)
+        return ok([{'id': t.id, 'name': t.name} for t in types])
+
+    @api_route('/api/v1/beats', methods=('POST',))
+    def create_beat(self, employee, **kw):
+        """Draw a route from the app.
+
+        The field is the side that finds out a patch of town has been missed,
+        so it can draw the route there and then. Whether the office sees it
+        first is the office's own setting.
+        """
+        beat = request.env['ff.beat'].ff_create_from_app(employee, body())
+        return ok(beat.ff_app_payload(), status=201)
+
+    @api_route('/api/v1/beats/<int:beat_id>/customers', methods=('POST',))
+    def add_beat_customers(self, employee, beat_id, **kw):
+        """Put customers on a route, at the end of it."""
+        beat = request.env['ff.beat'].sudo().browse(beat_id).exists()
+        if not beat:
+            raise ApiError('Route not found.', 404, 'not_found')
+        data = body()
+        added = request.env['ff.beat'].ff_add_customers_from_app(
+            employee, beat, data.get('partner_ids') or [])
+        return ok(dict(beat.ff_app_payload(), added=len(added)), status=201)
+
+    @api_route('/api/v1/beats/<int:beat_id>/decide', methods=('POST',))
+    def decide_beat(self, employee, beat_id, **kw):
+        """A manager approves or turns down a route their field drew."""
+        beat = request.env['ff.beat'].sudo().browse(beat_id).exists()
+        if not beat:
+            raise ApiError('Route not found.', 404, 'not_found')
+        approve = bool(body().get('approve'))
+        return ok(beat.ff_decide_from_app(employee, approve).ff_app_payload())
 
     @api_route('/api/v1/route-plan/contacts', methods=('GET',))
     def plan_contacts(self, employee, date=None, q=None, member=None, **kw):

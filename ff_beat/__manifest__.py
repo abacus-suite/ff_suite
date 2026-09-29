@@ -15,6 +15,7 @@
         'wizard/ff_route_plan_apply_wizard_views.xml',
         'views/ff_route_type_views.xml',
         'views/ff_beat_views.xml',
+        'views/res_config_settings_views.xml',
         'views/ff_route_plan_views.xml',
         'views/ff_beat_plan_views.xml',
         'views/ff_route_distance_views.xml',

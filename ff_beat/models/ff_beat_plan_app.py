@@ -20,9 +20,17 @@ class FfBeatPlanApp(models.Model):
         """
         shared = self.env['res.partner']._ff_contact_access() == 'open'
         own = employee.sudo().ff_route_ids
+        # A route waiting for the office belongs to whoever drew it and nobody
+        # else; a turned-down one belongs to no one.
+        waiting = [
+            '|', ('ff_approval_state', '=', 'approved'),
+            '&', ('ff_approval_state', '=', 'pending'), ('ff_created_by_employee_id', '=', employee.id),
+        ]
+        own = own.filtered(lambda route: route.ff_approval_state == 'approved'
+                           or route.ff_created_by_employee_id == employee)
         if shared or not own:
             routes = self.env['ff.beat'].sudo().search(
-                [('company_id', 'in', (False, employee.company_id.id))])
+                [('company_id', 'in', (False, employee.company_id.id))] + waiting)
             # Their own beats first: that is still where most of the work is.
             return (own | routes).sorted(lambda route: (route not in own, route.display_name))
         return own.sorted('display_name')
