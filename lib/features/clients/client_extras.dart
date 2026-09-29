@@ -310,9 +310,9 @@ class _EditClientScreenState extends State<EditClientScreen> {
     await _loadRoutes();
     if (!mounted) return;
     setState(() => _routeId = beat['id'] as int?);
-    if (_city.text.trim().isEmpty && asText(beat['city']) != null) {
-      _city.text = '${beat['city']}';
-    }
+    // The address city stays the shop's own. A route covers a city but is
+    // named for a stretch of it, and writing that into the address turns a
+    // real address into a route name.
     showSnack(
         context,
         beat['approval_state'] == 'pending'
@@ -534,14 +534,8 @@ class _EditClientScreenState extends State<EditClientScreen> {
                                 overflow: TextOverflow.ellipsis),
                           ),
                       ],
-                      onChanged: (value) {
-                        setState(() => _routeId = value);
-                        // A route covers one city: fill it in when the field is empty.
-                        final route = _routes.where((r) => r['id'] == value).firstOrNull;
-                        if (_city.text.trim().isEmpty && asText(route?['city']) != null) {
-                          _city.text = '${route!['city']}';
-                        }
-                      },
+                      // The address city is left alone: it is the shop's, not the route's.
+                      onChanged: (value) => setState(() => _routeId = value),
                     ),
                   ),
                   const SizedBox(width: 8),

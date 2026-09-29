@@ -83,6 +83,9 @@ class _AddClientScreenState extends State<AddClientScreen> {
 
   void _pickRoute(int? id) {
     setState(() => _routeId = id);
+    // Only a city nobody has typed yet. A route covers a city but is named for
+    // a stretch of it, so it must never overwrite an address somebody entered.
+    if (_city.text.trim().isNotEmpty) return;
     final route = _routes.where((r) => r['id'] == id).firstOrNull;
     final city = route?['city'] as String?;
     if (city != null && city.isNotEmpty) _city.text = city;
@@ -212,7 +215,7 @@ class _AddClientScreenState extends State<AddClientScreen> {
                       initialValue: _routes.any((r) => r['id'] == _routeId) ? _routeId : null,
                       decoration: InputDecoration(
                           labelText: routeLabel,
-                          helperText: 'Fills the city and shares it with the $routeLabel team'),
+                          helperText: 'Shares the contact with the $routeLabel team'),
                       items: [
                         DropdownMenuItem<int?>(value: null, child: Text('No $routeLabel')),
                         for (final r in _routes)
