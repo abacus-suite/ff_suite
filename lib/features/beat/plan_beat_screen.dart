@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import 'create_beat_screen.dart';
 import 'planned_day_screen.dart';
 
 import '../../core/format.dart';
@@ -167,6 +168,51 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
     _searchDebounce = Timer(const Duration(milliseconds: 350), _loadContacts);
   }
 
+  /// Draw a route here and now, then put customers on it.
+  ///
+  /// The two belong together: an empty route is no use to anybody, and the
+  /// person who knew it was missing is the person who knows what is on it.
+  Future<void> _newBeat() async {
+    final beat = await Navigator.of(context)
+        .push<Map<String, dynamic>>(MaterialPageRoute(builder: (_) => const CreateBeatScreen()));
+    if (beat == null || !mounted) return;
+    await _loadRoutes();
+    if (!mounted) return;
+    final waiting = beat['approval_state'] == 'pending';
+    showSnack(
+        context,
+        waiting
+            ? '${beat['name']} created · waiting for the office'
+            : '${beat['name']} created');
+    await _addToBeat(beat);
+  }
+
+  /// Puts customers on a route just drawn.
+  Future<void> _addToBeat(Map<String, dynamic> beat) async {
+    if (_contacts.isEmpty) await _loadContacts();
+    if (!mounted) return;
+    final chosen = await showModalBottomSheet<Set<int>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheet) => _BeatCustomerPicker(
+        beatName: '${beat['name']}',
+        contacts: _contacts,
+      ),
+    );
+    if (chosen == null || chosen.isEmpty || !mounted) return;
+    try {
+      final result = await Services.api.post('/api/v1/beats/${beat['id']}/customers', {
+        'partner_ids': chosen.toList(),
+      }) as Map<String, dynamic>;
+      if (!mounted) return;
+      showSnack(context, '${result['added']} added to ${beat['name']}');
+      await _loadRoutes();
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+    }
+  }
+
   Future<void> _pickMember() async {
     final picked = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
@@ -266,7 +312,31 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
                         return CheckboxListTile(
                           value: picked.contains(id),
                           onChanged: (on) => setSheet(() => on == true ? picked.add(id) : picked.remove(id)),
-                          title: Text('${r['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                          title: Row(
+                            children: [
+                              Flexible(
+                                child: Text('${r['name']}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                              ),
+                              if (r['approval_state'] == 'pending') ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.warning.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Text('Waiting',
+                                      style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.warning)),
+                                ),
+                              ],
+                            ],
+                          ),
                           subtitle: Text([
                             if (r['city'] != null) r['city'],
                             '${r['customer_count']} customers',
@@ -279,12 +349,26 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
                   SafeArea(
                     child: Padding(
                       padding: const EdgeInsets.all(12),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          onPressed: () => Navigator.pop(sheet, picked),
-                          child: Text('Use ${picked.length} ${picked.length == 1 ? routeLabel : '${routeLabel}s'}'),
-                        ),
+                      child: Row(
+                        children: [
+                          // The one that is missing is drawn from here.
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(sheet, <int>{});
+                              _newBeat();
+                            },
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: Text('New $routeLabel'),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () => Navigator.pop(sheet, picked),
+                              child: Text(
+                                  'Use ${picked.length} ${picked.length == 1 ? routeLabel : '${routeLabel}s'}'),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -428,14 +512,16 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
                                   ? 'Choose ${routeLabel}s'
                                   : '${_chosen.length} ${_chosen.length == 1 ? routeLabel : '${routeLabel}s'} chosen'),
                               subtitle: Text(_routes.isEmpty
-                                  ? 'No $routeLabel assigned'
+                                  ? 'No $routeLabel yet - tap to draw one'
                                   : _chosen.isEmpty
                                       ? 'You can pick several at once'
                                       : _chosen.map((r) => r['name']).join(', '),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis),
-                              trailing: const Icon(Icons.playlist_add_check_rounded),
-                              onTap: _routes.isEmpty ? null : () => _pickRoutes(routeLabel),
+                              trailing: _routes.isEmpty
+                                  ? const Icon(Icons.add_rounded)
+                                  : const Icon(Icons.playlist_add_check_rounded),
+                              onTap: _routes.isEmpty ? _newBeat : () => _pickRoutes(routeLabel),
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -1185,4 +1271,106 @@ class _PlannedDay {
   int adhoc = 0;
 
   DateTime? get day => DateTime.tryParse(date);
+}
+
+/// Choosing which customers go on a route that has just been drawn.
+///
+/// The same list as the planner's, because the question is the same one: which
+/// of these shops does this cover? Only the answer is kept somewhere else.
+class _BeatCustomerPicker extends StatefulWidget {
+  const _BeatCustomerPicker({required this.beatName, required this.contacts});
+
+  final String beatName;
+  final List<Map<String, dynamic>> contacts;
+
+  @override
+  State<_BeatCustomerPicker> createState() => _BeatCustomerPickerState();
+}
+
+class _BeatCustomerPickerState extends State<_BeatCustomerPicker> {
+  final Set<int> _picked = {};
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _query.trim().toLowerCase();
+    final shown = q.isEmpty
+        ? widget.contacts
+        : widget.contacts
+            .where((c) => '${c['name']} ${c['city'] ?? ''}'.toLowerCase().contains(q))
+            .toList();
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.85,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Customers on ${widget.beatName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+                  const Text('They can be added to or taken off later.',
+                      style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                  const SizedBox(height: 10),
+                  TextField(
+                    onChanged: (value) => setState(() => _query = value),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search_rounded),
+                      hintText: 'Search by name or city',
+                      isDense: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: shown.isEmpty
+                  ? const EmptyView(icon: Icons.person_search_rounded, text: 'Nothing matches')
+                  : ListView.builder(
+                      itemCount: shown.length,
+                      itemBuilder: (_, i) {
+                        final c = shown[i];
+                        final id = c['id'] as int;
+                        final beat = asText((c['beat'] as Map?)?['name']);
+                        return CheckboxListTile(
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          value: _picked.contains(id),
+                          onChanged: (on) => setState(() => on == true ? _picked.add(id) : _picked.remove(id)),
+                          title: Text('${c['name']}',
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(
+                            [if (c['city'] != null) '${c['city']}', if (beat != null) 'on $beat']
+                                .join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _picked.isEmpty ? null : () => Navigator.pop(context, _picked),
+                    child: Text(_picked.isEmpty
+                        ? 'Choose customers'
+                        : 'Add ${_picked.length} ${_picked.length == 1 ? 'customer' : 'customers'}'),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
