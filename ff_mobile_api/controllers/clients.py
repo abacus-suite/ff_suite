@@ -448,10 +448,13 @@ class FieldForceClientsApi(http.Controller):
                 route.ff_approval_state == 'pending'
                 and route.ff_created_by_employee_id == employee)
 
-        routes = employee.sudo().ff_route_ids.filtered(usable)
-        if not routes:
-            routes = request.env['ff.beat'].sudo().search(
-                [('company_id', 'in', (False, employee.company_id.id))], limit=200).filtered(usable)
+        # Every route the company has, not only this person's: a contact has to
+        # be put on the route that covers it, which is often somebody else's.
+        # Their own come first, because that is where most of the work is.
+        own = employee.sudo().ff_route_ids
+        routes = request.env['ff.beat'].sudo().search(
+            [('company_id', 'in', (False, employee.company_id.id))], limit=500).filtered(usable)
+        routes = routes.sorted(lambda route: (route not in own, route.display_name))
         return ok([{
             'id': route.id,
             'name': route.name,
