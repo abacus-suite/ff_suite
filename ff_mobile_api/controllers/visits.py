@@ -4,7 +4,8 @@ from odoo.http import request
 from .clients import to_float, visible_client
 from odoo.addons.ff_visits.models.ff_visit import PURPOSES, OffsiteConfirmation
 
-from .common import ApiError, api_route, body, check_device_clock, ok, ref, require_punched_in
+from .common import (ApiError, api_route, body, check_device_clock, ok, ref,
+                     require_punched_in, scope_members)
 from .field_data import client_data, plan_data, visit_data
 
 
@@ -95,8 +96,15 @@ class FieldForceVisitsApi(http.Controller):
         return ok([visit_data(v) for v in visits])
 
     @api_route('/api/v1/beat/today', methods=('GET',))
-    def beat_today(self, employee, date=None, lat=None, lng=None, **kw):
-        """The day's planned routes and customers (one or several routes)."""
+    def beat_today(self, employee, date=None, lat=None, lng=None, member=None, **kw):
+        """The day's planned routes and customers (one or several routes).
+
+        ``member`` looks at one person in the team's day instead of one's own,
+        for a manager reading a plan rather than working it.
+        """
+        if member not in (None, '', 'me'):
+            people, _label = scope_members(employee, member)
+            employee = people[:1] or employee
         day = _day(employee, date)
         lat, lng = to_float(lat), to_float(lng)
         start, end = employee._ff_day_bounds(day)
