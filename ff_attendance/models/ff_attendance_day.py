@@ -5,6 +5,8 @@ records, which makes the list hard to read. This gathers them into the day
 they belong to: the day is what a manager looks at, and the punches are there
 when they open it.
 """
+import pytz
+
 from odoo import api, fields, models
 
 DAY_STATUSES = [
@@ -45,8 +47,14 @@ class FfAttendanceDay(models.Model):
     distance_km = fields.Float(string='Travelled (km)', compute='_compute_distance_km')
 
     def _compute_attendance_ids(self):
-        """The punches of that person on that day, earliest first."""
-        Attendance = self.env['hr.attendance']
+        """The punches of that person on that day, earliest first.
+
+        Read with sudo: whether this day may be seen at all has already been
+        decided, by the rule on this model and by the day being in front of
+        somebody. Leaving the punches to a second set of rules only means a
+        day that opens with three empty lines under it.
+        """
+        Attendance = self.env['hr.attendance'].sudo()
         for row in self:
             start, end = row.employee_id._ff_day_bounds(row.date) if row.employee_id and row.date else (False, False)
             row.attendance_ids = Attendance.search([
@@ -89,14 +97,28 @@ class FfAttendanceDay(models.Model):
             'domain': [('id', 'in', self.attendance_ids.ids)],
         }
 
+    def _ff_view_tz(self):
+        """The timezone the view groups days by.
+
+        It has to be the one the rest of the module reads a day in, or a punch
+        at ten to midnight is filed under one date and looked for under
+        another. Postgres has no access to the employee fallback chain, so the
+        field timezone is inlined here and the resource's own tz still wins.
+        """
+        name = self.env['ir.config_parameter'].sudo().get_param('ff_base.default_tz')             or self.env.company.partner_id.tz or 'UTC'
+        # Straight into SQL, so only a timezone Python itself knows is allowed.
+        return name if name in pytz.all_timezones_set else 'UTC'
+
     @property
     def _table_query(self):
+        tz = self._ff_view_tz()
         return """
             SELECT MIN(a.id) AS id,
                    a.employee_id AS employee_id,
                    MIN(e.ff_team_id) AS team_id,
                    MIN(e.company_id) AS company_id,
-                   ((a.check_in AT TIME ZONE 'UTC') AT TIME ZONE COALESCE(rr.tz, 'UTC'))::date AS date,
+                   ((a.check_in AT TIME ZONE 'UTC')
+                        AT TIME ZONE COALESCE(NULLIF(rr.tz, ''), '{tz}'))::date AS date,
                    MIN(a.check_in) AS first_check_in,
                    CASE WHEN BOOL_OR(a.check_out IS NULL) THEN NULL
                         ELSE MAX(a.check_out) END AS last_check_out,
@@ -116,5 +138,5 @@ class FfAttendanceDay(models.Model):
               JOIN hr_employee e ON e.id = a.employee_id
          LEFT JOIN resource_resource rr ON rr.id = e.resource_id
              WHERE a.check_in IS NOT NULL
-          GROUP BY a.employee_id, 5, rr.tz
-        """
+          GROUP BY a.employee_id, 5
+        """.format(tz=tz)
