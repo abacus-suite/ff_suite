@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/format.dart';
 import '../../core/geo.dart';
 import '../../core/services.dart';
+import '../beat/create_beat_screen.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/dashboard.dart';
@@ -287,10 +288,36 @@ class _EditClientScreenState extends State<EditClientScreen> {
     } catch (_) {
       // The chooser simply stays on what the contact already has.
     }
+    await _loadRoutes();
+  }
+
+  Future<void> _loadRoutes() async {
     try {
       final routes = await Services.api.get('/api/v1/my-routes') as List;
       if (mounted) setState(() => _routes = routes.cast<Map<String, dynamic>>());
     } catch (_) {}
+  }
+
+  /// Draws the beat that is missing, from here, and puts the contact on it.
+  ///
+  /// Correcting a contact is often exactly when somebody notices no beat
+  /// covers where it is, so the form asks rather than sending them away to
+  /// make one and come back.
+  Future<void> _newRoute() async {
+    final beat = await Navigator.of(context)
+        .push<Map<String, dynamic>>(MaterialPageRoute(builder: (_) => const CreateBeatScreen()));
+    if (beat == null || !mounted) return;
+    await _loadRoutes();
+    if (!mounted) return;
+    setState(() => _routeId = beat['id'] as int?);
+    if (_city.text.trim().isEmpty && asText(beat['city']) != null) {
+      _city.text = '${beat['city']}';
+    }
+    showSnack(
+        context,
+        beat['approval_state'] == 'pending'
+            ? '${beat['name']} created · waiting for the office'
+            : '${beat['name']} created');
   }
 
   @override
@@ -483,34 +510,48 @@ class _EditClientScreenState extends State<EditClientScreen> {
                     onChanged: (value) => setState(() => _categoryId = value),
                   ),
                 ),
-              if (_routes.isNotEmpty)
-                DropdownButtonFormField<int>(
-                  initialValue: _routes.any((r) => r['id'] == _routeId) ? _routeId : null,
-                  decoration: const InputDecoration(
-                    labelText: 'Beat / route',
-                    prefixIcon: Icon(Icons.route_rounded, size: 19, color: AppColors.primary),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                  items: [
-                    for (final route in _routes)
-                      DropdownMenuItem(
-                        value: route['id'] as int,
-                        child: Text([
-                          '${route['name']}',
-                          if (asText(route['city']) != null) '· ${route['city']}',
-                        ].join(' ')),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      initialValue: _routes.any((r) => r['id'] == _routeId) ? _routeId : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Beat / route',
+                        prefixIcon: Icon(Icons.route_rounded, size: 19, color: AppColors.primary),
+                        filled: true,
+                        fillColor: Colors.white,
                       ),
-                  ],
-                  onChanged: (value) {
-                    setState(() => _routeId = value);
-                    // A route covers one city: fill it in when the field is empty.
-                    final route = _routes.where((r) => r['id'] == value).firstOrNull;
-                    if (_city.text.trim().isEmpty && asText(route?['city']) != null) {
-                      _city.text = '${route!['city']}';
-                    }
-                  },
-                ),
+                      isExpanded: true,
+                      items: [
+                        for (final route in _routes)
+                          DropdownMenuItem(
+                            value: route['id'] as int,
+                            child: Text(
+                                [
+                                  '${route['name']}',
+                                  if (asText(route['city']) != null) '· ${route['city']}',
+                                ].join(' '),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _routeId = value);
+                        // A route covers one city: fill it in when the field is empty.
+                        final route = _routes.where((r) => r['id'] == value).firstOrNull;
+                        if (_city.text.trim().isEmpty && asText(route?['city']) != null) {
+                          _city.text = '${route!['city']}';
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    tooltip: 'New beat',
+                    onPressed: _newRoute,
+                    icon: const Icon(Icons.add_rounded),
+                  ),
+                ],
+              ),
             ],
           ),
           _card(

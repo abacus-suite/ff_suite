@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../core/format.dart';
 import '../../core/geo.dart';
 import '../../core/services.dart';
+import '../beat/create_beat_screen.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 
@@ -59,6 +60,25 @@ class _AddClientScreenState extends State<AddClientScreen> {
     } catch (_) {
       // No routes module or no access: the form works without one.
     }
+  }
+
+  /// Draws the route that is missing, from here, and uses it.
+  ///
+  /// A new shop is exactly when somebody finds out a route does not cover
+  /// where they are standing, so the form asks rather than sending them away
+  /// to make one and come back.
+  Future<void> _newRoute() async {
+    final beat = await Navigator.of(context)
+        .push<Map<String, dynamic>>(MaterialPageRoute(builder: (_) => const CreateBeatScreen()));
+    if (beat == null || !mounted) return;
+    await _loadRoutes();
+    if (!mounted) return;
+    _pickRoute(beat['id'] as int?);
+    showSnack(
+        context,
+        beat['approval_state'] == 'pending'
+            ? '${beat['name']} created · waiting for the office'
+            : '${beat['name']} created');
   }
 
   void _pickRoute(int? id) {
@@ -183,25 +203,45 @@ class _AddClientScreenState extends State<AddClientScreen> {
                 validator: (v) => v == null ? 'Choose a category' : null,
               ),
             ),
-            if (_routes.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: DropdownButtonFormField<int?>(
-                  initialValue: _routeId,
-                  decoration: InputDecoration(labelText: routeLabel, helperText: 'Fills the city and shares it with the $routeLabel team'),
-                  items: [
-                    DropdownMenuItem<int?>(value: null, child: Text('No $routeLabel')),
-                    for (final r in _routes)
-                      DropdownMenuItem<int?>(
-                        value: r['id'] as int,
-                        child: Text('${r['name']}',
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                  ],
-                  isExpanded: true,
-                  onChanged: _pickRoute,
-                ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int?>(
+                      initialValue: _routes.any((r) => r['id'] == _routeId) ? _routeId : null,
+                      decoration: InputDecoration(
+                          labelText: routeLabel,
+                          helperText: 'Fills the city and shares it with the $routeLabel team'),
+                      items: [
+                        DropdownMenuItem<int?>(value: null, child: Text('No $routeLabel')),
+                        for (final r in _routes)
+                          DropdownMenuItem<int?>(
+                            value: r['id'] as int,
+                            child: Text(
+                                [
+                                  '${r['name']}',
+                                  if (asText(r['city']) != null) '· ${r['city']}',
+                                ].join(' '),
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      isExpanded: true,
+                      onChanged: _pickRoute,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 18),
+                    child: IconButton.filledTonal(
+                      tooltip: 'New $routeLabel',
+                      onPressed: _newRoute,
+                      icon: const Icon(Icons.add_rounded),
+                    ),
+                  ),
+                ],
               ),
+            ),
             _field(_phone, 'Phone', type: TextInputType.phone),
             _field(_email, 'Email', type: TextInputType.emailAddress),
             _field(_street, 'Street / area'),
