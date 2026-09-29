@@ -168,9 +168,26 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
                             ),
                           ),
                         if (data != null && invoices.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(40),
-                            child: Center(child: Text('Nothing outstanding here', style: TextStyle(color: AppColors.muted))),
+                          Padding(
+                            padding: const EdgeInsets.all(40),
+                            child: Column(
+                              children: [
+                                const Text('Nothing outstanding here',
+                                    style: TextStyle(color: AppColors.muted)),
+                                // An invoice still in draft is not money owed yet,
+                                // and is the usual reason this looks empty.
+                                if ((data['draft_count'] as num? ?? 0) > 0) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '${data['draft_count']} '
+                                    '${(data['draft_count'] as num) == 1 ? 'invoice is' : 'invoices are'} '
+                                    'still a draft in the office and will appear once confirmed.',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(fontSize: 12.5, color: AppColors.warning),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         for (final inv in invoices)
                           Card(
