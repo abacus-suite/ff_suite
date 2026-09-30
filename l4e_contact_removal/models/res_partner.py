@@ -19,9 +19,6 @@ class ResPartner(models.Model):
             'target': 'new',
             'context': {
                 'default_partner_id': self.id,
-                'active_id': self.id,
-                'active_ids': self.ids,
-                'active_model': 'res.partner',
             },
         }
 

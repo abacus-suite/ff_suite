@@ -33,14 +33,16 @@ class L4ePartnerDeleteWizard(models.TransientModel):
     @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
-        active_id = self.env.context.get('active_id') or (
-            self.env.context.get('active_ids') and self.env.context.get('active_ids')[0]
+        # Prefer default_partner_id (set by our action) over active_id
+        # (active_id is no longer passed in our action to avoid UI navigation conflicts)
+        partner_id = (
+            self.env.context.get('default_partner_id')
+            or self.env.context.get('active_id')
+            or (self.env.context.get('active_ids') or [None])[0]
         )
-        if not active_id and self.env.context.get('default_partner_id'):
-            active_id = self.env.context.get('default_partner_id')
 
-        if active_id:
-            partner = self.env['res.partner'].browse(active_id).exists()
+        if partner_id:
+            partner = self.env['res.partner'].browse(partner_id).exists()
             if partner:
                 self._check_safety(partner)
                 res['partner_id'] = partner.id
