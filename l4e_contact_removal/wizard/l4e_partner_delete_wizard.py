@@ -13,7 +13,6 @@ class L4ePartnerDeleteWizard(models.TransientModel):
         readonly=True,
     )
     partner_name = fields.Char(
-        related='partner_id.display_name',
         string='Contact Name',
         readonly=True,
     )
@@ -34,7 +33,6 @@ class L4ePartnerDeleteWizard(models.TransientModel):
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
         # Prefer default_partner_id (set by our action) over active_id
-        # (active_id is no longer passed in our action to avoid UI navigation conflicts)
         partner_id = (
             self.env.context.get('default_partner_id')
             or self.env.context.get('active_id')
@@ -42,10 +40,15 @@ class L4ePartnerDeleteWizard(models.TransientModel):
         )
 
         if partner_id:
-            partner = self.env['res.partner'].browse(partner_id).exists()
+            # Use active_test=False so archived contacts can also be deleted
+            partner = self.env['res.partner'].with_context(active_test=False).browse(partner_id).exists()
             if partner:
                 self._check_safety(partner)
                 res['partner_id'] = partner.id
+                # Store partner_name as a plain string — NOT as a related field.
+                # A related field re-reads through the ORM with active_test=True
+                # during form render, which raises MissingError on archived contacts.
+                res['partner_name'] = partner.display_name or partner.name or f'Contact #{partner.id}'
                 summary_html, total_count = self._survey_related_records(partner)
                 res['related_records_summary'] = summary_html
                 res['total_records_count'] = total_count
@@ -165,12 +168,12 @@ class L4ePartnerDeleteWizard(models.TransientModel):
         if not self.confirm_checkbox:
             raise UserError(_("You must check the confirmation checkbox before you can permanently delete this contact."))
 
-        partner = self.partner_id
+        partner = self.env["res.partner"].with_context(active_test=False).browse(self.partner_id.id)
         if not partner.exists():
             raise UserError(_("Contact not found or already deleted."))
 
         self._check_safety(partner)
-        partner_name = partner.display_name or partner.name
+        partner_name = partner.with_context(active_test=False).display_name or partner.name
 
         # Execute the full cascade purge
         partner.action_purge_globally()
