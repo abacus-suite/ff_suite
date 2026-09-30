@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Report Action Definition -->
+    <record id="action_report_weekly_chiller" model="ir.actions.report">
+        <field name="name">Weekly Chiller Task Report</field>
+        <field name="model">weekly.chiller.report.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">l4e_weekly_chiller_report.report_weekly_chiller_document</field>
+        <field name="report_file">l4e_weekly_chiller_report.report_weekly_chiller_document</field>
+        <field name="print_report_name">'Weekly Chiller Task Report'</field>
+    </record>
+
+    <!-- QWeb PDF Document Template -->
+    <template id="report_weekly_chiller_document">
+        <t t-call="web.html_container">
+            <div class="page" style="font-family: Arial, Helvetica, sans-serif; color: #000000; font-size: 9.5pt; line-height: 1.35; padding: 5px;">
+                <style>
+                    .chiller-report-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 14px;
+                    }
+                    .chiller-report-table th {
+                        background-color: #eef4fb;
+                        color: #111111;
+                        font-weight: bold;
+                        border: 1px solid #bfd3e6;
+                        padding: 7px 8px;
+                        font-size: 9.5pt;
+                        text-align: center;
+                        vertical-align: middle;
+                    }
+                    .chiller-report-table td {
+                        border: 1px solid #bfd3e6;
+                        padding: 6px 8px;
+                        font-size: 9pt;
+                        vertical-align: middle;
+                    }
+                    .text-center { text-align: center; }
+                    .text-left { text-align: left; }
+                </style>
+
+                <!-- Document Title & Meta Header -->
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 13.5pt; font-weight: bold; color: #000000; margin-bottom: 4px;">
+                        Last week - Weekly chiller task Report
+                    </div>
+                    <div style="font-size: 9pt; color: #111111; margin-bottom: 2px;">
+                        <strong>Date Range:</strong> <span t-out="date_range"/>
+                    </div>
+                    <div style="font-size: 9pt; color: #111111;">
+                        <strong>Generated At:</strong> <span t-out="generated_at"/>
+                    </div>
+                </div>
+
+                <!-- Main Data Grid -->
+                <table class="chiller-report-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 13%;">Date</th>
+                            <th style="width: 22%;">Employee Name<br/>↑</th>
+                            <th style="width: 25%;">Client/ Site Name</th>
+                            <th style="width: 20%;">Photo</th>
+                            <th style="width: 20%;">Team</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <t t-if="rows">
+                            <tr t-foreach="rows" t-as="row">
+                                <td class="text-center" style="white-space: nowrap;">
+                                    <span t-out="row['date']"/>
+                                </td>
+                                <td>
+                                    <span t-out="row['employee_name']"/>
+                                </td>
+                                <td>
+                                    <span t-out="row['client_name']"/>
+                                </td>
+                                <td class="text-center" style="padding: 4px;">
+                                    <t t-if="row['photo_b64']">
+                                        <img t-att-src="'data:%s;base64,%s' % (row['photo_mimetype'], row['photo_b64'])"
+                                             style="max-height: 95px; max-width: 110px; object-fit: contain; display: block; margin: 0 auto;"/>
+                                    </t>
+                                </td>
+                                <td>
+                                    <span t-out="row['team_name']"/>
+                                </td>
+                            </tr>
+                        </t>
+                        <t t-else="">
+                            <tr>
+                                <td colspan="5" class="text-center" style="padding: 25px; color: #666666;">
+                                    No weekly chiller updates found for the selected criteria.
+                                </td>
+                            </tr>
+                        </t>
+                    </tbody>
+                </table>
+            </div>
+        </t>
+    </template>
+
+</odoo>

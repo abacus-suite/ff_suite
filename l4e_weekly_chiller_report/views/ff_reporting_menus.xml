@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Master Reporting Menu on Field Force top bar: sequence 90 places it exactly between Organisation (80) and Configuration (100) -->
+    <menuitem id="menu_ff_reporting"
+              name="Reporting"
+              parent="ff_base.menu_ff_root"
+              sequence="90"/>
+
+    <!-- Weekly Chiller Update sub-menu: clicking it directly launches the wizard -->
+    <menuitem id="menu_ff_weekly_chiller_report"
+              name="Weekly Chiller Update"
+              parent="menu_ff_reporting"
+              action="action_weekly_chiller_report_wizard"
+              sequence="10"/>
+
+</odoo>
