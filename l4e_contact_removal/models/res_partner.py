@@ -189,7 +189,8 @@ class ResPartner(models.Model):
         if _table_exists('calendar_event'):
             if _table_exists('calendar_event_res_partner_rel'):
                 cr.execute("DELETE FROM calendar_event_res_partner_rel WHERE res_partner_id IN %s", (partner_ids,))
-            cr.execute("DELETE FROM calendar_event WHERE partner_id IN %s", (partner_ids,))
+            if _column_exists('calendar_event', 'partner_id'):
+                cr.execute("DELETE FROM calendar_event WHERE partner_id IN %s", (partner_ids,))
 
         # ─────────────────────────────────────────────────────────────────
         # Phase 2: Field Force Suite (ff_*)
