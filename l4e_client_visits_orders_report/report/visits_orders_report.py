@@ -114,7 +114,8 @@ class ReportVisitsOrders(models.AbstractModel):
                         if line.product_id:
                             sku_name = line.product_id.name or ''
                             sku_code = (getattr(line.product_id.product_tmpl_id, 'ff_sku_code', '') or '').strip().upper()
-                            qty = int(line.product_uom_qty) if line.product_uom_qty.is_integer() else line.product_uom_qty
+                            raw_qty = getattr(line, 'product_uom_qty', 0.0) or 0.0
+                            qty = int(raw_qty) if isinstance(raw_qty, (int, float)) and float(raw_qty).is_integer() else raw_qty
                             order_items.append({'sku_name': sku_name, 'sku_code': sku_code, 'qty': qty})
 
             # 2. Outlet Demands
@@ -128,8 +129,10 @@ class ReportVisitsOrders(models.AbstractModel):
                         if dline.product_id:
                             sku_name = dline.product_id.name or ''
                             sku_code = (getattr(dline.product_id.product_tmpl_id, 'ff_sku_code', '') or '').strip().upper()
-                            qty = int(dline.qty) if isinstance(dline.qty, float) and dline.qty.is_integer() else dline.qty
+                            raw_qty = getattr(dline, 'quantity', getattr(dline, 'qty', 0.0)) or 0.0
+                            qty = int(raw_qty) if isinstance(raw_qty, (int, float)) and float(raw_qty).is_integer() else raw_qty
                             order_items.append({'sku_name': sku_name, 'sku_code': sku_code, 'qty': qty})
+
 
             # If items exist, create a row for each item
             if order_items:
