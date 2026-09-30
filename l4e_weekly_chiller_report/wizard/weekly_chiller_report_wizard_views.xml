@@ -8,20 +8,18 @@
         <field name="arch" type="xml">
             <form string="Weekly Chiller Update Report">
                 <sheet>
-                    <div class="alert alert-info py-2 mb-3" role="status">
-                        <i class="fa fa-info-circle me-1"/> Generate a formatted PDF report of Weekly Chiller Updates with photos, grouped by employee and client.
-                    </div>
                     <group>
                         <group string="Date Range">
                             <field name="date_from"/>
                             <field name="date_to"/>
                         </group>
-                        <group string="Filters (Optional)">
+                        <group string="Filters">
                             <field name="team_ids" widget="many2many_tags" placeholder="All Teams..."/>
                             <field name="employee_ids" widget="many2many_tags" placeholder="All Employees in selection..."/>
                         </group>
                     </group>
                 </sheet>
+
                 <footer>
                     <button name="action_print_pdf" 
                             type="object" 

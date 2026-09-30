@@ -44,8 +44,9 @@
                 <!-- Document Title & Meta Header -->
                 <div style="margin-bottom: 12px;">
                     <div style="font-size: 13.5pt; font-weight: bold; color: #000000; margin-bottom: 4px;">
-                        Last week - Weekly chiller task Report
+                        Weekly chiller task Report
                     </div>
+
                     <div style="font-size: 9pt; color: #111111; margin-bottom: 2px;">
                         <strong>Date Range:</strong> <span t-out="date_range"/>
                     </div>
