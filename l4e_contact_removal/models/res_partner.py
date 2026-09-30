@@ -197,60 +197,62 @@ class ResPartner(models.Model):
         # ─────────────────────────────────────────────────────────────────
 
         # Visits and related steps/counts
-        if _table_exists('ff_visit'):
+        if _table_exists('ff_visit') and _column_exists('ff_visit', 'partner_id'):
             cr.execute("SELECT id FROM ff_visit WHERE partner_id IN %s", (partner_ids,))
             visit_ids = [r[0] for r in cr.fetchall()]
             if visit_ids:
                 visit_ids_tuple = tuple(visit_ids)
-                if _table_exists('ff_visit_step'):
-                    cr.execute("DELETE FROM ff_visit_step WHERE visit_id IN %s", (visit_ids_tuple,))
-                if _table_exists('ff_stock_count'):
+                if _table_exists('ff_visit_step_record') and _column_exists('ff_visit_step_record', 'visit_id'):
+                    cr.execute("DELETE FROM ff_visit_step_record WHERE visit_id IN %s", (visit_ids_tuple,))
+                if _table_exists('ff_stock_count') and _column_exists('ff_stock_count', 'visit_id'):
                     cr.execute("DELETE FROM ff_stock_count WHERE visit_id IN %s", (visit_ids_tuple,))
-            if _table_exists('ff_stock_count'):
+            if _table_exists('ff_stock_count') and _column_exists('ff_stock_count', 'partner_id'):
                 cr.execute("DELETE FROM ff_stock_count WHERE partner_id IN %s", (partner_ids,))
             cr.execute("DELETE FROM ff_visit WHERE partner_id IN %s", (partner_ids,))
 
         # Demands
-        if _table_exists('ff_demand'):
-            cr.execute("""
-                SELECT id FROM ff_demand 
-                WHERE partner_id IN %s OR distributor_id IN %s
-            """, (partner_ids, partner_ids))
+        if _table_exists('ff_demand') and _column_exists('ff_demand', 'partner_id'):
+            query = "SELECT id FROM ff_demand WHERE partner_id IN %s"
+            params = [partner_ids]
+            if _column_exists('ff_demand', 'distributor_id'):
+                query += " OR distributor_id IN %s"
+                params.append(partner_ids)
+            cr.execute(query, tuple(params))
             demand_ids = [r[0] for r in cr.fetchall()]
             if demand_ids:
                 demand_ids_tuple = tuple(demand_ids)
-                if _table_exists('ff_demand_line'):
+                if _table_exists('ff_demand_line') and _column_exists('ff_demand_line', 'demand_id'):
                     cr.execute("DELETE FROM ff_demand_line WHERE demand_id IN %s", (demand_ids_tuple,))
                 cr.execute("DELETE FROM ff_demand WHERE id IN %s", (demand_ids_tuple,))
 
         # Collections
-        if _table_exists('ff_collection'):
+        if _table_exists('ff_collection') and _column_exists('ff_collection', 'partner_id'):
             cr.execute("DELETE FROM ff_collection WHERE partner_id IN %s", (partner_ids,))
 
         # Returns
-        if _table_exists('ff_return'):
+        if _table_exists('ff_return') and _column_exists('ff_return', 'partner_id'):
             cr.execute("SELECT id FROM ff_return WHERE partner_id IN %s", (partner_ids,))
             return_ids = [r[0] for r in cr.fetchall()]
             if return_ids:
                 return_ids_tuple = tuple(return_ids)
-                if _table_exists('ff_return_line'):
+                if _table_exists('ff_return_line') and _column_exists('ff_return_line', 'return_id'):
                     cr.execute("DELETE FROM ff_return_line WHERE return_id IN %s", (return_ids_tuple,))
                 cr.execute("DELETE FROM ff_return WHERE id IN %s", (return_ids_tuple,))
 
         # Tasks
-        if _table_exists('ff_task'):
+        if _table_exists('ff_task') and _column_exists('ff_task', 'partner_id'):
             cr.execute("DELETE FROM ff_task WHERE partner_id IN %s", (partner_ids,))
 
         # Form Responses
-        if _table_exists('ff_form_response'):
+        if _table_exists('ff_form_response') and _column_exists('ff_form_response', 'partner_id'):
             cr.execute("DELETE FROM ff_form_response WHERE partner_id IN %s", (partner_ids,))
 
         # Expense Claims
-        if _table_exists('ff_expense_claim'):
+        if _table_exists('ff_expense_claim') and _column_exists('ff_expense_claim', 'partner_id'):
             cr.execute("UPDATE ff_expense_claim SET partner_id = NULL WHERE partner_id IN %s", (partner_ids,))
 
         # Distributor MRP Lines
-        if _table_exists('distributor_mrp_line'):
+        if _table_exists('distributor_mrp_line') and _column_exists('distributor_mrp_line', 'partner_id'):
             cr.execute("DELETE FROM distributor_mrp_line WHERE partner_id IN %s", (partner_ids,))
 
         # Beat references
@@ -261,22 +263,27 @@ class ResPartner(models.Model):
         # Phase 3: Communication, Tracking & Metadata
         # ─────────────────────────────────────────────────────────────────
 
-        if _table_exists('mail_activity'):
-            cr.execute("DELETE FROM mail_activity WHERE res_model = 'res.partner' AND res_id IN %s", (partner_ids,))
+        if _table_exists('mail_activity') and _column_exists('mail_activity', 'res_id'):
+            if _column_exists('mail_activity', 'res_model'):
+                cr.execute("DELETE FROM mail_activity WHERE res_model = 'res.partner' AND res_id IN %s", (partner_ids,))
+            else:
+                cr.execute("DELETE FROM mail_activity WHERE res_id IN %s", (partner_ids,))
 
         if _table_exists('mail_message'):
-            cr.execute("DELETE FROM mail_message WHERE model = 'res.partner' AND res_id IN %s", (partner_ids,))
+            if _column_exists('mail_message', 'model') and _column_exists('mail_message', 'res_id'):
+                cr.execute("DELETE FROM mail_message WHERE model = 'res.partner' AND res_id IN %s", (partner_ids,))
             if _table_exists('mail_message_res_partner_rel'):
                 cr.execute("DELETE FROM mail_message_res_partner_rel WHERE res_partner_id IN %s", (partner_ids,))
-            cr.execute("UPDATE mail_message SET author_id = NULL WHERE author_id IN %s", (partner_ids,))
+            if _column_exists('mail_message', 'author_id'):
+                cr.execute("UPDATE mail_message SET author_id = NULL WHERE author_id IN %s", (partner_ids,))
 
         if _table_exists('mail_followers'):
-            cr.execute("""
-                DELETE FROM mail_followers 
-                WHERE (res_model = 'res.partner' AND res_id IN %s) OR partner_id IN %s
-            """, (partner_ids, partner_ids))
+            if _column_exists('mail_followers', 'res_model') and _column_exists('mail_followers', 'res_id'):
+                cr.execute("DELETE FROM mail_followers WHERE res_model = 'res.partner' AND res_id IN %s", (partner_ids,))
+            if _column_exists('mail_followers', 'partner_id'):
+                cr.execute("DELETE FROM mail_followers WHERE partner_id IN %s", (partner_ids,))
 
-        if _table_exists('ir_attachment'):
+        if _table_exists('ir_attachment') and _column_exists('ir_attachment', 'res_model') and _column_exists('ir_attachment', 'res_id'):
             cr.execute("DELETE FROM ir_attachment WHERE res_model = 'res.partner' AND res_id IN %s", (partner_ids,))
 
         # ─────────────────────────────────────────────────────────────────
@@ -313,23 +320,26 @@ class ResPartner(models.Model):
 
             if table_name == 'res_partner':
                 # Self-referencing fields on res_partner
-                cr.execute("UPDATE res_partner SET parent_id = NULL WHERE parent_id IN %s", (partner_ids,))
-                cr.execute("UPDATE res_partner SET commercial_partner_id = id WHERE commercial_partner_id IN %s", (partner_ids,))
+                if _column_exists('res_partner', 'parent_id'):
+                    cr.execute("UPDATE res_partner SET parent_id = NULL WHERE parent_id IN %s", (partner_ids,))
+                if _column_exists('res_partner', 'commercial_partner_id'):
+                    cr.execute("UPDATE res_partner SET commercial_partner_id = id WHERE commercial_partner_id IN %s", (partner_ids,))
                 if _column_exists('res_partner', 'ff_distributor_id'):
                     cr.execute("UPDATE res_partner SET ff_distributor_id = NULL WHERE ff_distributor_id IN %s", (partner_ids,))
                 continue
 
             # Check if any records exist in this table referencing the target partners
             try:
-                cr.execute(f"SELECT COUNT(*) FROM {table_name} WHERE {column_name} IN %s", (partner_ids,))
-                count = cr.fetchone()[0]
-                if count > 0:
-                    _logger.info("L4E Contact Removal: Sweeping table '%s' column '%s' (%s records, nullable=%s)", 
-                                 table_name, column_name, count, is_nullable)
-                    if is_nullable == 'YES':
-                        cr.execute(f"UPDATE {table_name} SET {column_name} = NULL WHERE {column_name} IN %s", (partner_ids,))
-                    else:
-                        cr.execute(f"DELETE FROM {table_name} WHERE {column_name} IN %s", (partner_ids,))
+                with cr.savepoint():
+                    cr.execute(f"SELECT COUNT(*) FROM {table_name} WHERE {column_name} IN %s", (partner_ids,))
+                    count = cr.fetchone()[0]
+                    if count > 0:
+                        _logger.info("L4E Contact Removal: Sweeping table '%s' column '%s' (%s records, nullable=%s)", 
+                                     table_name, column_name, count, is_nullable)
+                        if is_nullable == 'YES':
+                            cr.execute(f"UPDATE {table_name} SET {column_name} = NULL WHERE {column_name} IN %s", (partner_ids,))
+                        else:
+                            cr.execute(f"DELETE FROM {table_name} WHERE {column_name} IN %s", (partner_ids,))
             except Exception as e:
                 _logger.warning("L4E Contact Removal: Could not sweep table '%s' column '%s': %s", table_name, column_name, e)
 
@@ -350,7 +360,8 @@ class ResPartner(models.Model):
         m2m_refs = cr.fetchall()
         for t_name, c_name in m2m_refs:
             try:
-                cr.execute(f"DELETE FROM {t_name} WHERE {c_name} IN %s", (partner_ids,))
+                with cr.savepoint():
+                    cr.execute(f"DELETE FROM {t_name} WHERE {c_name} IN %s", (partner_ids,))
             except Exception:
                 pass
 
