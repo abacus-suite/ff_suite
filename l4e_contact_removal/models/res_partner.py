@@ -9,19 +9,25 @@ class ResPartner(models.Model):
     _inherit = 'res.partner'
 
     def action_open_global_delete_wizard(self):
-        """Open the Global Delete confirmation wizard from the Action menu.
+        """Open the Global Delete confirmation wizard from the Action menu for one or multiple contacts.
 
         Creates the wizard record server-side and passes res_id so Odoo opens
         an existing record (not a NewId draft). Uses target='current' (full-page)
         to avoid Odoo's background form webRead refresh that causes MissingRecord
         on portal-linked partners.
         """
-        self.ensure_one()
+        if not self:
+            return False
+
         wizard = self.env['l4e.partner.delete.wizard'].with_context(
-            default_partner_id=self.id,
-        ).create({})
+            default_partner_ids=self.ids,
+            default_partner_id=self.ids[0] if len(self) == 1 else False,
+        ).create({
+            'partner_ids': [(6, 0, self.ids)],
+        })
+        title = _('Global Delete Contact') if len(self) == 1 else _('Global Delete Contacts (%s)', len(self))
         return {
-            'name': _('Global Delete Contact'),
+            'name': title,
             'type': 'ir.actions.act_window',
             'res_model': 'l4e.partner.delete.wizard',
             'res_id': wizard.id,
@@ -58,25 +64,27 @@ class ResPartner(models.Model):
         return protected
 
     def action_purge_globally(self):
-        """Permanently delete this contact and all its related records across the entire database."""
-        self.ensure_one()
+        """Permanently delete these contact(s) and all their related records across the entire database."""
+        if not self:
+            return True
 
         protected_ids = self._get_protected_partners()
-        if self.id in protected_ids:
-            if self.id == 1:
-                raise UserError(_("Security Protection: The system superuser partner cannot be deleted."))
-            if self.id == self.env.user.partner_id.id:
-                raise UserError(_("Security Protection: You cannot delete your own user contact."))
-            raise UserError(_("Security Protection: '%s' is a protected system/company/internal user partner and cannot be deleted.", self.display_name))
+        for p in self:
+            if p.id in protected_ids:
+                if p.id == 1:
+                    raise UserError(_("Security Protection: The system superuser partner cannot be deleted."))
+                if p.id == self.env.user.partner_id.id:
+                    raise UserError(_("Security Protection: You cannot delete your own user contact."))
+                raise UserError(_("Security Protection: '%s' is a protected system/company/internal user partner and cannot be deleted.", p.display_name))
 
         Partner = self.env['res.partner'].sudo().with_context(active_test=False)
-        all_partners = Partner.search([('id', 'child_of', self.id)])
+        all_partners = Partner.search([('id', 'child_of', self.ids)])
         
         # Verify no protected partners are among child contacts
         conflict_protected = set(all_partners.ids) & protected_ids
         if conflict_protected:
             raise UserError(_(
-                "Security Protection: This contact contains linked sub-contacts that are protected internal/company records (IDs: %s).",
+                "Security Protection: Selected contact(s) contain linked sub-contacts that are protected internal/company records (IDs: %s).",
                 list(conflict_protected)
             ))
 

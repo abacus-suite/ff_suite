@@ -24,8 +24,9 @@
                         <i class="fa fa-exclamation-triangle me-2"/>Warning: Permanent Database Deletion
                     </h5>
                     <div>
-                        You are about to permanently purge contact <strong class="text-dark"><field name="partner_name" readonly="1" class="oe_inline"/></strong> along with all related transactions, orders, invoices, and field force records from the database.
+                        You are about to permanently purge <strong class="text-dark"><field name="partner_name" readonly="1" class="oe_inline"/></strong> along with all related transactions, orders, invoices, and field force records from the database.
                     </div>
+
                 </div>
 
 

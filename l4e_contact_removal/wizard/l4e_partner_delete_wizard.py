@@ -6,14 +6,18 @@ class L4ePartnerDeleteWizard(models.TransientModel):
     _name = 'l4e.partner.delete.wizard'
     _description = 'Global Contact Removal Wizard'
 
+    partner_ids = fields.Many2many(
+        'res.partner',
+        string='Contacts to Remove',
+        readonly=True,
+    )
     partner_id = fields.Many2one(
         'res.partner',
         string='Contact to Remove',
-        required=True,
         readonly=True,
     )
     partner_name = fields.Char(
-        string='Contact Name',
+        string='Contact Name(s)',
         readonly=True,
     )
     related_records_summary = fields.Html(
@@ -32,24 +36,28 @@ class L4ePartnerDeleteWizard(models.TransientModel):
     @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
-        # Prefer default_partner_id (set by our action) over active_id
-        partner_id = (
-            self.env.context.get('default_partner_id')
-            or self.env.context.get('active_id')
-            or (self.env.context.get('active_ids') or [None])[0]
+        pids = (
+            self.env.context.get('default_partner_ids')
+            or self.env.context.get('active_ids')
+            or ([self.env.context.get('default_partner_id')] if self.env.context.get('default_partner_id') else [])
+            or ([self.env.context.get('active_id')] if self.env.context.get('active_id') else [])
         )
+        partner_ids = [pid for pid in pids if pid]
 
-        if partner_id:
-            # Use active_test=False so archived contacts can also be deleted
-            partner = self.env['res.partner'].with_context(active_test=False).browse(partner_id).exists()
-            if partner:
-                self._check_safety(partner)
-                res['partner_id'] = partner.id
-                # Store partner_name as a plain string — NOT as a related field.
-                # A related field re-reads through the ORM with active_test=True
-                # during form render, which raises MissingError on archived contacts.
-                res['partner_name'] = partner.display_name or partner.name or f'Contact #{partner.id}'
-                summary_html, total_count = self._survey_related_records(partner)
+        if partner_ids:
+            partners = self.env['res.partner'].with_context(active_test=False).browse(partner_ids).exists()
+            if partners:
+                for p in partners:
+                    self._check_safety(p)
+                res['partner_ids'] = [(6, 0, partners.ids)]
+                res['partner_id'] = partners[0].id
+                if len(partners) == 1:
+                    res['partner_name'] = partners[0].display_name or partners[0].name or f'Contact #{partners[0].id}'
+                else:
+                    names_sample = ", ".join(partners.mapped('name')[:3])
+                    suffix = f" and {len(partners) - 3} more" if len(partners) > 3 else ""
+                    res['partner_name'] = f"{len(partners)} selected contacts ({names_sample}{suffix})"
+                summary_html, total_count = self._survey_related_records(partners)
                 res['related_records_summary'] = summary_html
                 res['total_records_count'] = total_count
         return res
@@ -80,9 +88,9 @@ class L4ePartnerDeleteWizard(models.TransientModel):
                 partner.name, internal_users[0].login
             ))
 
-    def _survey_related_records(self, partner):
+    def _survey_related_records(self, partners):
         """Scan database models and count related records for preview in wizard."""
-        all_partners = self.env['res.partner'].sudo().with_context(active_test=False).search([('id', 'child_of', partner.id)])
+        all_partners = self.env['res.partner'].sudo().with_context(active_test=False).search([('id', 'child_of', partners.ids)])
         partner_ids = all_partners.ids
         counts = {}
         total = 0
@@ -107,8 +115,9 @@ class L4ePartnerDeleteWizard(models.TransientModel):
             ('Attachments', 'ir.attachment', [('res_model', '=', 'res.partner'), ('res_id', 'in', partner_ids)]),
         ]
 
-        if len(partner_ids) > 1:
-            child_count = len(partner_ids) - 1
+        selected_count = len(partners)
+        if len(partner_ids) > selected_count:
+            child_count = len(partner_ids) - selected_count
             counts['Sub-contacts / Delivery Addresses'] = child_count
             total += child_count
 
@@ -127,7 +136,7 @@ class L4ePartnerDeleteWizard(models.TransientModel):
             html = """
             <div class="alert alert-info py-2" role="status">
                 <i class="fa fa-info-circle me-1"/> <strong>No active transactions or related records found.</strong>
-                Only the contact profile will be deleted.
+                Only the contact profile(s) will be deleted.
             </div>
             """
         else:
@@ -143,7 +152,7 @@ class L4ePartnerDeleteWizard(models.TransientModel):
             html = f"""
             <div class="alert alert-danger py-2 mb-2" role="alert">
                 <i class="fa fa-exclamation-triangle me-1"/> <strong>Found {total} related record(s) in the database.</strong>
-                All listed records below and this contact will be permanently destroyed.
+                All listed records below and the selected contact(s) will be permanently destroyed.
             </div>
             <div class="border rounded" style="max-height: 220px; overflow-y: auto;">
                 <table class="table table-sm table-striped mb-0">
@@ -163,15 +172,14 @@ class L4ePartnerDeleteWizard(models.TransientModel):
         return html, total
 
     def action_cancel_wizard(self):
-        """Navigate back to the partner form when Cancel is clicked.
-        Required because target='current' doesn't support special='cancel'."""
+        """Navigate back to the partner form or list when Cancel is clicked."""
         self.ensure_one()
-        partner_id = self.partner_id.id
-        if partner_id:
+        partners = self.partner_ids or self.partner_id
+        if len(partners) == 1:
             return {
                 'type': 'ir.actions.act_window',
                 'res_model': 'res.partner',
-                'res_id': partner_id,
+                'res_id': partners[0].id,
                 'view_mode': 'form',
                 'target': 'current',
             }
@@ -183,29 +191,31 @@ class L4ePartnerDeleteWizard(models.TransientModel):
         }
 
     def action_confirm_delete(self):
-
         """Execute the global deletion after confirmation."""
         self.ensure_one()
         if not self.confirm_checkbox:
-            raise UserError(_("You must check the confirmation checkbox before you can permanently delete this contact."))
+            raise UserError(_("You must check the confirmation checkbox before you can permanently delete."))
 
-        partner = self.env["res.partner"].with_context(active_test=False).browse(self.partner_id.id)
-        if not partner.exists():
-            raise UserError(_("Contact not found or already deleted."))
+        partners = self.partner_ids or self.partner_id
+        partners = self.env["res.partner"].with_context(active_test=False).browse(partners.ids).exists()
+        if not partners:
+            raise UserError(_("Selected contact(s) not found or already deleted."))
 
-        self._check_safety(partner)
-        partner_name = partner.with_context(active_test=False).display_name or partner.name
+        for p in partners:
+            self._check_safety(p)
 
-        # Execute the full cascade purge
-        partner.action_purge_globally()
+        target_summary = self.partner_name or f"{len(partners)} contact(s)"
+
+        # Execute cascade purge for all selected partners
+        partners.action_purge_globally()
 
         # Display success toast and redirect to contacts view
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
-                'title': _('Contact Deleted'),
-                'message': _("Contact '%s' and all related records have been permanently deleted.", partner_name),
+                'title': _('Contacts Deleted'),
+                'message': _("%s and all related records have been permanently deleted.", target_summary),
                 'type': 'success',
                 'sticky': False,
                 'next': {
