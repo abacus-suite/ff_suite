@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Server action utility for Global Contact Removal -->
+    <record id="action_server_l4e_partner_global_delete" model="ir.actions.server">
+        <field name="name">Global Delete Contact</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="state">code</field>
+        <field name="groups_id" eval="[(4, ref('l4e_contact_removal.group_contact_removal'))]"/>
+        <field name="code">
+if record:
+    action = record.action_open_global_delete_wizard()
+        </field>
+    </record>
+</odoo>

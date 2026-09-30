@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Global Delete Wizard Form -->
+    <record id="view_l4e_partner_delete_wizard_form" model="ir.ui.view">
+        <field name="name">l4e.partner.delete.wizard.form</field>
+        <field name="model">l4e.partner.delete.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Global Delete Contact">
+                <div class="alert alert-warning mb-3" role="alert">
+                    <h5 class="alert-heading text-danger fw-bold mb-1">
+                        <i class="fa fa-exclamation-triangle me-2"/>Warning: Permanent Database Deletion
+                    </h5>
+                    <div>
+                        You are about to permanently purge contact <strong class="text-dark"><field name="partner_name" readonly="1" class="oe_inline"/></strong> along with all related transactions, orders, invoices, and field force records from the database.
+                    </div>
+                </div>
+
+                <group invisible="1">
+                    <field name="partner_id" invisible="1"/>
+                    <field name="total_records_count" invisible="1"/>
+                </group>
+
+                <div class="mb-3">
+                    <field name="related_records_summary" nolabel="1" readonly="1"/>
+                </div>
+
+                <div class="card border-danger mb-3">
+                    <div class="card-body bg-light py-2">
+                        <div class="d-flex align-items-center text-danger fw-bold">
+                            <field name="confirm_checkbox"/>
+                            <label for="confirm_checkbox" class="ms-2 mb-0">
+                                I confirm that this action is completely IRREVERSIBLE and cannot be undone.
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <footer>
+                    <button name="action_confirm_delete" 
+                            type="object" 
+                            string="Permanently Delete Everything" 
+                            class="btn-danger" 
+                            icon="fa-trash"
+                            confirm="FINAL CONFIRMATION: Are you absolutely certain you want to wipe this contact and all its related records from the database?"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action Menu item under Cog / Action menu on Contact Form View -->
+    <record id="action_l4e_partner_global_delete_wizard" model="ir.actions.act_window">
+        <field name="name">Global Delete</field>
+        <field name="res_model">l4e.partner.delete.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="base.model_res_partner"/>
+        <field name="binding_view_types">form</field>
+        <field name="groups_id" eval="[(4, ref('l4e_contact_removal.group_contact_removal'))]"/>
+    </record>
+
+</odoo>
