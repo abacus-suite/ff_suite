@@ -40,7 +40,10 @@
                             class="btn-danger" 
                             icon="fa-trash"
                             confirm="FINAL CONFIRMATION: Are you absolutely certain you want to wipe this contact and all its related records from the database?"/>
-                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    <button name="action_cancel_wizard"
+                            type="object"
+                            string="Cancel"
+                            class="btn-secondary"/>
                 </footer>
             </form>
         </field>

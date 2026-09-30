@@ -162,7 +162,28 @@ class L4ePartnerDeleteWizard(models.TransientModel):
 
         return html, total
 
+    def action_cancel_wizard(self):
+        """Navigate back to the partner form when Cancel is clicked.
+        Required because target='current' doesn't support special='cancel'."""
+        self.ensure_one()
+        partner_id = self.partner_id.id
+        if partner_id:
+            return {
+                'type': 'ir.actions.act_window',
+                'res_model': 'res.partner',
+                'res_id': partner_id,
+                'view_mode': 'form',
+                'target': 'current',
+            }
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'res.partner',
+            'view_mode': 'list,form',
+            'target': 'current',
+        }
+
     def action_confirm_delete(self):
+
         """Execute the global deletion after confirmation."""
         self.ensure_one()
         if not self.confirm_checkbox:

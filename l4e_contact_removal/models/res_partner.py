@@ -9,14 +9,21 @@ class ResPartner(models.Model):
     _inherit = 'res.partner'
 
     def action_open_global_delete_wizard(self):
-        """Open the Global Delete confirmation wizard from the Action menu or button."""
+        """Open the Global Delete confirmation wizard from the Action menu.
+
+        Uses target='current' (full-page) intentionally — target='new' (dialog) triggers
+        Odoo's bound-server-action background form refresh which calls webRead on the
+        partner record. When that refresh fails (portal partners, specific session context,
+        etc.) it shows a spurious 'Missing Record' popup. Full-page mode has no background
+        form, so no refresh occurs and the issue disappears entirely.
+        """
         self.ensure_one()
         return {
             'name': _('Global Delete Contact'),
             'type': 'ir.actions.act_window',
             'res_model': 'l4e.partner.delete.wizard',
             'view_mode': 'form',
-            'target': 'new',
+            'target': 'current',
             'context': {
                 'default_partner_id': self.id,
             },
