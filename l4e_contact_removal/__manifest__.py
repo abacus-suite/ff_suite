@@ -3,7 +3,7 @@
     'version': '19.0.1.0.0',
     'category': 'Sales/Contacts',
     'summary': 'Global delete option for contacts to permanently purge contact and all related database records',
-    'author': 'Krishnaraj',
+    'author': 'L4E',
     'depends': ['base', 'contacts'],
     'data': [
         'security/l4e_contact_removal_security.xml',
