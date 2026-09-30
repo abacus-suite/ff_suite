@@ -49,14 +49,12 @@
         </field>
     </record>
 
-    <!-- Action Menu item under Cog / Action menu on Contact Form View -->
+    <!-- act_window is opened programmatically by the server action below — no direct binding here -->
     <record id="action_l4e_partner_global_delete_wizard" model="ir.actions.act_window">
         <field name="name">Global Delete</field>
         <field name="res_model">l4e.partner.delete.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
-        <field name="binding_model_id" ref="base.model_res_partner"/>
-        <field name="binding_view_types">form</field>
     </record>
 
 </odoo>

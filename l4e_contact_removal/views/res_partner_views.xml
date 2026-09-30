@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Server action utility for Global Contact Removal -->
+    <!-- Server action bound to res.partner Action menu (correct Odoo pattern) -->
     <record id="action_server_l4e_partner_global_delete" model="ir.actions.server">
-        <field name="name">Global Delete Contact</field>
+        <field name="name">Global Delete</field>
         <field name="model_id" ref="base.model_res_partner"/>
         <field name="state">code</field>
+        <field name="binding_model_id" ref="base.model_res_partner"/>
+        <field name="binding_view_types">form</field>
         <field name="code">
 if record:
     action = record.action_open_global_delete_wizard()
