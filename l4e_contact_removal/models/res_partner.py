@@ -92,7 +92,7 @@ class ResPartner(models.Model):
             FROM pg_attribute a
             JOIN pg_class c ON a.attrelid = c.oid
             JOIN pg_namespace n ON c.relnamespace = n.oid
-            WHERE n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped
+            WHERE n.nspname = 'public' AND c.relkind = 'r' AND a.attnum > 0 AND NOT a.attisdropped
         """)
         col_rows = cr.fetchall()
         existing_columns = {(r[0], r[1]) for r in col_rows}
@@ -104,7 +104,8 @@ class ResPartner(models.Model):
         def _column_exists(table_name, column_name):
             return (table_name, column_name) in existing_columns
 
-        _logger.info("L4E Contact Removal: Starting global purge for partner %s (IDs: %s)", self.display_name, partner_ids)
+        saved_partner_name = self.display_name or self.name or f"Partner #{self.id}"
+        _logger.info("L4E Contact Removal: Starting global purge for partner %s (IDs: %s)", saved_partner_name, partner_ids)
 
         # ─────────────────────────────────────────────────────────────────
         # Phase 0: Portal Users
@@ -352,6 +353,7 @@ class ResPartner(models.Model):
             JOIN pg_class c ON a.attrelid = c.oid
             JOIN pg_namespace n ON c.relnamespace = n.oid
             WHERE n.nspname = 'public'
+              AND c.relkind = 'r'
               AND c.relname LIKE '%res_partner%'
               AND c.relname != 'res_partner'
               AND a.attname LIKE '%partner%id%'
@@ -380,5 +382,6 @@ class ResPartner(models.Model):
 
         # Invalidate the entire ORM cache so no stale references persist in memory
         self.env.invalidate_all()
-        _logger.info("L4E Contact Removal: Successfully purged partner %s (IDs: %s)", self.display_name, partner_ids)
+        _logger.info("L4E Contact Removal: Successfully purged partner %s (IDs: %s)", saved_partner_name, partner_ids)
         return True
+
