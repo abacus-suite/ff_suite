@@ -16,10 +16,7 @@
                     </div>
                 </div>
 
-                <group invisible="1">
-                    <field name="partner_id" invisible="1"/>
-                    <field name="total_records_count" invisible="1"/>
-                </group>
+
 
                 <div class="mb-3">
                     <field name="related_records_summary" nolabel="1" readonly="1"/>
