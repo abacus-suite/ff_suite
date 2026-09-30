@@ -82,23 +82,23 @@ class ResPartner(models.Model):
 
         cr = self.env.cr
 
+        # Fast in-memory catalog cache: 1 instant query instead of 50+ roundtrips
+        cr.execute("""
+            SELECT c.relname, a.attname
+            FROM pg_attribute a
+            JOIN pg_class c ON a.attrelid = c.oid
+            JOIN pg_namespace n ON c.relnamespace = n.oid
+            WHERE n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped
+        """)
+        col_rows = cr.fetchall()
+        existing_columns = {(r[0], r[1]) for r in col_rows}
+        existing_tables = {r[0] for r in col_rows}
+
         def _table_exists(table_name):
-            cr.execute("""
-                SELECT EXISTS (
-                    SELECT 1 FROM information_schema.tables 
-                    WHERE table_schema = 'public' AND table_name = %s
-                )
-            """, (table_name,))
-            return cr.fetchone()[0]
+            return table_name in existing_tables
 
         def _column_exists(table_name, column_name):
-            cr.execute("""
-                SELECT EXISTS (
-                    SELECT 1 FROM information_schema.columns 
-                    WHERE table_schema = 'public' AND table_name = %s AND column_name = %s
-                )
-            """, (table_name, column_name))
-            return cr.fetchone()[0]
+            return (table_name, column_name) in existing_columns
 
         _logger.info("L4E Contact Removal: Starting global purge for partner %s (IDs: %s)", self.display_name, partner_ids)
 
@@ -287,81 +287,61 @@ class ResPartner(models.Model):
             cr.execute("DELETE FROM ir_attachment WHERE res_model = 'res.partner' AND res_id IN %s", (partner_ids,))
 
         # ─────────────────────────────────────────────────────────────────
-        # Phase 4: Dynamic PostgreSQL Foreign Key Sweeper (Bulletproof Safety)
-        # Any other tables in PostgreSQL referencing res_partner(id)
+        # Phase 4: Self-referencing Partner Links
+        # ─────────────────────────────────────────────────────────────────
+        if _column_exists('res_partner', 'parent_id'):
+            cr.execute("UPDATE res_partner SET parent_id = NULL WHERE parent_id IN %s", (partner_ids,))
+        if _column_exists('res_partner', 'commercial_partner_id'):
+            cr.execute("UPDATE res_partner SET commercial_partner_id = id WHERE commercial_partner_id IN %s", (partner_ids,))
+        if _column_exists('res_partner', 'ff_distributor_id'):
+            cr.execute("UPDATE res_partner SET ff_distributor_id = NULL WHERE ff_distributor_id IN %s", (partner_ids,))
+
+        # ─────────────────────────────────────────────────────────────────
+        # Phase 5: Fast Native PostgreSQL Catalog Foreign Key Sweeper
+        # Queries pg_constraint directly in ~1ms (no slow information_schema)
         # ─────────────────────────────────────────────────────────────────
         cr.execute("""
             SELECT
-                tc.table_name,
-                kcu.column_name,
-                c.is_nullable
-            FROM information_schema.table_constraints tc
-            JOIN information_schema.key_column_usage kcu
-                ON tc.constraint_name = kcu.constraint_name
-                AND tc.table_schema = kcu.table_schema
-            JOIN information_schema.constraint_column_usage ccu
-                ON ccu.constraint_name = tc.constraint_name
-                AND ccu.table_schema = tc.table_schema
-            JOIN information_schema.columns c
-                ON c.table_name = tc.table_name
-                AND c.column_name = kcu.column_name
-                AND c.table_schema = tc.table_schema
-            WHERE ccu.table_name = 'res_partner'
-              AND ccu.column_name = 'id'
-              AND tc.table_schema = 'public'
-              AND tc.constraint_type = 'FOREIGN KEY'
+                c_child.relname AS child_table,
+                a_child.attname AS child_column,
+                NOT a_child.attnotnull AS is_nullable
+            FROM pg_constraint con
+            JOIN pg_class c_child ON con.conrelid = c_child.oid
+            JOIN pg_attribute a_child ON a_child.attrelid = con.conrelid AND a_child.attnum = con.conkey[1]
+            JOIN pg_class c_parent ON con.confrelid = c_parent.oid
+            JOIN pg_namespace n ON c_child.relnamespace = n.oid
+            WHERE c_parent.relname = 'res_partner'
+              AND con.contype = 'f'
+              AND n.nspname = 'public'
+              AND con.confdeltype IN ('a', 'r')
+              AND c_child.relname NOT IN ('res_partner', 'res_company', 'res_users')
         """)
-        foreign_keys = cr.fetchall()
+        blocking_fks = cr.fetchall()
 
-        for table_name, column_name, is_nullable in foreign_keys:
-            # Skip protected / core system tables
-            if table_name in ('res_company', 'res_users'):
-                continue
-
-            if table_name == 'res_partner':
-                # Self-referencing fields on res_partner
-                if _column_exists('res_partner', 'parent_id'):
-                    cr.execute("UPDATE res_partner SET parent_id = NULL WHERE parent_id IN %s", (partner_ids,))
-                if _column_exists('res_partner', 'commercial_partner_id'):
-                    cr.execute("UPDATE res_partner SET commercial_partner_id = id WHERE commercial_partner_id IN %s", (partner_ids,))
-                if _column_exists('res_partner', 'ff_distributor_id'):
-                    cr.execute("UPDATE res_partner SET ff_distributor_id = NULL WHERE ff_distributor_id IN %s", (partner_ids,))
-                continue
-
-            # Check if any records exist in this table referencing the target partners
+        for table_name, column_name, is_nullable in blocking_fks:
             try:
-                with cr.savepoint():
-                    cr.execute(f"SELECT COUNT(*) FROM {table_name} WHERE {column_name} IN %s", (partner_ids,))
-                    count = cr.fetchone()[0]
-                    if count > 0:
-                        _logger.info("L4E Contact Removal: Sweeping table '%s' column '%s' (%s records, nullable=%s)", 
-                                     table_name, column_name, count, is_nullable)
-                        if is_nullable == 'YES':
-                            cr.execute(f"UPDATE {table_name} SET {column_name} = NULL WHERE {column_name} IN %s", (partner_ids,))
-                        else:
-                            cr.execute(f"DELETE FROM {table_name} WHERE {column_name} IN %s", (partner_ids,))
+                if is_nullable:
+                    cr.execute(f"UPDATE {table_name} SET {column_name} = NULL WHERE {column_name} IN %s", (partner_ids,))
+                else:
+                    cr.execute(f"DELETE FROM {table_name} WHERE {column_name} IN %s", (partner_ids,))
             except Exception as e:
-                _logger.warning("L4E Contact Removal: Could not sweep table '%s' column '%s': %s", table_name, column_name, e)
+                _logger.debug("L4E Contact Removal: Skipped table %s col %s: %s", table_name, column_name, e)
 
-        # ─────────────────────────────────────────────────────────────────
-        # Phase 5: Many2many Relational Tables Sweeper
-        # ─────────────────────────────────────────────────────────────────
+        # Clean many-to-many partner join tables
         cr.execute("""
-            SELECT tc.table_name, kcu.column_name
-            FROM information_schema.table_constraints tc
-            JOIN information_schema.key_column_usage kcu
-                ON tc.constraint_name = kcu.constraint_name
-                AND tc.table_schema = kcu.table_schema
-            WHERE tc.table_schema = 'public'
-              AND tc.constraint_type = 'FOREIGN KEY'
-              AND tc.table_name LIKE '%res_partner%'
-              AND tc.table_name != 'res_partner'
+            SELECT c.relname, a.attname
+            FROM pg_attribute a
+            JOIN pg_class c ON a.attrelid = c.oid
+            JOIN pg_namespace n ON c.relnamespace = n.oid
+            WHERE n.nspname = 'public'
+              AND c.relname LIKE '%res_partner%'
+              AND c.relname != 'res_partner'
+              AND a.attname LIKE '%partner%id%'
+              AND a.attnum > 0 AND NOT a.attisdropped
         """)
-        m2m_refs = cr.fetchall()
-        for t_name, c_name in m2m_refs:
+        for m2m_table, m2m_col in cr.fetchall():
             try:
-                with cr.savepoint():
-                    cr.execute(f"DELETE FROM {t_name} WHERE {c_name} IN %s", (partner_ids,))
+                cr.execute(f"DELETE FROM {m2m_table} WHERE {m2m_col} IN %s", (partner_ids,))
             except Exception:
                 pass
 
