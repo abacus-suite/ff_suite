@@ -319,18 +319,27 @@ class ResPartner(models.Model):
         blocking_fks = cr.fetchall()
 
         for table_name, column_name, is_nullable in blocking_fks:
+            # Every operation (SELECT + DML) inside its own savepoint so that
+            # any PostgreSQL error on any table is fully isolated and cannot
+            # poison the outer transaction.
+            sp_name = f"l4e_fk_{table_name}"
             try:
-                cr.execute(f"SELECT 1 FROM {table_name} WHERE {column_name} IN %s LIMIT 1", (partner_ids,))
-                if not cr.fetchone():
-                    continue
-
-                with cr.savepoint():
-                    if is_nullable:
-                        cr.execute(f"UPDATE {table_name} SET {column_name} = NULL WHERE {column_name} IN %s", (partner_ids,))
-                    else:
-                        cr.execute(f"DELETE FROM {table_name} WHERE {column_name} IN %s", (partner_ids,))
-            except Exception as e:
-                _logger.warning("L4E Contact Removal: Skipped table %s col %s: %s", table_name, column_name, e)
+                cr.execute(f"SAVEPOINT {sp_name}")
+                try:
+                    cr.execute(f"SELECT 1 FROM {table_name} WHERE {column_name} IN %s LIMIT 1", (partner_ids,))
+                    has_rows = cr.fetchone()
+                    if has_rows:
+                        if is_nullable:
+                            cr.execute(f"UPDATE {table_name} SET {column_name} = NULL WHERE {column_name} IN %s", (partner_ids,))
+                        else:
+                            cr.execute(f"DELETE FROM {table_name} WHERE {column_name} IN %s", (partner_ids,))
+                    cr.execute(f"RELEASE SAVEPOINT {sp_name}")
+                except Exception as e:
+                    cr.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+                    cr.execute(f"RELEASE SAVEPOINT {sp_name}")
+                    _logger.warning("L4E Contact Removal: Skipped FK table %s col %s: %s", table_name, column_name, e)
+            except Exception:
+                pass
 
         # Clean many-to-many partner join tables
         cr.execute("""
@@ -346,13 +355,17 @@ class ResPartner(models.Model):
         """)
         m2m_rows = cr.fetchall()
         for m2m_table, m2m_col in m2m_rows:
+            sp_name = f"l4e_m2m_{m2m_table}"
             try:
-                cr.execute(f"SELECT 1 FROM {m2m_table} WHERE {m2m_col} IN %s LIMIT 1", (partner_ids,))
-                if not cr.fetchone():
-                    continue
-
-                with cr.savepoint():
-                    cr.execute(f"DELETE FROM {m2m_table} WHERE {m2m_col} IN %s", (partner_ids,))
+                cr.execute(f"SAVEPOINT {sp_name}")
+                try:
+                    cr.execute(f"SELECT 1 FROM {m2m_table} WHERE {m2m_col} IN %s LIMIT 1", (partner_ids,))
+                    if cr.fetchone():
+                        cr.execute(f"DELETE FROM {m2m_table} WHERE {m2m_col} IN %s", (partner_ids,))
+                    cr.execute(f"RELEASE SAVEPOINT {sp_name}")
+                except Exception:
+                    cr.execute(f"ROLLBACK TO SAVEPOINT {sp_name}")
+                    cr.execute(f"RELEASE SAVEPOINT {sp_name}")
             except Exception:
                 pass
 
