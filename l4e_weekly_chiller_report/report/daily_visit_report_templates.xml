@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Dedicated Landscape Paperformat for Multi-column Daily Visit Report -->
+    <record id="paperformat_daily_visit_landscape" model="report.paperformat">
+        <field name="name">Daily Visit Landscape</field>
+        <field name="default" eval="True"/>
+        <field name="format">A4</field>
+        <field name="page_height">0</field>
+        <field name="page_width">0</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">8</field>
+        <field name="margin_bottom">8</field>
+        <field name="margin_left">8</field>
+        <field name="margin_right">8</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">4</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <!-- Daily Visit Report Action -->
+    <record id="action_report_daily_visit" model="ir.actions.report">
+        <field name="name">Daily Visit Report</field>
+        <field name="model">daily.visit.report.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">l4e_weekly_chiller_report.report_daily_visit_document</field>
+        <field name="report_file">l4e_weekly_chiller_report.report_daily_visit_document</field>
+        <field name="paperformat_id" ref="paperformat_daily_visit_landscape"/>
+        <field name="print_report_name">'Daily Visit Report'</field>
+    </record>
+
+    <!-- QWeb PDF Document Template -->
+    <template id="report_daily_visit_document">
+        <t t-call="web.html_container">
+            <div class="page" style="font-family: Arial, Helvetica, sans-serif; color: #000000; font-size: 8pt; line-height: 1.25; padding: 0;">
+                <style>
+                    .daily-report-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 10px;
+                    }
+                    .daily-report-table th {
+                        background-color: #eef4fb;
+                        color: #111111;
+                        font-weight: bold;
+                        border: 1px solid #bfd3e6;
+                        padding: 5px 4px;
+                        font-size: 8pt;
+                        text-align: center;
+                        vertical-align: middle;
+                    }
+                    .daily-report-table td {
+                        border: 1px solid #bfd3e6;
+                        padding: 4px;
+                        font-size: 7.5pt;
+                        vertical-align: middle;
+                    }
+                    .text-center { text-align: center; }
+                    .text-left { text-align: left; }
+                </style>
+
+                <!-- Document Header -->
+                <div style="margin-bottom: 8px;">
+                    <div style="font-size: 13pt; font-weight: bold; color: #000000; margin-bottom: 3px;">
+                        <span t-out="report_title"/>
+                    </div>
+                    <div style="font-size: 8.5pt; color: #111111; margin-bottom: 2px;">
+                        <strong>Date Range:</strong> <span t-out="date_range"/>
+                    </div>
+                    <div style="font-size: 8.5pt; color: #111111;">
+                        <strong>Generated At:</strong> <span t-out="generated_at"/>
+                    </div>
+                </div>
+
+                <!-- Main Data Grid -->
+                <table class="daily-report-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 6%;">Date</th>
+                            <th style="width: 9%;">Employee Name</th>
+                            <th style="width: 12%;">Add client</th>
+                            <th style="width: 15%;">Add task description</th>
+                            <th style="width: 9%;">Add Photo</th>
+                            <th style="width: 9%;">2nd Picture</th>
+                            <th style="width: 9%;">Start Time</th>
+                            <th style="width: 9%;">End Time</th>
+                            <th style="width: 9%;">Location Exit Time</th>
+                            <th style="width: 7.5%;">Territory</th>
+                            <th style="width: 7.5%;">Address: City</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <t t-if="rows">
+                            <tr t-foreach="rows" t-as="row">
+                                <td class="text-center" style="white-space: nowrap;">
+                                    <span t-out="row['date']"/>
+                                </td>
+                                <td>
+                                    <span t-out="row['employee_name']"/>
+                                </td>
+                                <td>
+                                    <span t-out="row['client_name']" style="color: #0d6efd; text-decoration: underline;"/>
+                                </td>
+                                <td>
+                                    <span t-out="row['task_description']"/>
+                                </td>
+                                <td class="text-center" style="padding: 2px;">
+                                    <t t-if="row['photo1_b64']">
+                                        <img t-att-src="'data:%s;base64,%s' % (row['photo1_mimetype'], row['photo1_b64'])"
+                                             style="max-height: 70px; max-width: 85px; object-fit: contain; display: block; margin: 0 auto;"/>
+                                    </t>
+                                </td>
+                                <td class="text-center" style="padding: 2px;">
+                                    <t t-if="row['photo2_b64']">
+                                        <img t-att-src="'data:%s;base64,%s' % (row['photo2_mimetype'], row['photo2_b64'])"
+                                             style="max-height: 70px; max-width: 85px; object-fit: contain; display: block; margin: 0 auto;"/>
+                                    </t>
+                                </td>
+                                <td class="text-center" style="font-size: 7pt; white-space: nowrap;">
+                                    <span t-out="row['start_time']"/>
+                                </td>
+                                <td class="text-center" style="font-size: 7pt; white-space: nowrap;">
+                                    <span t-out="row['end_time']"/>
+                                </td>
+                                <td class="text-center" style="font-size: 7pt; white-space: nowrap;">
+                                    <span t-out="row['exit_time']"/>
+                                </td>
+                                <td>
+                                    <span t-out="row['territory']"/>
+                                </td>
+                                <td>
+                                    <span t-out="row['city']"/>
+                                </td>
+                            </tr>
+                        </t>
+                        <t t-else="">
+                            <tr>
+                                <td colspan="11" class="text-center" style="padding: 25px; color: #666666;">
+                                    No visits found for the selected criteria.
+                                </td>
+                            </tr>
+                        </t>
+                    </tbody>
+                </table>
+            </div>
+        </t>
+    </template>
+
+</odoo>

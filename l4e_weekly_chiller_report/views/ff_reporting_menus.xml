@@ -7,11 +7,18 @@
               parent="ff_base.menu_ff_root"
               sequence="90"/>
 
-    <!-- Weekly Chiller Update sub-menu: clicking it directly launches the wizard -->
+    <!-- Weekly Chiller Update sub-menu -->
     <menuitem id="menu_ff_weekly_chiller_report"
               name="Weekly Chiller Update"
               parent="menu_ff_reporting"
               action="action_weekly_chiller_report_wizard"
               sequence="10"/>
+
+    <!-- Daily Visit Report sub-menu -->
+    <menuitem id="menu_ff_daily_visit_report"
+              name="Daily Visit Report"
+              parent="menu_ff_reporting"
+              action="action_daily_visit_report_wizard"
+              sequence="20"/>
 
 </odoo>

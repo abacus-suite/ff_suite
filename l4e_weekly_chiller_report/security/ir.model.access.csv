@@ -1,2 +1,3 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_weekly_chiller_report_wizard_user,weekly.chiller.report.wizard.user,model_weekly_chiller_report_wizard,base.group_user,1,1,1,1
+access_daily_visit_report_wizard_user,daily.visit.report.wizard.user,model_daily_visit_report_wizard,base.group_user,1,1,1,1
