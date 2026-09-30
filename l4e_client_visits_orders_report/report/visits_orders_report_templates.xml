@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Dedicated Landscape Paperformat for 23-Column Visits & Orders Matrix -->
+    <record id="paperformat_visits_orders_landscape" model="report.paperformat">
+        <field name="name">Visits and Orders Landscape</field>
+        <field name="default" eval="True"/>
+        <field name="format">A4</field>
+        <field name="page_height">0</field>
+        <field name="page_width">0</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">6</field>
+        <field name="margin_bottom">6</field>
+        <field name="margin_left">5</field>
+        <field name="margin_right">5</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">3</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <!-- Report Action -->
+    <record id="action_report_visits_orders" model="ir.actions.report">
+        <field name="name">Client Visits &amp; Associated Orders Worked</field>
+        <field name="model">visits.orders.report.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">l4e_client_visits_orders_report.report_visits_orders_doc</field>
+        <field name="report_file">l4e_client_visits_orders_report.report_visits_orders_doc</field>
+        <field name="paperformat_id" ref="paperformat_visits_orders_landscape"/>
+        <field name="print_report_name">'Client Visits and Associated Orders Worked'</field>
+    </record>
+
+    <!-- QWeb PDF Document Template -->
+    <template id="report_visits_orders_doc">
+        <t t-call="web.html_container">
+            <div class="page" style="font-family: Arial, Helvetica, sans-serif; color: #000000; font-size: 6.5pt; line-height: 1.2; padding: 0;">
+                <style>
+                    .visits-orders-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 8px;
+                    }
+                    .visits-orders-table th {
+                        background-color: #eef4fb;
+                        color: #111111;
+                        font-weight: bold;
+                        border: 1px solid #bfd3e6;
+                        padding: 4px 2px;
+                        font-size: 6.5pt;
+                        text-align: center;
+                        vertical-align: middle;
+                    }
+                    .visits-orders-table td {
+                        border: 1px solid #bfd3e6;
+                        padding: 3px 2px;
+                        font-size: 6pt;
+                        vertical-align: middle;
+                    }
+                    .text-center { text-align: center; }
+                    .text-left { text-align: left; }
+                </style>
+
+                <!-- Document Header -->
+                <div style="margin-bottom: 6px;">
+                    <div style="font-size: 13pt; font-weight: bold; color: #000000; margin-bottom: 3px;">
+                        Client Visits &amp; Associated Orders Worked
+                    </div>
+                    <div style="font-size: 8pt; color: #111111; margin-bottom: 2px;">
+                        <strong>Date Range:</strong> <span t-out="date_range"/>
+                    </div>
+                    <div style="font-size: 8pt; color: #111111;">
+                        <strong>Generated At:</strong> <span t-out="generated_at"/>
+                    </div>
+                </div>
+
+                <!-- Main Data Grid -->
+                <table class="visits-orders-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 5.5%;">Employee Name<br/>↑</th>
+                            <th style="width: 7%;">Task ID<br/>↑</th>
+                            <th style="width: 4%;">Date</th>
+                            <th style="width: 7%;">Add client</th>
+                            <th style="width: 6.5%;">Add task description</th>
+                            <th style="width: 7.5%;">SKU Name</th>
+                            <th style="width: 3.5%;">Item Quantity</th>
+                            <th style="width: 3%;">TOTAL<br/>CS</th>
+                            <th style="width: 2.5%;">AM<br/>CS</th>
+                            <th style="width: 2.5%;">BM<br/>CS</th>
+                            <th style="width: 2.5%;">LR<br/>CS</th>
+                            <th style="width: 2.5%;">MS<br/>CS</th>
+                            <th style="width: 2.5%;">OG<br/>CS</th>
+                            <th style="width: 2.5%;">PB<br/>CS</th>
+                            <th style="width: 2.5%;">BD<br/>CS</th>
+                            <th style="width: 2.5%;">GG<br/>CS</th>
+                            <th style="width: 2.5%;">CG<br/>CS</th>
+                            <th style="width: 6.5%;">Add Photo</th>
+                            <th style="width: 6.5%;">2nd Picture</th>
+                            <th style="width: 6%;">Start Time</th>
+                            <th style="width: 6%;">Location Exit Time</th>
+                            <th style="width: 6%;">End Time</th>
+                            <th style="width: 5%;">Team</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <t t-if="rows">
+                            <tr t-foreach="rows" t-as="row">
+                                <td style="font-weight: 500;">
+                                    <span t-out="row['employee_name']"/>
+                                </td>
+                                <td style="font-size: 5pt; word-break: break-all;">
+                                    <span t-out="row['task_id']"/>
+                                </td>
+                                <td class="text-center" style="white-space: nowrap;">
+                                    <span t-out="row['date']"/>
+                                </td>
+                                <td>
+                                    <span t-out="row['client_name']" style="color: #0d6efd; text-decoration: underline;"/>
+                                </td>
+                                <td>
+                                    <span t-out="row['task_description']"/>
+                                </td>
+                                <td style="font-weight: bold;">
+                                    <span t-out="row['sku_name']"/>
+                                </td>
+                                <td class="text-center" style="font-weight: bold;">
+                                    <span t-out="row['item_qty']"/>
+                                </td>
+                                <td class="text-center">
+                                    <span t-out="row['total_cs']"/>
+                                </td>
+                                <t t-foreach="flavor_keys" t-as="fk">
+                                    <td class="text-center">
+                                        <span t-out="row['flavors'][fk]"/>
+                                    </td>
+                                </t>
+                                <td class="text-center" style="padding: 1px;">
+                                    <t t-if="row['photo1_b64']">
+                                        <img t-att-src="'data:%s;base64,%s' % (row['photo1_mimetype'], row['photo1_b64'])"
+                                             style="max-height: 55px; max-width: 65px; object-fit: contain; display: block; margin: 0 auto;"/>
+                                    </t>
+                                </td>
+                                <td class="text-center" style="padding: 1px;">
+                                    <t t-if="row['photo2_b64']">
+                                        <img t-att-src="'data:%s;base64,%s' % (row['photo2_mimetype'], row['photo2_b64'])"
+                                             style="max-height: 55px; max-width: 65px; object-fit: contain; display: block; margin: 0 auto;"/>
+                                    </t>
+                                </td>
+                                <td class="text-center" style="font-size: 5.5pt; white-space: nowrap;">
+                                    <span t-out="row['start_time']"/>
+                                </td>
+                                <td class="text-center" style="font-size: 5.5pt; white-space: nowrap;">
+                                    <span t-out="row['exit_time']"/>
+                                </td>
+                                <td class="text-center" style="font-size: 5.5pt; white-space: nowrap;">
+                                    <span t-out="row['end_time']"/>
+                                </td>
+                                <td class="text-center">
+                                    <span t-out="row['team_name']"/>
+                                </td>
+                            </tr>
+                        </t>
+                        <t t-else="">
+                            <tr>
+                                <td colspan="23" class="text-center" style="padding: 25px; color: #666666;">
+                                    No visits or associated orders found for the selected criteria.
+                                </td>
+                            </tr>
+                        </t>
+                    </tbody>
+                </table>
+            </div>
+        </t>
+    </template>
+
+</odoo>

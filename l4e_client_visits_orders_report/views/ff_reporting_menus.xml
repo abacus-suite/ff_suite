@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Sub-menu inside the Reporting menu on Field Force top bar -->
+    <menuitem id="menu_ff_visits_orders_report"
+              name="Visits &amp; Associated Orders"
+              parent="l4e_weekly_chiller_report.menu_ff_reporting"
+              action="action_visits_orders_report_wizard"
+              sequence="30"/>
+
+</odoo>
