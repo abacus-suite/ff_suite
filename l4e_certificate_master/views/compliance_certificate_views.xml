@@ -13,6 +13,7 @@
                 <field name="name"/>
                 <field name="certificate_no"/>
                 <field name="certificate_type"/>
+                <field name="employee_id" optional="show"/>
                 <field name="issuing_authority"/>
                 <field name="issue_date"/>
                 <field name="expiry_date"/>
@@ -59,6 +60,7 @@
                     <group>
                         <group string="Statutory Information">
                             <field name="certificate_type"/>
+                            <field name="employee_id" invisible="certificate_type != 'health_card'" required="certificate_type == 'health_card'"/>
                             <field name="issuing_authority" placeholder="e.g. Food Safety and Standards Authority of India"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                         </group>
@@ -114,8 +116,13 @@
                 <filter string="Expiring Soon (&lt;= 30 Days)" name="filter_expiring_soon" domain="[('state', 'in', ['expiring_30', 'expiring_15', 'expiring_7'])]"/>
                 <filter string="Critical (&lt;= 7 Days)" name="filter_critical" domain="[('state', '=', 'expiring_7')]"/>
                 <filter string="Expired" name="filter_expired" domain="[('state', '=', 'expired')]"/>
-                <separator/>
                 <filter string="My Assigned" name="filter_my_assigned" domain="[('responsible_id', '=', uid)]"/>
+                <separator/>
+                <filter string="FSSAI Licenses" name="filter_fssai" domain="[('certificate_type', '=', 'fssai')]"/>
+                <filter string="GST Renewals" name="filter_gst" domain="[('certificate_type', '=', 'gst')]"/>
+                <filter string="Trade Licenses" name="filter_trade" domain="[('certificate_type', '=', 'trade')]"/>
+                <filter string="Employee Health Cards" name="filter_health_card" domain="[('certificate_type', '=', 'health_card')]"/>
+                <filter string="Water Lab Tests" name="filter_water_lab" domain="[('certificate_type', '=', 'water_lab')]"/>
 
                 <group expand="0" string="Group By">
                     <filter string="Certificate Type" name="group_type" context="{'group_by': 'certificate_type'}"/>

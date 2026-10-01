@@ -24,7 +24,7 @@ Key Features:
     """,
     'author': 'Krishnaraj G V / Kumbayah Foods',
     'website': 'https://kumbayahfoods.com',
-    'depends': ['base', 'mail'],
+    'depends': ['base', 'mail', 'hr'],
     'data': [
         'security/compliance_security.xml',
         'security/ir.model.access.csv',

@@ -22,16 +22,25 @@ class ComplianceCertificate(models.Model):
         help='Unique registration or license number'
     )
     certificate_type = fields.Selection([
-        ('fssai', 'Food Safety (FSSAI)'),
+        ('fssai', 'Food Safety (FSSAI License)'),
+        ('gst', 'GST Registration / Renewal'),
+        ('trade', 'Trade License (Municipal / Local)'),
+        ('health_card', 'Employee Health Card (Food Handler)'),
+        ('water_lab', '6-Month Water Lab Test Report'),
         ('factory', 'Factory License'),
-        ('pollution', 'Pollution Control (PCB)'),
+        ('pollution', 'Pollution Control (PCB) Consent'),
         ('fire', 'Fire Safety NOC'),
-        ('water', 'Water / Effluent Quality Test'),
-        ('iso', 'ISO / Quality Certification'),
         ('boiler', 'Boiler / Machinery Fitness'),
-        ('legal', 'Trade / Legal Metrology'),
+        ('iso', 'ISO / Quality Certification'),
         ('other', 'Other Statutory License')
     ], string='Certificate Type', required=True, default='fssai', tracking=True)
+
+    employee_id = fields.Many2one(
+        'hr.employee',
+        string='Staff Member (Health Card Holder)',
+        tracking=True,
+        help='Specific employee or factory food handler associated with this health card'
+    )
 
     issuing_authority = fields.Char(
         string='Issuing Authority / Agency',
@@ -284,9 +293,35 @@ class ComplianceCertificate(models.Model):
                     date_deadline=self.expiry_date
                 )
 
+        # Send Automated SMS Notification
+        mobile_numbers = []
+        if self.responsible_id.partner_id.mobile:
+            mobile_numbers.append(self.responsible_id.partner_id.mobile)
+        elif self.responsible_id.partner_id.phone:
+            mobile_numbers.append(self.responsible_id.partner_id.phone)
+
+        if self.employee_id:
+            emp_mobile = self.employee_id.mobile_phone or self.employee_id.work_phone
+            if emp_mobile and emp_mobile not in mobile_numbers:
+                mobile_numbers.append(emp_mobile)
+
+        if mobile_numbers:
+            sms_text = _("Kumbayah Compliance Alert: '%s' [%s] expires in %s days (on %s). Please initiate renewal immediately.") % (
+                self.name, self.certificate_no, days, self.expiry_date
+            )
+            try:
+                if 'sms.sms' in self.env:
+                    for num in mobile_numbers:
+                        self.env['sms.sms'].sudo().create({
+                            'number': num,
+                            'body': sms_text,
+                        }).send()
+            except Exception:
+                pass
+
         # Log into chatter
         body_msg = _(
-            '<b>Compliance %s Alert Triggered!</b><br/>'
+            '<b>Compliance %s Alert Triggered! (Email + SMS)</b><br/>'
             'Days Remaining: <b>%s</b><br/>'
             'Responsible: %s'
         ) % (level.replace('_', ' '), days, self.responsible_id.name)
