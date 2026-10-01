@@ -21,14 +21,13 @@ class SaleOrder(models.Model):
         ('pending', 'Pending'),
         ('confirmed', 'Confirmed'),
         ('rejected', 'Rejected'),
-    ], string='Distributor Status', default='pending', tracking=True, copy=False)
+    ], string='Distributor Status', default='pending', compute='_compute_distributor_status', store=True, readonly=False, tracking=True, copy=False)
 
-    distributor_portal_status = fields.Selection(
-        related='distributor_status',
-        string='Portal Status',
-        store=True,
-        copy=False,
-    )
+    distributor_portal_status = fields.Selection([
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('rejected', 'Rejected'),
+    ], string='Portal Status', compute='_compute_distributor_status', store=True, readonly=False, copy=False)
 
     distributor_confirmed_date = fields.Datetime(
         string='Distributor Confirmed On',
@@ -45,6 +44,16 @@ class SaleOrder(models.Model):
         readonly=True,
         copy=False,
     )
+
+    @api.depends('state')
+    def _compute_distributor_status(self):
+        for order in self:
+            if not order.distributor_status:
+                if order.state in ('sale', 'done'):
+                    order.distributor_status = 'confirmed'
+                else:
+                    order.distributor_status = 'pending'
+            order.distributor_portal_status = order.distributor_status
 
     def generate_distributor_portal_link(self):
         """Generate token and full public URL for distributor portal review."""

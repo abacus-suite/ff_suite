@@ -23,6 +23,15 @@
                         invisible="not distributor_portal_link"/>
             </xpath>
 
+            <!-- Show Distributor Status in the top section of the form -->
+            <xpath expr="//field[@name='payment_term_id']" position="after">
+                <field name="distributor_status"
+                       widget="badge"
+                       decoration-warning="distributor_status == 'pending'"
+                       decoration-success="distributor_status == 'confirmed'"
+                       decoration-danger="distributor_status == 'rejected'"/>
+            </xpath>
+
             <!-- Line columns for original demanded and adjusted quantities -->
             <xpath expr="//field[@name='order_line']/list/field[@name='product_uom_qty']" position="before">
                 <field name="original_demanded_qty" optional="show" readonly="1"/>
