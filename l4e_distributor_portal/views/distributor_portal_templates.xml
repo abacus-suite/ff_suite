@@ -73,6 +73,9 @@
             #wrap {
                 padding-top: 0 !important;
             }
+            .text-secondary {
+                color: #475569 !important;
+            }
 
             /* Custom Pop-up Modal Styling */
             .custom-modal-backdrop {
@@ -238,16 +241,16 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="p-3 bg-white rounded border shadow-xs h-100">
-                                    <span class="text-muted small text-uppercase fw-bold">Instructions</span>
-                                    <p class="small text-secondary mb-0 mt-1">
+                                    <span class="text-uppercase fw-bold" style="color: #475569; font-size: 11px; letter-spacing: 0.5px;">Instructions</span>
+                                    <p class="small mb-0 mt-1" style="color: #334155; line-height: 1.5;">
                                         <t t-if="not is_confirmed and not is_rejected">
-                                            Review the demanded items below. You can adjust the <strong>Supply Quantity</strong> if you have limited stock, then click <strong>Confirm Order</strong> or <strong>Reject Order</strong>.
+                                            Review the demanded items below. You can adjust the <strong style="color: #0f172a;">Supply Quantity</strong> if you have limited stock, then click <strong style="color: #15803d;">Confirm Order</strong> or <strong style="color: #b91c1c;">Reject Order</strong>.
                                         </t>
                                         <t t-elif="is_confirmed">
-                                            This order is confirmed and queued for fulfillment.
+                                            <span class="text-success fw-bold">This order is confirmed</span> and queued for fulfillment.
                                         </t>
                                         <t t-else="">
-                                            This order was rejected. Please contact the sales coordinator for revisions.
+                                            <span class="text-danger fw-bold">This order was rejected.</span> Please contact the sales coordinator for revisions.
                                         </t>
                                     </p>
                                 </div>
@@ -266,7 +269,7 @@
                             <h5 class="mb-0 fw-bold text-dark">
                                 <i class="fa fa-list-alt text-primary me-2"/> Requested Products
                             </h5>
-                            <span class="badge bg-secondary">
+                            <span class="badge" style="background-color: #334155; color: #ffffff; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 6px;">
                                 <t t-out="len(order.order_line)"/> Items
                             </span>
                         </div>
