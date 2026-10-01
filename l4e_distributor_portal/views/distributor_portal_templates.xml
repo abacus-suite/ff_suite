@@ -73,6 +73,44 @@
             #wrap {
                 padding-top: 0 !important;
             }
+
+            /* Custom Pop-up Modal Styling */
+            .custom-modal-backdrop {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(15, 23, 42, 0.65);
+                backdrop-filter: blur(2px);
+                z-index: 9998;
+                display: none;
+                opacity: 0;
+                transition: opacity 0.2s ease-in-out;
+            }
+            .custom-modal {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) scale(0.95);
+                width: 90%;
+                max-width: 500px;
+                background: #ffffff;
+                border-radius: 12px;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+                z-index: 9999;
+                display: none;
+                opacity: 0;
+                transition: all 0.2s ease-in-out;
+                overflow: hidden;
+            }
+            .custom-modal.active, .custom-modal-backdrop.active {
+                display: block;
+                opacity: 1;
+            }
+            .custom-modal.active {
+                transform: translate(-50%, -50%) scale(1);
+            }
         ]]></style>
         <script type="text/javascript"><![CDATA[
             (function() {
@@ -359,16 +397,100 @@
                             <button type="button" class="btn btn-outline-secondary px-4 py-2" onclick="window.print()">
                                 <i class="fa fa-print me-1"/> Print Summary
                             </button>
-                            <button type="button" class="btn btn-outline-danger px-4 py-2 fw-bold shadow-sm" onclick="confirmAndReject()">
+                            <button type="button" class="btn btn-outline-danger px-4 py-2 fw-bold shadow-sm" onclick="showRejectModal()">
                                 <i class="fa fa-times-circle me-1"/> Reject Order
                             </button>
-                            <button type="button" class="btn btn-success btn-lg px-5 py-2 fw-bold shadow-sm" onclick="confirmAndSubmit()">
+                            <button type="button" class="btn btn-success btn-lg px-5 py-2 fw-bold shadow-sm" onclick="showConfirmModal()">
                                 <i class="fa fa-check-circle me-2"/> Confirm Order
                             </button>
                         </div>
                     </t>
                 </form>
 
+            </div>
+
+            <!-- ================================================================= -->
+            <!-- CUSTOM POPUP MODALS                                               -->
+            <!-- ================================================================= -->
+            <!-- Backdrop -->
+            <div id="custom_modal_backdrop" class="custom-modal-backdrop" onclick="closeAllCustomModals()"/>
+
+            <!-- 1. CUSTOM REJECT ORDER MODAL -->
+            <div id="custom_reject_modal" class="custom-modal">
+                <div class="p-3 px-4 border-bottom bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-danger">
+                        <i class="fa fa-times-circle me-2"/> Reject Order
+                    </h5>
+                    <button type="button" class="btn-close" style="font-size: 12px;" onclick="closeCustomModal('custom_reject_modal')"></button>
+                </div>
+                <div class="p-4">
+                    <p class="text-secondary mb-3">
+                        Are you sure you want to <strong>reject</strong> this order? This will cancel the quotation and notify the sales coordination team.
+                    </p>
+                    <label class="form-label small fw-bold text-muted text-uppercase">Reason for Rejection (Optional)</label>
+                    <textarea id="modal_reject_reason" class="form-control" rows="3"
+                              placeholder="Please specify why this order is rejected (e.g. stock unavailable, pricing issue, delivery constraints)..."></textarea>
+                </div>
+                <div class="p-3 bg-light border-top d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary px-3 py-2" onclick="closeCustomModal('custom_reject_modal')">
+                        Keep Order
+                    </button>
+                    <button type="button" class="btn btn-danger px-4 py-2 fw-bold" onclick="executeRejection()">
+                        <i class="fa fa-times-circle me-1"/> Yes, Reject Order
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. CUSTOM CONFIRM ORDER MODAL -->
+            <div id="custom_confirm_modal" class="custom-modal">
+                <div class="p-3 px-4 border-bottom bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-success">
+                        <i class="fa fa-check-circle me-2"/> Confirm Order
+                    </h5>
+                    <button type="button" class="btn-close" style="font-size: 12px;" onclick="closeCustomModal('custom_confirm_modal')"></button>
+                </div>
+                <div class="p-4">
+                    <p class="text-secondary mb-3">
+                        Are you ready to confirm this order with the specified supply quantities?
+                    </p>
+                    <div class="bg-light p-3 rounded border mb-3">
+                        <div class="d-flex justify-content-between mb-1 small text-muted">
+                            <span>Total Supply Units:</span>
+                            <span id="modal_confirm_units" class="fw-bold text-dark">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span>Estimated Total:</span>
+                            <span class="fw-bold text-success fs-6">₹<span id="modal_confirm_amount">0.00</span></span>
+                        </div>
+                    </div>
+                    <p class="small text-muted mb-0">
+                        <em>Once confirmed, the order will be locked and sent for fulfillment.</em>
+                    </p>
+                </div>
+                <div class="p-3 bg-light border-top d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary px-3 py-2" onclick="closeCustomModal('custom_confirm_modal')">
+                        Back to Edit
+                    </button>
+                    <button type="button" class="btn btn-success px-4 py-2 fw-bold" onclick="executeConfirmation()">
+                        <i class="fa fa-check-circle me-1"/> Confirm &amp; Place Order
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3. CUSTOM ALERT MODAL (0 UNITS) -->
+            <div id="custom_alert_modal" class="custom-modal" style="max-width: 440px;">
+                <div class="p-4 text-center">
+                    <div class="text-warning mb-3">
+                        <i class="fa fa-exclamation-triangle fa-3x"/>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-2">Quantity Required</h5>
+                    <p class="text-secondary mb-4 small">
+                        Please supply at least one unit before confirming, or click <strong>Reject Order</strong> if you cannot fulfill this order.
+                    </p>
+                    <button type="button" class="btn btn-primary px-4 py-2 fw-bold" onclick="closeCustomModal('custom_alert_modal')">
+                        OK
+                    </button>
+                </div>
             </div>
 
             <!-- Client-side Calculation and Validation Scripts -->
@@ -423,35 +545,77 @@
                     if (amtEl) amtEl.innerText = totalAmount.toFixed(2);
                 }
 
-                function confirmAndSubmit() {
+                /* Custom Modal Handlers */
+                function openCustomModal(modalId) {
+                    var backdrop = document.getElementById('custom_modal_backdrop');
+                    var modal = document.getElementById(modalId);
+                    if (backdrop && modal) {
+                        backdrop.classList.add('active');
+                        modal.classList.add('active');
+                    }
+                }
+
+                function closeCustomModal(modalId) {
+                    var backdrop = document.getElementById('custom_modal_backdrop');
+                    var modal = document.getElementById(modalId);
+                    if (modal) modal.classList.remove('active');
+                    if (backdrop) backdrop.classList.remove('active');
+                }
+
+                function closeAllCustomModals() {
+                    var modals = document.querySelectorAll('.custom-modal');
+                    modals.forEach(function(m) {
+                        m.classList.remove('active');
+                    });
+                    var backdrop = document.getElementById('custom_modal_backdrop');
+                    if (backdrop) backdrop.classList.remove('active');
+                }
+
+                function showRejectModal() {
+                    var notes = document.getElementById('order_notes') ? document.getElementById('order_notes').value.trim() : '';
+                    var modalInput = document.getElementById('modal_reject_reason');
+                    if (modalInput && notes) {
+                        modalInput.value = notes;
+                    }
+                    openCustomModal('custom_reject_modal');
+                }
+
+                function executeRejection() {
+                    var modalInput = document.getElementById('modal_reject_reason');
+                    var orderNotes = document.getElementById('order_notes');
+                    if (modalInput && orderNotes && modalInput.value.trim()) {
+                        orderNotes.value = modalInput.value.trim();
+                    }
+                    var form = document.getElementById('distributor_order_form');
+                    form.action = '/distributor/order/reject';
+                    form.submit();
+                }
+
+                function showConfirmModal() {
                     var totalUnits = 0;
                     document.querySelectorAll('.qty-input').forEach(function(inp) {
                         totalUnits += parseFloat(inp.value) || 0;
                     });
 
                     if (totalUnits <= 0) {
-                        alert("Please supply at least one unit before confirming, or click Reject Order if you cannot fulfill it.");
+                        openCustomModal('custom_alert_modal');
                         return;
                     }
 
-                    if (confirm("Are you sure you want to confirm this order with the specified quantities? Once confirmed, this order will be processed.")) {
-                        var form = document.getElementById('distributor_order_form');
-                        form.action = '/distributor/order/submit';
-                        form.submit();
-                    }
+                    var unitsEl = document.getElementById('grand_total_units');
+                    var amtEl = document.getElementById('grand_total_amount');
+                    var confirmUnits = document.getElementById('modal_confirm_units');
+                    var confirmAmt = document.getElementById('modal_confirm_amount');
+                    if (confirmUnits) confirmUnits.innerText = unitsEl ? unitsEl.innerText : totalUnits;
+                    if (confirmAmt) confirmAmt.innerText = amtEl ? amtEl.innerText : '0.00';
+
+                    openCustomModal('custom_confirm_modal');
                 }
 
-                function confirmAndReject() {
-                    var notes = (document.getElementById('order_notes') ? document.getElementById('order_notes').value.trim() : '');
-                    var msg = "Are you sure you want to REJECT this order?";
-                    if (!notes) {
-                        msg += "\n\n(Tip: You can add the reason in the remarks box before rejecting)";
-                    }
-                    if (confirm(msg)) {
-                        var form = document.getElementById('distributor_order_form');
-                        form.action = '/distributor/order/reject';
-                        form.submit();
-                    }
+                function executeConfirmation() {
+                    var form = document.getElementById('distributor_order_form');
+                    form.action = '/distributor/order/submit';
+                    form.submit();
                 }
 
                 document.addEventListener('DOMContentLoaded', function() {
