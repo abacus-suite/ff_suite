@@ -17,14 +17,19 @@ class SaleOrder(models.Model):
         readonly=True,
         copy=False,
     )
-    distributor_portal_status = fields.Selection([
-        ('not_sent', 'Not Sent'),
-        ('sent', 'Sent to Distributor'),
-        ('confirmed', 'Confirmed by Distributor'),
-    ], string='Portal Status', default='not_sent', tracking=True, copy=False)
+    distributor_status = fields.Selection([
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('rejected', 'Rejected'),
+    ], string='Distributor Status', default='pending', tracking=True, copy=False)
 
     distributor_confirmed_date = fields.Datetime(
         string='Distributor Confirmed On',
+        readonly=True,
+        copy=False,
+    )
+    distributor_rejected_date = fields.Datetime(
+        string='Distributor Rejected On',
         readonly=True,
         copy=False,
     )
@@ -87,9 +92,6 @@ class SaleOrder(models.Model):
                     'email_to': recipient.email,
                 })
                 mail.send()
-
-            if order.distributor_portal_status != 'confirmed':
-                order.write({'distributor_portal_status': 'sent'})
 
             portal_link = order.distributor_portal_link
             order.message_post(

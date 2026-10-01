@@ -12,7 +12,7 @@ class DistributorPortalController(http.Controller):
         website=True,
     )
     def view_distributor_order(self, order_id, token=None, **kw):
-        """Portal view allowing the distributor to review and adjust quantities."""
+        """Portal view allowing the distributor to review, adjust quantities, or reject."""
         order = request.env['sale.order'].sudo().browse(order_id).exists()
 
         if not order or not token or token != order.distributor_portal_token:
@@ -22,7 +22,10 @@ class DistributorPortalController(http.Controller):
 
         is_confirmed = (
             order.state in ('sale', 'done')
-            or order.distributor_portal_status == 'confirmed'
+            or order.distributor_status == 'confirmed'
+        )
+        is_rejected = (
+            order.distributor_status == 'rejected'
         )
 
         return request.render(
@@ -31,7 +34,9 @@ class DistributorPortalController(http.Controller):
                 'order': order,
                 'token': token,
                 'is_confirmed': is_confirmed,
+                'is_rejected': is_rejected,
                 'already_confirmed_msg': kw.get('confirmed') == '1',
+                'already_rejected_msg': kw.get('rejected') == '1',
             }
         )
 
@@ -54,9 +59,9 @@ class DistributorPortalController(http.Controller):
                 'message': 'Unauthorized submission or invalid session token.'
             })
 
-        # Prevent double-confirmation
-        if order.state in ('sale', 'done') or order.distributor_portal_status == 'confirmed':
-            return request.redirect(f'/distributor/order/{order.id}?token={token}&confirmed=1')
+        # Prevent action if already confirmed or rejected
+        if order.state in ('sale', 'done') or order.distributor_status in ('confirmed', 'rejected'):
+            return request.redirect(f'/distributor/order/{order.id}?token={token}')
 
         line_ids = request.httprequest.form.getlist('line_ids[]')
         notes = (post.get('notes') or '').strip()
@@ -91,10 +96,10 @@ class DistributorPortalController(http.Controller):
                 'distributor_adjusted_qty': new_qty,
             })
 
-        # Update order status and timestamp
+        # Update order status to confirmed
         now = fields.Datetime.now()
         order.sudo().write({
-            'distributor_portal_status': 'confirmed',
+            'distributor_status': 'confirmed',
             'distributor_confirmed_date': now,
             'distributor_note': notes or False,
         })
@@ -130,20 +135,71 @@ class DistributorPortalController(http.Controller):
         return request.redirect(f'/distributor/order/thankyou?order_id={order.id}&token={token}')
 
     @http.route(
+        '/distributor/order/reject',
+        type='http',
+        auth='public',
+        website=True,
+        methods=['POST'],
+        csrf=False,
+    )
+    def reject_distributor_order(self, **post):
+        """Handle distributor rejection of the order."""
+        order_id = int(post.get('order_id') or 0)
+        token = post.get('token')
+
+        order = request.env['sale.order'].sudo().browse(order_id).exists()
+        if not order or not token or token != order.distributor_portal_token:
+            return request.render('l4e_distributor_portal.distributor_invalid_token_template', {
+                'message': 'Unauthorized submission or invalid session token.'
+            })
+
+        # Prevent action if already confirmed or rejected
+        if order.distributor_status in ('confirmed', 'rejected') or order.state in ('sale', 'done'):
+            return request.redirect(f'/distributor/order/{order.id}?token={token}')
+
+        notes = (post.get('notes') or '').strip()
+        now = fields.Datetime.now()
+
+        order.sudo().write({
+            'distributor_status': 'rejected',
+            'distributor_rejected_date': now,
+            'distributor_note': notes or False,
+        })
+
+        # Log rejection in Sale Order chatter
+        notes_html = f"<br/><b>Rejection Remarks:</b> {notes}" if notes else "<br/><i>No rejection reason entered.</i>"
+        chatter_body = Markup(
+            f"<b>❌ Order Rejected by Distributor via Portal</b><br/>"
+            f"<b>Distributor:</b> {order.partner_id.name}<br/>"
+            f"<b>Rejected On:</b> {fields.Datetime.to_string(now)}"
+            f"{notes_html}"
+        )
+        order.sudo().message_post(
+            body=chatter_body,
+            message_type='notification',
+            subtype_xmlid='mail.mt_note',
+        )
+
+        return request.redirect(f'/distributor/order/thankyou?order_id={order.id}&token={token}&rejected=1')
+
+    @http.route(
         '/distributor/order/thankyou',
         type='http',
         auth='public',
         website=True,
     )
     def distributor_thankyou(self, order_id=None, token=None, **kw):
-        """Success confirmation page."""
+        """Status confirmation page (Confirmed or Rejected)."""
         order = request.env['sale.order'].sudo().browse(int(order_id or 0)).exists()
         if not order or not token or token != order.distributor_portal_token:
             return request.render('l4e_distributor_portal.distributor_invalid_token_template', {
                 'message': 'Invalid access.'
             })
 
+        is_rejected = kw.get('rejected') == '1' or order.distributor_status == 'rejected'
+
         return request.render('l4e_distributor_portal.distributor_thankyou_template', {
             'order': order,
             'token': token,
+            'is_rejected': is_rejected,
         })
