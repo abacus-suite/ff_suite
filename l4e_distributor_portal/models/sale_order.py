@@ -23,6 +23,13 @@ class SaleOrder(models.Model):
         ('rejected', 'Rejected'),
     ], string='Distributor Status', default='pending', tracking=True, copy=False)
 
+    distributor_portal_status = fields.Selection(
+        related='distributor_status',
+        string='Portal Status',
+        store=True,
+        copy=False,
+    )
+
     distributor_confirmed_date = fields.Datetime(
         string='Distributor Confirmed On',
         readonly=True,
