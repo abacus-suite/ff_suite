@@ -1,11 +1,119 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- ================================================================= -->
-    <!-- MAIN DISTRIBUTOR ORDER REVIEW & CONFIRMATION PORTAL PAGE          -->
+    <!-- CLEAN STYLING TO HIDE ODOO NAVBAR, BREADCRUMBS, FOOTER and RIBBON -->
+    <!-- ================================================================= -->
+    <template id="distributor_portal_clean_assets" name="Distributor Portal Clean Assets">
+        <style><![CDATA[
+            /* 1. Hide Standard Portal Navbar and Top Header (Logo, Administrator menu) */
+            header,
+            header#top,
+            header.o_header_standard,
+            nav.navbar,
+            .navbar,
+            #oe_main_menu_navbar,
+            .o_portal_header {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                border: none !important;
+            }
+
+            /* 2. Hide Portal Submenu and Breadcrumbs (/ Purchase Orders / S00012) */
+            .o_portal_submenu,
+            .breadcrumb,
+            .o_portal_my_doc_breadcrumbs,
+            .o_portal_breadcrumbs,
+            .o_portal_navbar {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                border: none !important;
+            }
+
+            /* 3. Hide Footer and Powered by Odoo / Copyright */
+            footer,
+            footer#bottom,
+            footer.o_footer,
+            .o_footer_copyright,
+            #footer,
+            .o_portal_footer {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                border: none !important;
+            }
+
+            /* 4. Hide Database Neutralized Testing Banner */
+            #oe_neutralize_banner,
+            span[id="oe_neutralize_banner"] {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+            }
+
+            /* Clean Body and Wrap styling */
+            body {
+                background-color: #f1f5f9 !important;
+                padding-top: 20px !important;
+                padding-bottom: 40px !important;
+            }
+            #wrap {
+                padding-top: 0 !important;
+            }
+        ]]></style>
+        <script type="text/javascript"><![CDATA[
+            (function() {
+                function cleanChrome() {
+                    var selectors = [
+                        'header#top',
+                        'header.o_header_standard',
+                        'nav.navbar',
+                        'footer#bottom',
+                        'footer.o_footer',
+                        '.o_portal_submenu',
+                        '.breadcrumb',
+                        '.o_portal_my_doc_breadcrumbs',
+                        '#oe_neutralize_banner'
+                    ];
+                    selectors.forEach(function(sel) {
+                        document.querySelectorAll(sel).forEach(function(el) {
+                            el.style.display = 'none';
+                            el.remove();
+                        });
+                    });
+                }
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', cleanChrome);
+                } else {
+                    cleanChrome();
+                }
+                setTimeout(cleanChrome, 50);
+                setTimeout(cleanChrome, 300);
+            })();
+        ]]></script>
+    </template>
+
+    <!-- ================================================================= -->
+    <!-- MAIN DISTRIBUTOR ORDER REVIEW &amp; CONFIRMATION PORTAL PAGE      -->
     <!-- ================================================================= -->
     <template id="distributor_portal_order_page" name="Distributor Order Portal">
         <t t-call="portal.portal_layout">
-            <div class="container my-4" style="max-width: 980px;">
+            <t t-call="l4e_distributor_portal.distributor_portal_clean_assets"/>
+
+            <div class="container my-3" style="max-width: 980px;">
 
                 <!-- Status Banners -->
                 <t t-if="already_confirmed_msg or is_confirmed">
@@ -233,8 +341,8 @@
 
             </div>
 
-            <!-- Client-side Calculation & Validation Scripts -->
-            <script type="text/javascript">
+            <!-- Client-side Calculation and Validation Scripts -->
+            <script type="text/javascript"><![CDATA[
                 function stepQty(lineId, delta) {
                     var input = document.getElementById('qty_' + lineId);
                     if (!input) return;
@@ -253,7 +361,7 @@
                     var priceEl = row.querySelector('.price-val');
                     var price = parseFloat(priceEl.getAttribute('data-price')) || 0;
                     var qty = parseFloat(input.value) || 0;
-                    if (qty &lt; 0) {
+                    if (qty < 0) {
                         qty = 0;
                         input.value = 0;
                     }
@@ -291,7 +399,7 @@
                         totalUnits += parseFloat(inp.value) || 0;
                     });
 
-                    if (totalUnits &lt;= 0) {
+                    if (totalUnits <= 0) {
                         alert("Please supply at least one unit before confirming.");
                         return;
                     }
@@ -304,7 +412,7 @@
                 document.addEventListener('DOMContentLoaded', function() {
                     recalcTotals();
                 });
-            </script>
+            ]]></script>
         </t>
     </template>
 
@@ -313,6 +421,8 @@
     <!-- ================================================================= -->
     <template id="distributor_thankyou_template" name="Distributor Order Confirmed">
         <t t-call="portal.portal_layout">
+            <t t-call="l4e_distributor_portal.distributor_portal_clean_assets"/>
+
             <div class="container my-5 text-center" style="max-width: 600px;">
                 <div class="card shadow-sm border-0 p-4 p-md-5" style="border-radius: 12px;">
                     <div class="mb-3">
@@ -362,6 +472,8 @@
     <!-- ================================================================= -->
     <template id="distributor_invalid_token_template" name="Invalid Portal Access">
         <t t-call="portal.portal_layout">
+            <t t-call="l4e_distributor_portal.distributor_portal_clean_assets"/>
+
             <div class="container my-5 text-center" style="max-width: 500px;">
                 <div class="card shadow-sm border-0 p-4 p-md-5" style="border-radius: 12px;">
                     <div class="mb-3 text-warning">
