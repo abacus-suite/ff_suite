@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'L4E Certificate Master',
-    'version': '18.0.1.0.0',
+    'version': '19.0.1.0.0',
     'category': 'Operations/Compliance',
     'summary': 'Certificate Master - Regulatory & Statutory Compliance Certificate Management with Automated Alerts',
     'description': """
