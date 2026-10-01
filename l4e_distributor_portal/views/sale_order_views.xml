@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_order_form_distributor_portal" model="ir.ui.view">
+        <field name="name">sale.order.form.distributor.portal</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="priority">95</field>
+        <field name="arch" type="xml">
+            <!-- Action buttons in header -->
+            <xpath expr="//header" position="inside">
+                <button name="action_send_distributor_portal_mail"
+                        string="✉️ Send Portal Link"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="state in ('cancel')"/>
+                <button name="action_open_distributor_portal"
+                        string="🔗 Open Portal"
+                        type="object"
+                        class="btn-link"
+                        invisible="not distributor_portal_link"/>
+            </xpath>
+
+            <!-- Line columns for original demanded and adjusted quantities -->
+            <xpath expr="//field[@name='order_line']/list/field[@name='product_uom_qty']" position="before">
+                <field name="original_demanded_qty" optional="show" readonly="1"/>
+            </xpath>
+            <xpath expr="//field[@name='order_line']/list/field[@name='product_uom_qty']" position="after">
+                <field name="distributor_adjusted_qty" optional="show" readonly="1"/>
+            </xpath>
+
+            <!-- Dedicated Notebook Page for Portal Details -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Distributor Portal" name="distributor_portal_page">
+                    <group>
+                        <group string="Portal Status">
+                            <field name="distributor_portal_status"
+                                   widget="badge"
+                                   decoration-success="distributor_portal_status == 'confirmed'"
+                                   decoration-info="distributor_portal_status == 'sent'"
+                                   decoration-muted="distributor_portal_status == 'not_sent'"/>
+                            <field name="distributor_confirmed_date" invisible="not distributor_confirmed_date"/>
+                        </group>
+                        <group string="Access &amp; Link">
+                            <field name="distributor_portal_link" widget="CopyClipboardChar" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Distributor Remarks" invisible="not distributor_note">
+                        <field name="distributor_note" readonly="1" nolabel="1"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

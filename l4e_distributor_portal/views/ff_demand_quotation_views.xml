@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_demand_quotation_view_form_portal" model="ir.ui.view">
+        <field name="name">ff.demand.quotation.form.portal</field>
+        <field name="model">ff.demand.quotation</field>
+        <field name="inherit_id" ref="ff_demand.ff_demand_quotation_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='confirm_orders']" position="after">
+                <field name="send_portal_email"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
