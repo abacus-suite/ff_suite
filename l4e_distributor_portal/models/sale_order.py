@@ -51,6 +51,8 @@ class SaleOrder(models.Model):
             if not order.distributor_status:
                 if order.state in ('sale', 'done'):
                     order.distributor_status = 'confirmed'
+                elif order.state == 'cancel':
+                    order.distributor_status = 'rejected'
                 else:
                     order.distributor_status = 'pending'
             order.distributor_portal_status = order.distributor_status

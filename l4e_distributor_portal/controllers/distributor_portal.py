@@ -25,7 +25,8 @@ class DistributorPortalController(http.Controller):
             or order.distributor_status == 'confirmed'
         )
         is_rejected = (
-            order.distributor_status == 'rejected'
+            order.state == 'cancel'
+            or order.distributor_status == 'rejected'
         )
 
         return request.render(
@@ -166,11 +167,29 @@ class DistributorPortalController(http.Controller):
             'distributor_note': notes or False,
         })
 
+        # Move the quotation to Cancelled stage
+        if order.state != 'cancel':
+            try:
+                order.sudo()._action_cancel()
+            except Exception:
+                order.sudo().write({'state': 'cancel'})
+
+        # Refresh linked Outlet Demands and restore quoted quantities
+        demands = request.env['ff.demand'].sudo().search([('order_ids', 'in', order.ids)])
+        for demand in demands:
+            for dline in demand.line_ids:
+                matching_lines = order.order_line.filtered(lambda ol: ol.product_id == dline.product_id)
+                quoted_to_deduct = sum(matching_lines.mapped('product_uom_qty'))
+                if quoted_to_deduct > 0:
+                    dline.quoted_quantity = max(0.0, dline.quoted_quantity - quoted_to_deduct)
+            demand._ff_refresh_state()
+
         # Log rejection in Sale Order chatter
         notes_html = f"<br/><b>Rejection Remarks:</b> {notes}" if notes else "<br/><i>No rejection reason entered.</i>"
         chatter_body = Markup(
             f"<b>❌ Order Rejected by Distributor via Portal</b><br/>"
             f"<b>Distributor:</b> {order.partner_id.name}<br/>"
+            f"<b>Status:</b> Moved to Cancelled<br/>"
             f"<b>Rejected On:</b> {fields.Datetime.to_string(now)}"
             f"{notes_html}"
         )
