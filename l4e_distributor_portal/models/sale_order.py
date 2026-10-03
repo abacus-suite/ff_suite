@@ -9,11 +9,14 @@ class SaleOrder(models.Model):
 
     distributor_portal_token = fields.Char(
         string='Distributor Portal Token',
+        default=lambda self: secrets.token_urlsafe(32),
         copy=False,
         index=True,
     )
     distributor_portal_link = fields.Char(
         string='Distributor Portal Link',
+        compute='_compute_distributor_portal_link',
+        store=True,
         readonly=True,
         copy=False,
     )
@@ -57,6 +60,39 @@ class SaleOrder(models.Model):
                     order.distributor_status = 'pending'
             order.distributor_portal_status = order.distributor_status
 
+    @api.depends('partner_id', 'distributor_portal_token')
+    def _compute_distributor_portal_link(self):
+        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url', '')
+        if base_url.endswith('/'):
+            base_url = base_url[:-1]
+
+        for order in self:
+            real_id = order._origin.id or (isinstance(order.id, int) and order.id)
+            if real_id and order.distributor_portal_token:
+                order.distributor_portal_link = f"{base_url}/distributor/order/{real_id}?token={order.distributor_portal_token}"
+            elif real_id and not order.distributor_portal_token:
+                token = secrets.token_urlsafe(32)
+                order.distributor_portal_token = token
+                order.distributor_portal_link = f"{base_url}/distributor/order/{real_id}?token={token}"
+            else:
+                order.distributor_portal_link = False
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get('distributor_portal_token'):
+                vals['distributor_portal_token'] = secrets.token_urlsafe(32)
+        orders = super().create(vals_list)
+        orders.generate_distributor_portal_link()
+        return orders
+
+    def write(self, vals):
+        res = super().write(vals)
+        for order in self:
+            if not order.distributor_portal_link or not order.distributor_portal_token:
+                order.generate_distributor_portal_link()
+        return res
+
     def generate_distributor_portal_link(self):
         """Generate token and full public URL for distributor portal review."""
         base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url', '')
@@ -64,9 +100,12 @@ class SaleOrder(models.Model):
             base_url = base_url[:-1]
 
         for order in self:
+            real_id = order._origin.id or (isinstance(order.id, int) and order.id)
+            if not real_id:
+                continue
             if not order.distributor_portal_token:
                 order.distributor_portal_token = secrets.token_urlsafe(32)
-            order.distributor_portal_link = f"{base_url}/distributor/order/{order.id}?token={order.distributor_portal_token}"
+            order.distributor_portal_link = f"{base_url}/distributor/order/{real_id}?token={order.distributor_portal_token}"
         return True
 
     def action_send_distributor_portal_mail(self, auto_sent=False):
