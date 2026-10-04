@@ -18,6 +18,8 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
   String? _error;
   String _member = 'me';
   String _tab = 'hand';
+  int _dir = 1;
+  int _gen = 0;
 
   @override
   void initState() {
@@ -52,6 +54,35 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
     return '${d.day} ${m[d.month - 1]}';
   }
 
+  /// Slides a card in from below, a little later for each one down the list.
+  Widget _enter(int index, Widget child) => TweenAnimationBuilder<double>(
+        key: ValueKey('$_gen-$_tab-$index'),
+        tween: Tween(begin: 0, end: 1),
+        duration: Duration(milliseconds: 380 + (index.clamp(0, 8) * 55)),
+        curve: Curves.easeOutCubic,
+        builder: (context, t, c) => Opacity(
+          opacity: t,
+          child: Transform.translate(offset: Offset(0, (1 - t) * 22), child: c),
+        ),
+        child: child,
+      );
+
+  Widget _count(num v, TextStyle style) => TweenAnimationBuilder<double>(
+        key: ValueKey('c$_gen-${v.toStringAsFixed(2)}'),
+        tween: Tween(begin: 0, end: v.toDouble()),
+        duration: const Duration(milliseconds: 750),
+        curve: Curves.easeOutCubic,
+        builder: (context, x, _) => Text(_n(x), style: style),
+      );
+
+  void _go(String code, List<String> order) {
+    if (code == _tab) return;
+    setState(() {
+      _dir = order.indexOf(code) > order.indexOf(_tab) ? 1 : -1;
+      _tab = code;
+    });
+  }
+
   BoxDecoration get _card => BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
@@ -62,37 +93,47 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
           colors: [Color(0xFF1E63D6), Color(0xFF16A394)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        boxShadow: [BoxShadow(color: const Color(0xFF1E63D6).withValues(alpha: 0.28), blurRadius: 22, offset: const Offset(0, 10))],
+        boxShadow: [BoxShadow(color: const Color(0xFF1E63D6).withValues(alpha: 0.28), blurRadius: 24, offset: const Offset(0, 12))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.science_rounded, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 10),
-            Text(_member == 'me' ? 'In my hand' : 'In hand',
-                style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700, fontSize: 14)),
-          ]),
-          const SizedBox(height: 10),
-          Text(_n(inHand),
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 46, height: 1)),
-          const Text('samples', style: TextStyle(color: Colors.white70, fontSize: 13)),
-          const SizedBox(height: 16),
-          Row(children: [
-            _heroStat(Icons.south_west_rounded, 'Taken', taken),
-            const SizedBox(width: 10),
-            _heroStat(Icons.north_east_rounded, 'Given', given),
-          ]),
+          Positioned(
+            right: -18,
+            top: -18,
+            child: Icon(Icons.science_rounded, size: 120, color: Colors.white.withValues(alpha: 0.09)),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_member == 'me' ? 'IN MY HAND' : 'IN HAND',
+                  style: const TextStyle(
+                      color: Colors.white70, fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.4)),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _count(inHand, const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 54, height: 1)),
+                  const SizedBox(width: 8),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 6),
+                    child: Text('samples', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Row(children: [
+                _heroStat(Icons.south_west_rounded, 'Taken', taken),
+                const SizedBox(width: 10),
+                _heroStat(Icons.north_east_rounded, 'Given', given),
+              ]),
+            ],
+          ),
         ],
       ),
     );
@@ -100,59 +141,76 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
 
   Widget _heroStat(IconData icon, String label, num v) => Expanded(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(16)),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+          ),
           child: Row(children: [
             Icon(icon, color: Colors.white, size: 18),
             const SizedBox(width: 8),
-            Text(_n(v), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+            _count(v, const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
             const SizedBox(width: 6),
             Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
           ]),
         ),
       );
 
-  Widget _tabs(bool team) {
-    final tabs = <(String, String)>[
-      ('hand', 'In hand'),
-      if (team) ('people', 'By person') else ('moves', 'Movements'),
-    ];
+  /// A pill that slides from tab to tab under the labels.
+  Widget _tabs(List<(String, String)> tabs) {
+    final order = [for (final t in tabs) t.$1];
+    final at = order.indexOf(_tab).clamp(0, tabs.length - 1);
     return Container(
+      height: 50,
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(16)),
-      child: Row(children: [
-        for (final (code, label) in tabs)
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _tab = code),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: _tab == code ? Colors.white : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: _tab == code
-                      ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))]
-                      : null,
-                ),
-                child: Center(
-                  child: Text(label,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13.5,
-                          color: _tab == code ? AppColors.primary : AppColors.muted)),
-                ),
+      decoration: BoxDecoration(color: const Color(0xFFE9EEF7), borderRadius: BorderRadius.circular(18)),
+      child: LayoutBuilder(builder: (context, box) {
+        final w = box.maxWidth / tabs.length;
+        return Stack(children: [
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutCubic,
+            left: at * w,
+            width: w,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.16), blurRadius: 12, offset: const Offset(0, 4))],
               ),
             ),
           ),
-      ]),
+          Row(children: [
+            for (final (code, label) in tabs)
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => _go(code, order),
+                  child: Center(
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 250),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: _tab == code ? AppColors.primary : AppColors.muted),
+                      child: Text(label),
+                    ),
+                  ),
+                ),
+              ),
+          ]),
+        ]);
+      }),
     );
   }
 
   Widget _empty(IconData icon, String text) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 36),
+        padding: const EdgeInsets.symmetric(vertical: 40),
         child: Column(children: [
-          Icon(icon, size: 44, color: AppColors.muted.withValues(alpha: 0.5)),
+          Icon(icon, size: 46, color: AppColors.muted.withValues(alpha: 0.45)),
           const SizedBox(height: 10),
           Text(text, style: const TextStyle(color: AppColors.muted)),
         ]),
@@ -161,8 +219,7 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
   /// One flavour, with a bar showing its share of what is in hand.
   Widget _product(Map r, num maxQty) {
     final q = (r['quantity'] as num?) ?? 0;
-    final neg = q < 0;
-    final tint = neg ? AppColors.danger : AppColors.success;
+    final tint = q < 0 ? AppColors.danger : AppColors.success;
     final share = maxQty <= 0 ? 0.0 : (q.abs() / maxQty).clamp(0.0, 1.0).toDouble();
     final name = '${(r['product'] as Map)['name']}';
     return Container(
@@ -171,7 +228,7 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
       decoration: _card,
       child: Row(children: [
         CircleAvatar(
-          radius: 20,
+          radius: 21,
           backgroundColor: tint.withValues(alpha: 0.12),
           child: Text(name.isEmpty ? '?' : name[0].toUpperCase(),
               style: TextStyle(color: tint, fontWeight: FontWeight.w900)),
@@ -180,14 +237,20 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-            const SizedBox(height: 7),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: share,
-                minHeight: 6,
-                backgroundColor: tint.withValues(alpha: 0.12),
-                valueColor: AlwaysStoppedAnimation(tint),
+            const SizedBox(height: 8),
+            TweenAnimationBuilder<double>(
+              key: ValueKey('b$_gen-$_tab-$name'),
+              tween: Tween(begin: 0, end: share),
+              duration: const Duration(milliseconds: 700),
+              curve: Curves.easeOutCubic,
+              builder: (context, v, _) => ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: v,
+                  minHeight: 6,
+                  backgroundColor: tint.withValues(alpha: 0.12),
+                  valueColor: AlwaysStoppedAnimation(tint),
+                ),
               ),
             ),
           ]),
@@ -210,18 +273,18 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
       decoration: _card,
       child: Row(children: [
         Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: tint.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(13)),
-          child: Icon(taken ? Icons.south_west_rounded : Icons.north_east_rounded, color: tint, size: 20),
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(color: tint.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+          child: Icon(taken ? Icons.south_west_rounded : Icons.north_east_rounded, color: tint, size: 21),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${m['product']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
             const SizedBox(height: 2),
-            Text(who, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+            Text(who,
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
           ]),
         ),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -281,53 +344,142 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
     final onHand = ((d?['on_hand'] as List?) ?? []).cast<Map>();
     final moves = ((d?['moves'] as List?) ?? []).cast<Map>();
     final inHand = onHand.fold<double>(0, (s, r) => s + ((r['quantity'] as num?) ?? 0));
-    final maxQty = onHand.fold<double>(0, (s, r) => ((r['quantity'] as num?) ?? 0).abs() > s ? ((r['quantity'] as num?) ?? 0).abs().toDouble() : s);
-    if (team && _tab == 'moves') _tab = 'hand';
-    if (!team && _tab == 'people') _tab = 'hand';
+    final maxQty = onHand.fold<double>(
+        0, (s, r) => ((r['quantity'] as num?) ?? 0).abs() > s ? ((r['quantity'] as num?) ?? 0).abs().toDouble() : s);
+    final tabs = <(String, String)>[('hand', 'In hand'), if (team) ('people', 'By person') else ('moves', 'Movements')];
+    final order = [for (final t in tabs) t.$1];
+    if (!order.contains(_tab)) _tab = 'hand';
+
+    Widget content() {
+      var i = 0;
+      final items = <Widget>[];
+      if (_tab == 'hand') {
+        if (onHand.isEmpty) items.add(_empty(Icons.inventory_2_outlined, 'Nothing in hand'));
+        for (final r in onHand) {
+          items.add(_enter(i++, _product(r, maxQty)));
+        }
+      } else if (_tab == 'people') {
+        final people = ((d?['team'] as List?) ?? []).cast<Map>();
+        if (people.isEmpty) items.add(_empty(Icons.groups_outlined, 'No team members'));
+        for (final row in people) {
+          items.add(_enter(i++, _person(row)));
+        }
+      } else {
+        if (moves.isEmpty) items.add(_empty(Icons.swap_vert_rounded, 'No movements yet'));
+        for (final m in moves) {
+          items.add(_enter(i++, _move(m)));
+        }
+      }
+      return Column(key: ValueKey('$_gen-$_tab'), crossAxisAlignment: CrossAxisAlignment.stretch, children: items);
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: Text(_member == 'me' ? 'My Samples' : 'Samples'), centerTitle: false),
       body: d == null
-          ? Center(child: _error != null ? Padding(padding: const EdgeInsets.all(24), child: Text(_error!)) : const CircularProgressIndicator())
+          ? Center(
+              child: _error != null
+                  ? Padding(padding: const EdgeInsets.all(24), child: Text(_error!))
+                  : const CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-                children: [
-                  if (Services.auth.profile?.isManager ?? false)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: MemberPicker(
-                          value: _member,
-                          onChanged: (v) {
-                            setState(() {
-                              _member = v;
-                              _data = null;
-                            });
-                            _load();
-                          },
+              onRefresh: () async {
+                _gen++;
+                await _load();
+              },
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(children: [
+                        if (Services.auth.profile?.isManager ?? false)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: MemberPicker(
+                                value: _member,
+                                onChanged: (v) {
+                                  setState(() {
+                                    _member = v;
+                                    _data = null;
+                                    _gen++;
+                                  });
+                                  _load();
+                                },
+                              ),
+                            ),
+                          ),
+                        _hero(inHand, (d['taken'] as num?) ?? 0, (d['given'] as num?) ?? 0),
+                        const SizedBox(height: 12),
+                      ]),
+                    ),
+                  ),
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _PinnedBar(
+                      height: 66,
+                      child: Container(
+                        color: AppColors.background,
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                        child: _tabs(tabs),
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 28),
+                    sliver: SliverToBoxAdapter(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onHorizontalDragEnd: (e) {
+                          final v = e.primaryVelocity ?? 0;
+                          if (v.abs() < 250) return;
+                          final at = order.indexOf(_tab);
+                          final next = v < 0 ? at + 1 : at - 1;
+                          if (next >= 0 && next < order.length) _go(order[next], order);
+                        },
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 340),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          layoutBuilder: (current, previous) => Stack(
+                            alignment: Alignment.topCenter,
+                            children: [...previous, if (current != null) current],
+                          ),
+                          transitionBuilder: (child, anim) => FadeTransition(
+                            opacity: anim,
+                            child: SlideTransition(
+                              position: Tween<Offset>(begin: Offset(0.12 * _dir, 0), end: Offset.zero).animate(anim),
+                              child: child,
+                            ),
+                          ),
+                          child: content(),
                         ),
                       ),
                     ),
-                  _hero(inHand, (d['taken'] as num?) ?? 0, (d['given'] as num?) ?? 0),
-                  const SizedBox(height: 16),
-                  _tabs(team),
-                  const SizedBox(height: 14),
-                  if (_tab == 'hand') ...[
-                    if (onHand.isEmpty) _empty(Icons.inventory_2_outlined, 'Nothing in hand'),
-                    for (final r in onHand) _product(r, maxQty),
-                  ] else if (_tab == 'people') ...[
-                    if ((d['team'] as List).isEmpty) _empty(Icons.groups_outlined, 'No team members'),
-                    for (final row in (d['team'] as List).cast<Map>()) _person(row),
-                  ] else ...[
-                    if (moves.isEmpty) _empty(Icons.swap_vert_rounded, 'No movements yet'),
-                    for (final m in moves) _move(m),
-                  ],
+                  ),
                 ],
               ),
             ),
     );
   }
+}
+
+class _PinnedBar extends SliverPersistentHeaderDelegate {
+  _PinnedBar({required this.height, required this.child});
+
+  final double height;
+  final Widget child;
+
+  @override
+  double get minExtent => height;
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => child;
+
+  @override
+  bool shouldRebuild(covariant _PinnedBar old) => true;
 }
