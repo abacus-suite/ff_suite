@@ -196,17 +196,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final deadline = _deadline;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('My Expenses'),
-        actions: [
-          TextButton.icon(
-            onPressed: _new,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('New expense'),
-          ),
-          const SizedBox(width: 6),
-        ],
-      ),
+      appBar: AppBar(title: const Text('My Expenses')),
       floatingActionButton: _picked.isEmpty
           ? FloatingActionButton.extended(
               onPressed: _new, icon: const Icon(Icons.add_rounded), label: const Text('New expense'))
