@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -75,7 +76,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   bool get _canSend => _demandFlow && (Services.auth.profile?.demandSubmit ?? false);
 
   /// A demand already sent on, or cancelled, cannot be sent again.
-  bool _sendable(Map<String, dynamic> o) => o['state'] == 'submitted' || o['state'] == 'draft';
+  bool _sendable(Map<String, dynamic> o) =>
+      o['state'] == 'submitted' || o['state'] == 'draft' || o['foc_status'] == 'pending';
 
   Future<void> _sendPicked() async {
     final demands = _orders.where((o) => _picked.contains(o['id'])).toList();
@@ -84,19 +86,47 @@ class _OrdersScreenState extends State<OrdersScreen> {
     if (distributor == null || !mounted) return;
     setState(() => _sending = true);
     try {
-      final result = await Services.api.post('/api/v1/demands/submit', {
-        'demand_ids': demands.map((o) => o['id']).toList(),
-        'distributor_id': distributor['id'],
-      }) as Map<String, dynamic>;
+      // What is paid for goes to the distributor as an order. Free goods are not
+      // ordered - the distributor is made good by the debit note - so they are
+      // asked for by message instead.
+      final paid = demands.where((o) => o['foc_only'] != true && (o['state'] == 'submitted' || o['state'] == 'draft'));
+      Map<String, dynamic>? result;
+      if (paid.isNotEmpty) {
+        result = await Services.api.post('/api/v1/demands/submit', {
+          'demand_ids': paid.map((o) => o['id']).toList(),
+          'distributor_id': distributor['id'],
+        }) as Map<String, dynamic>;
+      }
+      final messages = <String>[];
+      String? phone;
+      for (final o in demands.where((o) => o['foc_status'] == 'pending')) {
+        final sent = await Services.api.post('/api/v1/demands/${o['id']}/foc-request', {
+          'distributor_id': distributor['id'],
+        }) as Map<String, dynamic>;
+        messages.add('${sent['message']}');
+        phone ??= sent['phone'] as String?;
+      }
       if (!mounted) return;
       setState(_picked.clear);
       await _load();
-      if (mounted) await showSubmittedSheet(context, result);
+      if (!mounted) return;
+      if (result != null) await showSubmittedSheet(context, result);
+      if (messages.isNotEmpty && mounted) {
+        await _sendFreeGoodsMessage(phone, messages.join('\n\n----\n\n'));
+      }
     } catch (e) {
       if (mounted) showSnack(context, e.toString());
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  Future<void> _sendFreeGoodsMessage(String? phone, String text) async {
+    final uri = phone == null
+        ? Uri.parse('https://wa.me/?text=${Uri.encodeComponent(text)}')
+        : Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(text)}');
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) showSnack(context, 'Could not open WhatsApp');
   }
 
   Map<String, dynamic> get _query => {
@@ -829,6 +859,33 @@ class _OrderDetail extends StatelessWidget {
               ListTile(contentPadding: EdgeInsets.zero, title: const Text('Total'),
                   trailing: Text(fmtMoney(o['amount_total'] as num?, currency),
                       style: const TextStyle(fontWeight: FontWeight.bold))),
+              if (o['foc_status'] != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  switch ('${o['foc_status']}') {
+                    'pending' => 'Free goods: not yet requested from the distributor',
+                    'requested' => 'Free goods: requested, waiting for delivery',
+                    _ => 'Free goods: delivered',
+                  },
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                if (o['foc_status'] == 'requested')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.check_rounded),
+                      label: const Text('Free goods delivered'),
+                      onPressed: () async {
+                        try {
+                          await Services.api.post('/api/v1/demands/${o['id']}/foc-delivered', {});
+                          if (context.mounted) Navigator.of(context).pop();
+                        } catch (e) {
+                          if (context.mounted) showSnack(context, e.toString());
+                        }
+                      },
+                    ),
+                  ),
+              ],
             ],
           ),
         );
