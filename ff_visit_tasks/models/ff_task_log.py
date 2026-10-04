@@ -505,7 +505,13 @@ class FfTaskLog(models.Model):
             self.env['ff.distributor.note'].ff_raise(
                 employee, 'debit', rows, distributor=distributor, reason=reason, task_log=log)
         elif source == 'outlet':
-            self._ff_require(partner, 'Choose the outlet.')
+            # The outlet the samples come from is not necessarily the one being visited:
+            # the person may be standing at a new shop with samples taken from a
+            # neighbour. The visit keeps its own contact; the source is named apart.
+            source_outlet = self.env['res.partner'].sudo().browse(
+                int(data.get('source_partner_id') or 0)).exists() or partner
+            self._ff_require(source_outlet, 'Choose the outlet the samples come from.')
+            partner = source_outlet
             distributor = partner.ff_distributor_id
             log.distributor_id = distributor.id or False
             # The outlet gives the samples away from its own shelf, so it is made
