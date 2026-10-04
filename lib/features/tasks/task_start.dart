@@ -56,6 +56,27 @@ Future<void> startTaskForClient(BuildContext context, Map<String, dynamic> clien
   await _begin(context, config, code, client: client);
 }
 
+/// Takes somebody who is checked in straight back to where they were.
+///
+/// A visit that was opened for a task is not left by closing the app or going
+/// to another screen: it ends when the task is submitted. So whenever the app
+/// starts, or comes back to the front, it asks the server whether a visit is
+/// still open and, if it is, puts the task back in front of the person.
+Future<void> resumeOpenTask(BuildContext context) async {
+  if (taskScreenOpen) return;
+  try {
+    final visit = await Services.api.get('/api/v1/visits/current') as Map<String, dynamic>?;
+    final code = '${visit?['task'] ?? ''}';
+    if (visit == null || code.isEmpty || taskScreenOpen || !context.mounted) return;
+    final client = await Services.api.get('/api/v1/clients/${(visit['client'] as Map)['id']}')
+        as Map<String, dynamic>;
+    if (!context.mounted || taskScreenOpen) return;
+    await resumeTask(context, client, visit);
+  } catch (_) {
+    // Offline, or nothing open: there is nowhere to take them.
+  }
+}
+
 /// Picks up a task whose visit is already open, after the app was left.
 Future<void> resumeTask(BuildContext context, Map<String, dynamic> client, Map<String, dynamic> visit) async {
   final config = await _config(context);

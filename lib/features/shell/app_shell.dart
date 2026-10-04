@@ -38,19 +38,30 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   String _current = 'home';
 
   @override
   void initState() {
     super.initState();
     ChatBadge.start();
+    WidgetsBinding.instance.addObserver(this);
+    // Opening the app while checked in goes straight back to the visit.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) resumeOpenTask(context);
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     ChatBadge.stop();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) resumeOpenTask(context);
   }
 
   void _open(String key) {

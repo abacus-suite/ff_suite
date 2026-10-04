@@ -17,6 +17,9 @@ import '../clients/clients_screen.dart';
 import '../collections/collect_payment_screen.dart';
 import 'task_widgets.dart';
 
+/// Whether a task screen is on show, so a visit left open is not reopened over itself.
+bool taskScreenOpen = false;
+
 /// One screen of a task.
 class _Step {
   _Step(this.number, this.title, this.body, this.check);
@@ -95,6 +98,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
   @override
   void initState() {
     super.initState();
+    taskScreenOpen = true;
     _client = widget.client;
     if (widget.code == 'client_visit') _loadLedger();
     if (widget.code == 'new_lead') _loadLeadLists();
@@ -102,6 +106,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
 
   @override
   void dispose() {
+    taskScreenOpen = false;
     for (final c in _text.values) {
       c.dispose();
     }
@@ -1068,6 +1073,73 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     }
   }
 
+  /// Going back while checked in. There is no back: the visit ends when the task is
+  /// submitted. A way out is still kept for the day it cannot be - a shop that has
+  /// burnt down, a phone that cannot take the photo - but it is a deliberate act
+  /// with a reason, and it is on the record.
+  Future<void> _stayCheckedIn() async {
+    final out = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        icon: const Icon(Icons.lock_clock_rounded, color: AppColors.primary, size: 34),
+        title: const Text('You are checked in'),
+        content: const Text('Finish the steps and submit to check out. You cannot go anywhere else until then.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: const Text('Cannot finish', style: TextStyle(color: AppColors.danger)),
+          ),
+          FilledButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Keep going')),
+        ],
+      ),
+    );
+    if (out != true || !mounted) return;
+    final reason = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Check out without finishing?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Nothing you entered is saved, and your manager will see why.',
+                style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: reason,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Reason *', isDense: true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Back')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Check out')),
+        ],
+      ),
+    );
+    final why = reason.text.trim();
+    reason.dispose();
+    if (confirmed != true || !mounted) return;
+    if (why.isEmpty) {
+      showSnack(context, 'Give the reason.');
+      return;
+    }
+    try {
+      await Services.api.post('/api/v1/visits/check-out', {
+        'visit_uuid': widget.visit?['uuid'],
+        'task': true,
+        'outcome': 'other',
+        'note': 'Left the task unfinished: $why',
+      });
+      Services.refresh.value++;
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+    }
+  }
+
   // ------------------------------------------------------------------ the screen
   @override
   Widget build(BuildContext context) {
@@ -1081,11 +1153,16 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        // Checked in: the way out is checking out, which is submitting the task.
+        if (widget.visit != null) {
+          await _stayCheckedIn();
+          return;
+        }
         final leave = await showDialog<bool>(
           context: context,
           builder: (dialog) => AlertDialog(
             title: const Text('Leave this task?'),
-            content: const Text('What you have entered will be lost. A visit already started stays open.'),
+            content: const Text('What you have entered will be lost.'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Stay')),
               FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Leave')),
