@@ -1,0 +1,10 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_outlet_invoice_officer,ff.outlet.invoice officer,model_ff_outlet_invoice,ff_base.group_ff_officer,1,0,0,0
+access_ff_outlet_invoice_manager,ff.outlet.invoice manager,model_ff_outlet_invoice,ff_base.group_ff_manager,1,1,1,0
+access_ff_outlet_invoice_admin,ff.outlet.invoice admin,model_ff_outlet_invoice,ff_base.group_ff_admin,1,1,1,1
+access_ff_outlet_payment_officer,ff.outlet.payment officer,model_ff_outlet_payment,ff_base.group_ff_officer,1,0,0,0
+access_ff_outlet_payment_manager,ff.outlet.payment manager,model_ff_outlet_payment,ff_base.group_ff_manager,1,1,1,0
+access_ff_outlet_payment_admin,ff.outlet.payment admin,model_ff_outlet_payment,ff_base.group_ff_admin,1,1,1,1
+access_ff_outlet_payment_line_officer,ff.outlet.payment.line officer,model_ff_outlet_payment_line,ff_base.group_ff_officer,1,0,0,0
+access_ff_outlet_payment_line_manager,ff.outlet.payment.line manager,model_ff_outlet_payment_line,ff_base.group_ff_manager,1,1,1,0
+access_ff_outlet_payment_line_admin,ff.outlet.payment.line admin,model_ff_outlet_payment_line,ff_base.group_ff_admin,1,1,1,1

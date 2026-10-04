@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="seq_ff_outlet_payment" model="ir.sequence">
+        <field name="name">Outlet Payment</field>
+        <field name="code">ff.outlet.payment</field>
+        <field name="prefix">OPY/%(year)s/</field>
+        <field name="padding">4</field>
+    </record>
+</odoo>

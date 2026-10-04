@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_outlet_invoice_view_list" model="ir.ui.view">
+        <field name="name">ff.outlet.invoice.list</field>
+        <field name="model">ff.outlet.invoice</field>
+        <field name="arch" type="xml">
+            <list decoration-danger="overdue" decoration-muted="state == 'cancelled'"
+                  decoration-success="state == 'paid'">
+                <field name="date"/>
+                <field name="name"/>
+                <field name="distributor_id"/>
+                <field name="partner_id"/>
+                <field name="due_date" optional="show"/>
+                <field name="amount_total" sum="Billed"/>
+                <field name="amount_collected" sum="Collected"/>
+                <field name="amount_awaiting" sum="Awaiting" optional="show"/>
+                <field name="amount_confirmed" sum="Confirmed" optional="hide"/>
+                <field name="amount_pending" sum="Pending"/>
+                <field name="earning" sum="Earning" optional="show"/>
+                <field name="employee_id" optional="hide"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="overdue" column_invisible="1"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'paid'"
+                       decoration-warning="state == 'partial'"
+                       decoration-info="state == 'open'"
+                       decoration-muted="state == 'cancelled'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_outlet_invoice_view_form" model="ir.ui.view">
+        <field name="name">ff.outlet.invoice.form</field>
+        <field name="model">ff.outlet.invoice</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_cancel" type="object" string="Cancel" invisible="state == 'cancelled'"
+                            groups="ff_base.group_ff_manager"/>
+                    <button name="action_reopen" type="object" string="Reopen" invisible="state != 'cancelled'"
+                            groups="ff_base.group_ff_manager"/>
+                    <field name="state" widget="statusbar" statusbar_visible="open,partial,paid"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Distributor's invoice number"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="distributor_id"/>
+                            <field name="partner_id"/>
+                            <field name="date"/>
+                            <field name="due_date"/>
+                        </group>
+                        <group>
+                            <field name="amount_total"/>
+                            <field name="amount_collected"/>
+                            <field name="amount_awaiting"/>
+                            <field name="amount_confirmed"/>
+                            <field name="amount_pending"/>
+                            <field name="earning"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="company_id" invisible="1"/>
+                            <field name="employee_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Payments" name="payments">
+                            <field name="payment_line_ids" readonly="1">
+                                <list>
+                                    <field name="payment_id"/>
+                                    <field name="amount" sum="Applied"/>
+                                    <field name="state" widget="badge"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                    <field name="note" placeholder="Note"/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_outlet_invoice_view_search" model="ir.ui.view">
+        <field name="name">ff.outlet.invoice.search</field>
+        <field name="model">ff.outlet.invoice</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="distributor_id"/>
+                <field name="employee_id"/>
+                <filter name="open" string="Not paid" domain="[('state', 'in', ('open', 'partial'))]"/>
+                <filter name="overdue" string="Overdue" domain="[('overdue', '=', True)]"/>
+                <filter name="paid" string="Paid" domain="[('state', '=', 'paid')]"/>
+                <group>
+                    <filter name="group_distributor" string="Distributor" context="{'group_by': 'distributor_id'}"/>
+                    <filter name="group_outlet" string="Outlet" context="{'group_by': 'partner_id'}"/>
+                    <filter name="group_month" string="Month" context="{'group_by': 'date:month'}"/>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- The distributor report: billed, collected, pending and earned. -->
+    <record id="ff_outlet_invoice_view_pivot" model="ir.ui.view">
+        <field name="name">ff.outlet.invoice.pivot</field>
+        <field name="model">ff.outlet.invoice</field>
+        <field name="arch" type="xml">
+            <pivot string="Distributor Collections">
+                <field name="distributor_id" type="row"/>
+                <field name="date" interval="month" type="col"/>
+                <field name="amount_total" type="measure"/>
+                <field name="amount_collected" type="measure"/>
+                <field name="amount_confirmed" type="measure"/>
+                <field name="amount_pending" type="measure"/>
+                <field name="earning" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="ff_outlet_invoice_view_graph" model="ir.ui.view">
+        <field name="name">ff.outlet.invoice.graph</field>
+        <field name="model">ff.outlet.invoice</field>
+        <field name="arch" type="xml">
+            <graph string="Distributor Collections" type="bar">
+                <field name="distributor_id"/>
+                <field name="amount_collected" type="measure"/>
+                <field name="amount_pending" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="ff_outlet_invoice_action" model="ir.actions.act_window">
+        <field name="name">Outlet Invoices</field>
+        <field name="res_model">ff.outlet.invoice</field>
+        <field name="view_mode">list,form,pivot,graph</field>
+        <field name="context">{'search_default_open': 1}</field>
+    </record>
+
+    <record id="ff_outlet_invoice_report_action" model="ir.actions.act_window">
+        <field name="name">Distributor Collections</field>
+        <field name="res_model">ff.outlet.invoice</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'pivot', 'view_id': ref('ff_outlet_invoice_view_pivot')}),
+            (0, 0, {'view_mode': 'graph', 'view_id': ref('ff_outlet_invoice_view_graph')}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('ff_outlet_invoice_view_list')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Nothing billed to outlets yet</p>
+            <p>How much each distributor has billed its outlets, how much has been collected, how much
+            is still pending and what the distributor has earned from it.</p>
+        </field>
+    </record>
+</odoo>

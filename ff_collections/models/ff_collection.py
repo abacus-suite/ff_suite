@@ -46,6 +46,11 @@ class FfCollection(models.Model):
     note = fields.Text()
     photo_count = fields.Integer(compute='_compute_photo_count')
     deposit_id = fields.Many2one('ff.collection.deposit', string='Deposit', ondelete='set null', index=True)
+    move_ids = fields.Many2many('account.move', 'ff_collection_move_rel', 'collection_id', 'move_id',
+                                string='Invoices Paid', copy=False,
+                                domain=[('move_type', '=', 'out_invoice')],
+                                help="The company's own invoices this money is for. When the office "
+                                     'receives it, the payment it posts is matched against them.')
     payment_id = fields.Many2one('account.payment', string='Payment', readonly=True, copy=False,
                                  help='The customer payment posted when the office received this money.')
     state = fields.Selection([

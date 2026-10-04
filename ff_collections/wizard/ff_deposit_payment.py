@@ -106,6 +106,8 @@ class FfDepositPayment(models.TransientModel):
                 lines = collections.filtered(lambda c, p=partner: c.partner_id == p)
                 payments |= self._ff_payment(partner, sum(lines.mapped('amount')), lines)
         payments.action_post()
+        for payment in payments:
+            self._ff_reconcile(payment, collections.filtered(lambda c, p=payment: c.payment_id == p))
 
         deposit.action_receive()
         deposit.message_post(body=self.env._(
@@ -120,6 +122,27 @@ class FfDepositPayment(models.TransientModel):
             'view_mode': 'list,form' if len(payments) > 1 else 'form',
             'res_id': payments.id if len(payments) == 1 else False,
         }
+
+    def _ff_reconcile(self, payment, collections):
+        """Match the payment against the invoices the collections were for.
+
+        Only the company's own posted invoices of the same customer, and only
+        what is still open. Matching is a convenience, so a failure here never
+        stops the money from being received.
+        """
+        moves = collections.move_ids.filtered(
+            lambda m: m.state == 'posted' and m.payment_state in ('not_paid', 'partial')
+            and m.partner_id.commercial_partner_id == payment.partner_id.commercial_partner_id)
+        if not moves:
+            return
+        try:
+            with self.env.cr.savepoint():
+                lines = (payment.move_id.line_ids | moves.line_ids).filtered(
+                    lambda l: l.account_id.account_type == 'asset_receivable' and not l.reconciled)
+                lines.reconcile()
+        except Exception:
+            payment.message_post(body=self.env._(
+                'The payment was posted but could not be matched to the invoices; do it in Accounting.'))
 
     def _ff_payment(self, partner, amount, collections):
         """One posted customer payment, tied back to the collections it settles."""

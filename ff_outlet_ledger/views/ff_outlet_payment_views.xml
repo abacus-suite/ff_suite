@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_outlet_payment_view_list" model="ir.ui.view">
+        <field name="name">ff.outlet.payment.list</field>
+        <field name="model">ff.outlet.payment</field>
+        <field name="arch" type="xml">
+            <list decoration-info="state == 'given'" decoration-muted="state == 'rejected'" create="0">
+                <field name="date"/>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="distributor_id"/>
+                <field name="employee_id" optional="show"/>
+                <field name="mode_id" optional="show"/>
+                <field name="reference" optional="hide"/>
+                <field name="amount" sum="Total"/>
+                <field name="amount_unapplied" sum="On account" optional="show"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'given'"
+                       decoration-success="state == 'confirmed'"
+                       decoration-danger="state == 'rejected'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_outlet_payment_view_form" model="ir.ui.view">
+        <field name="name">ff.outlet.payment.form</field>
+        <field name="model">ff.outlet.payment</field>
+        <field name="arch" type="xml">
+            <form create="0">
+                <header>
+                    <button name="action_confirm" type="object" string="Confirm" class="btn-primary"
+                            invisible="state != 'given'"/>
+                    <button name="action_reject" type="object" string="Reject" invisible="state != 'given'"/>
+                    <button name="action_reset" type="object" string="Back to Given" invisible="state == 'given'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="given,confirmed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="distributor_id"/>
+                            <field name="employee_id"/>
+                            <field name="date"/>
+                        </group>
+                        <group>
+                            <field name="amount"/>
+                            <field name="amount_applied"/>
+                            <field name="amount_unapplied"/>
+                            <field name="mode_id"/>
+                            <field name="reference"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="company_id" invisible="1"/>
+                            <field name="confirmed_by_id" invisible="not confirmed_by_id"/>
+                            <field name="confirmed_at" invisible="not confirmed_at"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Applied To" name="lines">
+                            <field name="line_ids">
+                                <list editable="bottom">
+                                    <field name="invoice_id"
+                                           domain="[('partner_id', '=', parent.partner_id), ('state', 'in', ('open', 'partial'))]"/>
+                                    <field name="amount" sum="Applied"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                    <field name="note" placeholder="Note"/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_outlet_payment_view_search" model="ir.ui.view">
+        <field name="name">ff.outlet.payment.search</field>
+        <field name="model">ff.outlet.payment</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="distributor_id"/>
+                <field name="employee_id"/>
+                <filter name="to_confirm" string="To confirm" domain="[('state', '=', 'given')]"/>
+                <group>
+                    <filter name="group_distributor" string="Distributor" context="{'group_by': 'distributor_id'}"/>
+                    <filter name="group_employee" string="Collected by" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_month" string="Month" context="{'group_by': 'date:month'}"/>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_outlet_payment_action" model="ir.actions.act_window">
+        <field name="name">Outlet Payments</field>
+        <field name="res_model">ff.outlet.payment</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_to_confirm': 1}</field>
+    </record>
+</odoo>
