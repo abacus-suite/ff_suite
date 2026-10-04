@@ -224,11 +224,10 @@ class FfVisit(models.Model):
             data.get('purpose') if data.get('purpose') in dict(PURPOSES) else False)
         # A visit closed by a task has already been through that task's own steps,
         # which are stricter than the purpose rules and are enforced where they live.
-        if not auto and not data.get('task'):
-            # The purpose decides what a finished visit has to carry, so nothing
-            # is written up until it is known.
-            if not purpose:
-                raise UserError(self.env._('Choose what this visit was for before checking out.'))
+        # A visit opened for something else - an order, a payment - has no purpose
+        # to hold it to, and the task rules were enforced by the task itself.
+        if not auto and not data.get('task') and purpose:
+            # The purpose decides what a finished visit has to carry.
             if purpose == 'client_visit':
                 if not note:
                     raise UserError(self.env._('Write the visit notes before checking out.'))

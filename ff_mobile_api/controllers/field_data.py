@@ -58,6 +58,8 @@ def visit_data(visit):
         'auto_start': visit.auto_start,
         'outcome': visit.outcome or None,
         'purpose': visit.purpose or None,
+        # Which of the sales tasks the visit was opened for, where that module is installed.
+        'task': getattr(visit, 'task_code', None) or None,
         'outcome_type': ref(visit.outcome_id),
         'productive': visit.productive,
         'note': visit.note or None,
