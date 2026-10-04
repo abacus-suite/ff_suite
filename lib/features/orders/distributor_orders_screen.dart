@@ -5,6 +5,7 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'distributor_submit.dart';
+import 'package:flutter/services.dart';
 
 /// The orders raised from demand: one per send, addressed to a distributor.
 ///
@@ -72,10 +73,29 @@ class _DistributorOrdersScreenState extends State<DistributorOrdersScreen> {
     );
   }
 
+  /// A turned-down order goes out again, to the same distributor or another.
+  Future<void> _resend(Map<String, dynamic> o) async {
+    final picked = await pickDistributor(context, demandCount: 1);
+    if (picked == null || !mounted) return;
+    try {
+      final result = await Services.api.post('/api/v1/orders/${o['id']}/resend', {
+        'distributor_id': picked['id'],
+      }) as Map<String, dynamic>;
+      if (!mounted) return;
+      await _load();
+      if (mounted) await showSubmittedSheet(context, result);
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+    }
+  }
+
   Widget _card(Map<String, dynamic> o) {
     final date = parseServerTime(o['date']);
     final billed = (o['distributor'] as Map?) ?? (o['client'] as Map?);
     final confirmed = o['state'] == 'sale' || o['state'] == 'done';
+    final turnedDown = o['distributor_status'] == 'rejected' || o['state'] == 'cancel';
+    final reason = asText(o['distributor_note']);
+    final link = asText(o['portal_link']);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(13, 12, 12, 10),
@@ -110,7 +130,13 @@ class _DistributorOrdersScreenState extends State<DistributorOrdersScreen> {
                   ],
                 ),
               ),
-              StatusBadge('${o['state']}', label: '${o['state_label'] ?? o['state']}'),
+              StatusBadge(
+                  turnedDown ? 'cancelled' : '${o['state']}',
+                  label: turnedDown
+                      ? 'Turned down'
+                      : confirmed
+                          ? 'Confirmed'
+                          : 'With distributor'),
             ],
           ),
           const SizedBox(height: 9),
@@ -124,16 +150,61 @@ class _DistributorOrdersScreenState extends State<DistributorOrdersScreen> {
                   fmtMoney(o['amount_total'] as num?, o['currency'] as String?)),
             ],
           ),
+          // Why it came back, in the distributor's own words.
+          if (turnedDown && reason != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.danger.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${billed?['name'] ?? 'The distributor'} turned it down',
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.danger)),
+                  const SizedBox(height: 3),
+                  Text(reason, style: const TextStyle(fontSize: 12.5)),
+                ],
+              ),
+            ),
+          ],
           const Divider(height: 18),
           Row(
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => shareOrderSummary(context, o['id'] as int, '${o['name']}'),
-                  icon: const Icon(Icons.ios_share_rounded, size: 17),
-                  label: const Text('Share summary'),
+              if (turnedDown)
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => _resend(o),
+                    icon: const Icon(Icons.send_rounded, size: 17),
+                    label: const Text('Send again'),
+                  ),
+                )
+              else ...[
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => shareOrderSummary(context, o['id'] as int, '${o['name']}'),
+                    icon: const Icon(Icons.ios_share_rounded, size: 17),
+                    label: const Text('Summary'),
+                  ),
                 ),
-              ),
+                if (link != null && !confirmed) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: link));
+                        if (context.mounted) showSnack(context, 'Link copied');
+                      },
+                      icon: const Icon(Icons.link_rounded, size: 17),
+                      label: const Text('Copy link'),
+                    ),
+                  ),
+                ],
+              ],
             ],
           ),
         ],

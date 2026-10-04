@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -190,6 +191,20 @@ Future<void> showSubmittedSheet(BuildContext context, Map<String, dynamic> resul
               onPressed: () => shareOrderSummary(sheet, order['id'] as int, '${order['name']}'),
             ),
           ),
+          if (order['portal_link'] != null) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: '${order['portal_link']}'));
+                  if (sheet.mounted) showSnack(sheet, 'Link copied - the distributor confirms it there');
+                },
+                icon: const Icon(Icons.link_rounded, size: 18),
+                label: const Text('Copy the distributor link'),
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           TextButton(onPressed: () => Navigator.pop(sheet), child: const Text('Later')),
         ],
