@@ -59,7 +59,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   Future<void> _new() async {
-    final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const NewExpenseScreen()));
+    final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const NewExpenseScreen(openList: false)));
     if (saved == true) _load();
   }
 
@@ -196,7 +196,17 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final deadline = _deadline;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('My Expenses')),
+      appBar: AppBar(
+        title: const Text('My Expenses'),
+        actions: [
+          TextButton.icon(
+            onPressed: _new,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('New expense'),
+          ),
+          const SizedBox(width: 6),
+        ],
+      ),
       floatingActionButton: _picked.isEmpty
           ? FloatingActionButton.extended(
               onPressed: _new, icon: const Icon(Icons.add_rounded), label: const Text('New expense'))

@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
 import 'expense_form_screen.dart';
+import 'expenses_screen.dart';
 
 /// "+" → New Expense: claim what was paid from one's own pocket, or record what
 /// was paid with a company card.
 class NewExpenseScreen extends StatelessWidget {
-  const NewExpenseScreen({super.key});
+  const NewExpenseScreen({super.key, this.openList = true});
+
+  /// After a claim is saved, go to My Expenses to send it. Off when My Expenses is already behind this screen.
+  final bool openList;
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +19,13 @@ class NewExpenseScreen extends StatelessWidget {
           onTap: () async {
             final saved = await Navigator.of(context)
                 .push<bool>(MaterialPageRoute(builder: (_) => ExpenseFormScreen(kind: kind)));
-            if (saved == true && context.mounted) Navigator.of(context).pop(true);
+            if (saved != true || !context.mounted) return;
+            if (kind == 'claim' && openList) {
+              // A saved claim is sent from My Expenses, so that is where it goes next.
+              Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const ExpensesScreen()));
+            } else {
+              Navigator.of(context).pop(true);
+            }
           },
           child: Container(
             padding: const EdgeInsets.all(18),
