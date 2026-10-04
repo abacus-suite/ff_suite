@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_holiday_view_list" model="ir.ui.view">
+        <field name="name">ff.holiday.list</field>
+        <field name="model">ff.holiday</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="date"/>
+                <field name="name"/>
+                <field name="team_ids" widget="many2many_tags" placeholder="Everybody"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="active" widget="boolean_toggle" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_holiday_view_search" model="ir.ui.view">
+        <field name="name">ff.holiday.search</field>
+        <field name="model">ff.holiday</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="team_ids"/>
+                <filter name="this_year" string="This year"
+                        domain="[('date', '&gt;=', context_today().strftime('%Y-01-01')),
+                                 ('date', '&lt;=', context_today().strftime('%Y-12-31'))]"/>
+                <group>
+                    <filter name="group_month" string="Month" context="{'group_by': 'date:month'}"/>
+                    <filter name="group_region" string="Region" context="{'group_by': 'team_ids'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_holiday_action" model="ir.actions.act_window">
+        <field name="name">Regional Holidays</field>
+        <field name="res_model">ff.holiday</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'search_default_this_year': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No holidays yet</p>
+            <p>Each region has its own holidays. Pick the teams one applies to, or leave it empty for
+            everybody. The attendance calendar then shows it as a holiday, not as an absence.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_ff_holidays" name="Regional Holidays" parent="ff_base.menu_ff_config"
+              action="ff_holiday_action" sequence="60"/>
+</odoo>

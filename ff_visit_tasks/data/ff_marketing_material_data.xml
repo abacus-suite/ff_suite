@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- The seven kinds of marketing material an outlet can have. A product in this
+         category is what the field tasks list as material; the office can add more. -->
+    <record id="categ_marketing_material" model="product.category">
+        <field name="name">Marketing Material</field>
+        <field name="ff_marketing_material" eval="True"/>
+    </record>
+
+    <record id="product_marketing_1" model="product.template">
+        <field name="name">Tent Cards</field>
+        <field name="categ_id" ref="categ_marketing_material"/>
+        <field name="type">consu</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0</field>
+        <field name="ff_show_in_app" eval="False"/>
+    </record>
+
+    <record id="product_marketing_2" model="product.template">
+        <field name="name">Menu Cards</field>
+        <field name="categ_id" ref="categ_marketing_material"/>
+        <field name="type">consu</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0</field>
+        <field name="ff_show_in_app" eval="False"/>
+    </record>
+
+    <record id="product_marketing_3" model="product.template">
+        <field name="name">Acrylic Stands</field>
+        <field name="categ_id" ref="categ_marketing_material"/>
+        <field name="type">consu</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0</field>
+        <field name="ff_show_in_app" eval="False"/>
+    </record>
+
+    <record id="product_marketing_4" model="product.template">
+        <field name="name">Standee with Board</field>
+        <field name="categ_id" ref="categ_marketing_material"/>
+        <field name="type">consu</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0</field>
+        <field name="ff_show_in_app" eval="False"/>
+    </record>
+
+    <record id="product_marketing_5" model="product.template">
+        <field name="name">Light Boards</field>
+        <field name="categ_id" ref="categ_marketing_material"/>
+        <field name="type">consu</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0</field>
+        <field name="ff_show_in_app" eval="False"/>
+    </record>
+
+    <record id="product_marketing_6" model="product.template">
+        <field name="name">Signage</field>
+        <field name="categ_id" ref="categ_marketing_material"/>
+        <field name="type">consu</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0</field>
+        <field name="ff_show_in_app" eval="False"/>
+    </record>
+
+    <record id="product_marketing_7" model="product.template">
+        <field name="name">Bottle Cutouts</field>
+        <field name="categ_id" ref="categ_marketing_material"/>
+        <field name="type">consu</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0</field>
+        <field name="ff_show_in_app" eval="False"/>
+    </record>
+</odoo>

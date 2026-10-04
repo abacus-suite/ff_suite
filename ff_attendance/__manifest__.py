@@ -13,6 +13,7 @@
         'views/hr_attendance_views.xml',
         'views/ff_attendance_day_views.xml',
         'views/ff_regularisation_views.xml',
+        'views/ff_holiday_views.xml',
         'views/hr_employee_views.xml',
         'views/ff_attendance_menus.xml',
     ],

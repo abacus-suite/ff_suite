@@ -199,6 +199,9 @@ class HrEmployee(models.Model):
                 half_day_hours = entry['shift'].half_day_hours if entry['shift'] else 0
                 if not entry['open'] and day < today and entry['worked_hours'] < half_day_hours:
                     status = 'half_day'
+            elif self.env['ff.holiday']._ff_for(employee, day):
+                # Before "upcoming", so a holiday still to come is shown as one.
+                status = 'holiday'
             elif day > today:
                 status = 'upcoming'
             elif shift._ff_is_week_off(day) if shift else day.weekday() == 6:
@@ -214,5 +217,6 @@ class HrEmployee(models.Model):
                 'worked_hours': round(entry['worked_hours'], 2) if entry else 0.0,
                 'first_in': to_iso(entry['first_in']) if entry else None,
                 'last_out': to_iso(entry['last_out']) if entry else None,
+                'holiday': self.env['ff.holiday']._ff_for(employee, day).name or None if status == 'holiday' else None,
             })
         return {'year': year, 'month': month, 'days': days, 'summary': summary}

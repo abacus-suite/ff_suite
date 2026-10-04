@@ -19,6 +19,7 @@ flavours counted and ordered, one marked Marketing Material is the material.
         'security/ir.model.access.csv',
         'security/ff_visit_tasks_security.xml',
         'data/ff_visit_tasks_data.xml',
+        'data/ff_marketing_material_data.xml',
         'views/ff_task_type_views.xml',
         'views/ff_task_log_views.xml',
         'views/ff_distributor_note_views.xml',

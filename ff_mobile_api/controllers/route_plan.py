@@ -1,7 +1,10 @@
 """Planning route days from the app."""
+from datetime import timedelta
+
 from odoo import fields, http
 from odoo.http import request
 
+from .clients import to_int
 from .common import ApiError, api_route, body, ok, ref, scope_members
 from .field_data import client_data, plan_data
 
@@ -129,16 +132,44 @@ class FieldForceRoutePlanApi(http.Controller):
         target, _label = _one(employee, data.get('member'))
         # sudo: the result set is read afterwards, and an empty non-sudo set would take the union's access rights.
         Plan = request.env['ff.beat.plan'].sudo()
-        # Picked customer by customer: no route, one day, whatever beats they sit on.
-        if data.get('partner_ids') and not data.get('beat_id'):
-            return ok(plan_data(Plan.ff_plan_contacts_from_app(target, data)), status=201)
+
+        def make(date):
+            """The plan for one date, in whichever of the three shapes it was sent."""
+            if data.get('partner_ids') and not data.get('beat_id'):
+                return Plan.ff_plan_contacts_from_app(target, dict(data, date=date))
+            if data.get('routes'):
+                days = Plan.browse()
+                for row in data['routes']:
+                    days |= Plan.ff_plan_from_app(target, dict(row, date=date))
+                return days
+            return Plan.ff_plan_from_app(target, dict(data, date=date))
+
+        first = fields.Date.to_date(data.get('date')) or target._ff_today()
+        made = make(first)
+
+        # Repeated every week, like an alarm: the same plan on the same weekday
+        # for the next so many weeks. A week that cannot take it - a holiday, the
+        # weekly ceiling - is left out and said so, and never stops the others.
+        repeat = max(min(to_int(data.get('repeat_weeks')) or 0, 12), 0)
+        repeated, skipped = 0, []
+        for week in range(1, repeat + 1):
+            date = first + timedelta(days=7 * week)
+            holiday = request.env['ff.holiday']._ff_for(target, date)
+            if holiday:
+                skipped.append({'date': date.isoformat(), 'reason': holiday.name})
+                continue
+            try:
+                with request.env.cr.savepoint():
+                    make(date)
+                repeated += 1
+            except Exception as error:
+                skipped.append({'date': date.isoformat(), 'reason': str(error)[:140]})
+
+        extra = {'repeated': repeated, 'skipped': skipped}
         if data.get('routes'):
-            days = Plan.browse()
-            for row in data['routes']:
-                days |= Plan.ff_plan_from_app(target, dict(row, date=data.get('date')))
-            return ok({'days': [plan_data(day) for day in days], 'employee': ref(target)}, status=201)
-        day = Plan.ff_plan_from_app(target, data)
-        return ok(plan_data(day), status=201)
+            return ok(dict({'days': [plan_data(day) for day in made], 'employee': ref(target)}, **extra),
+                      status=201)
+        return ok(dict(plan_data(made), **extra), status=201)
 
 
 def _one(employee, member):

@@ -7,6 +7,9 @@
         <field name="arch" type="xml">
             <xpath expr="//block[@name='ff_visit_settings']" position="before">
                 <block title="Routes" name="ff_route_settings">
+                    <setting string="Beats per week" help="The most different beats one person may plan in a week (Monday to Sunday). Zero means no limit.">
+                        <field name="ff_beats_per_week"/>
+                    </setting>
                     <setting string="New routes need approval"
                              help="A route drawn in the app waits for a manager before anybody can plan from it. Off, it is taken on trust: whoever drew it can use it straight away.">
                         <field name="ff_beat_approval"/>

@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
@@ -46,6 +48,32 @@ class FfBeatPlan(models.Model):
 
     _employee_date_beat_uniq = models.Constraint(
         'UNIQUE(employee_id, date, beat_id)', 'This route is already planned for the employee on that day.')
+
+    @api.constrains('employee_id', 'date', 'beat_id')
+    def _check_beats_per_week(self):
+        """No more different beats in a week than the office allows.
+
+        Counted as beats rather than days, so the same beat walked on two days
+        is still one beat, and a day picked customer by customer has none.
+        """
+        raw = self.env['ir.config_parameter'].sudo().get_param('ff_base.beats_per_week')
+        try:
+            limit = int(raw) if raw not in (None, False, '') else 6
+        except ValueError:
+            limit = 6
+        if limit <= 0:
+            return
+        for day in self.filtered('beat_id'):
+            monday = day.date - timedelta(days=day.date.weekday())
+            week = self.sudo().search([
+                ('employee_id', '=', day.employee_id.id), ('beat_id', '!=', False),
+                ('date', '>=', monday), ('date', '<=', monday + timedelta(days=6)),
+            ])
+            if len(week.beat_id) > limit:
+                raise ValidationError(self.env._(
+                    '%(employee)s already has %(limit)s different beats in the week of %(monday)s, '
+                    'which is the most allowed.',
+                    employee=day.employee_id.name, limit=limit, monday=monday))
 
     @api.constrains('employee_id', 'date', 'beat_id')
     def _check_one_free_day(self):
