@@ -9,7 +9,6 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../core/format.dart';
 import '../../core/local_state.dart';
-import 'visit_purpose.dart';
 
 /// Demands, orders and payments are taken at a customer, so they start with a
 /// check-in there. Returns the open visit, or null when the person backed out.
@@ -17,9 +16,9 @@ import 'visit_purpose.dart';
 /// The server decides onsite or offsite: a customer without coordinates takes
 /// them from this check-in; one too far away comes back as `offsite_confirm`,
 /// and only an explicit "yes, offsite" checks in anyway.
-Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, dynamic> client) async {
+Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, dynamic> client,
+    {String? task}) async {
   final clientId = client['id'] as int;
-  final name = '${client['name']}';
   try {
     final current = await Services.api.get('/api/v1/visits/current') as Map<String, dynamic>?;
     if (current != null) {
@@ -47,10 +46,8 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
       }
     }
     if (!context.mounted) return null;
-    // What the call is for is asked on the way in, not on the way out: it
-    // decides what has to be done while they are there.
-    final purpose = await askVisitPurpose(context, name);
-    if (purpose == null || !context.mounted) return null;
+    // Which task this visit is for was chosen before getting here, and travels
+    // with the check-in so the visit knows what it was opened for.
 
     final pos = await currentPosition();
     final payload = {
@@ -60,7 +57,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
       'accuracy': pos.accuracy,
       'mock': pos.isMocked,
       'uuid': const Uuid().v4(),
-      'purpose': purpose,
+      if (task != null) 'task': task,
       'device_time': DateTime.now().toUtc().toIso8601String(),
     };
     try {

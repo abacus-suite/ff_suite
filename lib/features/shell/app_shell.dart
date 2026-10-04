@@ -5,13 +5,13 @@ import '../../core/theme.dart';
 import '../../core/format.dart';
 import '../../core/security_guard.dart';
 import '../../widgets/sync_status.dart';
-import '../clients/add_client_screen.dart';
 import '../collections/collect_payment_screen.dart';
 import '../leaves/leaves_screen.dart';
 import '../orders/catalog_screen.dart';
 import '../chat/chat_screen.dart';
 import '../tasks/tasks_screen.dart';
 import '../beat/plan_beat_screen.dart';
+import '../tasks/task_start.dart';
 import '../visits/visit_gate.dart';
 import '../clients/clients_screen.dart';
 import '../expenses/new_expense_screen.dart';
@@ -115,9 +115,10 @@ class _AppShellState extends State<AppShell> {
               if (profile.feature('routes'))
                 option('beat', Icons.edit_calendar_rounded, AppColors.sky, 'Create beat plan',
                     profile.isManager ? 'Several routes at once, for you or your team' : 'Plan one or several routes for a day', sheet),
+              // A new outlet is made by the New Lead task, so "New customer" is gone from here.
               if (profile.feature('visits'))
-                option('client', Icons.add_business_rounded, AppColors.success, 'New $customer',
-                    'Add a shop you are standing in front of', sheet),
+                option('field_task', Icons.assignment_turned_in_rounded, AppColors.success, 'Task',
+                    'Client visit, new lead, samples and more', sheet),
               if (profile.isManager)
                 option('task', Icons.add_task_rounded, AppColors.purple, 'Give a task',
                     'Send a task to someone in your team', sheet),
@@ -147,8 +148,8 @@ class _AppShellState extends State<AppShell> {
             : CollectPaymentScreen(client: client, visitId: visit['id'] as int?));
       case 'beat':
         await open(const PlanBeatScreen());
-      case 'client':
-        await open(const AddClientScreen());
+      case 'field_task':
+        await openTasks(context);
       case 'task':
         await open(const NewTaskScreen());
       case 'leave':

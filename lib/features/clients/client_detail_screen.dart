@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -9,7 +8,6 @@ import 'package:latlong2/latlong.dart';
 import '../../core/format.dart';
 import '../../core/models.dart';
 import '../../core/geo.dart';
-import '../../core/geo_camera.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
@@ -20,7 +18,7 @@ import '../orders/catalog_screen.dart';
 import '../visits/step_screen.dart';
 import '../../core/local_state.dart';
 import '../visits/visit_gate.dart';
-import '../visits/visit_purpose.dart';
+import '../tasks/task_start.dart';
 import '../visits/stock_count_screen.dart';
 import '../receivables/receivables_screen.dart';
 import 'client_extras.dart';
@@ -59,26 +57,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   /// One arrival check-in per screen: it should not keep retrying after a refusal.
   bool _arriving = false;
 
-  /// What has been done during this visit, kept here until check-out carries
-  /// it to the server: the work is done at the counter, not on the way out.
-  final _visitNote = TextEditingController();
-  final List<Uint8List> _visitPhotos = [];
-  bool _stockDone = false;
-
-  VisitPurpose? get _purpose =>
-      _atThisClient ? purposeOf(_current!['purpose'] as String?) : null;
-
-  /// What still stands between this visit and its check-out.
-  List<String> get _pending {
-    if (!_atThisClient) return const [];
-    final purpose = _purpose;
-    if (purpose == null) return ['Say what this visit is for'];
-    return [
-      if (purpose.needsNote && _visitNote.text.trim().isEmpty) 'Write the visit notes',
-      if (purpose.needsStock && !_stockDone) 'Count the stock',
-      if (purpose.needsPhoto && _visitPhotos.isEmpty) 'Take the closing photo',
-    ];
-  }
+  /// Which task this visit was opened for. Its screens are where the work is done and
+  /// where the visit is checked out: it ends when the last step is submitted.
+  String? get _task => _atThisClient ? asText(_current!['task']) : null;
 
   /// Demand, returns and payments only once checked in here (or when visits are not used at all).
   bool get _canAct => _atThisClient || !(Services.auth.profile?.feature('visits') ?? false);
@@ -101,7 +82,6 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   void dispose() {
     _clock?.cancel();
     _watch?.cancel();
-    _visitNote.dispose();
     super.dispose();
   }
 
@@ -320,80 +300,29 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     }
   }
 
+  /// Checking in asks which task the visit is for, then starts it.
   Future<void> _checkIn() async {
     setState(() => _busy = true);
     try {
-      await ensureCheckedIn(context, _client!);
+      await startTaskForClient(context, _client!);
       await _load();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  /// A visit opened for a task is closed by finishing it; one opened for an
+  /// order or a payment is checked out here as before.
   Future<void> _checkOut() async {
-    if (_pending.isNotEmpty) {
-      showSnack(context, _pending.first);
+    if (_task != null) {
+      await resumeTask(context, _client!, _current!);
+      await _load();
       return;
     }
-    final done = await Navigator.of(context).push<bool>(MaterialPageRoute(
-      builder: (_) => VisitCheckoutScreen(
-        visit: _current!,
-        note: _visitNote.text.trim(),
-        photos: _visitPhotos,
-        stockDone: _stockDone,
-      ),
-    ));
-    if (done == true && mounted) {
-      showSnack(context, 'Visit completed');
-      _visitNote.clear();
-      _visitPhotos.clear();
-      _stockDone = false;
-    }
+    final done = await Navigator.of(context)
+        .push<bool>(MaterialPageRoute(builder: (_) => VisitCheckoutScreen(visit: _current!)));
+    if (done == true && mounted) showSnack(context, 'Visit completed');
     _load();
-  }
-
-  /// What this visit is for: asked when the app opened it on arrival, and
-  /// changeable afterwards - somebody goes in for one thing and ends up doing
-  /// another often enough that being held to the first answer is worse than
-  /// starting its work again.
-  Future<void> _askPurpose() async {
-    final was = _current?['purpose'] as String?;
-    final chosen = await askVisitPurpose(context, '${_client?['name'] ?? ''}', current: was);
-    if (chosen == null || !mounted || chosen == was) return;
-    try {
-      await Services.api.post('/api/v1/visits/${_current!['id']}/purpose', {'purpose': chosen});
-      if (!mounted) return;
-      // A different visit asks for different work, so what was done for the
-      // old one is cleared rather than counted towards the new one. The stock
-      // count is the exception: it is already saved against this visit.
-      setState(() {
-        _visitNote.clear();
-        _visitPhotos.clear();
-        if (purposeOf(chosen)?.needsStock != true) _stockDone = false;
-      });
-      await _load();
-      if (mounted && was != null) {
-        showSnack(context, 'Changed to ${purposeOf(chosen)?.name ?? 'this visit'}');
-      }
-    } catch (e) {
-      if (mounted) showSnack(context, e.toString());
-    }
-  }
-
-  Future<void> _addVisitPhoto() async {
-    final bytes = await openGeoCamera(title: 'Closing photo');
-    if (bytes != null && mounted) setState(() => _visitPhotos.add(bytes));
-  }
-
-  Future<void> _countStock() async {
-    final done = await Navigator.of(context).push<bool>(MaterialPageRoute(
-      builder: (_) => StockCountScreen(
-        clientId: widget.clientId,
-        visitId: _current!['id'] as int?,
-        visitUuid: _current!['uuid'] as String?,
-      ),
-    ));
-    if (done == true && mounted) setState(() => _stockDone = true);
   }
 
   /// Checks in here first when needed; false when that did not happen.
@@ -657,12 +586,10 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       // Checking in and out lives here now; there is no second button below.
       if (profile.feature('visits'))
         (
-          _atThisClient ? Icons.logout_rounded : Icons.login_rounded,
-          _atThisClient ? 'Check Out' : 'Check In',
+          _atThisClient ? (_task != null ? Icons.assignment_turned_in_rounded : Icons.logout_rounded) : Icons.login_rounded,
+          _atThisClient ? (_task != null ? 'Open Task' : 'Check Out') : 'Check In',
           _atThisClient ? AppColors.danger : AppColors.warning,
-          _busy || (_current != null && !_atThisClient) || (_atThisClient && _pending.isNotEmpty)
-              ? null
-              : (_atThisClient ? _checkOut : _checkIn)
+          _busy || (_current != null && !_atThisClient) ? null : (_atThisClient ? _checkOut : _checkIn)
         ),
     ];
     return IntrinsicHeight(
@@ -1202,277 +1129,50 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     );
   }
 
-  /// What this visit is for, and what it still owes before it can be closed.
-  ///
-  /// It sits on the customer's screen rather than on the check-out form because
-  /// this is the work of the visit, done at the counter. By the time somebody
-  /// is filling in a check-out form they have usually already walked out.
+  /// The task this visit is for, and a way back into it.
   Widget _visitWork() {
-    final purpose = _purpose;
-    if (purpose == null) return _askPurposeCard();
-    // Nothing to do for this one, but it still says what it is and can be
-    // changed: somebody looks in for one thing and ends up doing another.
-    if (purpose.tasks.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.fromLTRB(13, 10, 9, 10),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-        child: Row(
-          children: [
-            Icon(purpose.icon, size: 18, color: AppColors.primary),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Text('${purpose.name} · nothing required',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
-            ),
-            TextButton(
-              onPressed: _askPurpose,
-              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-              child: const Text('Change'),
-            ),
-          ],
-        ),
-      );
-    }
-    final pending = _pending;
-    final done = purpose.tasks.length - pending.length;
+    final code = _task;
+    if (code == null) return const SizedBox.shrink();
+    final name = switch (code) {
+      'client_visit' => 'Client Visit',
+      'lead_follow_up' => 'New Lead Follow Up',
+      'sample_collection' => 'Sample Collection',
+      'marketing_supply' => 'Marketing Material Supply',
+      _ => 'Task',
+    };
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+      padding: const EdgeInsets.fromLTRB(13, 12, 12, 12),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(11)),
-                child: Icon(purpose.icon, size: 17, color: AppColors.primary),
-              ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(purpose.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
-                        ),
-                        const SizedBox(width: 6),
-                        InkWell(
-                          onTap: _askPurpose,
-                          borderRadius: BorderRadius.circular(20),
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            child: Text('Change',
-                                style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.primary)),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text('$done of ${purpose.tasks.length} done',
-                        style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-                  ],
-                ),
-              ),
-              if (pending.isEmpty)
-                const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 22)
-              else
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text('${pending.length} left',
-                      style: const TextStyle(
-                          fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.warning)),
-                ),
-            ],
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.assignment_turned_in_rounded, size: 19, color: AppColors.primary),
           ),
-          const SizedBox(height: 10),
-          if (purpose.needsNote) _noteTask(),
-          if (purpose.needsStock) _stockTask(),
-          if (purpose.needsPhoto) _photoTask(locked: purpose.needsStock && !_stockDone),
-          const SizedBox(height: 4),
-          Text(
-            pending.isEmpty
-                ? 'Everything is done. Check out when you leave.'
-                : 'Check out opens once this is done.',
-            style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: pending.isEmpty ? AppColors.success : AppColors.muted),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                const Text('In progress. Finish it to check out.',
+                    style: TextStyle(fontSize: 12, color: AppColors.muted)),
+              ],
+            ),
+          ),
+          FilledButton(
+            onPressed: _checkOut,
+            style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+            child: const Text('Open'),
           ),
         ],
       ),
     );
   }
-
-  /// A visit the app opened on arrival has not been asked what it is for.
-  Widget _askPurposeCard() => Container(
-        padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
-        decoration: BoxDecoration(
-          color: AppColors.warning.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.help_outline_rounded, color: AppColors.warning, size: 20),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text('What is this visit for?',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
-            ),
-            FilledButton(
-              onPressed: _askPurpose,
-              style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-              child: const Text('Choose'),
-            ),
-          ],
-        ),
-      );
-
-  Widget _taskRow({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required bool done,
-    Widget? action,
-    Widget? body,
-  }) =>
-      Container(
-        margin: const EdgeInsets.only(bottom: 9),
-        padding: const EdgeInsets.all(11),
-        decoration: BoxDecoration(
-          color: done ? AppColors.success.withValues(alpha: 0.07) : AppColors.background,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-              color: done ? AppColors.success.withValues(alpha: 0.35) : Colors.transparent),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(done ? Icons.check_circle_rounded : icon,
-                    size: 19, color: done ? AppColors.success : AppColors.primary),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
-                      Text(subtitle, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
-                    ],
-                  ),
-                ),
-                if (action != null) action,
-              ],
-            ),
-            if (body != null) body,
-          ],
-        ),
-      );
-
-  Widget _noteTask() => _taskRow(
-        icon: Icons.edit_note_rounded,
-        title: 'Visit notes',
-        subtitle: 'What was discussed, and what happens next',
-        done: _visitNote.text.trim().isNotEmpty,
-        body: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: TextField(
-            controller: _visitNote,
-            maxLines: 3,
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              hintText: 'Write it while you are here',
-              isDense: true,
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            ),
-          ),
-        ),
-      );
-
-  Widget _stockTask() => _taskRow(
-        icon: Icons.inventory_rounded,
-        title: 'Stock count',
-        subtitle: _stockDone ? 'Counted and saved' : 'Count what is in the chiller',
-        done: _stockDone,
-        action: FilledButton.icon(
-          onPressed: _countStock,
-          style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-          icon: Icon(_stockDone ? Icons.edit_rounded : Icons.add_rounded, size: 16),
-          label: Text(_stockDone ? 'Edit' : 'Count'),
-        ),
-      );
-
-  Widget _photoTask({bool locked = false}) => _taskRow(
-        icon: Icons.photo_camera_rounded,
-        title: 'Closing photo',
-        subtitle: locked
-            ? 'Count the stock first, then photograph it'
-            : '${_visitPhotos.length} taken · the place and time go on it',
-        done: _visitPhotos.isNotEmpty,
-        action: OutlinedButton.icon(
-          onPressed: locked ? null : _addVisitPhoto,
-          style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-          icon: const Icon(Icons.add_a_photo_rounded, size: 16),
-          label: Text(_visitPhotos.isEmpty ? 'Take' : 'Add'),
-        ),
-        body: _visitPhotos.isEmpty
-            ? null
-            : Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (var i = 0; i < _visitPhotos.length; i++)
-                      Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.memory(_visitPhotos[i], width: 72, height: 72, fit: BoxFit.cover),
-                          ),
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: InkWell(
-                              onTap: () => setState(() => _visitPhotos.removeAt(i)),
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: const BoxDecoration(
-                                    color: Colors.white, shape: BoxShape.circle),
-                                child: const Icon(Icons.close_rounded, size: 13),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-      );
 
   /// A thin strip with the time at this customer counting up.
   ///
