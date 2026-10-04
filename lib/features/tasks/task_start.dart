@@ -51,7 +51,8 @@ Future<void> openTasks(BuildContext context) async {
 Future<void> startTaskForClient(BuildContext context, Map<String, dynamic> client) async {
   final config = await _config(context);
   if (config == null || !context.mounted) return;
-  final code = await _pickTask(context, config, withAdhoc: false, withNewLead: false, subtitle: '${client['name']}');
+  final code = await _pickTask(context, config,
+      withAdhoc: false, withNewLead: false, subtitle: '${client['name']}', client: client);
   if (code == null || !context.mounted) return;
   await _begin(context, config, code, client: client);
 }
@@ -85,11 +86,20 @@ Future<void> resumeTask(BuildContext context, Map<String, dynamic> client, Map<S
   await _run(context, config, code, client, visit);
 }
 
+/// Whether the office offers this task for this kind of contact (mapped on the task type).
+bool _offeredFor(Map<String, dynamic> task, Map<String, dynamic> client) {
+  final allowed = ((task['category_ids'] as List?) ?? const []).map((e) => '$e').toSet();
+  if (allowed.isEmpty) return true;
+  final id = (client['category'] as Map?)?['id'];
+  return id != null && allowed.contains('$id');
+}
+
 Future<String?> _pickTask(BuildContext context, Map<String, dynamic> config,
-    {required bool withAdhoc, required bool withNewLead, String? subtitle}) {
+    {required bool withAdhoc, required bool withNewLead, String? subtitle, Map<String, dynamic>? client}) {
   final tasks = ((config['tasks'] as List?) ?? [])
       .cast<Map<String, dynamic>>()
       .where((t) => (withAdhoc || t['code'] != 'adhoc') && (withNewLead || t['code'] != 'new_lead'))
+      .where((t) => client == null || _offeredFor(t, client))
       .toList();
   return showModalBottomSheet<String>(
     context: context,
@@ -212,6 +222,12 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
       builder: (_) => ClientsScreen(
         pickMode: true,
         onPick: (picker, contact) async {
+          final task = ((config['tasks'] as List?) ?? []).cast<Map<String, dynamic>>().firstWhere(
+              (t) => t['code'] == code, orElse: () => <String, dynamic>{});
+          if (task.isNotEmpty && !_offeredFor(task, contact)) {
+            showSnack(picker, '${task['name']} is not done for ${(contact['category'] as Map?)?['name'] ?? 'this'} contacts');
+            return null;
+          }
           visit = await ensureCheckedIn(picker, contact, task: code);
           return visit == null ? null : contact;
         },
