@@ -95,66 +95,95 @@ Future<String?> _pickTask(BuildContext context, Map<String, dynamic> config,
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
     builder: (sheet) => SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Select a task', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
-            if (subtitle != null)
-              Text(subtitle, style: const TextStyle(fontSize: 13, color: AppColors.muted)),
-            const SizedBox(height: 12),
-            for (final task in tasks)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 9),
-                child: Material(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(16),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () => Navigator.pop(sheet, '${task['code']}'),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: (_tints[task['code']] ?? AppColors.primary).withValues(alpha: 0.13),
-                              borderRadius: BorderRadius.circular(13),
-                            ),
-                            child: Icon(_icons[task['code']] ?? Icons.task_alt_rounded,
-                                color: _tints[task['code']] ?? AppColors.primary),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${task['name']}',
-                                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                                Text(
-                                    ((task['steps'] as num?) ?? 1) > 1
-                                        ? '${task['steps']} steps'
-                                        : '${task['hint'] ?? '1 step'}',
-                                    style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-                        ],
+            const Text('What are you doing?', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 21)),
+            const SizedBox(height: 2),
+            Text(subtitle ?? 'Pick a task. It opens its steps one at a time.',
+                style: const TextStyle(fontSize: 13, color: AppColors.muted)),
+            const SizedBox(height: 16),
+            LayoutBuilder(
+              builder: (context, box) {
+                final width = (box.maxWidth - 12) / 2;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (final task in tasks)
+                      _TaskTile(
+                        width: width,
+                        task: task,
+                        onTap: () => Navigator.pop(sheet, '${task['code']}'),
                       ),
-                    ),
-                  ),
-                ),
-              ),
+                  ],
+                );
+              },
+            ),
           ],
         ),
       ),
     ),
   );
+}
+
+/// One task, as a tile: its own colour and icon, its name, how long it is.
+class _TaskTile extends StatelessWidget {
+  const _TaskTile({required this.width, required this.task, required this.onTap});
+
+  final double width;
+  final Map<String, dynamic> task;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final code = '${task['code']}';
+    final tint = _tints[code] ?? AppColors.primary;
+    final steps = ((task['steps'] as num?) ?? 1).toInt();
+    return SizedBox(
+      width: width,
+      child: Material(
+        color: tint.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: Container(
+            height: 138,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: tint.withValues(alpha: 0.25)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(14)),
+                  child: Icon(_icons[code] ?? Icons.task_alt_rounded, color: Colors.white, size: 23),
+                ),
+                const Spacer(),
+                Text('${task['name']}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, height: 1.15)),
+                const SizedBox(height: 3),
+                Text(steps > 1 ? '$steps steps' : '1 step',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: tint)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Which contact it is for, then checking in there, then the screens.

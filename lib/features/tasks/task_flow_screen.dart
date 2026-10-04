@@ -851,7 +851,11 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
             title: 'Outlet *',
             note: 'The outlet is made good with the same pieces free, through its distributor, '
                 'and a debit note is raised against that distributor.',
-            child: _picker(_client, 'Choose the outlet', _chooseOutlet),
+            child: _picker(_a['source_outlet'] as Map<String, dynamic>?, 'Choose the outlet', () async {
+              final picked = await Navigator.of(context).push<Map<String, dynamic>>(
+                  MaterialPageRoute(builder: (_) => const ClientsScreen(pickMode: true)));
+              if (picked != null && mounted) setState(() => _a['source_outlet'] = picked);
+            }),
           ),
         if (source == 'company')
           const StepCard(
@@ -877,16 +881,21 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     final source = _a['source'] as String?;
     if (source == null) return 'Say where the samples were collected from.';
     if (source == 'distributor' && _a['distributor'] == null) return 'Choose the distributor.';
-    if (source == 'outlet' && _client == null) return 'Choose the outlet.';
+    if (source == 'outlet' && _a['source_outlet'] == null) return 'Choose the outlet the samples come from.';
     if (!_q('sample').values.any((v) => v > 0)) return 'Enter the quantity of each flavour.';
     return _s('reason').isEmpty ? 'Give the reason.' : null;
   }
+
+  /// Where the person is checked in is fixed; only a task with no contact picks one.
+  bool get _locked => widget.client != null;
 
   Widget _stepSupply() => Column(
         children: [
           StepCard(
             title: 'Outlet *',
-            child: _picker(_client, 'Choose the outlet', _chooseOutlet),
+            child: _locked
+                ? LockedField(value: '${_client!['name']}', subtitle: asText(_client!['city']) ?? 'Checked in here')
+                : _picker(_client, 'Choose the outlet', _chooseOutlet),
           ),
           StepCard(
             title: 'Materials supplied *',
@@ -1038,6 +1047,8 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
           ...base,
           'source': _a['source'],
           'distributor_id': (_a['distributor'] as Map?)?['id'],
+          // The outlet the samples came from; the contact above is where the person stands.
+          'source_partner_id': (_a['source_outlet'] as Map?)?['id'],
           'lines': _rows('sample'),
           'reason': _s('reason'),
         };
@@ -1060,12 +1071,13 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       if (result.queued && widget.visit != null) await LocalState.visitClosed();
       Services.refresh.value++;
       if (!mounted) return;
-      showSnack(
-          context,
-          result.queued
-              ? '$_name saved on the phone · it will sync when you are back online'
-              : '$_name submitted');
-      Navigator.of(context).pop(result.queued ? <String, dynamic>{} : result.map);
+      final done = result.queued ? <String, dynamic>{} : result.map;
+      if (result.queued) {
+        showSnack(context, '$_name saved on the phone. It will sync when you are back online.');
+      } else {
+        await _showDone(done);
+      }
+      if (mounted) Navigator.of(context).pop(done);
     } catch (e) {
       if (mounted) showSnack(context, e.toString());
     } finally {
@@ -1140,6 +1152,268 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     }
   }
 
+  static const _taskIcons = <String, IconData>{
+    'client_visit': Icons.storefront_rounded,
+    'new_lead': Icons.person_add_alt_1_rounded,
+    'lead_follow_up': Icons.event_repeat_rounded,
+    'adhoc': Icons.bolt_rounded,
+    'sample_collection': Icons.science_rounded,
+    'marketing_supply': Icons.campaign_rounded,
+  };
+
+  /// What task this is, which step of it, how far through, and for whom.
+  Widget _header(_Step step, List<_Step> steps, String? who) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: AppColors.brandGradient,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 6, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                  ),
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+                    child: Icon(_taskIcons[widget.code] ?? Icons.task_alt_rounded, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+                        Text('Step ${step.number} - ${step.title}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 12.5)),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                    decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
+                    child: Text('${step.number}/$_total',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // One segment per screen, filled as they are done.
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < steps.length; i++)
+                      Expanded(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          height: 5,
+                          margin: EdgeInsets.only(right: i == steps.length - 1 ? 0 : 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: i < _index ? 1 : i == _index ? 0.65 : 0.25),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (who != null) ...[
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(20)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.place_rounded, size: 15, color: Colors.white),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(who,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Back and Next, with what is still missing said plainly above them.
+  Widget _bottomBar(String? problem, bool last) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, -4))],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (problem != null)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.warning),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(problem,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ),
+                ),
+              Row(
+                children: [
+                  if (_index > 0) ...[
+                    SizedBox(
+                      height: 52,
+                      width: 52,
+                      child: OutlinedButton(
+                        onPressed: _busy ? null : () => setState(() => _index--),
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        child: const Icon(Icons.arrow_back_rounded),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    child: GradientButton(
+                      label: last ? 'Submit' : 'Next',
+                      icon: last ? Icons.check_rounded : Icons.arrow_forward_rounded,
+                      busy: _busy,
+                      onPressed: problem != null || _busy
+                          ? null
+                          : last
+                              ? _submit
+                              : () => setState(() => _index++),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// A task is finished: say so, and name what it set going.
+  Future<void> _showDone(Map<String, dynamic> result) {
+    final demands = ((result['demands'] as List?) ?? []).cast<Map>();
+    final notes = ((result['notes'] as List?) ?? []).cast<Map>();
+    final lines = <String>[
+      for (final d in demands) 'Demand ${d['name']} raised',
+      for (final n in notes) '${n['kind'] == 'credit' ? 'Credit' : 'Debit'} note demand ${n['name']} raised',
+      if (result['onboard'] == true) 'Ready to onboard: the outlet form opens next',
+    ];
+    return showModalBottomSheet<void>(
+      context: context,
+      isDismissible: false,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.13), shape: BoxShape.circle),
+                child: const Icon(Icons.check_rounded, size: 38, color: AppColors.success),
+              ),
+              const SizedBox(height: 14),
+              Text('$_name done', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+              const SizedBox(height: 4),
+              Text(
+                  widget.visit != null || result['name'] != null
+                      ? 'Recorded as ${result['name'] ?? 'a task'}${widget.visit != null ? ' and you are checked out.' : '.'}'
+                      : 'Recorded.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 13, color: AppColors.muted)),
+              if (lines.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(13),
+                  decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(16)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final line in lines)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle_rounded, size: 16, color: AppColors.success),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(line, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: GradientButton(label: 'Done', icon: Icons.done_all_rounded, onPressed: () => Navigator.pop(sheet)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ------------------------------------------------------------------ the screen
   @override
   Widget build(BuildContext context) {
@@ -1173,88 +1447,14 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
-        appBar: AppBar(
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-              Text('Step ${step.number} – ${step.title}',
-                  style: const TextStyle(fontSize: 12.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
-            ],
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Center(
-                child: Text('${step.number}/$_total',
-                    style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)),
-              ),
-            ),
-          ],
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(3),
-            child: LinearProgressIndicator(value: (_index + 1) / steps.length, minHeight: 3),
-          ),
+        appBar: PreferredSize(
+          preferredSize: Size.fromHeight(who == null ? 128 : 160),
+          child: _header(step, steps, who),
         ),
-        bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (problem != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.lock_outline_rounded, size: 15, color: AppColors.muted),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(problem,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-                        ),
-                      ],
-                    ),
-                  ),
-                Row(
-                  children: [
-                    if (_index > 0) ...[
-                      OutlinedButton(
-                        onPressed: _busy ? null : () => setState(() => _index--),
-                        child: const Text('Back'),
-                      ),
-                      const SizedBox(width: 10),
-                    ],
-                    Expanded(
-                      child: GradientButton(
-                        label: last ? 'Submit' : 'Next  ›',
-                        icon: last ? Icons.check_rounded : Icons.arrow_forward_rounded,
-                        busy: _busy,
-                        onPressed: problem != null || _busy
-                            ? null
-                            : last
-                                ? _submit
-                                : () => setState(() => _index++),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
+        bottomNavigationBar: _bottomBar(problem, last),
         body: ListView(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
-          children: [
-            if (who != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10, left: 2),
-                child: Text(who, style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.muted)),
-              ),
-            step.body(),
-          ],
+          padding: const EdgeInsets.fromLTRB(14, 16, 14, 28),
+          children: [step.body()],
         ),
       ),
     );

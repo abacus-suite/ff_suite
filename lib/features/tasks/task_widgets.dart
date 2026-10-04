@@ -6,35 +6,128 @@ import '../../core/format.dart';
 import '../../core/geo_camera.dart';
 import '../../core/theme.dart';
 
-/// A white card the step content sits on.
+/// What a card is about, read off its title, so each one carries a fitting icon.
+IconData _iconFor(String title) {
+  final s = title.toLowerCase();
+  if (s.contains('open')) return Icons.storefront_rounded;
+  if (s.contains('photo') || s.contains('picture')) return Icons.photo_camera_rounded;
+  if (s.contains('stock')) return Icons.inventory_2_rounded;
+  if (s.contains('free')) return Icons.card_giftcard_rounded;
+  if (s.contains('demand') || s.contains('order')) return Icons.shopping_cart_rounded;
+  if (s.contains('material')) return Icons.campaign_rounded;
+  if (s.contains('receivable') || s.contains('ledger')) return Icons.account_balance_wallet_rounded;
+  if (s.contains('damage') || s.contains('credit')) return Icons.report_gmailerrorred_rounded;
+  if (s.contains('person')) return Icons.person_rounded;
+  if (s.contains('sample')) return Icons.science_rounded;
+  if (s.contains('how did') || s.contains('outcome')) return Icons.flag_rounded;
+  if (s.contains('date')) return Icons.event_rounded;
+  if (s.contains('distributor')) return Icons.local_shipping_rounded;
+  if (s.contains('outlet') || s.contains('collected')) return Icons.store_mall_directory_rounded;
+  if (s.contains('categor') || s.contains('where')) return Icons.category_rounded;
+  if (s.contains('reason') || s.contains('description') || s.contains('margin') || s.contains('meeting') ||
+      s.contains('notes')) {
+    return Icons.edit_note_rounded;
+  }
+  return Icons.checklist_rounded;
+}
+
+/// The card a step's content sits on: a tinted icon, the question, and a soft lift.
 class StepCard extends StatelessWidget {
-  const StepCard({super.key, required this.child, this.title, this.note, this.tint});
+  const StepCard({super.key, required this.child, this.title, this.note, this.tint, this.icon});
 
   final Widget child;
   final String? title;
   final String? note;
   final Color? tint;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = tint ?? AppColors.primary;
+    final required = title?.trimRight().endsWith('*') ?? false;
+    final clean = required ? title!.trimRight().substring(0, title!.trimRight().length - 1).trimRight() : title;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(15, 14, 15, 15),
+      decoration: BoxDecoration(
+        color: tint?.withValues(alpha: 0.08) ?? Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: tint == null ? null : Border.all(color: accent.withValues(alpha: 0.28)),
+        boxShadow: tint == null
+            ? [BoxShadow(color: const Color(0xFF1B3A7A).withValues(alpha: 0.06), blurRadius: 18, offset: const Offset(0, 6))]
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (clean != null)
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(11)),
+                  child: Icon(icon ?? _iconFor(clean), size: 17, color: accent),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text.rich(TextSpan(children: [
+                    TextSpan(text: clean, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    if (required)
+                      const TextSpan(
+                          text: '  Required',
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: AppColors.danger)),
+                  ])),
+                ),
+              ],
+            ),
+          if (note != null) ...[
+            const SizedBox(height: 7),
+            Text(note!, style: const TextStyle(fontSize: 12, color: AppColors.muted, height: 1.35)),
+          ],
+          if (clean != null || note != null) const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+/// A value that is fixed and cannot be changed, with the lock to say so.
+///
+/// For the contact the person is already checked in at: it is who the task is
+/// for, so letting it be picked again would only invite a mistake.
+class LockedField extends StatelessWidget {
+  const LockedField({super.key, required this.value, this.subtitle});
+
+  final String value;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
+        width: double.infinity,
+        padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
-          color: tint?.withValues(alpha: 0.07) ?? Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: tint == null ? null : Border.all(color: tint!.withValues(alpha: 0.3)),
+          color: AppColors.success.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.success.withValues(alpha: 0.28)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            if (title != null)
-              Text(title!, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-            if (note != null) ...[
-              const SizedBox(height: 3),
-              Text(note!, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-            ],
-            if (title != null || note != null) const SizedBox(height: 10),
-            child,
+            const Icon(Icons.verified_rounded, size: 20, color: AppColors.success),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                  Text(subtitle ?? 'Checked in here',
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                ],
+              ),
+            ),
+            const Icon(Icons.lock_rounded, size: 17, color: AppColors.muted),
           ],
         ),
       );
@@ -60,16 +153,30 @@ class YesNo extends StatelessWidget {
 
   Widget _pill(String label, bool on, Color tint, VoidCallback tap) => Material(
         color: on ? tint : AppColors.background,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           onTap: tap,
-          child: Container(
-            height: 46,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            height: 52,
             alignment: Alignment.center,
-            child: Text(label,
-                style: TextStyle(
-                    fontWeight: FontWeight.w800, fontSize: 15, color: on ? Colors.white : AppColors.text)),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: on ? tint : AppColors.border, width: 1.4),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (on) ...[
+                  const Icon(Icons.check_circle_rounded, size: 18, color: Colors.white),
+                  const SizedBox(width: 7),
+                ],
+                Text(label,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800, fontSize: 15.5, color: on ? Colors.white : AppColors.text)),
+              ],
+            ),
           ),
         ),
       );
@@ -86,16 +193,40 @@ class Choice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Wrap(
-        spacing: 8,
-        runSpacing: 8,
+        spacing: 9,
+        runSpacing: 9,
         children: [
-          for (final o in options)
-            ChoiceChip(
-              label: Text('${o['name']}'),
-              selected: value == o['code'],
-              onSelected: (_) => onChanged('${o['code']}'),
-            ),
+          for (final o in options) _pill('${o['name']}', value == o['code'], () => onChanged('${o['code']}')),
         ],
+      );
+
+  Widget _pill(String label, bool on, VoidCallback tap) => Material(
+        color: on ? AppColors.primary : AppColors.background,
+        borderRadius: BorderRadius.circular(30),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(30),
+          onTap: tap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: on ? AppColors.primary : AppColors.border, width: 1.3),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (on) ...[
+                  const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+                  const SizedBox(width: 6),
+                ],
+                Text(label,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 13.5, color: on ? Colors.white : AppColors.text)),
+              ],
+            ),
+          ),
+        ),
       );
 }
 
@@ -234,17 +365,23 @@ class _QtyGridState extends State<QtyGrid> {
     final id = p['id'] as int;
     final filled = widget.values.containsKey(id);
     final code = asText(p['code']);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
+      decoration: BoxDecoration(
+        color: filled ? AppColors.primary.withValues(alpha: 0.05) : AppColors.background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: filled ? AppColors.primary.withValues(alpha: 0.25) : Colors.transparent),
+      ),
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 38,
+            width: 44,
+            height: 40,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(11),
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Text(code ?? '${p['name']}'.characters.take(2).toString().toUpperCase(),
                 maxLines: 1,
@@ -277,8 +414,8 @@ class _QtyGridState extends State<QtyGrid> {
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 filled: true,
-                fillColor: filled ? AppColors.primary.withValues(alpha: 0.08) : AppColors.background,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide.none),
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
             ),
           ),
@@ -372,12 +509,18 @@ class _PhotoSlotState extends State<PhotoSlot> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppColors.border),
                       ),
-                      child: const Column(
+                      child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.add_a_photo_rounded, color: AppColors.primary),
-                          SizedBox(height: 4),
-                          Text('Take', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700)),
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.12), shape: BoxShape.circle),
+                            child: const Icon(Icons.add_a_photo_rounded, size: 18, color: AppColors.primary),
+                          ),
+                          const SizedBox(height: 5),
+                          const Text('Take', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800)),
                         ],
                       ),
                     ),
