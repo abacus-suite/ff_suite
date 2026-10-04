@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/services.dart';
 import '../../core/theme.dart';
+import '../../widgets/member_picker.dart';
 
 /// Samples in my hands: what I took, what I gave away and what is left.
 class MySamplesScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class MySamplesScreen extends StatefulWidget {
 class _MySamplesScreenState extends State<MySamplesScreen> {
   Map<String, dynamic>? _data;
   String? _error;
+  String _member = 'me';
 
   @override
   void initState() {
@@ -23,7 +25,8 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
 
   Future<void> _load() async {
     try {
-      final d = await Services.api.get('/api/v1/field-tasks/samples') as Map<String, dynamic>;
+      final d = await Services.api.get('/api/v1/field-tasks/samples', query: {'member': _member}) as Map<String, dynamic>;
+      _error = null;
       if (mounted) setState(() => _data = d);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -51,7 +54,7 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
     final moves = ((d?['moves'] as List?) ?? []).cast<Map>();
     final inHand = onHand.fold<double>(0, (s, r) => s + ((r['quantity'] as num?) ?? 0));
     return Scaffold(
-      appBar: AppBar(title: const Text('My Samples')),
+      appBar: AppBar(title: Text(_member == 'me' ? 'My Samples' : 'Samples')),
       body: d == null
           ? Center(child: _error != null ? Text(_error!) : const CircularProgressIndicator())
           : RefreshIndicator(
@@ -59,13 +62,50 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  if (Services.auth.profile?.isManager ?? false)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: MemberPicker(
+                          value: _member,
+                          onChanged: (v) {
+                            setState(() {
+                              _member = v;
+                              _data = null;
+                            });
+                            _load();
+                          },
+                        ),
+                      ),
+                    ),
                   Row(children: [
                     _stat('Taken', d['taken'] as num?, AppColors.sky),
                     _stat('Given', d['given'] as num?, AppColors.purple),
                     _stat('In hand', inHand, AppColors.success),
                   ]),
                   const SizedBox(height: 8),
-                  const Text('In my hand', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                  if (d['team'] is List) ...[
+                    const Text('By person', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                    for (final row in (d['team'] as List).cast<Map>())
+                      ExpansionTile(
+                        title: Text('${(row['employee'] as Map)['name']}'),
+                        subtitle: Text('Taken ${_n(row['taken'] as num?)} · Given ${_n(row['given'] as num?)}'),
+                        children: [
+                          for (final r in (row['on_hand'] as List).cast<Map>())
+                            ListTile(
+                              dense: true,
+                              title: Text('${(r['product'] as Map)['name']}'),
+                              trailing: Text(_n(r['quantity'] as num?),
+                                  style: const TextStyle(fontWeight: FontWeight.w900)),
+                            ),
+                          if ((row['on_hand'] as List).isEmpty)
+                            const ListTile(dense: true, title: Text('Nothing in hand')),
+                        ],
+                      ),
+                    const SizedBox(height: 12),
+                  ],
+                  const Text('In hand', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                   if (onHand.isEmpty)
                     const Padding(
                         padding: EdgeInsets.all(12),
