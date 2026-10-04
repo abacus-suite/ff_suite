@@ -3,6 +3,10 @@
     <menuitem id="menu_ff_outlet_ledger" name="Distributor Money" parent="ff_base.menu_ff_group_sales" sequence="35"/>
     <menuitem id="menu_ff_outlet_report" name="Distributor Collections" parent="menu_ff_outlet_ledger"
               action="ff_outlet_invoice_report_action" sequence="5"/>
+    <menuitem id="menu_ff_owed_by_distributors" name="Owed by Distributors" parent="menu_ff_outlet_ledger"
+              action="account_move_distributor_action" sequence="6" groups="account.group_account_user,ff_base.group_ff_manager"/>
+    <menuitem id="menu_ff_collections_where" name="Collections: Company and Outlets" parent="menu_ff_outlet_ledger"
+              action="ff_collection_where_action" sequence="7"/>
     <menuitem id="menu_ff_outlet_invoices" name="Outlet Invoices" parent="menu_ff_outlet_ledger"
               action="ff_outlet_invoice_action" sequence="10"/>
     <menuitem id="menu_ff_outlet_payments" name="Outlet Payments" parent="menu_ff_outlet_ledger"

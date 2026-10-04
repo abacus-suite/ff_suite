@@ -22,6 +22,7 @@ company's invoices in Accounting.
         'data/ff_outlet_ledger_data.xml',
         'views/ff_outlet_invoice_views.xml',
         'views/ff_outlet_payment_views.xml',
+        'views/ff_distributor_reports_views.xml',
         'views/res_partner_views.xml',
         'views/ff_outlet_ledger_menus.xml',
     ],
