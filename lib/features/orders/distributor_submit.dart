@@ -10,6 +10,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import 'demand_send.dart';
 
 /// Picks who will supply a pile of demands.
 ///
@@ -192,6 +193,21 @@ Future<void> showSubmittedSheet(BuildContext context, Map<String, dynamic> resul
             ),
           ),
           if (order['portal_link'] != null) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366), minimumSize: const Size.fromHeight(46)),
+                onPressed: () => openWhatsApp(
+                  distributor?['phone'] as String?,
+                  'Hello ${distributor?['name'] ?? ''}, order ${order['name']} is ready for you. '
+                  'Please review it and accept here: ${order['portal_link']}',
+                ),
+                icon: const Icon(Icons.chat_rounded, size: 18),
+                label: const Text('Send the link on WhatsApp'),
+              ),
+            ),
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,

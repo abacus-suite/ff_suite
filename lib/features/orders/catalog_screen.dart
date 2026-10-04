@@ -116,6 +116,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
         return sum + price * e.value * rate / 100;
       });
 
+  double get _units => _cart.values.fold(0.0, (a, b) => a + b);
+
   Future<void> _review() async {
     final lines = _cart.entries.map((e) => {..._known[e.key]!, 'qty': e.value}).toList();
     final placed = await Navigator.of(context).push<bool>(
@@ -129,6 +131,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     final value = await showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: Text(_known[productId]?['name'] as String? ?? 'Quantity'),
         content: TextField(
           controller: controller,
@@ -143,181 +146,389 @@ class _CatalogScreenState extends State<CatalogScreen> {
       ),
     );
     // Disposed after the dialog's closing animation: the field is still on screen until then.
-    WidgetsBinding.instance.addPostFrameCallback((_) => Future.delayed(const Duration(milliseconds: 400), controller.dispose));
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => Future.delayed(const Duration(milliseconds: 400), controller.dispose));
     if (value != null) _setQty(productId, value);
+  }
+
+  // ------------------------------------------------------------------ pieces
+  Widget _picture(Map<String, dynamic> p, double size) {
+    final id = p['id'] as int;
+    final fallback = Container(
+      width: size,
+      height: size,
+      color: AppColors.primary.withValues(alpha: 0.08),
+      child: Icon(Icons.inventory_2_rounded, color: AppColors.primary.withValues(alpha: 0.6), size: size * 0.4),
+    );
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size * 0.24),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: p['has_image'] == true && _base.isNotEmpty
+            ? Image.network('$_base/api/v1/products/$id/image',
+                headers: _headers, fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback)
+            : fallback,
+      ),
+    );
+  }
+
+  /// "Add", or a stepper once the product is in the cart.
+  Widget _control(int id, double qty) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutBack,
+      transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: FadeTransition(opacity: anim, child: child)),
+      child: qty == 0
+          ? FilledButton.icon(
+              key: ValueKey('add$id'),
+              onPressed: () => _setQty(id, 1),
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Add'),
+            )
+          : Container(
+              key: ValueKey('step$id'),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                _stepButton(Icons.remove_rounded, () => _setQty(id, qty - 1)),
+                InkWell(
+                  onTap: () => _typeQty(id),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 36),
+                    alignment: Alignment.center,
+                    child: Text(fmtQty(qty),
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.primary)),
+                  ),
+                ),
+                _stepButton(Icons.add_rounded, () => _setQty(id, qty + 1)),
+              ]),
+            ),
+    );
+  }
+
+  Widget _stepButton(IconData icon, VoidCallback onTap) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(padding: const EdgeInsets.all(8), child: Icon(icon, size: 20, color: AppColors.primary)),
+      );
+
+  Widget _tag(String text, Color tint, {IconData? icon}) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: tint.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (icon != null) ...[Icon(icon, size: 12, color: tint), const SizedBox(width: 4)],
+          Flexible(
+            child: Text(text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: tint)),
+          ),
+        ]),
+      );
+
+  Widget _card(Map<String, dynamic> p) {
+    final id = p['id'] as int;
+    final qty = _cart[id] ?? 0;
+    final inCart = qty > 0;
+    final tax = (p['tax_percent'] as num?) ?? 0;
+    final margin = retailMargin(p);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: inCart ? AppColors.primary : Colors.transparent, width: 1.5),
+        boxShadow: [BoxShadow(color: const Color(0xFF1B3A7A).withValues(alpha: 0.07), blurRadius: 16, offset: const Offset(0, 6))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _picture(p, 72),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${p['name']}', maxLines: 2, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, height: 1.2)),
+              if (p['sku'] != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text('${p['sku']}', style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                ),
+              const SizedBox(height: 6),
+              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(fmtMoney(p['price'] as num?),
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: AppColors.primary)),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 2),
+                  child: Text('/ ${p['uom']}', style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                ),
+              ]),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          if (tax > 0) _tag('+${fmtQty(tax)}% tax', AppColors.warning, icon: Icons.receipt_long_rounded),
+          if (p['mrp'] != null) _tag('MRP ${fmtMoney(p['mrp'] as num)}', AppColors.teal),
+          if (margin != null) _tag('Margin ${margin.toStringAsFixed(1)}%', AppColors.success),
+          for (final scheme in _schemesFor(p))
+            _tag('${scheme['summary']}', AppColors.success, icon: Icons.redeem_rounded),
+        ]),
+        if (widget.client != null) ...[
+          const SizedBox(height: 10),
+          Row(children: [
+            if (inCart)
+              Expanded(
+                child: Text(
+                  '${fmtMoney(((p['price'] as num?) ?? 0) * qty)} for ${fmtQty(qty)}',
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.muted),
+                ),
+              )
+            else
+              const Spacer(),
+            _control(id, qty),
+          ]),
+        ],
+      ]),
+    );
+  }
+
+  Widget _searchBar() => Container(
+        margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [BoxShadow(color: const Color(0xFF1B3A7A).withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: TextField(
+          controller: _search,
+          onChanged: (_) {
+            _debounce?.cancel();
+            _debounce = Timer(const Duration(milliseconds: 400), _load);
+            setState(() {});
+          },
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.search_rounded, color: AppColors.muted),
+            suffixIcon: _search.text.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () {
+                      _search.clear();
+                      _load();
+                      setState(() {});
+                    },
+                  ),
+            hintText: 'Search product or SKU',
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 15),
+          ),
+        ),
+      );
+
+  Widget _chips() => SizedBox(
+        height: 46,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          children: [
+            for (final category in [<String, dynamic>{'id': null, 'name': 'All'}, ..._categories])
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() => _categoryId = category['id'] as int?);
+                    _load();
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      gradient: _categoryId == category['id'] ? AppColors.brandGradient : null,
+                      color: _categoryId == category['id'] ? null : Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: _categoryId == category['id'] ? Colors.transparent : AppColors.border),
+                    ),
+                    child: Text('${category['name']}',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            color: _categoryId == category['id'] ? Colors.white : AppColors.text)),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+
+  /// What is in the cart, to change or remove before reviewing.
+  Future<void> _showCart() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheet) => StatefulBuilder(
+        builder: (context, set) {
+          final entries = _cart.entries.toList();
+          return SafeArea(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: Row(children: [
+                    const Expanded(child: Text('Your cart', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19))),
+                    TextButton(
+                      onPressed: entries.isEmpty
+                          ? null
+                          : () {
+                              setState(_cart.clear);
+                              Navigator.pop(sheet);
+                            },
+                      child: const Text('Clear'),
+                    ),
+                  ]),
+                ),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    children: [
+                      for (final e in entries)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(16)),
+                          child: Row(children: [
+                            _picture(_known[e.key]!, 44),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text('${_known[e.key]!['name']}',
+                                  maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                _stepButton(Icons.remove_rounded, () {
+                                  _setQty(e.key, e.value - 1);
+                                  set(() {});
+                                }),
+                                Text(fmtQty(e.value), style: const TextStyle(fontWeight: FontWeight.w900)),
+                                _stepButton(Icons.add_rounded, () {
+                                  _setQty(e.key, e.value + 1);
+                                  set(() {});
+                                }),
+                              ]),
+                            ),
+                          ]),
+                        ),
+                    ],
+                  ),
+                ),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _cartBar() {
+    final count = _cart.length;
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      offset: count == 0 || widget.client == null ? const Offset(0, 1.5) : Offset.zero,
+      child: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+          padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+          decoration: BoxDecoration(
+            gradient: AppColors.brandGradient,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.35), blurRadius: 22, offset: const Offset(0, 10))],
+          ),
+          child: Row(children: [
+            Expanded(
+              child: InkWell(
+                onTap: _showCart,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Row(children: [
+                    const Icon(Icons.shopping_basket_rounded, color: Colors.white70, size: 16),
+                    const SizedBox(width: 6),
+                    Text('$count product${count == 1 ? '' : 's'} · ${fmtQty(_units)} units',
+                        style: const TextStyle(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                    const Icon(Icons.keyboard_arrow_up_rounded, color: Colors.white70, size: 18),
+                  ]),
+                  const SizedBox(height: 2),
+                  Text(fmtMoney(_total + _tax),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20)),
+                  if (_tax > 0)
+                    Text('incl. ${fmtMoney(_tax)} tax', style: const TextStyle(color: Colors.white60, fontSize: 11)),
+                ]),
+              ),
+            ),
+            FilledButton(
+              onPressed: _review,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Text('Review', style: TextStyle(fontWeight: FontWeight.w900)),
+                SizedBox(width: 4),
+                Icon(Icons.arrow_forward_rounded, size: 18),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final itemCount = _cart.length;
     return Scaffold(
-      appBar: AppBar(title: Text(widget.client == null ? 'Products' : 'Order · ${widget.client!['name']}')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: TextField(
-              controller: _search,
-              onChanged: (_) {
-                _debounce?.cancel();
-                _debounce = Timer(const Duration(milliseconds: 400), _load);
-              },
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Search product or SKU',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-          ),
-          if (_categories.isNotEmpty)
-            SizedBox(
-              height: 48,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                children: [
-                  for (final category in [<String, dynamic>{'id': null, 'name': 'All'}, ..._categories])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ChoiceChip(
-                        label: Text(category['name'] as String),
-                        selected: _categoryId == category['id'],
-                        onSelected: (_) {
-                          setState(() => _categoryId = category['id'] as int?);
-                          _load();
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          if (_loading) const LinearProgressIndicator(),
-          if (_error != null) Padding(padding: const EdgeInsets.all(12), child: Text(_error!)),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.only(bottom: 16),
-              itemCount: _products.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (_, i) {
-                final p = _products[i];
-                final id = p['id'] as int;
-                final qty = _cart[id] ?? 0;
-                return ListTile(
-                  leading: SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: p['has_image'] == true
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network('$_base/api/v1/products/$id/image',
-                                headers: _headers,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2)),
-                          )
-                        : const Icon(Icons.inventory_2),
-                  ),
-                  title: Text(p['name'] as String),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text([
-                        if (p['sku'] != null) p['sku'],
-                        '${fmtMoney(p['price'] as num?)} / ${p['uom']}'
-                        '${((p['tax_percent'] as num?) ?? 0) > 0 ? '  + ${fmtQty(p['tax_percent'] as num)}% tax' : ''}',
-                      ].join(' · ')),
-                      for (final scheme in _schemesFor(p))
-                        Padding(
-                          padding: const EdgeInsets.only(top: 3),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                                color: const Color(0xFFE6F7EE), borderRadius: BorderRadius.circular(20)),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.redeem_rounded, size: 13, color: AppColors.success),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text('${scheme['summary']}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                          fontSize: 11.5, color: AppColors.success, fontWeight: FontWeight.w700)),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      // The three trade prices, when the office has set them:
-                      // what the outlet pays, what it sells at, what it earns.
-                      if (p['mrp'] != null || p['ptr'] != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 3),
-                          child: Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: [
-                              if (p['ptr'] != null) PriceChip(label: 'PTR', value: p['ptr'] as num),
-                              if (p['mrp'] != null)
-                                PriceChip(label: 'MRP', value: p['mrp'] as num, tone: AppColors.teal),
-                              if (retailMargin(p) != null)
-                                PriceChip(
-                                  label: 'Margin',
-                                  text: '${retailMargin(p)!.toStringAsFixed(1)}%',
-                                  tone: AppColors.success,
-                                ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                  isThreeLine: p['mrp'] != null || p['ptr'] != null,
-                  trailing: widget.client == null
-                      ? null
-                      : qty == 0
-                      ? IconButton.filledTonal(onPressed: () => _setQty(id, 1), icon: const Icon(Icons.add))
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(onPressed: () => _setQty(id, qty - 1), icon: const Icon(Icons.remove_circle_outline)),
-                            InkWell(
-                              onTap: () => _typeQty(id),
-                              child: SizedBox(
-                                width: 40,
-                                child: Text(fmtQty(qty), textAlign: TextAlign.center,
-                                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            ),
-                            IconButton(onPressed: () => _setQty(id, qty + 1), icon: const Icon(Icons.add_circle_outline)),
-                          ],
-                        ),
-                );
-              },
-            ),
-          ),
-        ],
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(widget.client == null ? 'Products' : 'Choose products',
+              style: const TextStyle(fontWeight: FontWeight.w900)),
+          if (widget.client != null)
+            Text('${widget.client!['name']}', style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+        ]),
       ),
-      bottomNavigationBar: itemCount == 0 || widget.client == null
-          ? null
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: FilledButton(
-                  onPressed: _review,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('$itemCount product${itemCount == 1 ? '' : 's'} · Review'),
-                        Text(fmtMoney(_total + _tax), style: const TextStyle(fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
+      bottomNavigationBar: widget.client == null ? null : _cartBar(),
+      body: Column(children: [
+        _searchBar(),
+        if (_categories.isNotEmpty) _chips(),
+        if (_loading) const LinearProgressIndicator(minHeight: 2),
+        if (_error != null) Padding(padding: const EdgeInsets.all(12), child: Text(_error!)),
+        Expanded(
+          child: _products.isEmpty && !_loading
+              ? const Center(child: Text('No products found', style: TextStyle(color: AppColors.muted)))
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                  itemCount: _products.length,
+                  itemBuilder: (_, i) => _card(_products[i]),
                 ),
-              ),
-            ),
+        ),
+      ]),
     );
   }
 }

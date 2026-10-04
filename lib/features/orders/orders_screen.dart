@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -10,7 +9,8 @@ import '../../widgets/common.dart';
 import '../../widgets/group_kit.dart';
 import '../../widgets/member_picker.dart';
 import 'catalog_screen.dart';
-import 'distributor_submit.dart';
+import 'demand_detail_screen.dart';
+import 'demand_send.dart';
 import 'distributor_orders_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -32,6 +32,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
   DateTimeRange _range = Periods.range('today');
   String _groupBy = 'none';
   String _status = 'all';
+
+  /// Demands by whether a distributor is linked to them: all, linked, unlinked.
+  String _mapping = 'all';
   final _search = TextEditingController();
   Timer? _debounce;
   final Set<String> _collapsed = {};
@@ -76,57 +79,21 @@ class _OrdersScreenState extends State<OrdersScreen> {
   bool get _canSend => _demandFlow && (Services.auth.profile?.demandSubmit ?? false);
 
   /// A demand already sent on, or cancelled, cannot be sent again.
-  bool _sendable(Map<String, dynamic> o) =>
-      o['state'] == 'submitted' || o['state'] == 'draft' || o['foc_status'] == 'pending';
+  bool _sendable(Map<String, dynamic> o) => demandSendable(o);
 
   Future<void> _sendPicked() async {
     final demands = _orders.where((o) => _picked.contains(o['id'])).toList();
     if (demands.isEmpty) return;
-    final distributor = await pickDistributor(context, demandCount: demands.length);
-    if (distributor == null || !mounted) return;
     setState(() => _sending = true);
     try {
-      // What is paid for goes to the distributor as an order. Free goods are not
-      // ordered - the distributor is made good by the debit note - so they are
-      // asked for by message instead.
-      final paid = demands.where((o) => o['foc_only'] != true && (o['state'] == 'submitted' || o['state'] == 'draft'));
-      Map<String, dynamic>? result;
-      if (paid.isNotEmpty) {
-        result = await Services.api.post('/api/v1/demands/submit', {
-          'demand_ids': paid.map((o) => o['id']).toList(),
-          'distributor_id': distributor['id'],
-        }) as Map<String, dynamic>;
+      final sent = await sendDemands(context, demands);
+      if (sent && mounted) {
+        setState(_picked.clear);
+        await _load();
       }
-      final messages = <String>[];
-      String? phone;
-      for (final o in demands.where((o) => o['foc_status'] == 'pending')) {
-        final sent = await Services.api.post('/api/v1/demands/${o['id']}/foc-request', {
-          'distributor_id': distributor['id'],
-        }) as Map<String, dynamic>;
-        messages.add('${sent['message']}');
-        phone ??= sent['phone'] as String?;
-      }
-      if (!mounted) return;
-      setState(_picked.clear);
-      await _load();
-      if (!mounted) return;
-      if (result != null) await showSubmittedSheet(context, result);
-      if (messages.isNotEmpty && mounted) {
-        await _sendFreeGoodsMessage(phone, messages.join('\n\n----\n\n'));
-      }
-    } catch (e) {
-      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _sending = false);
     }
-  }
-
-  Future<void> _sendFreeGoodsMessage(String? phone, String text) async {
-    final uri = phone == null
-        ? Uri.parse('https://wa.me/?text=${Uri.encodeComponent(text)}')
-        : Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(text)}');
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!opened && mounted) showSnack(context, 'Could not open WhatsApp');
   }
 
   Map<String, dynamic> get _query => {
@@ -170,6 +137,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Future<void> _showOrder(int id) async {
+    if (_demandFlow) {
+      final changed = await Navigator.of(context)
+          .push<bool>(MaterialPageRoute(builder: (_) => DemandDetailScreen(id: id, canSend: _canSend)));
+      if (changed == true) _load();
+      return;
+    }
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -186,8 +159,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
         if (_demandFlow) const GroupOption('product', 'Product', Icons.inventory_2_rounded),
       ];
 
-  List<Map<String, dynamic>> get _visible =>
-      _status == 'all' ? _orders : _orders.where((o) => o['state'] == _status).toList();
+  List<Map<String, dynamic>> get _visible => _orders.where((o) {
+        if (_status != 'all' && o['state'] != _status) return false;
+        if (_demandFlow && _mapping != 'all') {
+          final linked = o['distributor'] != null;
+          if ((_mapping == 'linked') != linked) return false;
+        }
+        return true;
+      }).toList();
 
   /// (sortable key, title, rows, value) per group; one untitled section when not grouped.
   List<(String, String, List<Map<String, dynamic>>, double)> _sections() {
@@ -395,6 +374,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   ],
                 ],
               ),
+              if (_demandFlow) ...[
+                const SizedBox(height: 10),
+                _distributorChip(o),
+              ],
               if (products.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 SizedBox(
@@ -424,6 +407,45 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ),
       ),
     );
+  }
+
+  /// Which distributor this demand is linked to, or that none is yet.
+  Widget _distributorChip(Map<String, dynamic> o) {
+    final dist = (o['distributor'] as Map?)?['name'];
+    final linked = dist != null;
+    final tint = linked ? AppColors.success : AppColors.warning;
+    final free = o['foc_status'];
+    return Row(children: [
+      Flexible(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(color: tint.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(linked ? Icons.local_shipping_rounded : Icons.link_off_rounded, size: 14, color: tint),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(linked ? '$dist' : 'No distributor linked',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: tint)),
+            ),
+          ]),
+        ),
+      ),
+      if (free == 'pending' || free == 'requested') ...[
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(color: AppColors.purple.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.redeem_rounded, size: 13, color: AppColors.purple),
+            const SizedBox(width: 4),
+            Text(free == 'pending' ? 'Free goods' : 'Free goods asked',
+                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.purple)),
+          ]),
+        ),
+      ],
+    ]);
   }
 
   Widget _divider() => Container(
@@ -718,6 +740,21 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       value: _groupBy, options: _groupOptions, onChanged: (v) => setState(() => _groupBy = v)),
                   const SizedBox(width: 8),
                   _sortPill(),
+                  if (_demandFlow) ...[
+                    const SizedBox(width: 8),
+                    for (final e in const [('all', 'Any distributor'), ('linked', 'Linked'), ('unlinked', 'Not linked')])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          avatar: e.$1 == 'all'
+                              ? null
+                              : Icon(e.$1 == 'linked' ? Icons.local_shipping_rounded : Icons.link_off_rounded, size: 15),
+                          label: Text(e.$2),
+                          selected: _mapping == e.$1,
+                          onSelected: (_) => setState(() => _mapping = e.$1),
+                        ),
+                      ),
+                  ],
                   if (statuses.length > 1) ...[
                     const SizedBox(width: 8),
                     ChoiceChip(
