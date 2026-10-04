@@ -100,6 +100,17 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     super.initState();
     taskScreenOpen = true;
     _client = widget.client;
+    if (widget.code == 'sample_collection' && widget.client != null) {
+      // Checked in at a contact, so that contact is where the samples come from:
+      // a distributor if it is one, an outlet if it is not. Nothing to ask.
+      final distributor = widget.client!['category_type'] == 'distributor';
+      _a['source'] = distributor ? 'distributor' : 'outlet';
+      if (distributor) {
+        _a['distributor'] = widget.client;
+      } else {
+        _a['source_outlet'] = widget.client;
+      }
+    }
     if (widget.code == 'client_visit') _loadLedger();
     if (widget.code == 'new_lead') _loadLeadLists();
   }
@@ -823,13 +834,38 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       {'code': 'outlet', 'name': 'Outlet'},
       if (widget.config['company_samples'] == true) {'code': 'company', 'name': 'Company'},
     ];
+    // Where the person is standing is where the samples come from, unless the team
+    // may also take them from company stock.
+    final fromContact = widget.client != null && source != 'company';
+    final contactIs = widget.client?['category_type'] == 'distributor' ? 'distributor' : 'outlet';
     return Column(
       children: [
-        StepCard(
-          title: 'Collected from *',
-          child: Choice(options: options, value: source, onChanged: (v) => setState(() => _a['source'] = v)),
-        ),
-        if (source == 'distributor')
+        if (fromContact && widget.config['company_samples'] != true)
+          StepCard(
+            title: 'Collected from',
+            child: LockedField(
+              value: '${widget.client!['name']}',
+              subtitle: contactIs == 'distributor' ? 'Collected from this distributor' : 'Collected from this outlet',
+            ),
+          )
+        else if (widget.client != null)
+          StepCard(
+            title: 'Collected from *',
+            child: Choice(
+              options: [
+                {'code': contactIs, 'name': 'This $contactIs: ${widget.client!['name']}'},
+                {'code': 'company', 'name': 'Company'},
+              ],
+              value: source,
+              onChanged: (v) => setState(() => _a['source'] = v),
+            ),
+          )
+        else
+          StepCard(
+            title: 'Collected from *',
+            child: Choice(options: options, value: source, onChanged: (v) => setState(() => _a['source'] = v)),
+          ),
+        if (source == 'distributor' && widget.client == null)
           StepCard(
             title: 'Distributor *',
             note: 'A debit note demand is raised: distributor to Kumbayah.',
@@ -846,7 +882,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
               },
             ),
           ),
-        if (source == 'outlet')
+        if (source == 'outlet' && widget.client == null)
           StepCard(
             title: 'Outlet *',
             note: 'The outlet is made good with the same pieces free, through its distributor, '

@@ -76,8 +76,8 @@ class StepCard extends StatelessWidget {
                     TextSpan(text: clean, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                     if (required)
                       const TextSpan(
-                          text: '  Required',
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: AppColors.danger)),
+                          text: ' *',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.danger)),
                   ])),
                 ),
               ],
