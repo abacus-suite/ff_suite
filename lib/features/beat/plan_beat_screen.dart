@@ -47,6 +47,9 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
   /// second way - and sometimes a day is simply a handful of shops.
   String _mode = 'beat';
 
+  /// How many more weeks to repeat this plan, on the same weekday. Zero is just this day.
+  int _repeatWeeks = 0;
+
   /// Every contact this person may plan, in one list.
   List<Map<String, dynamic>> _contacts = [];
 
@@ -410,11 +413,14 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
         'date': fmtDate(_date),
         'member': _memberParam,
         'routes': routes,
+        if (_repeatWeeks > 0) 'repeat_weeks': _repeatWeeks,
       });
       Services.refresh.value++;
       if (!mounted) return;
       if (result.queued) {
         showSnack(context, 'Saved on the phone; it will be planned when you are online.');
+      } else {
+        _sayRepeats(result.map);
       }
       Navigator.of(context).pushReplacement(MaterialPageRoute(
         builder: (_) => PlannedDaysScreen(
@@ -443,11 +449,14 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
         'date': fmtDate(_date),
         'member': _memberParam,
         'partner_ids': _picked.toList(),
+        if (_repeatWeeks > 0) 'repeat_weeks': _repeatWeeks,
       });
       Services.refresh.value++;
       if (!mounted) return;
       if (result.queued) {
         showSnack(context, 'Saved on the phone; it will be planned when you are online.');
+      } else {
+        _sayRepeats(result.map);
       }
       Navigator.of(context).pushReplacement(MaterialPageRoute(
         builder: (_) => PlannedDaysScreen(
@@ -500,6 +509,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
                               onTap: _pickDate,
                             ),
                           ),
+                          _repeatCard(),
                           _modeToggle(routeLabel),
                           if (_mode == 'customer') ...[
                             const SizedBox(height: 6),
@@ -545,6 +555,69 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
                 ),
     );
   }
+
+  /// A plan repeated for weeks ahead: how many took, and which could not and why.
+  void _sayRepeats(Map<String, dynamic> result) {
+    if (_repeatWeeks == 0) return;
+    final done = (result['repeated'] as num?)?.toInt() ?? 0;
+    final skipped = ((result['skipped'] as List?) ?? []).cast<Map>();
+    showSnack(
+        context,
+        skipped.isEmpty
+            ? 'Planned, and repeated for $done more ${done == 1 ? 'week' : 'weeks'}'
+            : 'Repeated for $done ${done == 1 ? 'week' : 'weeks'}; ${skipped.length} left out '
+                '(${skipped.first['reason']})');
+  }
+
+  /// Repeat this plan every week, like an alarm: the same plan on the same weekday.
+  Widget _repeatCard() => Card(
+        margin: const EdgeInsets.only(bottom: 4),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _repeatWeeks > 0,
+                onChanged: (on) => setState(() => _repeatWeeks = on ? 4 : 0),
+                title: const Text('Repeat every week', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(
+                    _repeatWeeks == 0
+                        ? 'Plan this day once'
+                        : 'On the same weekday, for $_repeatWeeks more ${_repeatWeeks == 1 ? 'week' : 'weeks'}',
+                    style: const TextStyle(fontSize: 12)),
+              ),
+              if (_repeatWeeks > 0) ...[
+                Row(
+                  children: [
+                    IconButton.filledTonal(
+                      onPressed: _repeatWeeks > 1 ? () => setState(() => _repeatWeeks--) : null,
+                      icon: const Icon(Icons.remove_rounded),
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: Text('$_repeatWeeks ${_repeatWeeks == 1 ? 'week' : 'weeks'}',
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                      ),
+                    ),
+                    IconButton.filledTonal(
+                      onPressed: _repeatWeeks < 12 ? () => setState(() => _repeatWeeks++) : null,
+                      icon: const Icon(Icons.add_rounded),
+                    ),
+                  ],
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(
+                      'A week with a holiday, or that already has the most beats allowed, is left out and said so.',
+                      style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
 
   /// Which way the day is planned. Beat wise is the old flow untouched.
   Widget _modeToggle(String routeLabel) => Card(

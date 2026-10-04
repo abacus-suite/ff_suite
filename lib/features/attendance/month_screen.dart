@@ -9,6 +9,7 @@ const _statusStyle = <String, (String, Color)>{
   'half_day': ('Half Day', Colors.amber),
   'absent': ('Absent', Colors.red),
   'week_off': ('Week Off', Colors.blueGrey),
+  'holiday': ('Holiday', Colors.purple),
   'not_punched': ('Not Punched', Colors.indigo),
   'upcoming': ('Upcoming', Colors.transparent),
 };

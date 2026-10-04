@@ -44,8 +44,17 @@ class _PlannedDayScreenState extends State<PlannedDayScreen> {
 
   int _count(String status) => _clients.where((c) => c['visit_status'] == status).length;
 
-  List<Map<String, dynamic>> get _shown =>
-      _filter == 'all' ? _clients : _clients.where((c) => c['visit_status'] == _filter).toList();
+  bool get _past => DateUtils.dateOnly(widget.date).isBefore(DateUtils.dateOnly(DateTime.now()));
+
+  /// Planned for a day that has gone and never called on.
+  int get _missedCount => _past ? _count('pending') : 0;
+
+  List<Map<String, dynamic>> get _shown {
+    if (_filter == 'all') return _clients;
+    if (_filter == 'missed') return _clients.where((c) => c['visit_status'] == 'pending').toList();
+    if (_filter == 'pending' && _past) return const [];
+    return _clients.where((c) => c['visit_status'] == _filter).toList();
+  }
 
   bool get _isMine => widget.member == 'me' || widget.member.isEmpty;
 
@@ -224,6 +233,7 @@ class _PlannedDayScreenState extends State<PlannedDayScreen> {
       ('all', 'All', _clients.length),
       ('pending', 'To visit', _count('pending')),
       ('done', 'Visited', _count('done')),
+      if (_missedCount > 0) ('missed', 'Missed', _missedCount),
       if (_count('cancelled') > 0) ('cancelled', 'Cancelled', _count('cancelled')),
     ];
     return Padding(
@@ -260,12 +270,16 @@ class _PlannedDayScreenState extends State<PlannedDayScreen> {
   }
 
   Widget _clientRow(Map<String, dynamic> c) {
-    final status = '${c['visit_status']}';
+    final past = DateUtils.dateOnly(widget.date).isBefore(DateUtils.dateOnly(DateTime.now()));
+    // Planned for a day that has gone and not called on: that is a missed one, and it
+    // is shown as one, in red, not left looking like something still to do.
+    final status = '${c['visit_status']}' == 'pending' && past ? 'missed' : '${c['visit_status']}';
     final visit = c['visit'] as Map?;
     final (tint, label, icon) = switch (status) {
       'done' => (AppColors.success, 'Visited', Icons.check_rounded),
       'ongoing' => (AppColors.sky, 'At the customer', Icons.timelapse_rounded),
       'cancelled' => (AppColors.danger, 'Cancelled', Icons.close_rounded),
+      'missed' => (AppColors.danger, 'Missed', Icons.report_gmailerrorred_rounded),
       _ => (AppColors.muted, 'To visit', Icons.radio_button_unchecked_rounded),
     };
     final beat = (c['route'] as Map?)?['name'];
