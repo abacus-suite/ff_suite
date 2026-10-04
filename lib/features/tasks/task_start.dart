@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
-import '../clients/client_extras.dart';
 import '../clients/clients_screen.dart';
 import '../visits/visit_gate.dart';
 import '../../widgets/busy.dart';
+import 'onboard_screen.dart';
 import 'task_flow_screen.dart';
 
 const _icons = <String, IconData>{
@@ -267,19 +267,29 @@ Future<void> _run(BuildContext context, Map<String, dynamic> config, String code
     builder: (_) => TaskFlowScreen(code: code, config: config, client: client, visit: visit),
   ));
   if (result == null || !context.mounted) return;
-  // Onboarded: fill in the rest of the outlet, then straight into a Client Visit.
+  // Onboarded: change the lead into an outlet or distributor with everything
+  // the office needs, then straight into a Client Visit.
   if (result['onboard'] == true && result['partner'] is Map) {
-    final partner = (result['partner'] as Map).cast<String, dynamic>();
-    try {
-      final full = await Services.api.get('/api/v1/clients/${partner['id']}') as Map<String, dynamic>;
-      if (!context.mounted) return;
-      await Navigator.of(context)
-          .push(MaterialPageRoute(builder: (_) => EditClientScreen(client: full)));
-      if (!context.mounted) return;
-      await _begin(context, config, 'client_visit', client: full);
-    } catch (e) {
-      if (context.mounted) showSnack(context, e.toString());
-    }
+    await completeOnboarding(context, (result['partner'] as Map).cast<String, dynamic>(), config: config);
+  }
+}
+
+/// The onboarding form for a lead that said yes, and the Client Visit that follows it.
+Future<void> completeOnboarding(BuildContext context, Map<String, dynamic> client,
+    {Map<String, dynamic>? config}) async {
+  config ??= await _config(context);
+  if (config == null || !context.mounted) return;
+  try {
+    final full = await Services.api.get('/api/v1/clients/${client['id']}') as Map<String, dynamic>;
+    if (!context.mounted) return;
+    final done = await Navigator.of(context)
+        .push<Map<String, dynamic>>(MaterialPageRoute(builder: (_) => OnboardScreen(client: full)));
+    if (done == null || !context.mounted) return;
+    final fresh = await Services.api.get('/api/v1/clients/${done['id']}') as Map<String, dynamic>;
+    if (!context.mounted) return;
+    await _begin(context, config, 'client_visit', client: fresh);
+  } catch (e) {
+    if (context.mounted) showSnack(context, e.toString());
   }
 }
 

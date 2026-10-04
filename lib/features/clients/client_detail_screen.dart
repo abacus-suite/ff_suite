@@ -862,6 +862,24 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           const SizedBox(height: 12),
           _visitWork(),
         ],
+        if (c['onboard_pending'] == true && _current == null) ...[
+          const SizedBox(height: 12),
+          Card(
+            color: AppColors.warning.withValues(alpha: 0.12),
+            child: ListTile(
+              leading: const Icon(Icons.assignment_ind_rounded, color: AppColors.warning),
+              title: const Text('Confirmed — complete onboarding', style: TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: const Text('Add GST and the outlet details, then start the client visit.'),
+              trailing: FilledButton(
+                onPressed: () async {
+                  await completeOnboarding(context, c);
+                  if (mounted) _load();
+                },
+                child: const Text('Start'),
+              ),
+            ),
+          ),
+        ],
         if (_current != null && !_atThisClient) ...[
           const SizedBox(height: 12),
           _elsewhereNote(),
