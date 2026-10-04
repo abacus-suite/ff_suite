@@ -108,6 +108,14 @@ class _CatalogScreenState extends State<CatalogScreen> {
   double get _total =>
       _cart.entries.fold(0.0, (sum, e) => sum + ((_known[e.key]?['price'] as num?) ?? 0) * e.value);
 
+  /// The taxes the products carry, on what is in the cart. The server works out the real figure.
+  double get _tax => _cart.entries.fold(0.0, (sum, e) {
+        final p = _known[e.key];
+        final price = (p?['price'] as num?) ?? 0;
+        final rate = (p?['tax_percent'] as num?) ?? 0;
+        return sum + price * e.value * rate / 100;
+      });
+
   Future<void> _review() async {
     final lines = _cart.entries.map((e) => {..._known[e.key]!, 'qty': e.value}).toList();
     final placed = await Navigator.of(context).push<bool>(
@@ -215,7 +223,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
                     children: [
                       Text([
                         if (p['sku'] != null) p['sku'],
-                        '${fmtMoney(p['price'] as num?)} / ${p['uom']}',
+                        '${fmtMoney(p['price'] as num?)} / ${p['uom']}'
+                        '${((p['tax_percent'] as num?) ?? 0) > 0 ? '  + ${fmtQty(p['tax_percent'] as num)}% tax' : ''}',
                       ].join(' · ')),
                       for (final scheme in _schemesFor(p))
                         Padding(
@@ -302,7 +311,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('$itemCount product${itemCount == 1 ? '' : 's'} · Review'),
-                        Text(fmtMoney(_total), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(fmtMoney(_total + _tax), style: const TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),

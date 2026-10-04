@@ -845,12 +845,13 @@ class _OrderDetail extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   title: Text('${(l['product'] as Map)['name']}'),
                   subtitle: Text('${fmtQty(l['qty'] as num)} × ${fmtMoney(l['price_unit'] as num?, currency)}'
+                      '${(l['tax_percent'] as num? ?? 0) > 0 ? ' · +${fmtQty(l['tax_percent'] as num)}% tax' : ''}'
                       '${(l['discount'] as num? ?? 0) > 0 ? ' · ${l['discount']}% off' : ''}'
                       '${(l['quoted_qty'] as num? ?? 0) > 0 ? ' · ${fmtQty(l['quoted_qty'] as num)} quoted' : ''}'),
                   trailing: Text(fmtMoney(l['subtotal'] as num?, currency)),
                 ),
               const Divider(),
-              if (!demandFlow) ...[
+              if (o['amount_untaxed'] != null) ...[
                 ListTile(contentPadding: EdgeInsets.zero, title: const Text('Untaxed'),
                     trailing: Text(fmtMoney(o['amount_untaxed'] as num?, currency))),
                 ListTile(contentPadding: EdgeInsets.zero, title: const Text('Tax'),

@@ -145,6 +145,11 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
   double get _total => widget.lines
       .fold(0.0, (sum, l) => sum + ((l['price'] as num?) ?? 0) * ((l['qty'] as num?) ?? 0));
 
+  double get _tax => widget.lines.fold(
+      0.0,
+      (sum, l) =>
+          sum + ((l['price'] as num?) ?? 0) * ((l['qty'] as num?) ?? 0) * ((l['tax_percent'] as num?) ?? 0) / 100);
+
   Future<void> _submit() async {
     setState(() => _busy = true);
     try {
@@ -190,7 +195,9 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
               ? 'Demand ${order['name']} recorded'
               : 'Order ${order['name']} placed'),
           content: Text(demandFlow
-              ? '${fmtMoney(order['amount_total'] as num?, order['currency'] as String?)} at PTR. '
+              ? '${fmtMoney(order['amount_untaxed'] as num?, order['currency'] as String?)} + '
+                  '${fmtMoney(order['amount_tax'] as num?, order['currency'] as String?)} tax = '
+                  '${fmtMoney(order['amount_total'] as num?, order['currency'] as String?)}. '
                   'The office will send it to the distributor.'
               : 'Total ${fmtMoney(order['amount_total'] as num?, order['currency'] as String?)} incl. tax'),
           actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
@@ -288,7 +295,8 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(l['name'] as String),
-              subtitle: Text('${fmtQty(l['qty'] as num)} × ${fmtMoney(l['price'] as num?)}'),
+              subtitle: Text('${fmtQty(l['qty'] as num)} × ${fmtMoney(l['price'] as num?)}'
+                  '${((l['tax_percent'] as num?) ?? 0) > 0 ? '  ·  + ${fmtQty(l['tax_percent'] as num)}% tax' : ''}'),
               trailing: Text(fmtMoney(((l['price'] as num?) ?? 0) * (l['qty'] as num))),
             ),
           if (_free.isNotEmpty || _manual.isNotEmpty || _manualAllowed || !_freeChecked) ...[
@@ -337,11 +345,23 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
           ],
           const Divider(),
           ListTile(
+            dense: true,
             contentPadding: EdgeInsets.zero,
-            title: Text(demandFlow ? 'Value at PTR' : 'Estimated total'),
-            trailing: Text(fmtMoney(_total), style: theme.textTheme.titleMedium),
+            title: Text(demandFlow ? 'Untaxed (at PTR)' : 'Untaxed'),
+            trailing: Text(fmtMoney(_total)),
           ),
-          Text("Taxes and the client's price list are applied by the server.", style: theme.textTheme.bodySmall),
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Taxes'),
+            trailing: Text(fmtMoney(_tax)),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Total', style: TextStyle(fontWeight: FontWeight.w800)),
+            trailing: Text(fmtMoney(_total + _tax), style: theme.textTheme.titleMedium),
+          ),
+          Text('Free goods carry no tax. The server works out the final taxes.', style: theme.textTheme.bodySmall),
           const SizedBox(height: 16),
           TextField(
             controller: _note,
