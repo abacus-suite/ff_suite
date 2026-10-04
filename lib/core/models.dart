@@ -36,6 +36,7 @@ class Profile {
     this.mapMode = 'open',
     this.orderFlow = 'direct',
     this.demandSubmit = false,
+    this.expenseCard = false,
     this.photoVersion,
     this.idleLogoutHours = 0,
     this.code,
@@ -114,6 +115,9 @@ class Profile {
   /// May send their outlet demands on to a distributor as one order.
   final bool demandSubmit;
 
+  /// Holds a company card, so may record expenses paid with it.
+  final bool expenseCard;
+
   /// Changes when the profile photo does; null when there is none.
   final String? photoVersion;
 
@@ -181,6 +185,7 @@ class Profile {
       mapMode: '${settings['map_mode'] ?? 'open'}',
       orderFlow: '${settings['order_flow'] ?? 'direct'}',
       demandSubmit: settings['demand_submit'] == true,
+      expenseCard: settings['expense_card'] == true,
       photoVersion: employee['photo_version'] as String?,
       idleLogoutHours: (settings['idle_logout_hours'] as num? ?? 0).toInt(),
       routeLabel: employee['route_label'] as String? ?? 'Beat',

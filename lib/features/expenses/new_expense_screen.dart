@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/services.dart';
 import '../../core/theme.dart';
 import 'expense_form_screen.dart';
 import 'expenses_screen.dart';
@@ -68,9 +69,11 @@ class NewExpenseScreen extends StatelessWidget {
           ),
           option('claim', Icons.account_balance_wallet_rounded, AppColors.warning, 'Expense Claiming',
               'I paid from my own money', 'Claim it back. Send by Monday 10:00 am'),
+          if (Services.auth.profile?.expenseCard ?? false) ...[
           const SizedBox(height: 14),
           option('card', Icons.credit_card_rounded, AppColors.primary, 'Expense Submission',
               'Paid with company card', 'Recorded for reconciliation, not a claim'),
+          ],
         ],
       ),
     );
