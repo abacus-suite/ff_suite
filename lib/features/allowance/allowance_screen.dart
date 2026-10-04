@@ -60,7 +60,7 @@ class _AllowanceScreenState extends State<AllowanceScreen> {
       if (mounted) showSnack(context, 'Sent for approval');
       await _load();
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy.remove(id));
     }
@@ -102,7 +102,7 @@ class _AllowanceScreenState extends State<AllowanceScreen> {
         ),
       );
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }
   }
 

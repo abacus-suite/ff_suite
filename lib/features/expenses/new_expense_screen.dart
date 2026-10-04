@@ -60,7 +60,7 @@ class _NewExpenseScreenState extends State<NewExpenseScreen> {
         if (list.length == 1) _category = list.first;
       });
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }
   }
 
@@ -81,7 +81,7 @@ class _NewExpenseScreenState extends State<NewExpenseScreen> {
     if (!_formKey.currentState!.validate()) return;
     final category = _category;
     if (category == null) {
-      showSnack(context, 'Choose an expense type.');
+      showProblem(context, 'Choose an expense type.');
       return;
     }
     if (category['requires_receipt'] == true && _receipts.isEmpty) {
@@ -89,7 +89,7 @@ class _NewExpenseScreenState extends State<NewExpenseScreen> {
       return;
     }
     if (category['requires_client'] == true && _client == null) {
-      showSnack(context, 'Choose the contact for ${category['name']}.');
+      showProblem(context, 'Choose the contact for ${category['name']}.');
       return;
     }
     setState(() => _busy = true);
@@ -116,7 +116,7 @@ class _NewExpenseScreenState extends State<NewExpenseScreen> {
       showSnack(context, result.queued ? 'Claim saved on the phone · it will sync when you are back online' : 'Claim sent for approval');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

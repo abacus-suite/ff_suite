@@ -179,7 +179,7 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
       await _loadInvoices();
       if (mounted) _toggle(invoice['id'] as int, true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }
   }
 
@@ -290,7 +290,7 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
   Future<void> _submit() async {
     final mode = _mode;
     if (mode == null) {
-      showSnack(context, 'Choose how the money was paid.');
+      showProblem(context, 'Choose how the money was paid.');
       return;
     }
     if (!_formKey.currentState!.validate()) return;
@@ -299,7 +299,7 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
       return;
     }
     if (mode['requires_instrument_date'] == true && _instrumentDate == null) {
-      showSnack(context, 'Enter the cheque date.');
+      showProblem(context, 'Enter the cheque date.');
       return;
     }
     setState(() => _busy = true);
@@ -341,7 +341,7 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
               : 'Received ${fmtMoney(saved['amount'] as num?, saved['currency'] as String?)}');
       Navigator.of(context).pop(saved);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

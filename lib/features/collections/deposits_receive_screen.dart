@@ -53,7 +53,7 @@ class _DepositsReceiveScreenState extends State<DepositsReceiveScreen> {
       if (mounted) showSnack(context, received ? 'Marked as received' : 'Sent back to the employee');
       await _load();
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busyId = null);
     }

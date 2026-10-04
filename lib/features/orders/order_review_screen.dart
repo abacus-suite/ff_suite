@@ -129,7 +129,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
         }));
     if (added != true || productId == null) return;
     if (quantity <= 0 || why.isEmpty) {
-      if (mounted) showSnack(context, 'Enter a quantity and the reason.');
+      if (mounted) showProblem(context, 'Enter a quantity and the reason.');
       return;
     }
     final line = widget.lines.firstWhere((l) => l['id'] == productId);
@@ -198,7 +198,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
       );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

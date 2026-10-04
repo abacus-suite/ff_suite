@@ -58,7 +58,7 @@ class _StepScreenState extends State<StepScreen> {
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -66,11 +66,11 @@ class _StepScreenState extends State<StepScreen> {
 
   Future<void> _submit() async {
     if (_noteRequired && _note.text.trim().isEmpty) {
-      showSnack(context, 'Please write the notes.');
+      showProblem(context, 'Please write the notes.');
       return;
     }
     if (_photoRequired && _photos.isEmpty) {
-      showSnack(context, 'Please take a photo.');
+      showProblem(context, 'Please take a photo.');
       return;
     }
     await _send({

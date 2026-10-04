@@ -105,7 +105,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
           () => _checkIn(context, {...payload, 'offsite': true, 'offsite_reason': reason.text.trim()}, client));
     }
   } catch (e) {
-    if (context.mounted) showSnack(context, e.toString());
+    if (context.mounted) showProblem(context, e.toString());
     return null;
   }
 }

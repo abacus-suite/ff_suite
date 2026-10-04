@@ -72,7 +72,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       if (mounted) showSnack(context, approve ? 'Approved' : 'Rejected');
       await _load();
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy.remove(key));
     }

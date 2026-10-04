@@ -458,7 +458,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       }
       if (mounted) setState(() => _a['ledger'] = true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }
   }
 
@@ -1115,7 +1115,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       }
       if (mounted) Navigator.of(context).pop(done);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1171,7 +1171,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     reason.dispose();
     if (confirmed != true || !mounted) return;
     if (why.isEmpty) {
-      showSnack(context, 'Give the reason.');
+      showProblem(context, 'Give the reason.');
       return;
     }
     try {
@@ -1184,7 +1184,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       Services.refresh.value++;
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }
   }
 

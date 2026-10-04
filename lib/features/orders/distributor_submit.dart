@@ -149,7 +149,7 @@ Future<void> shareOrderSummary(BuildContext context, int orderId, String orderNa
       text: 'Order summary $orderName',
     ));
   } catch (e) {
-    if (context.mounted) showSnack(context, e.toString());
+    if (context.mounted) showProblem(context, e.toString());
   }
 }
 

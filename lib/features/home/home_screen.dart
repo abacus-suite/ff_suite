@@ -260,7 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       await _load();
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _punching = false);
     }

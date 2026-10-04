@@ -569,7 +569,7 @@ class _ListPickerState extends State<_ListPicker> {
     widget.load().then((rows) {
       if (mounted) setState(() => _all = rows);
     }).catchError((Object e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }).whenComplete(() {
       if (mounted) setState(() => _loading = false);
     });

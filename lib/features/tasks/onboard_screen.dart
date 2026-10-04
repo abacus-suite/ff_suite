@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/busy.dart';
@@ -33,7 +34,6 @@ class _OnboardScreenState extends State<OnboardScreen> {
   String? _chillerModel;
   Map<String, dynamic>? _distributor;
   bool _busy = false;
-  String? _error;
 
   TextEditingController _t(String key, [String? initial]) =>
       _c.putIfAbsent(key, () => TextEditingController(text: initial ?? ''));
@@ -64,48 +64,60 @@ class _OnboardScreenState extends State<OnboardScreen> {
   String _v(String k) => (_c[k]?.text ?? '').trim();
   List<Map<String, dynamic>> _list(String k) => ((_options[k] as List?) ?? []).cast<Map<String, dynamic>>();
 
-  String? _check() {
+  bool get _categoryNeedsNote =>
+      _list('outlet_categories').any((o) => o['code'] == _category && o['needs_note'] == true);
+
+  /// Everything still missing, all at once, so it can be put right in one go.
+  List<String> _check() {
     final outlet = _kind == 'outlet';
-    if (!_gstin.hasMatch(_v('gstin').toUpperCase())) return 'Enter a valid 15-character GSTIN';
-    if (_v('gst_name').isEmpty) return 'Enter the name as per GST';
-    if (_v('street').isEmpty || _v('city').isEmpty || _v('zip').isEmpty) return 'Enter the delivery address';
-    if (_v('billing_address').isEmpty) return 'Enter the billing address';
-    if (_v('poc_name').isEmpty) return outlet ? 'Enter the POC name' : 'Enter the sales POC name';
-    if (!_phone.hasMatch(_v('poc_phone'))) return 'Contact number must be 10 digits';
-    if (!_email.hasMatch(_v('poc_email'))) return 'Enter a valid email';
-    if (!outlet) {
-      if (_v('accounts_poc_name').isEmpty) return 'Enter the accounts POC name';
-      if (!_phone.hasMatch(_v('accounts_poc_phone'))) return 'Accounts contact number must be 10 digits';
-      if (!_email.hasMatch(_v('accounts_poc_email'))) return 'Enter a valid accounts email';
-    }
-    if (outlet && _category == null) return 'Choose the outlet category';
-    if (outlet && _category == 'others' && _v('outlet_category_note').isEmpty) return 'Describe the outlet category';
-    if (_mrp == null) return 'Choose the MRP';
-    if (outlet && _distributor == null) return 'Choose the distributor';
-    if (_swiggy == null) return 'Say whether it is a Swiggy / Zomato outlet';
-    if (_swiggy == true && _v('swiggy_zomato_id').isEmpty) return 'Enter the Swiggy / Zomato ID';
+    final bad = <String>[];
+    if (!_gstin.hasMatch(_v('gstin').toUpperCase())) bad.add('GSTIN: enter a valid 15-character GSTIN');
+    if (_v('gst_name').isEmpty) bad.add('Name as per GST');
+    if (_v('street').isEmpty) bad.add('Delivery address: street');
+    if (_v('city').isEmpty) bad.add('Delivery address: city');
+    if (_v('zip').length != 6) bad.add('Delivery address: 6-digit pincode');
+    if (_v('billing_address').isEmpty) bad.add('Billing address');
     if (outlet) {
-      if (_chiller == null) return 'Say whether the outlet has a chiller';
-      if (_chiller == true && (_v('chiller_serial').isEmpty || _chillerModel == null)) {
-        return 'Enter the chiller serial number and model';
+      if (_category == null) bad.add('Outlet category');
+      if (_categoryNeedsNote && _v('outlet_category_note').isEmpty) bad.add('Outlet category: describe it');
+    }
+    final who = outlet ? 'POC' : 'Sales POC';
+    if (_v('poc_name').isEmpty) bad.add('$who name');
+    if (!_phone.hasMatch(_v('poc_phone'))) bad.add('$who contact number: 10 digits');
+    if (!_email.hasMatch(_v('poc_email'))) bad.add('$who email: enter a valid email');
+    if (!outlet) {
+      if (_v('accounts_poc_name').isEmpty) bad.add('Accounts POC name');
+      if (!_phone.hasMatch(_v('accounts_poc_phone'))) bad.add('Accounts POC contact number: 10 digits');
+      if (!_email.hasMatch(_v('accounts_poc_email'))) bad.add('Accounts email: enter a valid email');
+    }
+    if (_mrp == null) bad.add('MRP');
+    if (outlet && _distributor == null) bad.add('Distributor');
+    if (_swiggy == null) {
+      bad.add('Swiggy / Zomato outlet: yes or no');
+    } else if (_swiggy == true && _v('swiggy_zomato_id').isEmpty) {
+      bad.add('Swiggy ID / Zomato ID');
+    }
+    if (outlet) {
+      if (_chiller == null) {
+        bad.add('Chiller from Kumbayah: yes or no');
+      } else if (_chiller == true) {
+        if (_v('chiller_serial').isEmpty) bad.add('Chiller serial number');
+        if (_chillerModel == null) bad.add('Chiller model');
       }
     }
-    if (_scheme == null) return 'Choose the scheme';
-    if (int.tryParse(_v('credit_days')) == null) return 'Enter the credit days';
-    if (double.tryParse(_v('margin')) == null) return 'Enter the margin';
-    return null;
+    if (_scheme == null) bad.add('Scheme');
+    if (int.tryParse(_v('credit_days')) == null) bad.add('Credit days');
+    if (double.tryParse(_v('margin')) == null) bad.add('Margin');
+    return bad;
   }
 
   Future<void> _save() async {
-    final problem = _check();
-    if (problem != null) {
-      setState(() => _error = problem);
+    final problems = _check();
+    if (problems.isNotEmpty) {
+      await showProblem(context, problems, title: 'Still needed to onboard');
       return;
     }
-    setState(() {
-      _error = null;
-      _busy = true;
-    });
+    setState(() => _busy = true);
     try {
       final result = await withBusy(context, 'Saving…', () async => await Services.api.post(
             '/api/v1/clients/${widget.client['id']}/onboard',
@@ -139,7 +151,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
           ));
       if (mounted) Navigator.of(context).pop(result as Map<String, dynamic>);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) await showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -228,7 +240,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
                     options: _list('outlet_categories'),
                     value: _category,
                     onChanged: (v) => setState(() => _category = v)),
-                if (_category == 'others') ...[const SizedBox(height: 10), _field('outlet_category_note', 'Describe')],
+                if (_categoryNeedsNote) ...[const SizedBox(height: 10), _field('outlet_category_note', 'Describe')],
               ]),
             ),
           StepCard(
@@ -284,11 +296,6 @@ class _OnboardScreenState extends State<OnboardScreen> {
               _field('margin', 'Margin', type: const TextInputType.numberWithOptions(decimal: true)),
             ]),
           ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Text(_error!, style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w700)),
-            ),
           FilledButton(
             onPressed: _busy ? null : _save,
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),

@@ -100,7 +100,7 @@ class _AddClientScreenState extends State<AddClientScreen> {
         if (list.length == 1) _categoryId = list.first['id'] as int;
       });
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }
   }
 
@@ -146,7 +146,7 @@ class _AddClientScreenState extends State<AddClientScreen> {
                   : '$_clientLabel added');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

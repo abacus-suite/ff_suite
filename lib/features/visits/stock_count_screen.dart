@@ -180,7 +180,7 @@ class _StockCountScreenState extends State<StockCountScreen> {
       showSnack(context, 'Stock count saved');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

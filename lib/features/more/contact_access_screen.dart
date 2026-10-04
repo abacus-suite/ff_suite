@@ -52,7 +52,7 @@ class _ContactAccessScreenState extends State<ContactAccessScreen> {
       if (mounted) showSnack(context, approve ? 'Approved' : 'Turned down');
       _load();
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }
   }
 
@@ -200,7 +200,7 @@ class _RequestSheetState extends State<_RequestSheet> {
 
   Future<void> _send() async {
     if (_target == null || _to == null) {
-      showSnack(context, 'Choose what you need and until when');
+      showProblem(context, 'Choose what you need and until when');
       return;
     }
     setState(() => _busy = true);
@@ -216,7 +216,7 @@ class _RequestSheetState extends State<_RequestSheet> {
     } catch (e) {
       if (mounted) {
         setState(() => _busy = false);
-        showSnack(context, e.toString());
+        showProblem(context, e.toString());
       }
     }
   }

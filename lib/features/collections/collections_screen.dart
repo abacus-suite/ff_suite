@@ -85,7 +85,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
       if (mounted) showSnack(context, 'Submitted to the office');
       await _load();
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

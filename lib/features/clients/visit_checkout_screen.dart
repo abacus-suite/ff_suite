@@ -179,11 +179,11 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
       return;
     }
     if (outcome?['requires_note'] == true && _note.text.trim().isEmpty) {
-      showSnack(context, 'Add a note for "${outcome!['name']}".');
+      showProblem(context, 'Add a note for "${outcome!['name']}".');
       return;
     }
     if (outcome?['requires_photo'] == true && _photos.isEmpty) {
-      showSnack(context, 'Add a photo for "${outcome!['name']}".');
+      showProblem(context, 'Add a photo for "${outcome!['name']}".');
       return;
     }
     setState(() => _busy = true);
@@ -211,7 +211,7 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
       Services.refresh.value++;
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

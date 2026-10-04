@@ -129,7 +129,7 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
   void _submit() {
     setState(() => _tried = true);
     if (!_ready) {
-      showSnack(context, 'Fill in everything above first.');
+      showProblem(context, 'Fill in everything above first.');
       return;
     }
     Navigator.of(context).pop(PunchInput(

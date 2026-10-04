@@ -233,7 +233,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       });
       if (mounted) showSnack(context, 'Planned for ${fmtDate(day)}');
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }
   }
 
@@ -359,7 +359,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       }, label: '${step['name']}');
       LocalState.stepDone(_current!, step['id'] as int);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }
   }
 
@@ -417,7 +417,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     return PopScope(
       canPop: !locked,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) showSnack(context, 'Check out first to leave this visit.');
+        if (!didPop) showProblem(context, 'Check out first to leave this visit.');
       },
       child: Scaffold(
       appBar: AppBar(

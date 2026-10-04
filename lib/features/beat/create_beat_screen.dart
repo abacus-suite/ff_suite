@@ -63,11 +63,11 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
-      showSnack(context, 'Give the $_routeLabel a name.');
+      showProblem(context, 'Give the $_routeLabel a name.');
       return;
     }
     if (_city == null) {
-      showSnack(context, 'Choose the city this $_routeLabel covers.');
+      showProblem(context, 'Choose the city this $_routeLabel covers.');
       return;
     }
     setState(() => _busy = true);
@@ -81,7 +81,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
       if (!mounted) return;
       Navigator.of(context).pop(beat);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -262,7 +262,7 @@ class _CityPickerState extends State<_CityPicker> {
       final list = await Services.api.get('/api/v1/districts') as List;
       if (mounted) setState(() => _cities = list.cast<Map<String, dynamic>>());
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }

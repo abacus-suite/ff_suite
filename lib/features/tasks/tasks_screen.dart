@@ -266,7 +266,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   Future<void> _act(String action) async {
     if (action == 'done' && _task['requires_photo'] == true && _photo == null) {
-      showSnack(context, 'Take a photo to finish this task.');
+      showProblem(context, 'Take a photo to finish this task.');
       return;
     }
     setState(() => _busy = true);
@@ -297,7 +297,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       showSnack(context, result.queued ? '$word · Saved on the phone · it will sync when you are back online' : word);
       Services.refresh.value++;
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -430,7 +430,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
       final members = (((data as Map)['members'] as List?) ?? []).cast<Map<String, dynamic>>();
       if (mounted) setState(() => _members = members);
     }).catchError((Object e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     });
   }
 
@@ -458,7 +458,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
       showSnack(context, 'Task sent');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

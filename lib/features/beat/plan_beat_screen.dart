@@ -119,7 +119,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
         _selected[id] = customers.where((c) => c['selected'] == true).map((c) => c['id'] as int).toSet();
       });
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _loadingRoutes.remove(id));
     }
@@ -148,7 +148,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
         }
       });
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _loadingContacts = false);
     }
@@ -212,7 +212,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
       showSnack(context, '${result['added']} added to ${beat['name']}');
       await _loadRoutes();
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }
   }
 
@@ -403,7 +403,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
         if ((_selected[r['id']] ?? {}).isNotEmpty) {'beat_id': r['id'], 'partner_ids': _selected[r['id']]!.toList()},
     ];
     if (routes.isEmpty) {
-      showSnack(context, 'Choose at least one route with customers.');
+      showProblem(context, 'Choose at least one route with customers.');
       return;
     }
     setState(() => _busy = true);
@@ -430,7 +430,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
         ),
       ));
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -439,7 +439,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
   /// The day is the customers themselves: one plan, whatever beats they sit on.
   Future<void> _saveCustomers() async {
     if (_picked.isEmpty) {
-      showSnack(context, 'Choose at least one customer.');
+      showProblem(context, 'Choose at least one customer.');
       return;
     }
     setState(() => _busy = true);
@@ -466,7 +466,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
         ),
       ));
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

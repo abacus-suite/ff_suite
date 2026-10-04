@@ -514,7 +514,7 @@ class _ChangeablePhotoState extends State<_ChangeablePhoto> {
       Services.refresh.value++;
       if (mounted) showSnack(context, 'Photo updated');
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

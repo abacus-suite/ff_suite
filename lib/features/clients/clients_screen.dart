@@ -106,7 +106,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
         _clusterKey = '';
       });
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _pointsLoading = false);
     }

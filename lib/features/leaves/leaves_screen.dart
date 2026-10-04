@@ -75,7 +75,7 @@ class _LeavesScreenState extends State<LeavesScreen> {
       if (mounted) showSnack(context, 'Request withdrawn');
       await _load();
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }
   }
 
@@ -469,7 +469,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       showSnack(context, 'Request sent for approval');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -182,7 +182,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       }
       await Navigator.of(context).push(MaterialPageRoute(builder: (_) => LeaveRequestScreen(types: types)));
     } catch (e) {
-      if (context.mounted) showSnack(context, e.toString());
+      if (context.mounted) showProblem(context, e.toString());
     }
   }
 

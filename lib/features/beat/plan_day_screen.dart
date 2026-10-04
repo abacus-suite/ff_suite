@@ -92,7 +92,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _loadingCustomers = false);
-        showSnack(context, e.toString());
+        showProblem(context, e.toString());
       }
     }
   }
@@ -113,7 +113,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
   Future<void> _save() async {
     final route = _route;
     if (route == null) {
-      showSnack(context, 'Choose a route first.');
+      showProblem(context, 'Choose a route first.');
       return;
     }
     if (_selected.isEmpty) {
@@ -133,7 +133,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
       showSnack(context, '${_selected.length} customers planned for ${fmtDate(_date)}');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

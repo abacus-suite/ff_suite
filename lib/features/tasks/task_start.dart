@@ -32,7 +32,7 @@ Future<Map<String, dynamic>?> _config(BuildContext context) async {
     return await withBusy(context, 'Loading tasks…',
         () async => await Services.api.get('/api/v1/field-tasks/config') as Map<String, dynamic>);
   } catch (e) {
-    if (context.mounted) showSnack(context, 'The tasks could not be loaded: $e');
+    if (context.mounted) showProblem(context, 'The tasks could not be loaded: $e');
     return null;
   }
 }
@@ -245,7 +245,7 @@ Future<Map<String, dynamic>?> _pickLead(
     leads = await withBusy(context, 'Finding your leads…', () async =>
         (await Services.api.get('/api/v1/field-tasks/leads-due') as List).cast<Map<String, dynamic>>());
   } catch (e) {
-    if (context.mounted) showSnack(context, e.toString());
+    if (context.mounted) showProblem(context, e.toString());
     return null;
   }
   if (!context.mounted) return null;
@@ -289,7 +289,7 @@ Future<void> completeOnboarding(BuildContext context, Map<String, dynamic> clien
     if (!context.mounted) return;
     await _begin(context, config, 'client_visit', client: fresh);
   } catch (e) {
-    if (context.mounted) showSnack(context, e.toString());
+    if (context.mounted) showProblem(context, e.toString());
   }
 }
 

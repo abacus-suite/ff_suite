@@ -83,7 +83,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       answers[key] = value;
     }
     if (missing.isNotEmpty) {
-      showSnack(context, 'Please answer: ${missing.join(', ')}');
+      showProblem(context, 'Please answer: ${missing.join(', ')}');
       return;
     }
     setState(() => _busy = true);
@@ -107,7 +107,7 @@ class _FormFillScreenState extends State<FormFillScreen> {
       showSnack(context, 'Saved');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

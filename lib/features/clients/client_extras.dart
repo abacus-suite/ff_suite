@@ -352,7 +352,7 @@ class _EditClientScreenState extends State<EditClientScreen> {
       if (!result.queued) showSnack(context, _moveLocation ? 'Saved · location updated' : 'Saved');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

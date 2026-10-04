@@ -115,7 +115,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         await _sendFreeGoodsMessage(phone, messages.join('\n\n----\n\n'));
       }
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -880,7 +880,7 @@ class _OrderDetail extends StatelessWidget {
                           await Services.api.post('/api/v1/demands/${o['id']}/foc-delivered', {});
                           if (context.mounted) Navigator.of(context).pop();
                         } catch (e) {
-                          if (context.mounted) showSnack(context, e.toString());
+                          if (context.mounted) showProblem(context, e.toString());
                         }
                       },
                     ),

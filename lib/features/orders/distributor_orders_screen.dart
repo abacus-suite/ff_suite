@@ -85,7 +85,7 @@ class _DistributorOrdersScreenState extends State<DistributorOrdersScreen> {
       await _load();
       if (mounted) await showSubmittedSheet(context, result);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }
   }
 

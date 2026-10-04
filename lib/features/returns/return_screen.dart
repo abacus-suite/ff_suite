@@ -65,7 +65,7 @@ class _ReturnScreenState extends State<ReturnScreen> {
       }
       if (mounted) setState(() => _products = products);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -83,11 +83,11 @@ class _ReturnScreenState extends State<ReturnScreen> {
 
   Future<void> _submit() async {
     if (_qty.isEmpty) {
-      showSnack(context, 'Add the products that are coming back.');
+      showProblem(context, 'Add the products that are coming back.');
       return;
     }
     if ((_reason == 'damaged' || _reason == 'expired') && _photos.isEmpty) {
-      showSnack(context, 'Take a photo of the ${_reason == 'damaged' ? 'damage' : 'expiry date'}.');
+      showProblem(context, 'Take a photo of the ${_reason == 'damaged' ? 'damage' : 'expiry date'}.');
       return;
     }
     setState(() => _busy = true);
@@ -112,7 +112,7 @@ class _ReturnScreenState extends State<ReturnScreen> {
       if (!result.queued) showSnack(context, 'Return ${result.map['name']} sent for approval');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -265,7 +265,7 @@ class _SplitTargetScreenState extends State<SplitTargetScreen> {
       showSnack(context, 'Targets sent');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }

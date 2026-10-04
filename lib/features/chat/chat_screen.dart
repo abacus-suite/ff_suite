@@ -82,7 +82,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       people = ((await Services.api.get('/api/v1/chat/people')) as List)
           .cast<Map<String, dynamic>>();
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
       return;
     }
     if (!mounted) return;
@@ -133,7 +133,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
           as Map<String, dynamic>;
       if (mounted) _open(channel);
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     }
   }
 
@@ -327,7 +327,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       if (mounted) setState(() => _messages.add(message));
       _toBottom();
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -405,7 +405,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
           }
       }
     } catch (e) {
-      if (mounted) showSnack(context, e.toString());
+      if (mounted) showProblem(context, e.toString());
       return;
     }
     if (files.isEmpty) return;
