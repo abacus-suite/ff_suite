@@ -5,6 +5,7 @@ import '../../core/api_client.dart';
 import '../../core/geo.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
+import '../../widgets/busy.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../core/format.dart';
@@ -20,7 +21,18 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
     {String? task}) async {
   final clientId = client['id'] as int;
   try {
-    final current = await Services.api.get('/api/v1/visits/current') as Map<String, dynamic>?;
+    // What the server says about today, asked together and with a spinner if it
+    // is slow: the answer can be a refusal, and silence meanwhile looks like a
+    // button that did nothing.
+    final checks = await withBusy(context, 'Checking…', () async {
+      final open = await Services.api.get('/api/v1/visits/current') as Map<String, dynamic>?;
+      Map<String, dynamic>? day;
+      if (open == null && Services.auth.profile!.feature('attendance')) {
+        day = await Services.api.get('/api/v1/attendance/status') as Map<String, dynamic>;
+      }
+      return (open, day);
+    });
+    final current = checks.$1;
     if (current != null) {
       final at = current['client'] as Map;
       if (at['id'] == clientId) return current;
@@ -28,7 +40,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
       return null;
     }
     if (Services.auth.profile!.feature('attendance')) {
-      final status = await Services.api.get('/api/v1/attendance/status') as Map<String, dynamic>;
+      final status = checks.$2 ?? const <String, dynamic>{};
       if (status['punched_in'] != true) {
         if (context.mounted) {
           await showDialog<void>(
@@ -49,7 +61,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
     // Which task this visit is for was chosen before getting here, and travels
     // with the check-in so the visit knows what it was opened for.
 
-    final pos = await currentPosition();
+    final pos = await withBusy(context, 'Finding your location…', currentPosition);
     final payload = {
       'partner_id': clientId,
       'lat': pos.latitude,
@@ -61,7 +73,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
       'device_time': DateTime.now().toUtc().toIso8601String(),
     };
     try {
-      return await _checkIn(context, payload, client);
+      return await withBusy(context, 'Checking you in…', () => _checkIn(context, payload, client));
     } on ApiException catch (e) {
       if (e.code != 'offsite_confirm' || !context.mounted) rethrow;
       final reason = TextEditingController();
@@ -89,7 +101,8 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
         ),
       );
       if (offsite != true || !context.mounted) return null;
-      return await _checkIn(context, {...payload, 'offsite': true, 'offsite_reason': reason.text.trim()}, client);
+      return await withBusy(context, 'Checking you in…',
+          () => _checkIn(context, {...payload, 'offsite': true, 'offsite_reason': reason.text.trim()}, client));
     }
   } catch (e) {
     if (context.mounted) showSnack(context, e.toString());

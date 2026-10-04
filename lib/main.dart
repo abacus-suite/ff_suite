@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'core/services.dart';
 import 'core/theme.dart';
+import 'widgets/busy.dart';
 import 'features/auth/login_screen.dart';
 import 'features/intro/intro_screen.dart';
 import 'features/shell/app_shell.dart';
@@ -26,6 +27,14 @@ class FieldForceApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       navigatorKey: Services.navigatorKey,
       theme: appTheme(),
+      // Above every screen, so a page that pushed another over itself cannot hide
+      // the sign that something is still being fetched.
+      builder: (context, child) => Stack(
+        children: [
+          child ?? const SizedBox.shrink(),
+          const Positioned(top: 0, left: 0, right: 0, child: SlowRequestBar()),
+        ],
+      ),
       home: IntroScreen(next: Services.auth.profile == null ? const LoginScreen() : const AppShell()),
     );
   }

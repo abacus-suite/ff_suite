@@ -70,6 +70,9 @@ class ApiClient {
   /// Reads the user is waiting for right now (warm-up holds back while any run).
   int busy = 0;
 
+  /// How many foreground requests are in flight right now, for the screen to watch.
+  final ValueNotifier<int> pending = ValueNotifier(0);
+
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) {
     final key = cacheKey(path, query);
     // Two screens asking the same thing at once share one trip to the server.
@@ -127,7 +130,10 @@ class ApiClient {
     final Response<dynamic> res;
     final watch = Stopwatch()..start();
     final foreground = Zone.current[#ffBackground] != true;
-    if (foreground) busy++;
+    if (foreground) {
+      busy++;
+      pending.value = busy;
+    }
     try {
       res = await _dio.request<dynamic>(
         '$base$path',
@@ -145,7 +151,10 @@ class ApiClient {
       throw ApiException(null, 'network', 'Cannot reach the server. Check your internet connection.');
     }
     finally {
-      if (foreground) busy--;
+      if (foreground) {
+        busy--;
+        pending.value = busy;
+      }
     }
     online.value = true;
     if (watch.elapsedMilliseconds > 1500) debugPrint('[api] slow $method $path ${watch.elapsedMilliseconds}ms');

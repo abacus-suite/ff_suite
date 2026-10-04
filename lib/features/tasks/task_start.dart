@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../clients/client_extras.dart';
 import '../clients/clients_screen.dart';
 import '../visits/visit_gate.dart';
+import '../../widgets/busy.dart';
 import 'task_flow_screen.dart';
 
 const _icons = <String, IconData>{
@@ -28,7 +29,8 @@ const _tints = <String, Color>{
 
 Future<Map<String, dynamic>?> _config(BuildContext context) async {
   try {
-    return await Services.api.get('/api/v1/field-tasks/config') as Map<String, dynamic>;
+    return await withBusy(context, 'Loading tasks…',
+        () async => await Services.api.get('/api/v1/field-tasks/config') as Map<String, dynamic>);
   } catch (e) {
     if (context.mounted) showSnack(context, 'The tasks could not be loaded: $e');
     return null;
@@ -174,7 +176,8 @@ Future<Map<String, dynamic>?> _pickLead(
     BuildContext context, Future<Map<String, dynamic>?> Function(BuildContext, Map<String, dynamic>) onPick) async {
   List<Map<String, dynamic>> leads;
   try {
-    leads = (await Services.api.get('/api/v1/field-tasks/leads-due') as List).cast<Map<String, dynamic>>();
+    leads = await withBusy(context, 'Finding your leads…', () async =>
+        (await Services.api.get('/api/v1/field-tasks/leads-due') as List).cast<Map<String, dynamic>>());
   } catch (e) {
     if (context.mounted) showSnack(context, e.toString());
     return null;
