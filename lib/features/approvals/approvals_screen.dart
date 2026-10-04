@@ -62,13 +62,13 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     }
   }
 
-  Future<void> _decide(String kind, int id, bool approve) async {
+  Future<void> _decide(String kind, int id, bool approve, {Map<String, dynamic> extra = const {}}) async {
     final key = '$kind-$id';
     setState(() => _busy.add(key));
     try {
       final decision = approve ? 'approve' : 'reject';
       final path = kind == 'return' ? '/api/v1/returns/$id/$decision' : '/api/v1/approvals/$kind/$id/$decision';
-      await Services.outbox.submit(path, {'uuid': const Uuid().v4()});
+      await Services.outbox.submit(path, {'uuid': const Uuid().v4(), ...extra});
       if (mounted) showSnack(context, approve ? 'Approved' : 'Rejected');
       await _load();
     } catch (e) {
@@ -76,6 +76,59 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     } finally {
       if (mounted) setState(() => _busy.remove(key));
     }
+  }
+
+  /// An expense is approved for what was claimed or for less, and a reason is needed
+  /// whenever it is reduced or rejected.
+  Future<void> _decideExpense(Map<String, dynamic> e, bool approve) async {
+    final claimed = (e['amount'] as num?)?.toDouble() ?? 0;
+    final amount = TextEditingController(text: claimed == claimed.roundToDouble() ? '${claimed.toInt()}' : '$claimed');
+    final reason = TextEditingController();
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => StatefulBuilder(
+        builder: (context, set) {
+          final reduced = approve && (double.tryParse(amount.text.trim()) ?? claimed) < claimed;
+          return AlertDialog(
+            title: Text(approve ? 'Approve expense' : 'Reject expense'),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (approve)
+                TextField(
+                  controller: amount,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => set(() {}),
+                  decoration: InputDecoration(labelText: 'Approved amount (claimed ${fmtMoney(claimed, e['currency'] as String?)})'),
+                ),
+              TextField(
+                controller: reason,
+                maxLines: 2,
+                decoration: InputDecoration(
+                    labelText: approve ? (reduced ? 'Reason for reducing *' : 'Note (optional)') : 'Reason for rejecting *'),
+              ),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+              FilledButton(onPressed: () => Navigator.pop(dialog, true), child: Text(approve ? 'Approve' : 'Reject')),
+            ],
+          );
+        },
+      ),
+    );
+    final value = double.tryParse(amount.text.trim());
+    final why = reason.text.trim();
+    amount.dispose();
+    reason.dispose();
+    if (go != true || !mounted) return;
+    if (approve && (value == null || value <= 0 || value > claimed)) {
+      await showProblem(context, 'The approved amount must be more than zero and not more than the claim.');
+      return;
+    }
+    if ((!approve || (value ?? claimed) < claimed) && why.isEmpty) {
+      await showProblem(context, approve ? 'Give the reason for reducing the amount.' : 'Give the reason for rejecting.');
+      return;
+    }
+    await _decide('expense', e['id'] as int, approve,
+        extra: {if (approve) 'amount': value, if (why.isNotEmpty) 'reason': why});
   }
 
   Widget _card({
@@ -86,6 +139,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     required String title,
     required List<String> lines,
     String? amount,
+    Future<void> Function(bool approve)? onDecide,
   }) {
     final busy = _busy.contains('$kind-$id');
     return Card(
@@ -109,9 +163,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                OutlinedButton(onPressed: busy ? null : () => _decide(kind, id, false), child: const Text('Reject')),
+                OutlinedButton(onPressed: busy ? null : () => (onDecide ?? (a) => _decide(kind, id, a))(false), child: const Text('Reject')),
                 const SizedBox(width: 8),
-                FilledButton(onPressed: busy ? null : () => _decide(kind, id, true), child: const Text('Approve')),
+                FilledButton(onPressed: busy ? null : () => (onDecide ?? (a) => _decide(kind, id, a))(true), child: const Text('Approve')),
               ],
             ),
           ],
@@ -157,6 +211,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                   for (final e in _expenses)
                     _card(
                       kind: 'expense',
+                      onDecide: (approve) => _decideExpense(e, approve),
                       id: e['id'] as int,
                       icon: Icons.receipt_long_rounded,
                       color: AppColors.warning,
