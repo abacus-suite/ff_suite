@@ -85,7 +85,7 @@ def client_domain(employee, member=None):
     # days, belong in the list even when nobody assigned them by name.
     extra = _route_partner_ids(people)
     Partner = request.env['res.partner']
-    if Partner._ff_contact_access() == 'open':
+    if Partner._ff_access_rule(employee) or Partner._ff_contact_access() == 'open':
         # The office shares the contacts: everybody's list is the company's list,
         # narrowed only when somebody is picked out of the team.
         domain = Partner._ff_visible_domain(employee)

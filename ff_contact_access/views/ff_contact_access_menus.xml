@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ff_contact_access_rules" name="Contact Access Rules" parent="ff_base.menu_ff_config"
+              action="ff_contact_access_rule_action" sequence="40" groups="ff_base.group_ff_admin"/>
+    <menuitem id="menu_ff_territories" name="Territories" parent="ff_base.menu_ff_config"
+              action="ff_territory_action" sequence="41" groups="ff_base.group_ff_admin"/>
+    <menuitem id="menu_ff_contact_access_requests" name="Access Requests" parent="ff_base.menu_ff_group_sales"
+              action="ff_contact_access_request_action" sequence="40" groups="ff_base.group_ff_manager"/>
+</odoo>

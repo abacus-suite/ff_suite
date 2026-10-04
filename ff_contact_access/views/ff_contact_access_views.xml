@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_contact_access_rule_view_list" model="ir.ui.view">
+        <field name="name">ff.contact.access.rule.list</field>
+        <field name="model">ff.contact.access.rule</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="mode"/>
+                <field name="employee_ids" widget="many2many_tags" placeholder="Everyone (default)"/>
+                <field name="note"/>
+            </list>
+        </field>
+    </record>
+    <record id="ff_contact_access_rule_action" model="ir.actions.act_window">
+        <field name="name">Contact Access Rules</field>
+        <field name="res_model">ff.contact.access.rule</field>
+        <field name="view_mode">list</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add the default rule</p>
+            <p>A rule with no employees is the default. A rule naming employees wins for them.
+               With no rule at all, Settings > Who Sees Which Contacts decides.</p>
+        </field>
+    </record>
+
+    <record id="ff_contact_access_request_view_list" model="ir.ui.view">
+        <field name="name">ff.contact.access.request.list</field>
+        <field name="model">ff.contact.access.request</field>
+        <field name="arch" type="xml">
+            <list decoration-success="status == 'active'" decoration-muted="status in ('expired', 'rejected')">
+                <field name="employee_id"/>
+                <field name="scope_type"/>
+                <field name="target"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="status" widget="badge"/>
+                <button name="action_approve" type="object" string="Approve" icon="fa-check"
+                        invisible="status != 'pending'"/>
+                <button name="action_reject" type="object" string="Turn down" icon="fa-times"
+                        invisible="status != 'pending'"/>
+            </list>
+        </field>
+    </record>
+    <record id="ff_contact_access_request_view_form" model="ir.ui.view">
+        <field name="name">ff.contact.access.request.form</field>
+        <field name="model">ff.contact.access.request</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_approve" type="object" string="Approve" class="btn-primary"
+                            invisible="state != 'pending'"/>
+                    <button name="action_reject" type="object" string="Turn down" invisible="state != 'pending'"/>
+                    <field name="status" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="employee_id"/>
+                            <field name="scope_type"/>
+                            <field name="territory_id" invisible="scope_type != 'territory'"/>
+                            <field name="beat_id" invisible="scope_type != 'beat'"/>
+                            <field name="district_id" invisible="scope_type != 'city'"/>
+                        </group>
+                        <group>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="decided_by_id"/>
+                            <field name="decision_note"/>
+                        </group>
+                    </group>
+                    <field name="reason" placeholder="Why is it needed?"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="ff_contact_access_request_view_search" model="ir.ui.view">
+        <field name="name">ff.contact.access.request.search</field>
+        <field name="model">ff.contact.access.request</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <filter name="waiting" string="Waiting" domain="[('state', '=', 'pending')]"/>
+                <filter name="approved" string="Approved" domain="[('state', '=', 'approved')]"/>
+            </search>
+        </field>
+    </record>
+    <record id="ff_contact_access_request_action" model="ir.actions.act_window">
+        <field name="name">Access Requests</field>
+        <field name="res_model">ff.contact.access.request</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_waiting': 1}</field>
+    </record>
+</odoo>

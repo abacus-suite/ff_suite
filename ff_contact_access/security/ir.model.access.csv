@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_territory_officer,ff.territory officer,model_ff_territory,ff_base.group_ff_officer,1,0,0,0
+access_ff_territory_admin,ff.territory admin,model_ff_territory,ff_base.group_ff_admin,1,1,1,1
+access_ff_contact_access_rule_officer,ff.contact.access.rule officer,model_ff_contact_access_rule,ff_base.group_ff_officer,1,0,0,0
+access_ff_contact_access_rule_admin,ff.contact.access.rule admin,model_ff_contact_access_rule,ff_base.group_ff_admin,1,1,1,1
+access_ff_contact_access_request_officer,ff.contact.access.request officer,model_ff_contact_access_request,ff_base.group_ff_officer,1,0,0,0
+access_ff_contact_access_request_manager,ff.contact.access.request manager,model_ff_contact_access_request,ff_base.group_ff_manager,1,1,1,0
+access_ff_contact_access_request_admin,ff.contact.access.request admin,model_ff_contact_access_request,ff_base.group_ff_admin,1,1,1,1

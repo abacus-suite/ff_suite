@@ -90,8 +90,16 @@ class ResPartner(models.Model):
     @api.model
     def _ff_contact_access(self):
         """'scoped' keeps contacts with their owner; 'open' shares the beats."""
+        forced = self.env.context.get('ff_force_access')
+        if forced in ('scoped', 'open'):
+            return forced
         access = self.env['ir.config_parameter'].sudo().get_param('ff_base.contact_access')
         return access if access in ('scoped', 'open') else 'scoped'
+
+    @api.model
+    def _ff_access_rule(self, employee):
+        """The contact-list rule that applies to ``employee``; none here (see ff_contact_access)."""
+        return False
 
     @api.model
     def _ff_visible_domain(self, employee):

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Nothing is seeded as a default rule on purpose: with no rule the existing
+         setting (Who Sees Which Contacts) keeps deciding, so installing this changes
+         nothing until a rule is added under Configuration > Contact Access Rules. -->
+</odoo>
