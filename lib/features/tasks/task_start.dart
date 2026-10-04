@@ -69,6 +69,7 @@ Future<void> resumeOpenTask(BuildContext context) async {
     final visit = await Services.api.get('/api/v1/visits/current') as Map<String, dynamic>?;
     final code = '${visit?['task'] ?? ''}';
     if (visit == null || code.isEmpty || taskScreenOpen || !context.mounted) return;
+    if (taskMinimised(visit['id'])) return;
     final client = await Services.api.get('/api/v1/clients/${(visit['client'] as Map)['id']}')
         as Map<String, dynamic>;
     if (!context.mounted || taskScreenOpen) return;
@@ -285,9 +286,9 @@ Future<void> completeOnboarding(BuildContext context, Map<String, dynamic> clien
     final done = await Navigator.of(context)
         .push<Map<String, dynamic>>(MaterialPageRoute(builder: (_) => OnboardScreen(client: full)));
     if (done == null || !context.mounted) return;
-    final fresh = await Services.api.get('/api/v1/clients/${done['id']}') as Map<String, dynamic>;
-    if (!context.mounted) return;
-    await _begin(context, config, 'client_visit', client: fresh);
+    // The contact is an outlet or distributor now. The visit that follows is the
+    // person's to start: check in, then choose the task.
+    if (context.mounted) showSnack(context, '${done['name']} is onboarded. Check in to start a visit.');
   } catch (e) {
     if (context.mounted) showProblem(context, e.toString());
   }

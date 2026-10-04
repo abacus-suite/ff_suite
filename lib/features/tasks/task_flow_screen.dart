@@ -20,6 +20,28 @@ import 'task_widgets.dart';
 /// Whether a task screen is on show, so a visit left open is not reopened over itself.
 bool taskScreenOpen = false;
 
+/// What was filled in on a task that was minimised, kept for the visit it belongs to
+/// so that opening the task again picks up exactly where it was left.
+class _Draft {
+  _Draft(this.code, this.uuid, this.index);
+
+  final String code;
+  final String uuid;
+  final int index;
+  final Map<String, dynamic> a = {};
+  final Map<String, List<Uint8List>> photos = {};
+  final Map<String, String> text = {};
+  final Map<String, Map<int, double>> qty = {};
+  final Set<int> available = {};
+  Map<String, dynamic>? client;
+  Map<String, dynamic>? ledger;
+}
+
+final Map<int, _Draft> _drafts = {};
+
+/// Was this visit's task deliberately minimised? Then the app does not drag it back open.
+bool taskMinimised(Object? visitId) => visitId is num && _drafts.containsKey(visitId.toInt());
+
 /// One screen of a task.
 class _Step {
   _Step(this.number, this.title, this.body, this.check);
@@ -51,7 +73,7 @@ class TaskFlowScreen extends StatefulWidget {
 }
 
 class _TaskFlowScreenState extends State<TaskFlowScreen> {
-  final String _uuid = const Uuid().v4();
+  String _uuid = const Uuid().v4();
   final Map<String, dynamic> _a = {};
   final Map<String, List<Uint8List>> _photos = {};
   final Map<String, TextEditingController> _text = {};
@@ -63,6 +85,28 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
   List<Map<String, dynamic>> _cities = [];
   int _index = 0;
   bool _busy = false;
+
+  int? get _visitId => (widget.visit?['id'] as num?)?.toInt();
+
+  /// Leaves the task without losing a thing: the answers are kept for this visit and
+  /// the person is back on the contact, still checked in, to open the task again.
+  void _minimize() {
+    final id = _visitId;
+    if (id != null) {
+      final d = _Draft(widget.code, _uuid, _index)
+        ..a.addAll(_a)
+        ..photos.addAll(_photos)
+        ..qty.addAll(_qty)
+        ..available.addAll(_available)
+        ..client = _client
+        ..ledger = _ledger;
+      for (final e in _text.entries) {
+        d.text[e.key] = e.value.text;
+      }
+      _drafts[id] = d;
+    }
+    Navigator.of(context).pop();
+  }
 
   Map<String, dynamic> get _lists => (widget.config['lists'] as Map).cast<String, dynamic>();
 
@@ -100,6 +144,20 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     super.initState();
     taskScreenOpen = true;
     _client = widget.client;
+    final draft = _drafts[_visitId];
+    if (draft != null && draft.code == widget.code) {
+      _uuid = draft.uuid;
+      _index = draft.index;
+      _a.addAll(draft.a);
+      _photos.addAll(draft.photos);
+      _qty.addAll(draft.qty);
+      _available.addAll(draft.available);
+      for (final e in draft.text.entries) {
+        _t(e.key).text = e.value;
+      }
+      _client = draft.client ?? _client;
+      _ledger = draft.ledger;
+    }
     if (widget.code == 'sample_collection' && widget.client != null) {
       // Checked in at a contact, so that contact is where the samples come from:
       // a distributor if it is one, an outlet if it is not. Nothing to ask.
@@ -1113,6 +1171,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       } else {
         await _showDone(done);
       }
+      _drafts.remove(_visitId);
       if (mounted) Navigator.of(context).pop(done);
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
@@ -1125,23 +1184,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
   /// submitted. A way out is still kept for the day it cannot be - a shop that has
   /// burnt down, a phone that cannot take the photo - but it is a deliberate act
   /// with a reason, and it is on the record.
-  Future<void> _stayCheckedIn() async {
-    final out = await showDialog<bool>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        icon: const Icon(Icons.lock_clock_rounded, color: AppColors.primary, size: 34),
-        title: const Text('You are checked in'),
-        content: const Text('Finish the steps and submit to check out. You cannot go anywhere else until then.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialog, true),
-            child: const Text('Cannot finish', style: TextStyle(color: AppColors.danger)),
-          ),
-          FilledButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Keep going')),
-        ],
-      ),
-    );
-    if (out != true || !mounted) return;
+  Future<void> _cannotFinish() async {
     final reason = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1182,6 +1225,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
         'note': 'Left the task unfinished: $why',
       });
       Services.refresh.value++;
+      _drafts.remove(_visitId);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
@@ -1214,8 +1258,10 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
               Row(
                 children: [
                   IconButton(
+                    tooltip: widget.visit != null ? 'Minimise - your answers are kept' : 'Back',
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                    icon: Icon(widget.visit != null ? Icons.keyboard_arrow_down_rounded : Icons.arrow_back_rounded,
+                        color: Colors.white, size: widget.visit != null ? 30 : 24),
                   ),
                   Container(
                     width: 38,
@@ -1248,6 +1294,18 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
                     child: Text('${step.number}/$_total',
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
                   ),
+                  if (widget.visit != null)
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+                      onSelected: (v) {
+                        if (v == 'minimise') _minimize();
+                        if (v == 'cannot') _cannotFinish();
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'minimise', child: Text('Minimise')),
+                        PopupMenuItem(value: 'cannot', child: Text('Cannot finish - check out')),
+                      ],
+                    ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -1465,7 +1523,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
         if (didPop) return;
         // Checked in: the way out is checking out, which is submitting the task.
         if (widget.visit != null) {
-          await _stayCheckedIn();
+          _minimize();
           return;
         }
         final leave = await showDialog<bool>(
