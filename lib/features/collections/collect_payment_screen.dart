@@ -34,6 +34,14 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
   List<Map<String, dynamic>> _modes = [];
   Map<String, dynamic>? _mode;
   DateTime? _instrumentDate;
+
+  /// What this money is paying for. From a distributor it is the company's own
+  /// invoices; from an outlet it is that outlet's invoices from its distributor.
+  String _kind = 'outlet';
+  String _goesTo = 'distributor';
+  Map<String, dynamic>? _distributor;
+  List<Map<String, dynamic>> _invoices = [];
+  final Set<int> _picked = {};
   bool _loading = true;
   bool _busy = false;
   String? _error;
@@ -59,6 +67,7 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
     });
     try {
       final list = (await Services.api.get('/api/v1/collection-modes') as List).cast<Map<String, dynamic>>();
+      await _loadInvoices();
       if (!mounted) return;
       setState(() {
         _modes = list;
@@ -75,11 +84,207 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
     }
   }
 
+  /// The invoices this contact owes, and where the money will end up.
+  Future<void> _loadInvoices() async {
+    try {
+      final data = await Services.api.get('/api/v1/collection/open-invoices',
+          query: {'partner_id': widget.client['id']}) as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _kind = '${data['kind']}';
+        _goesTo = '${data['goes_to']}';
+        _distributor = (data['distributor'] as Map?)?.cast<String, dynamic>();
+        _invoices = ((data['invoices'] as List?) ?? []).cast<Map<String, dynamic>>();
+        _picked.removeWhere((id) => !_invoices.any((i) => i['id'] == id));
+      });
+    } catch (_) {
+      // Without the ledger module the screen collects as it always did.
+    }
+  }
+
+  num get _pickedTotal => _invoices
+      .where((i) => _picked.contains(i['id']))
+      .fold<num>(0, (sum, i) => sum + ((i['pending'] as num?) ?? 0));
+
+  /// Ticking invoices fills the amount with what they add up to.
+  void _toggle(int id, bool on) {
+    setState(() {
+      on ? _picked.add(id) : _picked.remove(id);
+      final total = _pickedTotal;
+      _amount.text = total == 0 ? '' : fmtQty(total);
+    });
+  }
+
+  /// An outlet's invoice is the distributor's, so nobody but the field has seen
+  /// it; it is entered here from the paper copy at the counter.
+  Future<void> _addInvoice() async {
+    final number = TextEditingController();
+    final amount = TextEditingController();
+    DateTime? due;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => StatefulBuilder(
+        builder: (dialog, setSheet) => AlertDialog(
+          title: const Text("Enter the distributor's invoice"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: number,
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(labelText: 'Invoice number'),
+              ),
+              TextField(
+                controller: amount,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Amount'),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(due == null ? 'Due date (optional)' : 'Due ${fmtDate(due!)}'),
+                trailing: const Icon(Icons.event_rounded),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: dialog,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (picked != null) setSheet(() => due = picked);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Add')),
+          ],
+        ),
+      ),
+    );
+    final n = number.text.trim();
+    final a = double.tryParse(amount.text.trim()) ?? 0;
+    number.dispose();
+    amount.dispose();
+    if (saved != true || !mounted) return;
+    try {
+      final invoice = await Services.api.post('/api/v1/outlet-invoices', {
+        'partner_id': widget.client['id'],
+        'number': n,
+        'amount': a,
+        if (due != null) 'due_date': fmtDate(due!),
+        if (_distributor != null) 'distributor_id': _distributor!['id'],
+      }) as Map<String, dynamic>;
+      await _loadInvoices();
+      if (mounted) _toggle(invoice['id'] as int, true);
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString());
+    }
+  }
+
+  /// Splits the amount down the ticked invoices, oldest first, none beyond what is owed.
+  List<Map<String, dynamic>> _allocations(double amount) {
+    var left = amount;
+    final rows = <Map<String, dynamic>>[];
+    for (final invoice in _invoices.where((i) => _picked.contains(i['id']))) {
+      if (left <= 0) break;
+      final pending = ((invoice['pending'] as num?) ?? 0).toDouble();
+      final take = left < pending ? left : pending;
+      rows.add({'invoice_id': invoice['id'], 'amount': take});
+      left -= take;
+    }
+    return rows;
+  }
+
   Future<void> _addPhoto() async {
     if (_photos.length >= 3) return;
     final bytes = await takePhoto(ImageSource.camera);
     if (bytes == null) return;
     if (mounted) setState(() => _photos.add(bytes));
+  }
+
+  /// Says where this money goes, because it is not the same from everyone.
+  Widget _goesToCard() {
+    final toDistributor = _goesTo == 'distributor';
+    final tint = toDistributor ? AppColors.warning : AppColors.success;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(toDistributor ? Icons.local_shipping_rounded : Icons.business_rounded, size: 20, color: tint),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              toDistributor
+                  ? 'This is paid to ${_distributor?['name'] ?? 'the distributor'}. '
+                      'It is theirs, not the company\'s, so you do not hand it in to the office.'
+                  : 'This is the company\'s money. Hand it in to the office with your next deposit.',
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _invoicesCard() {
+    if (_invoices.isEmpty && _kind != 'outlet') return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                    _invoices.isEmpty ? 'No open invoices' : 'Pay these invoices',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+              ),
+              if (_kind == 'outlet')
+                TextButton.icon(
+                  onPressed: _addInvoice,
+                  icon: const Icon(Icons.add_rounded, size: 17),
+                  label: const Text('Add invoice'),
+                ),
+            ],
+          ),
+          if (_invoices.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text('The money is recorded on account. Add the invoice if you have it in front of you.',
+                  style: TextStyle(fontSize: 12, color: AppColors.muted)),
+            ),
+          for (final invoice in _invoices)
+            CheckboxListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _picked.contains(invoice['id']),
+              onChanged: (on) => _toggle(invoice['id'] as int, on == true),
+              title: Text('${invoice['number']}',
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+              subtitle: Text(
+                [
+                  if (invoice['due_date'] != null) 'due ${invoice['due_date']}',
+                  if (invoice['overdue'] == true) 'overdue',
+                ].join(' · '),
+                style: TextStyle(
+                    fontSize: 11.5,
+                    color: invoice['overdue'] == true ? AppColors.danger : AppColors.muted),
+              ),
+              secondary: Text(fmtMoney(invoice['pending'] as num?, invoice['currency'] as String?),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _submit() async {
@@ -117,6 +322,12 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
         'lat': pos?.latitude,
         'lng': pos?.longitude,
         'uuid': _uuid,
+        'handed_to': _goesTo,
+        if (_distributor != null) 'distributor_id': _distributor!['id'],
+        if (_kind == 'outlet')
+          'allocations': _allocations(double.tryParse(_amount.text.trim()) ?? 0)
+        else
+          'invoice_ids': _picked.toList(),
       }, label: 'Payment · ${widget.client['name']}');
       final saved = result.queued
           ? <String, dynamic>{'amount': double.tryParse(_amount.text.trim()) ?? 0, 'currency': null}
@@ -160,6 +371,10 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
                                 style: const TextStyle(color: AppColors.muted)),
                           ),
                           const SizedBox(height: 8),
+                          _goesToCard(),
+                          const SizedBox(height: 8),
+                          _invoicesCard(),
+                          const SizedBox(height: 12),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
