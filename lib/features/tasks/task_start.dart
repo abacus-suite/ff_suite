@@ -143,19 +143,35 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
     return;
   }
   var chosen = client;
-  if (code == 'lead_follow_up') {
-    chosen ??= await _pickLead(context);
+  Map<String, dynamic>? visit;
+  if (chosen != null) {
+    // Already on the customer's own screen, which is where any question belongs.
+    visit = await ensureCheckedIn(context, chosen, task: code);
+  } else if (code == 'lead_follow_up') {
+    chosen = await _pickLead(context, (sheet, lead) async {
+      visit = await ensureCheckedIn(sheet, lead, task: code);
+      return visit == null ? null : lead;
+    });
   } else {
-    chosen ??= await Navigator.of(context).push<Map<String, dynamic>>(
-        MaterialPageRoute(builder: (_) => const ClientsScreen(pickMode: true)));
+    // Checking in happens on the list they chose from, before it closes: an
+    // offsite question asked afterwards would be asked over whatever page the
+    // "+" was pressed on.
+    chosen = await Navigator.of(context).push<Map<String, dynamic>>(MaterialPageRoute(
+      builder: (_) => ClientsScreen(
+        pickMode: true,
+        onPick: (picker, contact) async {
+          visit = await ensureCheckedIn(picker, contact, task: code);
+          return visit == null ? null : contact;
+        },
+      ),
+    ));
   }
-  if (chosen == null || !context.mounted) return;
-  final visit = await ensureCheckedIn(context, chosen, task: code);
-  if (visit == null || !context.mounted) return;
+  if (chosen == null || visit == null || !context.mounted) return;
   await _run(context, config, code, chosen, visit);
 }
 
-Future<Map<String, dynamic>?> _pickLead(BuildContext context) async {
+Future<Map<String, dynamic>?> _pickLead(
+    BuildContext context, Future<Map<String, dynamic>?> Function(BuildContext, Map<String, dynamic>) onPick) async {
   List<Map<String, dynamic>> leads;
   try {
     leads = (await Services.api.get('/api/v1/field-tasks/leads-due') as List).cast<Map<String, dynamic>>();
@@ -172,7 +188,7 @@ Future<Map<String, dynamic>?> _pickLead(BuildContext context) async {
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
-    builder: (sheet) => _LeadList(leads: leads),
+    builder: (sheet) => _LeadList(leads: leads, onPick: onPick),
   );
 }
 
@@ -199,9 +215,10 @@ Future<void> _run(BuildContext context, Map<String, dynamic> config, String code
 }
 
 class _LeadList extends StatefulWidget {
-  const _LeadList({required this.leads});
+  const _LeadList({required this.leads, required this.onPick});
 
   final List<Map<String, dynamic>> leads;
+  final Future<Map<String, dynamic>?> Function(BuildContext, Map<String, dynamic>) onPick;
 
   @override
   State<_LeadList> createState() => _LeadListState();
@@ -263,7 +280,10 @@ class _LeadListState extends State<_LeadList> {
                           status == 'overdue' ? 'Overdue' : status == 'today' ? 'Today' : 'Upcoming',
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: tint)),
                     ),
-                    onTap: () => Navigator.pop(context, lead),
+                    onTap: () async {
+                      final result = await widget.onPick(context, lead);
+                      if (result != null && context.mounted) Navigator.pop(context, result);
+                    },
                   );
                 },
               ),

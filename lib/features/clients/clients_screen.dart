@@ -21,9 +21,15 @@ import 'client_detail_screen.dart';
 /// Contacts with search, category chips, "nearby" sorting and a map.
 /// In [pickMode] tapping a contact returns it to the caller.
 class ClientsScreen extends StatefulWidget {
-  const ClientsScreen({super.key, this.pickMode = false, this.embedded = false});
+  const ClientsScreen({super.key, this.pickMode = false, this.embedded = false, this.onPick});
 
   final bool pickMode;
+
+  /// What to do with a contact the moment it is chosen, before this screen closes.
+  /// Returns what to hand back, or null to stay and let them choose again. It runs
+  /// here so that any question it asks - an offsite check-in, say - is asked over
+  /// the list they chose from, not over whatever was underneath.
+  final Future<Map<String, dynamic>?> Function(BuildContext context, Map<String, dynamic> client)? onPick;
   final bool embedded;
 
   @override
@@ -156,10 +162,27 @@ class _ClientsScreenState extends State<ClientsScreen> {
     _debounce = Timer(const Duration(milliseconds: 400), _load);
   }
 
+  /// Hands the chosen contact back, after whatever has to happen to it first.
+  Future<void> _choose(Map<String, dynamic> client) async {
+    final handler = widget.onPick;
+    if (handler == null) {
+      Navigator.of(context).pop(client);
+      return;
+    }
+    final result = await handler(context, client);
+    if (result != null && mounted) Navigator.of(context).pop(result);
+  }
+
   /// A map point holds only an id and a name, so it is opened by id.
   Future<void> _openPoint(Map<String, dynamic> point) async {
     if (widget.pickMode) {
-      Navigator.of(context).pop(point);
+      // A pin carries only an id and a name; what follows needs the whole contact.
+      try {
+        final full = await Services.api.get('/api/v1/clients/${point['id']}') as Map<String, dynamic>;
+        if (mounted) await _choose(full);
+      } catch (_) {
+        if (mounted) await _choose(point);
+      }
       return;
     }
     await Navigator.of(context)
@@ -169,7 +192,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   Future<void> _open(Map<String, dynamic> client) async {
     if (widget.pickMode) {
-      Navigator.of(context).pop(client);
+      await _choose(client);
       return;
     }
     await Navigator.of(context)
