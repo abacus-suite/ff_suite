@@ -55,6 +55,11 @@ def order_data(order, with_lines=False):
                      for line in order.order_line[:6] if line.product_id],
         'visit_id': order.ff_visit_id.id or None,
         'employee': ref(order.ff_employee_id),
+        # Where the distributor has got to with it. These come from the portal
+        # module when it is installed, and are simply absent when it is not.
+        'distributor_status': getattr(order, 'distributor_status', None) or None,
+        'distributor_note': getattr(order, 'distributor_note', None) or None,
+        'portal_link': getattr(order, 'distributor_portal_link', None) or None,
     }
     if with_lines:
         data['note'] = order.note and str(order.note) or None

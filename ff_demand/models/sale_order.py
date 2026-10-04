@@ -24,6 +24,15 @@ class SaleOrder(models.Model):
             'view_mode': 'list,form',
         }
 
+    def _ff_distributor_sent(self):
+        """Called once an order has been sent to a distributor from the app.
+
+        Empty here on purpose. Whatever tells the distributor - a portal link,
+        an email - lives in the module that owns that, and hooks in by
+        overriding this, so the demand module never has to know it exists.
+        """
+        return True
+
     def action_confirm(self):
         result = super().action_confirm()
         self.mapped('ff_demand_ids')._ff_refresh_state()

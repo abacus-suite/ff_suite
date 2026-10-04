@@ -114,7 +114,39 @@ class FieldForceDemandApi(http.Controller):
         distributor = request.env['res.partner'].sudo().browse(to_int(data.get('distributor_id')) or 0).exists()
         order = request.env['ff.demand'].ff_submit_to_distributor(employee, demands, distributor)
         return ok({
-            'order': {'id': order.id, 'name': order.name},
+            'order': {'id': order.id, 'name': order.name,
+                      'portal_link': getattr(order, 'distributor_portal_link', None) or None},
+            'distributor': ref(distributor),
+            'demands': [demand_data(demand) for demand in demands],
+        }, status=201)
+
+    @api_route('/api/v1/orders/<int:order_id>/resend', methods=('POST',))
+    def resend_to_distributor(self, employee, order_id, **kw):
+        """Send a turned-down order's demands on again, to the same distributor or another.
+
+        The rejected order stays as it was - cancelled, with the distributor's
+        reason - because that is the record of what happened. The demands behind
+        it have their quantities back, so they go out as a new order.
+        """
+        old = request.env['sale.order'].sudo().browse(order_id).exists()
+        mine = employee | employee._ff_subordinates()
+        if not old or old.ff_employee_id not in mine:
+            raise ApiError('Order not found.', 404, 'not_found')
+        if old.state != 'cancel':
+            raise ApiError('Only an order the distributor turned down can be sent again.', 409, 'conflict')
+        demands = old.ff_demand_ids
+        if not demands:
+            raise ApiError('This order has no outlet demands to send again.')
+        demands._ff_refresh_state()
+        chosen = to_int(body().get('distributor_id'))
+        distributor = request.env['res.partner'].sudo().browse(chosen or old.partner_id.id).exists()
+        order = request.env['ff.demand'].ff_submit_to_distributor(employee, demands, distributor)
+        order.message_post(body=request.env._(
+            'Sent again after %(old)s was turned down by %(was)s.',
+            old=old.name, was=old.partner_id.display_name))
+        return ok({
+            'order': {'id': order.id, 'name': order.name,
+                      'portal_link': getattr(order, 'distributor_portal_link', None) or None},
             'distributor': ref(distributor),
             'demands': [demand_data(demand) for demand in demands],
         }, status=201)

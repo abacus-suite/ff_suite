@@ -247,6 +247,7 @@ class FfDemand(models.Model):
         demands.write({'order_ids': [(4, order.id)]})
         demands.filtered(lambda d: not d.distributor_id).write({'distributor_id': distributor.id})
         demands._ff_refresh_state()
+        order._ff_distributor_sent()
         return order
 
     # ------------------------------------------------------------------

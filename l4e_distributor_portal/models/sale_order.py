@@ -163,6 +163,21 @@ class SaleOrder(models.Model):
 
         return True
 
+    def _ff_distributor_sent(self):
+        """An order sent from the app gets what one made by the office wizard gets.
+
+        The distributor is shown what was asked for beside what they adjusted
+        it to, so the original quantities are kept, and they are sent the link.
+        """
+        result = super()._ff_distributor_sent()
+        for order in self:
+            for line in order.order_line:
+                if not line.original_demanded_qty:
+                    line.original_demanded_qty = line.product_uom_qty
+            order.generate_distributor_portal_link()
+            order.action_send_distributor_portal_mail(auto_sent=True)
+        return result
+
     def action_open_distributor_portal(self):
         """Open the distributor portal in a new tab from the backend form view."""
         self.ensure_one()
