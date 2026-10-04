@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ff_task_visits" name="Task Visits" parent="ff_base.menu_ff_group_field"
+              action="ff_task_log_action" sequence="25"/>
+    <menuitem id="menu_ff_task_report" name="Tasks by Employee" parent="ff_base.menu_ff_group_field"
+              action="ff_task_log_report_action" sequence="26"/>
+    <menuitem id="menu_ff_partner_material" name="Marketing Material" parent="ff_base.menu_ff_group_field"
+              action="ff_partner_material_action" sequence="27"/>
+    <menuitem id="menu_ff_distributor_notes" name="Credit / Debit Notes"
+              parent="ff_outlet_ledger.menu_ff_outlet_ledger"
+              action="ff_distributor_note_action" sequence="30"/>
+    <menuitem id="menu_ff_task_types" name="Task Types" parent="ff_base.menu_ff_config"
+              action="ff_task_type_action" sequence="75"/>
+</odoo>

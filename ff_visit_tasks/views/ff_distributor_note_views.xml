@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_distributor_note_view_list" model="ir.ui.view">
+        <field name="name">ff.distributor.note.list</field>
+        <field name="model">ff.distributor.note</field>
+        <field name="arch" type="xml">
+            <list create="0" decoration-warning="state == 'pending'" decoration-muted="state == 'rejected'">
+                <field name="date"/>
+                <field name="name"/>
+                <field name="kind"/>
+                <field name="distributor_id"/>
+                <field name="partner_id" optional="show"/>
+                <field name="employee_id" optional="show"/>
+                <field name="reason" optional="show"/>
+                <field name="quantity_total" sum="Pieces"/>
+                <field name="state" widget="badge"
+                       decoration-warning="state == 'pending'" decoration-success="state == 'approved'"
+                       decoration-danger="state == 'rejected'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_distributor_note_view_form" model="ir.ui.view">
+        <field name="name">ff.distributor.note.form</field>
+        <field name="model">ff.distributor.note</field>
+        <field name="arch" type="xml">
+            <form create="0">
+                <header>
+                    <button name="action_approve" type="object" string="Approve" class="btn-primary"
+                            invisible="state != 'pending'" groups="ff_base.group_ff_manager"/>
+                    <button name="action_reject" type="object" string="Reject" invisible="state != 'pending'"
+                            groups="ff_base.group_ff_manager"/>
+                    <field name="state" widget="statusbar" statusbar_visible="pending,approved"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="kind"/>
+                            <field name="distributor_id"/>
+                            <field name="partner_id"/>
+                            <field name="employee_id"/>
+                        </group>
+                        <group>
+                            <field name="date"/>
+                            <field name="reason"/>
+                            <field name="task_log_id"/>
+                            <field name="demand_id"/>
+                            <field name="decided_by_id" invisible="not decided_by_id"/>
+                        </group>
+                    </group>
+                    <field name="line_ids">
+                        <list>
+                            <field name="product_id"/>
+                            <field name="quantity" sum="Total"/>
+                            <field name="uom_id"/>
+                        </list>
+                    </field>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_distributor_note_view_search" model="ir.ui.view">
+        <field name="name">ff.distributor.note.search</field>
+        <field name="model">ff.distributor.note</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="distributor_id"/>
+                <field name="partner_id"/>
+                <field name="employee_id"/>
+                <filter name="pending" string="Waiting for approval" domain="[('state', '=', 'pending')]"/>
+                <filter name="credit" string="Credit notes" domain="[('kind', '=', 'credit')]"/>
+                <filter name="debit" string="Debit notes" domain="[('kind', '=', 'debit')]"/>
+                <group>
+                    <filter name="group_distributor" string="Distributor" context="{'group_by': 'distributor_id'}"/>
+                    <filter name="group_kind" string="Kind" context="{'group_by': 'kind'}"/>
+                    <filter name="group_month" string="Month" context="{'group_by': 'date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_distributor_note_action" model="ir.actions.act_window">
+        <field name="name">Credit / Debit Notes</field>
+        <field name="res_model">ff.distributor.note</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_pending': 1}</field>
+    </record>
+</odoo>

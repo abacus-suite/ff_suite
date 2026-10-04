@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="product_category_view_form_ff_tasks" model="ir.ui.view">
+        <field name="name">product.category.form.ff_tasks</field>
+        <field name="model">product.category</field>
+        <field name="inherit_id" ref="product.product_category_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='parent_id']" position="after">
+                <field name="ff_tracking_needed"/>
+                <field name="ff_marketing_material"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="ff_team_view_form_samples" model="ir.ui.view">
+        <field name="name">ff.team.form.samples</field>
+        <field name="model">ff.team</field>
+        <field name="inherit_id" ref="ff_base.ff_team_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='manager_id']" position="after">
+                <field name="ff_company_samples"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

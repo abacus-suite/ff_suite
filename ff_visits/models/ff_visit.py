@@ -222,7 +222,9 @@ class FfVisit(models.Model):
         # nobody was asked at the start, as with a check-in the app made itself.
         purpose = visit.purpose or (
             data.get('purpose') if data.get('purpose') in dict(PURPOSES) else False)
-        if not auto:
+        # A visit closed by a task has already been through that task's own steps,
+        # which are stricter than the purpose rules and are enforced where they live.
+        if not auto and not data.get('task'):
             # The purpose decides what a finished visit has to carry, so nothing
             # is written up until it is known.
             if not purpose:

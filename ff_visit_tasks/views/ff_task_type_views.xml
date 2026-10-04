@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_task_type_view_list" model="ir.ui.view">
+        <field name="name">ff.task.type.list</field>
+        <field name="model">ff.task.type</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code" readonly="1"/>
+                <field name="steps"/>
+                <field name="needs_contact"/>
+                <field name="hint"/>
+                <field name="log_count"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+    <record id="ff_task_type_action" model="ir.actions.act_window">
+        <field name="name">Task Types</field>
+        <field name="res_model">ff.task.type</field>
+        <field name="view_mode">list</field>
+    </record>
+</odoo>

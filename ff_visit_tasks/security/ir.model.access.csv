@@ -1,0 +1,18 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_task_type_user,ff.task.type user,model_ff_task_type,base.group_user,1,0,0,0
+access_ff_task_type_admin,ff.task.type admin,model_ff_task_type,ff_base.group_ff_admin,1,1,1,1
+access_ff_task_log_officer,ff.task.log officer,model_ff_task_log,ff_base.group_ff_officer,1,0,0,0
+access_ff_task_log_manager,ff.task.log manager,model_ff_task_log,ff_base.group_ff_manager,1,1,1,0
+access_ff_task_log_admin,ff.task.log admin,model_ff_task_log,ff_base.group_ff_admin,1,1,1,1
+access_ff_task_log_line_officer,ff.task.log.line officer,model_ff_task_log_line,ff_base.group_ff_officer,1,0,0,0
+access_ff_task_log_line_manager,ff.task.log.line manager,model_ff_task_log_line,ff_base.group_ff_manager,1,1,1,0
+access_ff_task_log_line_admin,ff.task.log.line admin,model_ff_task_log_line,ff_base.group_ff_admin,1,1,1,1
+access_ff_distributor_note_officer,ff.distributor.note officer,model_ff_distributor_note,ff_base.group_ff_officer,1,0,0,0
+access_ff_distributor_note_manager,ff.distributor.note manager,model_ff_distributor_note,ff_base.group_ff_manager,1,1,1,0
+access_ff_distributor_note_admin,ff.distributor.note admin,model_ff_distributor_note,ff_base.group_ff_admin,1,1,1,1
+access_ff_distributor_note_line_officer,ff.distributor.note.line officer,model_ff_distributor_note_line,ff_base.group_ff_officer,1,0,0,0
+access_ff_distributor_note_line_manager,ff.distributor.note.line manager,model_ff_distributor_note_line,ff_base.group_ff_manager,1,1,1,0
+access_ff_distributor_note_line_admin,ff.distributor.note.line admin,model_ff_distributor_note_line,ff_base.group_ff_admin,1,1,1,1
+access_ff_partner_material_officer,ff.partner.material officer,model_ff_partner_material,ff_base.group_ff_officer,1,0,0,0
+access_ff_partner_material_manager,ff.partner.material manager,model_ff_partner_material,ff_base.group_ff_manager,1,1,1,0
+access_ff_partner_material_admin,ff.partner.material admin,model_ff_partner_material,ff_base.group_ff_admin,1,1,1,1
