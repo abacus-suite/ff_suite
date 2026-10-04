@@ -28,6 +28,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
   bool? _swiggy;
   bool? _chiller;
   String? _mrp;
+  String? _category;
   String? _scheme;
   String? _chillerModel;
   Map<String, dynamic>? _distributor;
@@ -77,6 +78,8 @@ class _OnboardScreenState extends State<OnboardScreen> {
       if (!_phone.hasMatch(_v('accounts_poc_phone'))) return 'Accounts contact number must be 10 digits';
       if (!_email.hasMatch(_v('accounts_poc_email'))) return 'Enter a valid accounts email';
     }
+    if (outlet && _category == null) return 'Choose the outlet category';
+    if (outlet && _category == 'others' && _v('outlet_category_note').isEmpty) return 'Describe the outlet category';
     if (_mrp == null) return 'Choose the MRP';
     if (outlet && _distributor == null) return 'Choose the distributor';
     if (_swiggy == null) return 'Say whether it is a Swiggy / Zomato outlet';
@@ -120,6 +123,8 @@ class _OnboardScreenState extends State<OnboardScreen> {
               'accounts_poc_name': _v('accounts_poc_name'),
               'accounts_poc_phone': _v('accounts_poc_phone'),
               'accounts_poc_email': _v('accounts_poc_email'),
+              'outlet_category': _category,
+              'outlet_category_note': _v('outlet_category_note'),
               'mrp': _mrp,
               'scheme': _scheme,
               'distributor_id': _distributor?['id'],
@@ -213,6 +218,17 @@ class _OnboardScreenState extends State<OnboardScreen> {
                 _field('accounts_poc_name', 'Name'),
                 _field('accounts_poc_phone', 'Contact number (10 digits)', type: TextInputType.phone, maxLength: 10),
                 _field('accounts_poc_email', 'Email', type: TextInputType.emailAddress),
+              ]),
+            ),
+          if (outlet)
+            StepCard(
+              title: 'Outlet category *',
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Choice(
+                    options: _list('outlet_categories'),
+                    value: _category,
+                    onChanged: (v) => setState(() => _category = v)),
+                if (_category == 'others') ...[const SizedBox(height: 10), _field('outlet_category_note', 'Describe')],
               ]),
             ),
           StepCard(
