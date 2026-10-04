@@ -167,10 +167,16 @@ class FfTaskLog(models.Model):
         if not visit or visit.state != 'ongoing':
             return
         code = log.visit_outcome or log.meeting_result or 'others'
+        # The visit's own outcomes can ask for a note or a photo - "Shop closed" wants
+        # a photo - and the task has already collected both, so they are handed over
+        # rather than asked for a second time.
+        photos = [p.get('data') if isinstance(p, dict) else p for p in data.get('photos') or []]
+        photos = [p for p in photos if isinstance(p, str) and p]
         visit.sudo().ff_check_out({
             'lat': log.latitude, 'lng': log.longitude, 'task': True,
             'outcome': VISIT_OUTCOME_CODES.get(code, 'other'),
-            'note': log.outcome_note or False,
+            'note': log.outcome_note or self.env._('Recorded in task %s.', log.name),
+            'photos': photos[:3],
             'device_time': data.get('at'),
         })
 
