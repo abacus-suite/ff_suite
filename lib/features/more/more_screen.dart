@@ -7,6 +7,7 @@ import '../attendance/month_screen.dart';
 import '../attendance/regularisation_screen.dart';
 import '../allowance/allowance_screen.dart';
 import '../beat/beat_today_screen.dart';
+import 'contact_access_screen.dart';
 import '../collections/collections_screen.dart';
 import '../collections/deposits_receive_screen.dart';
 import '../clients/add_client_screen.dart';
@@ -36,6 +37,7 @@ class MoreScreen extends StatelessWidget {
       if (profile.isManager) (Icons.account_tree_rounded, 'Team', AppColors.purple, const TeamTreeScreen()),
       (Icons.task_alt_rounded, 'Tasks', AppColors.success, const TasksScreen()),
       (Icons.forum_rounded, 'Chat', AppColors.primary, const ChatListScreen()),
+      (Icons.lock_open_rounded, 'Contact Access', AppColors.sky, const ContactAccessScreen()),
       (Icons.account_balance_wallet_rounded, 'Receivables', AppColors.danger, const ReceivablesScreen()),
       if (profile.feature('routes')) ...[
         (Icons.calendar_month_rounded, 'My ${profile.routeLabel} Plan', AppColors.primary, const BeatTodayScreen()),
