@@ -843,8 +843,8 @@ class _OrderDetail extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   switch ('${o['foc_status']}') {
-                    'pending' => 'Free goods: go on the distributor's order when sent',
-                    'requested' => 'Free goods: on the distributor's order, waiting for delivery',
+                    'pending' => 'Free goods: go on the distributor order when sent',
+                    'requested' => 'Free goods: on the distributor order, waiting for delivery',
                     _ => 'Free goods: delivered',
                   },
                   style: const TextStyle(fontWeight: FontWeight.w700),
