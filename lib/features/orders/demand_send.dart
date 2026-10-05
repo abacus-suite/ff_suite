@@ -15,7 +15,11 @@ Future<bool> openWhatsApp(String? phone, String text) {
 }
 
 /// Whether a demand can still be sent on: nothing ordered yet, or free goods not yet asked for.
-bool demandSendable(Map<String, dynamic> d) => d['state'] == 'submitted' || d['state'] == 'draft';
+bool demandSendable(Map<String, dynamic> d) =>
+    d['state'] == 'submitted' ||
+    d['state'] == 'draft' ||
+    d['state'] == 'rejected' ||
+    (d['state'] == 'waiting' && d['request'] == null);
 
 /// Who the demands go to.
 ///

@@ -131,9 +131,10 @@ const _statusStyles = <String, (String, Color)>{
   'filled': ('Filled', AppColors.success),
   'collected': ('With you', AppColors.warning),
   'received': ('Received', AppColors.success),
+  'waiting': ('Waiting for distributor', AppColors.warning),
   'quoted': ('Sent to distributor', AppColors.primary),
   'partial': ('Partly sent', AppColors.warning),
-  'supplied': ('Supplied', AppColors.success),
+  'supplied': ('Delivered', AppColors.success),
   'required': ('Required', AppColors.danger),
 };
 

@@ -18,7 +18,8 @@ class OrderReviewScreen extends StatefulWidget {
 }
 
 class _OrderReviewScreenState extends State<OrderReviewScreen> {
-  bool get demandFlow => Services.auth.profile?.isDemandFlow ?? false;
+  bool get demandFlow =>
+      (Services.auth.profile?.isDemandFlow ?? false) && widget.client['category_type'] != 'distributor';
 
   final _note = TextEditingController();
   // One id per review screen: retrying after a network error cannot create a duplicate order.

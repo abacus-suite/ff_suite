@@ -241,8 +241,9 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
   List<(IconData, List<String>, String, Color)> get _statBoxes => _demandFlow
       ? const [
           (Icons.description_rounded, ['draft', 'submitted'], 'Submitted', AppColors.primary),
-          (Icons.local_shipping_rounded, ['quoted', 'partial'], 'With distributor', AppColors.warning),
-          (Icons.inventory_rounded, ['supplied'], 'Supplied', AppColors.success),
+          (Icons.local_shipping_rounded, ['waiting', 'quoted', 'partial'], 'With distributor', AppColors.warning),
+          (Icons.thumb_up_alt_rounded, ['approved'], 'Approved', AppColors.primary),
+          (Icons.inventory_rounded, ['supplied'], 'Delivered', AppColors.success),
           (Icons.cancel_rounded, ['cancelled'], 'Cancelled', AppColors.danger),
         ]
       : const [
@@ -261,9 +262,9 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
     final route = asText((o['route'] as Map?)?['name']);
     final state = '${o['state']}';
     final tone = switch (state) {
-      'supplied' || 'sale' || 'done' => AppColors.success,
-      'cancelled' || 'cancel' => AppColors.danger,
-      'quoted' || 'partial' => AppColors.warning,
+      'supplied' || 'approved' || 'sale' || 'done' => AppColors.success,
+      'cancelled' || 'cancel' || 'rejected' => AppColors.danger,
+      'quoted' || 'partial' || 'waiting' => AppColors.warning,
       _ => AppColors.primary,
     };
     final id = o['id'] as int;
@@ -335,7 +336,7 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                             Icon(
                                 state == 'supplied' || state == 'sale' || state == 'done'
                                     ? Icons.check_circle_rounded
-                                    : (state == 'cancelled' || state == 'cancel'
+                                    : (state == 'cancelled' || state == 'cancel' || state == 'rejected'
                                         ? Icons.cancel_rounded
                                         : (state == 'quoted' || state == 'partial'
                                             ? Icons.local_shipping_rounded
@@ -343,7 +344,7 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                                 size: 13,
                                 color: tone),
                             const SizedBox(width: 4),
-                            Text('${o['state_label'] ?? state}',
+                            Text('${o['delivery_status'] ?? o['state_label'] ?? state}',
                                 style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: tone)),
                           ],
                         ),
