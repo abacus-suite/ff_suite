@@ -3,8 +3,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/format.dart';
@@ -15,6 +13,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../clients/clients_screen.dart';
 import '../collections/collect_payment_screen.dart';
+import '../collections/ledger_share.dart';
 import 'task_widgets.dart';
 
 /// Whether a task screen is on show, so a visit left open is not reopened over itself.
@@ -194,6 +193,28 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
   Future<void> _loadLedger() async {
     if (_client == null) return;
     try {
+      if (_client!['category_type'] != 'distributor') {
+        // An outlet owes its distributor: those invoices are kept in the ledger, not in Accounting.
+        final data = await Services.api.get('/api/v1/collection/open-invoices',
+            query: {'partner_id': _client!['id']}) as Map<String, dynamic>;
+        final today = DateTime.now();
+        final rows = ((data['invoices'] as List?) ?? []).cast<Map<String, dynamic>>().map((i) {
+          final due = DateTime.tryParse('${i['due_date'] ?? ''}');
+          final late = due == null ? 0 : today.difference(due).inDays;
+          return {...i, 'residual': i['pending'], 'days_overdue': late > 0 ? late : 0};
+        }).toList();
+        double sum(Iterable<Map<String, dynamic>> r) => r.fold(0.0, (t, i) => t + ((i['residual'] as num?) ?? 0));
+        if (mounted) {
+          setState(() => _ledger = {
+                'invoices': rows,
+                'total': sum(rows),
+                'overdue': sum(rows.where((i) => ((i['days_overdue'] as num?) ?? 0) > 0)),
+                'count': rows.length,
+                'currency': rows.isEmpty ? null : rows.first['currency'],
+              });
+        }
+        return;
+      }
       final data = await Services.api.get('/api/v1/receivables',
           query: {'partner_id': _client!['id'], 'filter': 'open'}) as Map<String, dynamic>;
       if (mounted) setState(() => _ledger = data);
@@ -419,7 +440,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
                   onPressed: _sendLedger,
                   style: FilledButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
                   icon: Icon(_a['ledger'] == true ? Icons.check_circle_rounded : Icons.send_rounded, size: 18),
-                  label: Text(_a['ledger'] == true ? 'Ledger sent' : 'Send ledger on WhatsApp'),
+                  label: Text(_a['ledger'] == true ? 'Ledger sent' : 'Send ledger as PDF'),
                 ),
               ),
               const SizedBox(height: 8),
@@ -495,33 +516,12 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     );
   }
 
-  /// The ledger goes to the outlet's own contact on WhatsApp.
+  /// The ledger goes to the outlet as one PDF: every invoice with its products, the payments and what is left.
   Future<void> _sendLedger() async {
     final client = _client;
     if (client == null) return;
-    final currency = _ledger?['currency'] as String?;
-    final rows = ((_ledger?['invoices'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final text = StringBuffer('Statement for ${client['name']}\n');
-    for (final i in rows) {
-      text.writeln('${i['number']}  due ${i['due_date'] ?? '-'}  ${fmtMoney(i['residual'] as num?, currency)}');
-    }
-    text.writeln('Total outstanding: ${fmtMoney(((_ledger?['total'] as num?) ?? 0), currency)}');
-    final phone = '${client['phone'] ?? ''}'.replaceAll(RegExp(r'\D'), '');
-    try {
-      if (phone.length >= 10) {
-        final number = phone.length == 10 ? '91$phone' : phone;
-        final opened = await launchUrl(
-            Uri.parse('https://wa.me/$number?text=${Uri.encodeComponent(text.toString())}'),
-            mode: LaunchMode.externalApplication);
-        if (!opened) throw Exception('WhatsApp did not open.');
-      } else {
-        // No number on the outlet: the share sheet lets them pick the person.
-        await SharePlus.instance.share(ShareParams(text: text.toString()));
-      }
-      if (mounted) setState(() => _a['ledger'] = true);
-    } catch (e) {
-      if (mounted) showProblem(context, e.toString());
-    }
+    final sent = await shareLedgerPdf(context, client);
+    if (sent && mounted) setState(() => _a['ledger'] = true);
   }
 
   Future<void> _collect() async {
