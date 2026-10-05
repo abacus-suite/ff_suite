@@ -26,6 +26,7 @@ class DutyWatch {
   int _waitFor = 5;
   DateTime? _shiftEnd;
   int _failures = 0;
+  BuildContext? _dialog;
 
   /// Called by the app when it learns the person is on duty (or not).
   ///
@@ -44,6 +45,10 @@ class DutyWatch {
   }
 
   void stop() {
+    // A question still on screen is meaningless once the day is closed.
+    final open = _dialog;
+    if (open != null && open.mounted) Navigator.of(open).pop(true);
+    _dialog = null;
     _timer?.cancel();
     _timer = null;
     _lastAsked = null;
@@ -65,6 +70,13 @@ class DutyWatch {
     final navigator = Services.navigatorKey.currentState;
     if (_asking || navigator == null || !navigator.mounted) return;
     _asking = true;
+    // Ask the office first: the saved status can be old, and a day that has
+    // already been checked out must never be questioned again.
+    if (!await _stillOpen()) {
+      _asking = false;
+      stop();
+      return;
+    }
     _lastAsked = DateTime.now();
     HapticFeedback.heavyImpact();
     SystemSound.play(SystemSoundType.alert);
@@ -73,11 +85,17 @@ class DutyWatch {
     final deadline = DateTime.now().add(Duration(minutes: waitFor > 0 ? waitFor : 5));
     var timedOut = false;
     Timer? countdown;
+    if (!navigator.mounted) {
+      _asking = false;
+      return;
+    }
     final answered = await showDialog<bool>(
+      // ignore: use_build_context_synchronously
       context: navigator.context,
       barrierDismissible: false,
       builder: (dialog) => StatefulBuilder(
         builder: (_, setState) {
+          _dialog = dialog;
           countdown ??= Timer.periodic(const Duration(seconds: 1), (timer) {
             final left = deadline.difference(DateTime.now());
             if (left.inSeconds <= 0) {
@@ -122,11 +140,27 @@ class DutyWatch {
       ),
     );
     countdown?.cancel();
+    _dialog = null;
     _asking = false;
     if (answered == true) return;
+    if (!await _stillOpen()) {
+      stop();
+      return;
+    }
 
     // No answer, or they chose to close: the day ends here.
     await closeDay(reason: timedOut ? 'no_reply' : 'user_closed');
+  }
+
+  /// Is the day really still open on the office's side? When that cannot be
+  /// found out, assume it is, so a real forgotten day is still closed.
+  Future<bool> _stillOpen() async {
+    try {
+      final status = await Services.api.get('/api/v1/attendance/status') as Map;
+      return status['punched_in'] == true;
+    } catch (_) {
+      return true;
+    }
   }
 
   /// Checks out where the person is now, and says why it happened.
