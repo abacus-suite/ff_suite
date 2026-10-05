@@ -56,7 +56,7 @@ class TileCache {
     } catch (_) {
       // Unreadable file: download it again below.
     }
-    final res = await _dio.get<List<int>>(url);
+    final res = await _fetch(url);
     final bytes = Uint8List.fromList(res.data ?? const []);
     if (paid) MapUsage.tile();
     // Only real pictures are kept. A provider that answers "API key required"
@@ -68,6 +68,32 @@ class TileCache {
       file.writeAsBytes(bytes, flush: false).ignore();
     }
     return bytes;
+  }
+
+  /// Where else to ask when OpenStreetMap's main server cannot be reached
+  /// (blocked by some networks or phones).
+  static const _mirrors = [
+    'https://a.tile.openstreetmap.de/',
+    'https://tile.openstreetmap.fr/osmfr/',
+  ];
+
+  static Future<Response<List<int>>> _fetch(String url) async {
+    try {
+      return await _dio.get<List<int>>(url);
+    } catch (e) {
+      const main = 'https://tile.openstreetmap.org/';
+      if (!url.startsWith(main)) rethrow;
+      final path = url.substring(main.length);
+      Object last = e;
+      for (final mirror in _mirrors) {
+        try {
+          return await _dio.get<List<int>>('$mirror$path');
+        } catch (e2) {
+          last = e2;
+        }
+      }
+      throw last;
+    }
   }
 
   /// Drop old tiles, and the oldest ones when the folder grows too big.
