@@ -6,7 +6,7 @@ class AppStorage {
   /// Override at build time: flutter run --dart-define=BASE_URL=https://...
   static const defaultBaseUrl = String.fromEnvironment(
     'BASE_URL',
-    defaultValue: 'https://demo-abs-suite.odoo.com',
+    defaultValue: 'https://kumbayah-apk.odoo.com',
   );
 
   // flutter_secure_storage 11 encrypts on Android by default.
