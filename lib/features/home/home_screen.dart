@@ -347,9 +347,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final punchedIn = _day?['punched_in'] == true;
     final current = _day?['current'] as Map<String, dynamic>?;
     final planned = ((_today?['clients'] as List?) ?? []).length;
-    final raw = ((_travel?['points'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final first = raw.isEmpty ? null : DateTime.tryParse('${raw.first['ts']}');
-    final last = raw.isEmpty ? null : DateTime.tryParse('${raw.last['ts']}');
     final punches = ((_day?['punch_count'] as num?) ?? 0).toInt();
     return CheckInHero(
       punchedIn: punchedIn,
@@ -367,7 +364,8 @@ class _HomeScreenState extends State<HomeScreen> {
       workedHours: ((_day?['worked_hours_today'] as num?) ?? 0).toDouble(),
       km: (_travel?['distance_km'] as num?) ?? 0,
       visits: _visits.length,
-      travelMinutes: first != null && last != null ? last.difference(first).inMinutes : 0,
+      // Time spent moving, counted by the server over the hours on duty.
+      travelMinutes: ((_travel?['travel_minutes'] as num?) ?? 0).toInt(),
       onOpenDay: () => _push(const DayJourneyScreen()),
       routeLabel: profile.routeLabel,
       onPunch: () => _punch(!punchedIn),
