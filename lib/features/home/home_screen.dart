@@ -31,7 +31,6 @@ import '../../widgets/sync_status.dart';
 import '../beat/beat_today_screen.dart';
 import '../clients/client_detail_screen.dart';
 import '../clients/clients_screen.dart';
-import '../expenses/expenses_screen.dart';
 import '../orders/catalog_screen.dart';
 import '../../widgets/skeleton.dart';
 
@@ -300,7 +299,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _upcomingVisits(profile),
       const MyTasksCard(),
       const MyRequestsCard(),
-      _quickActions(profile),
       _targetBanner(),
       const MonthTargetCard(),
     ];
@@ -584,126 +582,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       );
-
-  Widget _quickActions(Profile profile) {
-    final actions = <(IconData, String, String, Color, Widget)>[
-      if (profile.feature('routes'))
-        (
-          Icons.route_rounded,
-          'My ${profile.routeLabel}',
-          "View today's plan",
-          AppColors.primary,
-          const BeatTodayScreen()
-        ),
-      if (profile.feature('orders'))
-        (Icons.inventory_2_rounded, 'Products', 'Browse products', AppColors.purple, const CatalogScreen()),
-      (
-        Icons.groups_2_rounded,
-        '${profile.label('client', 'Customer')}s',
-        'Manage your customers',
-        AppColors.warning,
-        const ClientsScreen()
-      ),
-      (Icons.receipt_rounded, 'Expenses', 'Add new expense', AppColors.danger, const ExpensesScreen()),
-    ];
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const CardHead(
-              icon: Icons.bolt_rounded,
-              title: 'Quick Actions',
-              subtitle: 'Get things done faster',
-              tint: AppColors.success,
-            ),
-            const SizedBox(height: 12),
-            // Two by two, sized by their own content: a grid inside a card
-            // leaves an empty strip when the rows are shorter than it expects.
-            for (var row = 0; row < (actions.length + 1) ~/ 2; row++)
-              Padding(
-                padding: EdgeInsets.only(bottom: row == (actions.length - 1) ~/ 2 ? 0 : 10),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: _actionTile(actions[row * 2])),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: row * 2 + 1 < actions.length
-                            ? _actionTile(actions[row * 2 + 1])
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _actionTile((IconData, String, String, Color, Widget) action) {
-    final (icon, label, hint, tint, screen) = action;
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => _push(screen),
-      child: Container(
-        padding: const EdgeInsets.all(11),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [tint.withValues(alpha: 0.12), tint.withValues(alpha: 0.03)],
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-              child: Icon(icon, color: tint, size: 19),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5)),
-                      Text(hint,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 11, color: AppColors.muted, height: 1.2)),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
-                  child: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 15),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   /// How the day is going against the plan, in one line.
   Widget _targetBanner() {
