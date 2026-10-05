@@ -42,6 +42,7 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
   Map<String, dynamic>? _distributor;
   List<Map<String, dynamic>> _invoices = [];
   final Set<int> _picked = {};
+  final Map<int, TextEditingController> _alloc = {};
   bool _loading = true;
   bool _busy = false;
   String? _error;
@@ -55,6 +56,9 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
   @override
   void dispose() {
     _amount.dispose();
+    for (final c in _alloc.values) {
+      c.dispose();
+    }
     _reference.dispose();
     _note.dispose();
     super.dispose();
@@ -102,17 +106,66 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
     }
   }
 
-  num get _pickedTotal => _invoices
-      .where((i) => _picked.contains(i['id']))
-      .fold<num>(0, (sum, i) => sum + ((i['pending'] as num?) ?? 0));
+  double get _collected => double.tryParse(_amount.text.trim()) ?? 0;
 
-  /// Ticking invoices fills the amount with what they add up to.
+  double _pending(Map<String, dynamic> i) => ((i['pending'] as num?) ?? 0).toDouble();
+
+  double _applied(int id) => double.tryParse(_alloc[id]?.text.trim() ?? '') ?? 0;
+
+  double get _appliedTotal => _picked.fold(0.0, (sum, id) => sum + _applied(id));
+
+  TextEditingController _ctl(int id) => _alloc.putIfAbsent(id, TextEditingController.new);
+
+  String _money(double v) => v == v.roundToDouble() ? '${v.toInt()}' : v.toStringAsFixed(2);
+
+  /// Ticking an invoice applies what is left of the collected amount to it, up to what it owes.
   void _toggle(int id, bool on) {
     setState(() {
-      on ? _picked.add(id) : _picked.remove(id);
-      final total = _pickedTotal;
-      _amount.text = total == 0 ? '' : fmtQty(total);
+      if (!on) {
+        _picked.remove(id);
+        _ctl(id).clear();
+        return;
+      }
+      final invoice = _invoices.firstWhere((i) => i['id'] == id);
+      final left = _collected - _appliedTotal;
+      _picked.add(id);
+      final take = left <= 0 ? 0.0 : (left < _pending(invoice) ? left : _pending(invoice));
+      _ctl(id).text = take > 0 ? _money(take) : '';
     });
+  }
+
+  /// Spreads the collected amount over the open invoices, oldest first.
+  void _fillOldestFirst() {
+    setState(() {
+      _picked.clear();
+      for (final c in _alloc.values) {
+        c.clear();
+      }
+      var left = _collected;
+      for (final invoice in _invoices) {
+        if (left <= 0) break;
+        final id = invoice['id'] as int;
+        final take = left < _pending(invoice) ? left : _pending(invoice);
+        _picked.add(id);
+        _ctl(id).text = _money(take);
+        left -= take;
+      }
+    });
+  }
+
+  /// Whatever is wrong with how the money is split, or null.
+  List<String> _splitProblems() {
+    final bad = <String>[];
+    for (final invoice in _invoices.where((i) => _picked.contains(i['id']))) {
+      final v = _applied(invoice['id'] as int);
+      if (v > _pending(invoice) + 0.005) {
+        bad.add('${invoice['number']}: only ${fmtMoney(_pending(invoice), invoice['currency'] as String?)} is pending');
+      }
+    }
+    if (_appliedTotal > _collected + 0.005) {
+      bad.add('The invoices add up to ${fmtMoney(_appliedTotal, null)}, more than the ${fmtMoney(_collected, null)} collected');
+    }
+    return bad;
   }
 
   /// An outlet's invoice is the distributor's, so nobody but the field has seen
@@ -183,19 +236,12 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
     }
   }
 
-  /// Splits the amount down the ticked invoices, oldest first, none beyond what is owed.
-  List<Map<String, dynamic>> _allocations(double amount) {
-    var left = amount;
-    final rows = <Map<String, dynamic>>[];
-    for (final invoice in _invoices.where((i) => _picked.contains(i['id']))) {
-      if (left <= 0) break;
-      final pending = ((invoice['pending'] as num?) ?? 0).toDouble();
-      final take = left < pending ? left : pending;
-      rows.add({'invoice_id': invoice['id'], 'amount': take});
-      left -= take;
-    }
-    return rows;
-  }
+  /// The amount typed against each ticked invoice.
+  List<Map<String, dynamic>> _allocations(double amount) => [
+        for (final invoice in _invoices.where((i) => _picked.contains(i['id'])))
+          if (_applied(invoice['id'] as int) > 0)
+            {'invoice_id': invoice['id'], 'amount': _applied(invoice['id'] as int)},
+      ];
 
   Future<void> _addPhoto() async {
     if (_photos.length >= 3) return;
@@ -232,58 +278,127 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
     );
   }
 
+  Widget _chip(String label, String value, Color tint) => Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+          decoration: BoxDecoration(color: tint.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, color: tint)),
+            Text(label, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+          ]),
+        ),
+      );
+
   Widget _invoicesCard() {
     if (_invoices.isEmpty && _kind != 'outlet') return const SizedBox.shrink();
+    final collected = _collected;
+    final applied = _appliedTotal;
+    final over = applied > collected + 0.005;
+    final onAccount = (collected - applied).clamp(0, double.infinity).toDouble();
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                    _invoices.isEmpty ? 'No open invoices' : 'Pay these invoices',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-              ),
-              if (_kind == 'outlet')
-                TextButton.icon(
-                  onPressed: _addInvoice,
-                  icon: const Icon(Icons.add_rounded, size: 17),
-                  label: const Text('Add invoice'),
-                ),
-            ],
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: Text(_invoices.isEmpty ? 'No open invoices' : 'Apply to invoices',
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5)),
           ),
-          if (_invoices.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: Text('The money is recorded on account. Add the invoice if you have it in front of you.',
-                  style: TextStyle(fontSize: 12, color: AppColors.muted)),
+          if (_kind == 'outlet')
+            TextButton.icon(onPressed: _addInvoice, icon: const Icon(Icons.add_rounded, size: 17), label: const Text('Add invoice')),
+        ]),
+        if (collected <= 0)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('Enter the amount collected above, then choose the invoices it pays.',
+                style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
+          )
+        else if (_invoices.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('The money is recorded on account. Add the invoice if you have it in front of you.',
+                style: TextStyle(fontSize: 12, color: AppColors.muted)),
+          )
+        else ...[
+          Row(children: [
+            _chip('Collected', fmtMoney(collected, null), AppColors.primary),
+            const SizedBox(width: 8),
+            _chip('Applied', fmtMoney(applied, null), over ? AppColors.danger : AppColors.success),
+            const SizedBox(width: 8),
+            _chip('On account', fmtMoney(onAccount, null), AppColors.muted),
+          ]),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _fillOldestFirst,
+              icon: const Icon(Icons.auto_fix_high_rounded, size: 16),
+              label: const Text('Fill oldest first'),
             ),
-          for (final invoice in _invoices)
-            CheckboxListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-              value: _picked.contains(invoice['id']),
-              onChanged: (on) => _toggle(invoice['id'] as int, on == true),
-              title: Text('${invoice['number']}',
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
-              subtitle: Text(
-                [
-                  if (invoice['due_date'] != null) 'due ${invoice['due_date']}',
-                  if (invoice['overdue'] == true) 'overdue',
-                ].join(' · '),
-                style: TextStyle(
-                    fontSize: 11.5,
-                    color: invoice['overdue'] == true ? AppColors.danger : AppColors.muted),
-              ),
-              secondary: Text(fmtMoney(invoice['pending'] as num?, invoice['currency'] as String?),
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+          ),
+          for (final invoice in _invoices) _invoiceTile(invoice),
+          if (over)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text('The invoices add up to more than you collected. Lower an amount.',
+                  style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w700, fontSize: 12.5)),
             ),
         ],
+      ]),
+    );
+  }
+
+  Widget _invoiceTile(Map<String, dynamic> invoice) {
+    final id = invoice['id'] as int;
+    final on = _picked.contains(id);
+    final pending = _pending(invoice);
+    final value = _applied(id);
+    final tooMuch = value > pending + 0.005;
+    final overdue = invoice['overdue'] == true;
+    final currency = invoice['currency'] as String?;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(4, 6, 12, 8),
+      decoration: BoxDecoration(
+        color: on ? AppColors.primary.withValues(alpha: 0.05) : AppColors.background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tooMuch ? AppColors.danger : (on ? AppColors.primary : Colors.transparent)),
       ),
+      child: Column(children: [
+        Row(children: [
+          Checkbox(value: on, onChanged: (v) => _toggle(id, v == true)),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${invoice['number']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+              Text(
+                [if (invoice['due_date'] != null) 'due ${invoice['due_date']}', if (overdue) 'overdue'].join(' · '),
+                style: TextStyle(fontSize: 11.5, color: overdue ? AppColors.danger : AppColors.muted),
+              ),
+            ]),
+          ),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text(fmtMoney(pending, currency), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+            const Text('pending', style: TextStyle(fontSize: 10.5, color: AppColors.muted)),
+          ]),
+        ]),
+        if (on)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 0, 0),
+            child: TextField(
+              controller: _ctl(id),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: 'Amount against this invoice',
+                prefixText: '₹ ',
+                isDense: true,
+                errorText: tooMuch ? 'More than the ${fmtMoney(pending, currency)} pending' : null,
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+          ),
+      ]),
     );
   }
 
@@ -294,6 +409,11 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
       return;
     }
     if (!_formKey.currentState!.validate()) return;
+    final split = _splitProblems();
+    if (split.isNotEmpty) {
+      showProblem(context, split, title: 'Check the invoice amounts');
+      return;
+    }
     if (mode['requires_photo'] == true && _photos.isEmpty) {
       showSnack(context, 'A photo is required for ${mode['name']}.');
       return;
@@ -327,7 +447,7 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
         if (_kind == 'outlet')
           'allocations': _allocations(double.tryParse(_amount.text.trim()) ?? 0)
         else
-          'invoice_ids': _picked.toList(),
+          'invoice_ids': [for (final i in _allocations(_collected)) i['invoice_id']],
       }, label: 'Payment · ${widget.client['name']}');
       final saved = result.queued
           ? <String, dynamic>{'amount': double.tryParse(_amount.text.trim()) ?? 0, 'currency': null}
@@ -373,7 +493,6 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
                           const SizedBox(height: 8),
                           _goesToCard(),
                           const SizedBox(height: 8),
-                          _invoicesCard(),
                           const SizedBox(height: 12),
                           Wrap(
                             spacing: 8,
@@ -390,6 +509,7 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _amount,
+                            onChanged: (_) => setState(() {}),
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: InputDecoration(
                               labelText: 'Amount *',
@@ -405,6 +525,8 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
                               return null;
                             },
                           ),
+                          const SizedBox(height: 12),
+                          _invoicesCard(),
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _reference,

@@ -106,6 +106,7 @@ Future<String?> _pickTask(BuildContext context, Map<String, dynamic> config,
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
+    constraints: const BoxConstraints(maxWidth: double.infinity),
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
     builder: (sheet) => SafeArea(
@@ -119,23 +120,12 @@ Future<String?> _pickTask(BuildContext context, Map<String, dynamic> config,
             Text(subtitle ?? 'Pick a task. It opens its steps one at a time.',
                 style: const TextStyle(fontSize: 13, color: AppColors.muted)),
             const SizedBox(height: 16),
-            LayoutBuilder(
-              builder: (context, box) {
-                final width = (box.maxWidth - 12) / 2;
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    for (final task in tasks)
-                      _TaskTile(
-                        width: width,
-                        task: task,
-                        onTap: () => Navigator.pop(sheet, '${task['code']}'),
-                      ),
-                  ],
-                );
-              },
-            ),
+            for (final task in tasks)
+              _TaskTile(
+                width: double.infinity,
+                task: task,
+                onTap: () => Navigator.pop(sheet, '${task['code']}'),
+              ),
           ],
         ),
       ),
@@ -143,7 +133,7 @@ Future<String?> _pickTask(BuildContext context, Map<String, dynamic> config,
   );
 }
 
-/// One task, as a tile: its own colour and icon, its name, how long it is.
+/// One task, as a full-width row: its own colour and icon, its name, what it covers, how long it is.
 class _TaskTile extends StatelessWidget {
   const _TaskTile({required this.width, required this.task, required this.onTap});
 
@@ -156,40 +146,55 @@ class _TaskTile extends StatelessWidget {
     final code = '${task['code']}';
     final tint = _tints[code] ?? AppColors.primary;
     final steps = ((task['steps'] as num?) ?? 1).toInt();
-    return SizedBox(
-      width: width,
+    final hint = '${task['hint'] ?? ''}';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
       child: Material(
-        color: tint.withValues(alpha: 0.09),
-        borderRadius: BorderRadius.circular(22),
+        color: tint.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Container(
-            height: 138,
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(color: tint.withValues(alpha: 0.25)),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            child: Row(children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(16)),
+                child: Icon(_icons[code] ?? Icons.task_alt_rounded, color: Colors.white, size: 25),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${task['name']}',
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, height: 1.15)),
+                  if (hint != 'null' && hint.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(hint,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: AppColors.muted, height: 1.25)),
+                    ),
+                ]),
+              ),
+              const SizedBox(width: 8),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                 Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(14)),
-                  child: Icon(_icons[code] ?? Icons.task_alt_rounded, color: Colors.white, size: 23),
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(color: tint.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(20)),
+                  child: Text(steps > 1 ? '$steps steps' : '1 step',
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: tint)),
                 ),
-                const Spacer(),
-                Text('${task['name']}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, height: 1.15)),
-                const SizedBox(height: 3),
-                Text(steps > 1 ? '$steps steps' : '1 step',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: tint)),
-              ],
-            ),
+                const SizedBox(height: 6),
+                Icon(Icons.chevron_right_rounded, color: tint),
+              ]),
+            ]),
           ),
         ),
       ),
