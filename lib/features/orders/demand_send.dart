@@ -15,8 +15,7 @@ Future<bool> openWhatsApp(String? phone, String text) {
 }
 
 /// Whether a demand can still be sent on: nothing ordered yet, or free goods not yet asked for.
-bool demandSendable(Map<String, dynamic> d) =>
-    d['state'] == 'submitted' || d['state'] == 'draft' || d['foc_status'] == 'pending';
+bool demandSendable(Map<String, dynamic> d) => d['state'] == 'submitted' || d['state'] == 'draft';
 
 /// Who the demands go to.
 ///
@@ -140,32 +139,15 @@ Future<bool> sendDemands(BuildContext context, List<Map<String, dynamic>> demand
   final distributor = await chooseFinalDistributor(context, demands);
   if (distributor == null || !context.mounted) return false;
   try {
-    // What is paid for becomes an order. Free goods are not ordered - the
-    // distributor is made good by the debit note - so they are asked for by message.
-    final paid = demands.where((o) => o['foc_only'] != true && (o['state'] == 'submitted' || o['state'] == 'draft'));
-    Map<String, dynamic>? result;
-    if (paid.isNotEmpty) {
-      result = await withBusy(context, 'Sending to ${distributor['name']}…', () async =>
-          await Services.api.post('/api/v1/demands/submit', {
-            'demand_ids': paid.map((o) => o['id']).toList(),
-            'distributor_id': distributor['id'],
-          }) as Map<String, dynamic>);
-    }
-    final messages = <String>[];
-    String? phone;
-    for (final o in demands.where((o) => o['foc_status'] == 'pending')) {
-      final sent = await Services.api.post('/api/v1/demands/${o['id']}/foc-request', {
-        'distributor_id': distributor['id'],
-      }) as Map<String, dynamic>;
-      messages.add('${sent['message']}');
-      phone ??= sent['phone'] as String?;
-    }
+    // One draft order for the distributor. Free goods are on it as lines at 100% off, so the
+    // summary and the link the distributor opens show them too.
+    final result = await withBusy(context, 'Sending to ${distributor['name']}…', () async =>
+        await Services.api.post('/api/v1/demands/submit', {
+          'demand_ids': demands.map((o) => o['id']).toList(),
+          'distributor_id': distributor['id'],
+        }) as Map<String, dynamic>);
     if (!context.mounted) return true;
-    if (result != null) await showSubmittedSheet(context, result);
-    if (messages.isNotEmpty && context.mounted) {
-      final opened = await openWhatsApp(phone, messages.join('\n\n----\n\n'));
-      if (!opened && context.mounted) showSnack(context, 'Could not open WhatsApp');
-    }
+    await showSubmittedSheet(context, result);
     return true;
   } catch (e) {
     if (context.mounted) await showProblem(context, e.toString());

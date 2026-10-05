@@ -342,8 +342,8 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
   Widget _freeGoods(Map<String, dynamic> d) {
     final status = '${d['foc_status']}';
     final label = switch (status) {
-      'pending' => 'Not yet requested from the distributor',
-      'requested' => 'Requested, waiting for delivery',
+      'pending' => 'Goes on the distributor's order as free lines (100% off) when you send it',
+      'requested' => 'On the distributor's order at 100% off, waiting for delivery',
       _ => 'Delivered',
     };
     return _section(

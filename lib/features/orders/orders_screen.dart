@@ -404,7 +404,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             const Icon(Icons.redeem_rounded, size: 13, color: AppColors.purple),
             const SizedBox(width: 4),
-            Text(free == 'pending' ? 'Free goods' : 'Free goods asked',
+            Text(free == 'pending' ? 'Free goods' : 'Free goods on order',
                 style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.purple)),
           ]),
         ),
@@ -843,8 +843,8 @@ class _OrderDetail extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   switch ('${o['foc_status']}') {
-                    'pending' => 'Free goods: not yet requested from the distributor',
-                    'requested' => 'Free goods: requested, waiting for delivery',
+                    'pending' => 'Free goods: go on the distributor's order when sent',
+                    'requested' => 'Free goods: on the distributor's order, waiting for delivery',
                     _ => 'Free goods: delivered',
                   },
                   style: const TextStyle(fontWeight: FontWeight.w700),
