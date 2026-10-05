@@ -203,12 +203,77 @@ class _TaskTile extends StatelessWidget {
 }
 
 /// Which contact it is for, then checking in there, then the screens.
+/// Where the samples are being collected: from the company, or at a distributor or outlet.
+Future<String?> _pickSampleSource(BuildContext context) {
+  Widget option(BuildContext sheet, String code, IconData icon, Color tint, String title, String note) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Material(
+          color: tint.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => Navigator.pop(sheet, code),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(15)),
+                  child: Icon(icon, color: Colors.white),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5)),
+                    const SizedBox(height: 2),
+                    Text(note, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                  ]),
+                ),
+                Icon(Icons.chevron_right_rounded, color: tint),
+              ]),
+            ),
+          ),
+        ),
+      );
+  return showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    constraints: const BoxConstraints(maxWidth: double.infinity),
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+    builder: (sheet) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Collect samples from', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 21)),
+          const SizedBox(height: 14),
+          option(sheet, 'company', Icons.business_rounded, AppColors.sky, 'Company',
+              'From the company stock. No customer, no check-in'),
+          option(sheet, 'contact', Icons.storefront_rounded, AppColors.teal, 'A distributor or outlet',
+              'Pick the contact and check in there'),
+        ]),
+      ),
+    ),
+  );
+}
+
 Future<void> _begin(BuildContext context, Map<String, dynamic> config, String code,
     {Map<String, dynamic>? client}) async {
   // These two make a contact or do not need one.
   if (code == 'adhoc' || code == 'new_lead') {
     await _run(context, config, code, null, null);
     return;
+  }
+  // Samples can come from the company's own stock, which is not at any customer: no
+  // contact and no check-in, only what was taken. Everything else is collected at one.
+  if (code == 'sample_collection' && client == null && config['company_samples'] == true) {
+    final from = await _pickSampleSource(context);
+    if (from == null || !context.mounted) return;
+    if (from == 'company') {
+      await _run(context, config, code, null, null, preset: {'source': 'company'});
+      return;
+    }
   }
   var chosen = client;
   Map<String, dynamic>? visit;
@@ -268,9 +333,10 @@ Future<Map<String, dynamic>?> _pickLead(
 }
 
 Future<void> _run(BuildContext context, Map<String, dynamic> config, String code,
-    Map<String, dynamic>? client, Map<String, dynamic>? visit) async {
+    Map<String, dynamic>? client, Map<String, dynamic>? visit,
+    {Map<String, dynamic>? preset}) async {
   final result = await Navigator.of(context).push<Map<String, dynamic>>(MaterialPageRoute(
-    builder: (_) => TaskFlowScreen(code: code, config: config, client: client, visit: visit),
+    builder: (_) => TaskFlowScreen(code: code, config: config, client: client, visit: visit, preset: preset),
   ));
   if (result == null || !context.mounted) return;
   // Onboarded: change the lead into an outlet or distributor with everything

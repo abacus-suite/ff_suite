@@ -61,12 +61,15 @@ class _Step {
 /// task can be finished on a phone without a signal and still arrive whole.
 /// Next stays shut until the screen in front is complete.
 class TaskFlowScreen extends StatefulWidget {
-  const TaskFlowScreen({super.key, required this.code, required this.config, this.client, this.visit});
+  const TaskFlowScreen({super.key, required this.code, required this.config, this.client, this.visit, this.preset});
 
   final String code;
   final Map<String, dynamic> config;
   final Map<String, dynamic>? client;
   final Map<String, dynamic>? visit;
+
+  /// Answers that are already known when the task opens, such as collecting samples from the company.
+  final Map<String, dynamic>? preset;
 
   @override
   State<TaskFlowScreen> createState() => _TaskFlowScreenState();
@@ -144,6 +147,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     super.initState();
     taskScreenOpen = true;
     _client = widget.client;
+    if (widget.preset != null) _a.addAll(widget.preset!);
     final draft = _drafts[_visitId];
     if (draft != null && draft.code == widget.code) {
       _uuid = draft.uuid;
