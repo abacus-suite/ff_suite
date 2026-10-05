@@ -8,6 +8,7 @@ import '../visits/visit_gate.dart';
 import '../../widgets/busy.dart';
 import 'onboard_screen.dart';
 import 'task_flow_screen.dart';
+import 'task_widgets.dart';
 
 const _icons = <String, IconData>{
   'client_visit': Icons.storefront_rounded,
@@ -204,7 +205,7 @@ class _TaskTile extends StatelessWidget {
 
 /// Which contact it is for, then checking in there, then the screens.
 /// Where the samples are being collected: from the company, or at a distributor or outlet.
-Future<String?> _pickSampleSource(BuildContext context) {
+Future<String?> _pickSampleSource(BuildContext context, {required bool companyAllowed}) {
   Widget option(BuildContext sheet, String code, IconData icon, Color tint, String title, String note) => Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: Material(
@@ -248,10 +249,13 @@ Future<String?> _pickSampleSource(BuildContext context) {
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Collect samples from', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 21)),
           const SizedBox(height: 14),
-          option(sheet, 'company', Icons.business_rounded, AppColors.sky, 'Company',
-              'From the company stock. No customer, no check-in'),
-          option(sheet, 'contact', Icons.storefront_rounded, AppColors.teal, 'A distributor or outlet',
-              'Pick the contact and check in there'),
+          if (companyAllowed)
+            option(sheet, 'company', Icons.business_rounded, AppColors.sky, 'Company',
+                'From the company stock. No customer, no check-in'),
+          option(sheet, 'distributor', Icons.local_shipping_rounded, AppColors.purple, 'Distributor',
+              'Choose the distributor and check in there'),
+          option(sheet, 'outlet', Icons.storefront_rounded, AppColors.teal, 'Outlet',
+              'Choose the outlet and check in there'),
         ]),
       ),
     ),
@@ -265,13 +269,31 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
     await _run(context, config, code, null, null);
     return;
   }
-  // Samples can come from the company's own stock, which is not at any customer: no
-  // contact and no check-in, only what was taken. Everything else is collected at one.
-  if (code == 'sample_collection' && client == null && config['company_samples'] == true) {
-    final from = await _pickSampleSource(context);
+  // Sample collection starts by asking where from. The company has no customer: straight on
+  // to the steps. A distributor is chosen from the distributors alone, and an outlet from the
+  // contacts, then checked in at, as for any visit.
+  if (code == 'sample_collection' && client == null) {
+    final from = await _pickSampleSource(context, companyAllowed: config['company_samples'] == true);
     if (from == null || !context.mounted) return;
     if (from == 'company') {
       await _run(context, config, code, null, null, preset: {'source': 'company'});
+      return;
+    }
+    if (from == 'distributor') {
+      final picked = await pickFromList(context,
+          title: 'Distributor',
+          load: () async => (await Services.api.get('/api/v1/distributors') as List).cast<Map<String, dynamic>>(),
+          subtitle: (r) => '${r['city'] ?? ''}');
+      if (picked == null || !context.mounted) return;
+      try {
+        final full = await Services.api.get('/api/v1/clients/${picked['id']}') as Map<String, dynamic>;
+        if (!context.mounted) return;
+        final visit = await ensureCheckedIn(context, full, task: code);
+        if (visit == null || !context.mounted) return;
+        await _run(context, config, code, full, visit, preset: {'source': 'distributor', 'distributor': full});
+      } catch (e) {
+        if (context.mounted) showProblem(context, e.toString());
+      }
       return;
     }
   }
