@@ -145,7 +145,9 @@ class _HomeScreenState extends State<HomeScreen> {
         onDuty: status['punched_in'] == true,
         askEvery: ((status['duty_check_minutes'] as num?) ?? 0).toInt(),
         waitFor: ((status['duty_reply_minutes'] as num?) ?? 5).toInt(),
+        shiftEnd: DateTime.tryParse('${(status['shift'] as Map?)?['ends_at'] ?? ''}'.replaceFirst(' ', 'T')),
       );
+      DutyWatch.instance.check();
       if (status['punched_in'] == true && !Services.tracker.active.value) {
         await Services.tracker.start(profile);
       } else if (status['punched_in'] != true &&
