@@ -80,60 +80,53 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
   }
 
   Future<void> _addManual() async {
-    final qty = TextEditingController(text: '1');
-    final reason = TextEditingController();
-    int? productId = widget.lines.isEmpty ? null : widget.lines.first['id'] as int;
-    final added = await showDialog<bool>(
+    final added = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
-      builder: (dialog) => StatefulBuilder(
-        builder: (context, setDialog) => AlertDialog(
-          title: const Text('Add free goods (FOC)'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<int>(
-                initialValue: productId,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Product'),
-                items: [
-                  for (final l in widget.lines)
-                    DropdownMenuItem(value: l['id'] as int, child: Text('${l['name']}', overflow: TextOverflow.ellipsis)),
-                ],
-                onChanged: (v) => setDialog(() => productId = v),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: qty,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Free quantity'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: reason,
-                decoration: const InputDecoration(labelText: 'Reason *', hintText: 'Sample, display, damage cover…'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Add')),
-          ],
-        ),
-      ),
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (sheet) => _FreeGoodsSheet(lines: widget.lines),
     );
-    final quantity = double.tryParse(qty.text.trim()) ?? 0;
-    final why = reason.text.trim();
-    WidgetsBinding.instance.addPostFrameCallback((_) => Future.delayed(const Duration(milliseconds: 400), () {
-          qty.dispose();
-          reason.dispose();
-        }));
-    if (added != true || productId == null) return;
-    if (quantity <= 0 || why.isEmpty) {
-      if (mounted) showProblem(context, 'Enter a quantity and the reason.');
-      return;
-    }
-    final line = widget.lines.firstWhere((l) => l['id'] == productId);
-    setState(() => _manual.add({'product_id': productId, 'name': line['name'], 'qty': quantity, 'reason': why}));
+    if (added == null || !mounted) return;
+    setState(() => _manual.add(added));
+  }
+
+  /// One free line: a green card with what is free and why.
+  Widget _freeCard({required String name, required String note, required num qty, bool scheme = false, VoidCallback? onRemove}) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.25)),
+      ),
+      child: Row(children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+          child: Icon(scheme ? Icons.auto_awesome_rounded : Icons.redeem_rounded, color: AppColors.success, size: 19),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+            Text(note, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+          ]),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(color: AppColors.success, borderRadius: BorderRadius.circular(20)),
+          child: Text('+${fmtQty(qty)} free', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+        ),
+        if (onRemove != null)
+          IconButton(visualDensity: VisualDensity.compact, icon: const Icon(Icons.close_rounded, size: 18), onPressed: onRemove)
+        else
+          const SizedBox(width: 8),
+      ]),
+    );
   }
 
   @override
@@ -314,31 +307,18 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
               const Text('Free units from schemes are worked out when the order reaches the office.',
                   style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
             for (final f in _free)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                title: Text('${(f['product'] as Map)['name']}'),
-                subtitle: Text('${(f['scheme'] as Map)['name']} · ${(f['scheme'] as Map)['summary']}'),
-                trailing: Text('+${fmtQty((f['qty'] as num?) ?? 0)} free',
-                    style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w800)),
+              _freeCard(
+                name: '${(f['product'] as Map)['name']}',
+                note: '${(f['scheme'] as Map)['name']} · ${(f['scheme'] as Map)['summary']}',
+                qty: (f['qty'] as num?) ?? 0,
+                scheme: true,
               ),
             for (final m in _manual)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                title: Text('${m['name']}'),
-                subtitle: Text('${m['reason']}'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('+${fmtQty(m['qty'] as num)} free',
-                        style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w800)),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 18),
-                      onPressed: () => setState(() => _manual.remove(m)),
-                    ),
-                  ],
-                ),
+              _freeCard(
+                name: '${m['name']}',
+                note: '${m['reason']}',
+                qty: m['qty'] as num,
+                onRemove: () => setState(() => _manual.remove(m)),
               ),
             if (_freeChecked && _free.isEmpty && _manual.isEmpty)
               const Text('No scheme applies to this cart.', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
@@ -380,6 +360,188 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Adds free goods by hand: pick the product, how many, and why.
+class _FreeGoodsSheet extends StatefulWidget {
+  const _FreeGoodsSheet({required this.lines});
+
+  final List<Map<String, dynamic>> lines;
+
+  @override
+  State<_FreeGoodsSheet> createState() => _FreeGoodsSheetState();
+}
+
+class _FreeGoodsSheetState extends State<_FreeGoodsSheet> {
+  static const _reasons = ['Sample', 'Display', 'Damage cover', 'Festival offer', 'Other'];
+  int? _product;
+  double _qty = 1;
+  String? _reason;
+  final _other = TextEditingController();
+  String? _problem;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.lines.length == 1) _product = widget.lines.first['id'] as int;
+  }
+
+  @override
+  void dispose() {
+    _other.dispose();
+    super.dispose();
+  }
+
+  Map<String, dynamic>? get _line => widget.lines.where((l) => l['id'] == _product).firstOrNull;
+
+  void _add() {
+    final reason = _reason == 'Other' ? _other.text.trim() : _reason;
+    if (_product == null) {
+      setState(() => _problem = 'Choose the product that is free');
+      return;
+    }
+    if (_qty <= 0) {
+      setState(() => _problem = 'Enter how many are free');
+      return;
+    }
+    if (reason == null || reason.isEmpty) {
+      setState(() => _problem = _reason == 'Other' ? 'Describe the reason' : 'Choose the reason');
+      return;
+    }
+    Navigator.pop(context, {'product_id': _product, 'name': _line!['name'], 'qty': _qty, 'reason': reason});
+  }
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 8, top: 14),
+        child: Text(text, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+      );
+
+  Widget _round(IconData icon, VoidCallback onTap) => Material(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Padding(padding: const EdgeInsets.all(10), child: Icon(icon, color: AppColors.primary)),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final price = ((_line?['price'] as num?) ?? 0) * _qty;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Row(children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(15)),
+                child: const Icon(Icons.redeem_rounded, color: AppColors.success),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Add free goods', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+                  Text('Given free with this order (FOC)', style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
+                ]),
+              ),
+            ]),
+            _label('Which product'),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final l in widget.lines)
+                ChoiceChip(
+                  label: Text('${l['name']}', overflow: TextOverflow.ellipsis),
+                  selected: _product == l['id'],
+                  onSelected: (_) => setState(() => _product = l['id'] as int),
+                  selectedColor: AppColors.primary,
+                  labelStyle: TextStyle(
+                      fontWeight: FontWeight.w700, color: _product == l['id'] ? Colors.white : AppColors.text),
+                  showCheckmark: false,
+                ),
+            ]),
+            _label('How many free'),
+            Row(children: [
+              _round(Icons.remove_rounded, () => setState(() => _qty = (_qty - 1).clamp(0, 9999))),
+              Expanded(
+                child: Center(
+                  child: Text(fmtQty(_qty), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 30)),
+                ),
+              ),
+              _round(Icons.add_rounded, () => setState(() => _qty += 1)),
+            ]),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, children: [
+              for (final n in const [1, 2, 5, 10, 20])
+                ActionChip(label: Text('$n'), onPressed: () => setState(() => _qty = n.toDouble())),
+            ]),
+            if (_line != null && price > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text('Worth ${fmtMoney(price)} at PTR, free of charge',
+                    style: const TextStyle(fontSize: 12.5, color: AppColors.success, fontWeight: FontWeight.w700)),
+              ),
+            _label('Why is it free *'),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final r in _reasons)
+                ChoiceChip(
+                  label: Text(r),
+                  selected: _reason == r,
+                  onSelected: (_) => setState(() => _reason = r),
+                  selectedColor: AppColors.success,
+                  labelStyle: TextStyle(fontWeight: FontWeight.w700, color: _reason == r ? Colors.white : AppColors.text),
+                  showCheckmark: false,
+                ),
+            ]),
+            if (_reason == 'Other')
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: TextField(
+                  controller: _other,
+                  decoration: InputDecoration(
+                    hintText: 'Describe the reason',
+                    filled: true,
+                    fillColor: AppColors.background,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  ),
+                ),
+              ),
+            if (_problem != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(_problem!, style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w700)),
+              ),
+            const SizedBox(height: 18),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed: _add,
+                  style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                      backgroundColor: AppColors.success,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('Add free goods'),
+                ),
+              ),
+            ]),
+          ]),
+        ),
       ),
     );
   }
