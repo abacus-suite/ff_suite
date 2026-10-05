@@ -12,6 +12,7 @@ import '../../core/photos.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 
 /// Conversations from Odoo Discuss: channels and direct chats.
 class ChatListScreen extends StatefulWidget {
@@ -161,7 +162,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       body: _error != null && _channels.isEmpty
           ? ErrorView(message: _error!, onRetry: _load)
           : _channels.isEmpty && _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : RefreshIndicator(
               onRefresh: _load,
               child: _channels.isEmpty && !_loading

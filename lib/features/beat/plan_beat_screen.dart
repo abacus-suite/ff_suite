@@ -10,6 +10,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 
 /// Create a beat plan: for me or someone in my team, one day, one or several routes,
 /// with the customers of each route ticked. Saving opens the planned days.
@@ -481,7 +482,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Create Beat Plan')),
       body: _loading && _routes.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _error != null
               ? ErrorView(message: _error!, onRetry: _loadRoutes)
               : Column(
@@ -1166,7 +1167,7 @@ class _PlannedDaysScreenState extends State<PlannedDaysScreen> {
         label: const Text('Plan a day'),
       ),
       body: _loading && _days.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _error != null
               ? ErrorView(message: _error!, onRetry: _load)
               : RefreshIndicator(

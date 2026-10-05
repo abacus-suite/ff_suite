@@ -6,6 +6,7 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'team_leaves.dart';
+import '../../widgets/skeleton.dart';
 
 /// My time off: what is left of each type, what I asked for, and its state.
 class LeavesScreen extends StatefulWidget {
@@ -114,7 +115,7 @@ class _LeavesScreenState extends State<LeavesScreen> {
         label: const Text('Request'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _error != null && data == null
               ? ErrorView(message: _error!, onRetry: _load)
               : RefreshIndicator(

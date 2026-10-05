@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 
 /// Money this employee has collected, and what is still to be handed over.
 class CollectionsScreen extends StatefulWidget {
@@ -97,7 +98,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Collections')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _error != null && data == null
               ? ErrorView(message: _error!, onRetry: _load)
               : RefreshIndicator(

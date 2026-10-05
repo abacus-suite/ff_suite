@@ -12,6 +12,7 @@ import 'catalog_screen.dart';
 import 'demand_detail_screen.dart';
 import 'demand_send.dart';
 import 'distributor_orders_screen.dart';
+import '../../widgets/skeleton.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key, this.embedded = false});
@@ -22,7 +23,7 @@ class OrdersScreen extends StatefulWidget {
   State<OrdersScreen> createState() => _OrdersScreenState();
 }
 
-class _OrdersScreenState extends State<OrdersScreen> {
+class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _orders = [];
   Map<String, dynamic>? _summary;
   bool _loading = true;
@@ -48,11 +49,30 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Coming to this tab, an order answered by a distributor, or a minute going by: the list is brought up to date.
+    Services.refresh.addListener(_quiet);
+    _poll = Timer.periodic(const Duration(seconds: 45), (_) => _quiet());
     _load();
+  }
+
+  Timer? _poll;
+
+  /// A refresh that does not blank the list: used when something may have changed behind it.
+  void _quiet() {
+    if (mounted && !_loading) _load(silent: true);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _quiet();
   }
 
   @override
   void dispose() {
+    _poll?.cancel();
+    Services.refresh.removeListener(_quiet);
+    WidgetsBinding.instance.removeObserver(this);
     _debounce?.cancel();
     _search.dispose();
     super.dispose();
@@ -88,8 +108,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
         if (_search.text.trim().isNotEmpty) 'q': _search.text.trim(),
       };
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) setState(() => _loading = true);
     if (_orders.isEmpty && _summary == null) {
       // The last copy of this view first; the fresh one replaces it.
       final saved = await Future.wait([
@@ -117,7 +137,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && !silent) setState(() => _loading = false);
     }
   }
 
@@ -805,7 +825,7 @@ class _OrderDetail extends StatelessWidget {
       future: Services.api.get(demandFlow ? '/api/v1/demands/$orderId' : '/api/v1/orders/$orderId'),
       builder: (context, snap) {
         if (snap.hasError) return Padding(padding: const EdgeInsets.all(24), child: Text('${snap.error}'));
-        if (!snap.hasData) return const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()));
+        if (!snap.hasData) return const Padding(padding: EdgeInsets.all(48), child: const LoadingView());
         final o = snap.data as Map<String, dynamic>;
         final lines = ((o['lines'] as List?) ?? []).cast<Map<String, dynamic>>();
         final currency = o['currency'] as String?;

@@ -33,6 +33,7 @@ import '../clients/client_detail_screen.dart';
 import '../clients/clients_screen.dart';
 import '../expenses/expenses_screen.dart';
 import '../orders/catalog_screen.dart';
+import '../../widgets/skeleton.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.onOpenTab});
@@ -327,7 +328,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (_loading && _status == null)
                 const Padding(
                     padding: EdgeInsets.all(40),
-                    child: Center(child: CircularProgressIndicator()))
+                    child: const LoadingView())
               else if (_error != null && _status == null)
                 Card(child: ErrorView(message: _error!, onRetry: _load))
               else ...[

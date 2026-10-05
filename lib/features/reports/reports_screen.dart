@@ -8,6 +8,7 @@ import '../team/timeline_screen.dart';
 import '../receivables/receivables_screen.dart';
 import '../targets/targets_screen.dart';
 import 'report_view_screen.dart';
+import '../../widgets/skeleton.dart';
 
 /// Icons for the report keys the server sends (Material names, as strings).
 const _icons = <String, IconData>{
@@ -132,7 +133,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           children: [
             if (_error != null) Card(child: ErrorView(message: _error!, onRetry: _load)),
             if (data == null && _error == null)
-              const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+              const Padding(padding: EdgeInsets.all(40), child: const LoadingView()),
             if (canTeam) ...[
               const _Section('My team'),
               Row(

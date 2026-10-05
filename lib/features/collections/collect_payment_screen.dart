@@ -12,6 +12,7 @@ import '../../core/geo.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 
 /// Collect money from a customer, usually during a visit.
 class CollectPaymentScreen extends StatefulWidget {
@@ -473,7 +474,7 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Collect Payment')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _error != null
               ? ErrorView(message: _error!, onRetry: _loadModes)
               : _modes.isEmpty

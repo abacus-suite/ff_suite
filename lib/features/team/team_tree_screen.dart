@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../beat/plan_beat_screen.dart';
 import '../reports/summary_drill.dart';
+import '../../widgets/skeleton.dart';
 
 /// The team by level: the people under a head, their figures, and a way down.
 /// Tap a person to see who is under them; "Expand all" opens every level at once.
@@ -144,7 +145,7 @@ class _TeamTreeScreenState extends State<TeamTreeScreen> {
             ),
             const SizedBox(height: 8),
             if (_loading && root == null)
-              const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+              const Padding(padding: EdgeInsets.all(40), child: const LoadingView()),
             if (_error != null && root == null) ErrorView(message: _error!, onRetry: _load),
             if (root != null) ...[
               _headCard(root),

@@ -8,6 +8,7 @@ import '../../widgets/common.dart';
 import '../../widgets/group_kit.dart';
 import 'report_views.dart';
 import 'summary_drill.dart';
+import '../../widgets/skeleton.dart';
 
 enum _View { list, table, chart, pivot, calendar, map }
 
@@ -426,7 +427,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
                 ? ErrorView(message: _error!, onRetry: _load)
                 // Columns arrive with the first answer; until then there is nothing to lay out.
                 : columns.isEmpty
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const LoadingView()
                     : rows.isEmpty && !_loading
                         ? const Center(
                             child: Text('Nothing in this period',

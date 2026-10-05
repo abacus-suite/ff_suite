@@ -14,6 +14,7 @@ import '../../widgets/common.dart';
 import '../forms/form_fill_screen.dart';
 import '../visits/stock_count_screen.dart';
 import '../visits/visit_purpose.dart';
+import '../../widgets/skeleton.dart';
 
 /// Used when the server has no outcome master configured.
 const legacyOutcomes = <String, String>{
@@ -257,7 +258,7 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
               ),
             ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               children: [

@@ -6,6 +6,7 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../attendance/regularisation_screen.dart' show reasons;
+import '../../widgets/skeleton.dart';
 
 /// Everything a manager has to decide: corrections, new contacts, allowances, expenses.
 class ApprovalsScreen extends StatefulWidget {
@@ -185,7 +186,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const LoadingView()
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                 children: [

@@ -4,6 +4,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 
 const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October',
   'November', 'December'];
@@ -66,7 +67,7 @@ class _TeamLeavesScreenState extends State<TeamLeavesScreen> {
         ],
       ),
       body: _loading && _rows.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _error != null && _rows.isEmpty
               ? ErrorView(message: _error!, onRetry: _load)
               : RefreshIndicator(

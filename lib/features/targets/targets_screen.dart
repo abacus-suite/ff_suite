@@ -4,6 +4,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 
 String _value(Map<String, dynamic> m, String key, String? currency) =>
     m['money'] == true ? fmtMoney((m[key] as num?) ?? 0, currency) : fmtQty((m[key] as num?) ?? 0);
@@ -60,7 +61,7 @@ class _TargetsScreenState extends State<TargetsScreen> {
         body: _error != null
             ? ErrorView(message: _error!, onRetry: _load)
             : _board == null
-                ? const Center(child: CircularProgressIndicator())
+                ? const LoadingView()
                 : TabBarView(children: [
                     _leaderboard(),
                     if (splittable.isNotEmpty) _splitList(splittable),

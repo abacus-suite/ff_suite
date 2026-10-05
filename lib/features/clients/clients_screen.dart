@@ -17,6 +17,7 @@ import '../../widgets/sdk_map.dart';
 import '../../widgets/member_picker.dart';
 import 'add_client_screen.dart';
 import 'client_detail_screen.dart';
+import '../../widgets/skeleton.dart';
 
 /// Contacts with search, category chips, "nearby" sorting and a map.
 /// In [pickMode] tapping a contact returns it to the caller.
@@ -619,7 +620,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
         : _clients.where((c) => c['lat'] != null).toList();
     if (located.isEmpty && _me == null) {
       return _pointsLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : const EmptyView(icon: Icons.location_off_rounded, text: 'No contacts with a GPS location');
     }
     final centre = _centre ??

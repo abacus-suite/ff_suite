@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../widgets/group_kit.dart';
 import 'demand_send.dart';
 import 'distributor_submit.dart';
+import '../../widgets/skeleton.dart';
 
 /// One demand in full: the outlet, who supplies it, where it has got to, every
 /// line with its price, tax and discount, and the orders it went into.
@@ -397,7 +398,7 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
               )
             : null,
         body: d == null
-            ? Center(child: _error != null ? Padding(padding: const EdgeInsets.all(24), child: Text(_error!)) : const CircularProgressIndicator())
+            ? Center(child: _error != null ? Padding(padding: const EdgeInsets.all(24), child: Text(_error!)) : const LoadingView())
             : RefreshIndicator(
                 onRefresh: _load,
                 child: ListView(

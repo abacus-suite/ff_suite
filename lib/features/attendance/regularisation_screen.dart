@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
+import '../../widgets/skeleton.dart';
 
 const reasons = <String, String>{
   'battery': 'Phone battery died',
@@ -70,7 +71,7 @@ class _RegularisationScreenState extends State<RegularisationScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const LoadingView()
             : ListView(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
                 children: [

@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../clients/client_detail_screen.dart';
 import 'plan_beat_screen.dart';
+import '../../widgets/skeleton.dart';
 
 /// One planned day: who is on it, how each call went, and who was called on
 /// without being planned.
@@ -119,7 +120,7 @@ class _PlannedDayScreenState extends State<PlannedDayScreen> {
               label: const Text('Add customers'),
             ),
       body: _loading && _day == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _error != null
               ? ErrorView(message: _error!, onRetry: _load)
               : RefreshIndicator(

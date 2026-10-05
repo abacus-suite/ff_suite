@@ -11,6 +11,7 @@ import '../../core/photos.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 
 const _reasons = [
   ('damaged', 'Damaged', Icons.broken_image_rounded),
@@ -205,7 +206,7 @@ class _ReturnScreenState extends State<ReturnScreen> {
             onChanged: (_) => setState(() {}),
             decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Search product', isDense: true),
           ),
-          if (_loading) const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator())),
+          if (_loading) const Padding(padding: EdgeInsets.all(20), child: const LoadingView()),
           for (final p in shown)
             Builder(builder: (context) {
               final id = p['id'] as int;

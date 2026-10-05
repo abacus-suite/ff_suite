@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 
 /// For managers and the office: money handed over by the team, waiting to be received.
 class DepositsReceiveScreen extends StatefulWidget {
@@ -64,7 +65,7 @@ class _DepositsReceiveScreenState extends State<DepositsReceiveScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Money To Receive')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _error != null && _deposits.isEmpty
               ? ErrorView(message: _error!, onRetry: _load)
               : _deposits.isEmpty

@@ -11,6 +11,7 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../tasks/task_widgets.dart';
+import '../../widgets/skeleton.dart';
 
 const _maxPictures = 5;
 
@@ -185,7 +186,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(title: Text(_editing ? 'Edit expense' : title)),
       body: !_loaded
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : ListView(
               padding: const EdgeInsets.all(14),
               children: [

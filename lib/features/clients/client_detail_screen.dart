@@ -23,6 +23,7 @@ import '../visits/stock_count_screen.dart';
 import '../receivables/receivables_screen.dart';
 import 'client_extras.dart';
 import 'visit_checkout_screen.dart';
+import '../../widgets/skeleton.dart';
 
 class ClientDetailScreen extends StatefulWidget {
   const ClientDetailScreen({super.key, required this.clientId});
@@ -449,7 +450,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           ],
         ]),
       body: _loading && client == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : client == null
               ? ErrorView(message: _error ?? 'Error', onRetry: _load)
               : RefreshIndicator(onRefresh: _load, child: _content(client)),

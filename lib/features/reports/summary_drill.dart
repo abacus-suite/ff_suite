@@ -4,6 +4,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 
 /// Look of one figure: icon and colour by what it counts.
 (IconData, Color) metricLook(String key) => switch (key) {
@@ -531,7 +532,7 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
                   ),
                   const SizedBox(height: 12),
                   if (_loading && _overall == null)
-                    const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+                    const Padding(padding: EdgeInsets.all(40), child: const LoadingView())
                   else ...switch (_tab) {
                     0 => [..._overview(), const SizedBox(height: 16), ..._daily(title: true)],
                     1 => _daily(),

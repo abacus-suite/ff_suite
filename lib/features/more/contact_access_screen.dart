@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
+import '../../widgets/skeleton.dart';
 
 /// Contacts outside one's own list: ask the manager for a territory, beat or
 /// city between two dates, and (for a manager) decide what the team asked.
@@ -128,7 +129,7 @@ class _ContactAccessScreenState extends State<ContactAccessScreen> {
         label: const Text('Request access'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _error != null
               ? Center(child: Text(_error!))
               : RefreshIndicator(

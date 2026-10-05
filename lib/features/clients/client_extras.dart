@@ -7,6 +7,7 @@ import '../beat/create_beat_screen.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/dashboard.dart';
+import '../../widgets/skeleton.dart';
 
 Color _stateColour(String? state) => switch (state) {
       'sale' || 'done' || 'received' || 'supplied' || 'quoted' => AppColors.success,
@@ -172,7 +173,7 @@ class _ClientHistoryScreenState extends State<ClientHistoryScreen> {
         body: _error != null
             ? ErrorView(message: _error!, onRetry: _load)
             : data == null
-                ? const Center(child: CircularProgressIndicator())
+                ? const LoadingView()
                 : TabBarView(
                     children: [
                       _list(tabs[0].$2, _visitTile, 'No visits yet'),

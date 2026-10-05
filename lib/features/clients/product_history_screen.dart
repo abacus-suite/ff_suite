@@ -4,6 +4,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 
 String _day(dynamic iso) {
   final d = DateTime.tryParse('${iso ?? ''}')?.toLocal();
@@ -119,7 +120,7 @@ class _ProductHistoryScreenState extends State<ProductHistoryScreen> {
               ],
             ),
             if (_loading && _data == null)
-              const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+              const Padding(padding: EdgeInsets.all(40), child: const LoadingView()),
             if (_error != null && _data == null) ErrorView(message: _error!, onRetry: _load),
             if (_data != null && products.isEmpty)
               const EmptyView(icon: Icons.inventory_2_outlined, text: 'No products taken yet'),
@@ -268,7 +269,7 @@ class _ProductMovesScreenState extends State<ProductMovesScreen> {
                         style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
                   const SizedBox(height: 10),
                   if (_loading && data == null)
-                    const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+                    const Padding(padding: EdgeInsets.all(40), child: const LoadingView()),
                   if (data != null) ...[
                     Row(
                       children: [

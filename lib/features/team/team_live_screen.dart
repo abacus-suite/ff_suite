@@ -7,6 +7,7 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/map.dart';
 import 'timeline_screen.dart';
+import '../../widgets/skeleton.dart';
 
 class TeamLiveScreen extends StatefulWidget {
   const TeamLiveScreen({super.key});
@@ -66,7 +67,7 @@ class _TeamLiveScreenState extends State<TeamLiveScreen> {
         ],
       ),
       body: _loading && _data == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _error != null && _data == null
               ? Center(child: Text(_error!))
               : Column(

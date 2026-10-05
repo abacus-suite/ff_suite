@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
 
 /// Plan a route day: pick the day, pick the route, keep the customers you will reach.
 class PlanDayScreen extends StatefulWidget {
@@ -224,7 +225,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
     return Scaffold(
       appBar: AppBar(title: Text('Plan a $routeLabel Day')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : _error != null
               ? ErrorView(message: _error!, onRetry: _loadRoutes)
               : Column(
@@ -271,7 +272,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                           if (_loadingCustomers)
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Center(child: CircularProgressIndicator()),
+                              child: const LoadingView(),
                             )
                           else if (_route != null)
                             SectionCard(

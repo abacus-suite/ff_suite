@@ -8,6 +8,7 @@ import '../allowance/allowance_screen.dart';
 import '../approvals/approvals_screen.dart';
 import '../expenses/expenses_screen.dart';
 import '../leaves/leaves_screen.dart';
+import '../../widgets/skeleton.dart';
 
 /// The bell, with however many are unread.
 class NotificationBell extends StatelessWidget {
@@ -144,7 +145,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingView()
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(

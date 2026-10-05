@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/member_picker.dart';
+import '../../widgets/skeleton.dart';
 
 /// Samples in hand: what was taken, what was given away and what is left,
 /// for me or (a manager) for a teammate or the whole team.
@@ -380,7 +381,7 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
           ? Center(
               child: _error != null
                   ? Padding(padding: const EdgeInsets.all(24), child: Text(_error!))
-                  : const CircularProgressIndicator())
+                  : const LoadingView())
           : RefreshIndicator(
               onRefresh: () async {
                 _gen++;
