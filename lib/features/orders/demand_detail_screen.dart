@@ -422,7 +422,7 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
             Text('${(l['product'] as Map)['name']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
             const SizedBox(height: 2),
             Text(
-              '${fmtQty(l['qty'] as num)} × ${fmtMoney(l['price_unit'] as num?, currency)}'
+              '${fmtQty(l['qty'] as num)}${l['uom'] != null ? ' ${l['uom']}' : ''} × ${fmtMoney(l['price_unit'] as num?, currency)}'
               '${free ? '  ·  Free (100% off)' : ''}'
               '${!free && ((l['discount'] as num?) ?? 0) > 0 ? '  ·  ${l['discount']}% off' : ''}'
               '${tax > 0 && !free ? '  ·  +${fmtQty(tax)}% tax' : ''}',
