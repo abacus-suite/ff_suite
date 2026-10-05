@@ -185,8 +185,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
               onPressed: () => _setQty(id, 1),
               style: FilledButton.styleFrom(
                 visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('Add'),
@@ -203,7 +203,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   onTap: () => _typeQty(id),
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    constraints: const BoxConstraints(minWidth: 36),
+                    constraints: const BoxConstraints(minWidth: 28),
                     alignment: Alignment.center,
                     child: Text(fmtQty(qty),
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.primary)),
@@ -218,11 +218,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
   Widget _stepButton(IconData icon, VoidCallback onTap) => InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        child: Padding(padding: const EdgeInsets.all(8), child: Icon(icon, size: 20, color: AppColors.primary)),
+        child: Padding(padding: const EdgeInsets.all(6), child: Icon(icon, size: 19, color: AppColors.primary)),
       );
 
   Widget _tag(String text, Color tint, {IconData? icon}) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
         decoration: BoxDecoration(color: tint.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (icon != null) ...[Icon(icon, size: 12, color: tint), const SizedBox(width: 4)],
@@ -230,74 +230,67 @@ class _CatalogScreenState extends State<CatalogScreen> {
             child: Text(text,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: tint)),
+                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: tint)),
           ),
         ]),
       );
 
+  /// One product on a single compact row: picture, name and price, the
+  /// small tags, and the add control on the right.
   Widget _card(Map<String, dynamic> p) {
     final id = p['id'] as int;
     final qty = _cart[id] ?? 0;
     final inCart = qty > 0;
     final tax = (p['tax_percent'] as num?) ?? 0;
     final margin = retailMargin(p);
+    final schemes = _schemesFor(p);
+    final tags = <Widget>[
+      if (tax > 0) _tag('+${fmtQty(tax)}% tax', AppColors.warning),
+      if (p['mrp'] != null) _tag('MRP ${fmtMoney(p['mrp'] as num)}', AppColors.teal),
+      if (margin != null) _tag('${margin.toStringAsFixed(1)}% margin', AppColors.success),
+      for (final scheme in schemes) _tag('${scheme['summary']}', AppColors.success, icon: Icons.redeem_rounded),
+    ];
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: inCart ? AppColors.primary : Colors.transparent, width: 1.5),
-        boxShadow: [BoxShadow(color: const Color(0xFF1B3A7A).withValues(alpha: 0.07), blurRadius: 16, offset: const Offset(0, 6))],
+        boxShadow: [BoxShadow(color: const Color(0xFF1B3A7A).withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 3))],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _picture(p, 72),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('${p['name']}', maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, height: 1.2)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        _picture(p, 54),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text('${p['name']}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, height: 1.2)),
+            const SizedBox(height: 2),
+            Row(children: [
+              Text(fmtMoney(p['price'] as num?),
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: AppColors.primary)),
+              Text(' / ${p['uom']}', style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
               if (p['sku'] != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text('${p['sku']}', style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                Flexible(
+                  child: Text('  ·  ${p['sku']}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: AppColors.muted)),
                 ),
-              const SizedBox(height: 6),
-              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(fmtMoney(p['price'] as num?),
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: AppColors.primary)),
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 2),
-                  child: Text('/ ${p['uom']}', style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
-                ),
-              ]),
             ]),
-          ),
-        ]),
-        const SizedBox(height: 10),
-        Wrap(spacing: 6, runSpacing: 6, children: [
-          if (tax > 0) _tag('+${fmtQty(tax)}% tax', AppColors.warning, icon: Icons.receipt_long_rounded),
-          if (p['mrp'] != null) _tag('MRP ${fmtMoney(p['mrp'] as num)}', AppColors.teal),
-          if (margin != null) _tag('Margin ${margin.toStringAsFixed(1)}%', AppColors.success),
-          for (final scheme in _schemesFor(p))
-            _tag('${scheme['summary']}', AppColors.success, icon: Icons.redeem_rounded),
-        ]),
-        if (widget.client != null) ...[
-          const SizedBox(height: 10),
-          Row(children: [
-            if (inCart)
-              Expanded(
-                child: Text(
-                  '${fmtMoney(((p['price'] as num?) ?? 0) * qty)} for ${fmtQty(qty)}',
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.muted),
-                ),
-              )
-            else
-              const Spacer(),
-            _control(id, qty),
+            if (tags.isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Wrap(spacing: 5, runSpacing: 4, children: tags),
+            ],
           ]),
+        ),
+        if (widget.client != null) ...[
+          const SizedBox(width: 8),
+          SizedBox(width: 106, child: Align(alignment: Alignment.centerRight, child: _control(id, qty))),
         ],
       ]),
     );

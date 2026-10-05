@@ -53,6 +53,8 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
               actions: [FilledButton(onPressed: () => Navigator.pop(dialog), child: const Text('OK'))],
             ),
           );
+          // The Check In button is on Home, so that is where they are taken.
+          if (context.mounted) goToHome();
         }
         return null;
       }

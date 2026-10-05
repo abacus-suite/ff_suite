@@ -45,6 +45,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     ChatBadge.start();
+    Services.goHome.addListener(_goHome);
     WidgetsBinding.instance.addObserver(this);
     // Opening the app while checked in goes straight back to the visit.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -56,12 +57,17 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     ChatBadge.stop();
+    Services.goHome.removeListener(_goHome);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) resumeOpenTask(context);
+  }
+
+  void _goHome() {
+    if (mounted) _open('home');
   }
 
   void _open(String key) {

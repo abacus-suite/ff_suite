@@ -17,6 +17,9 @@ class Services {
 
   /// Bumped when the user switches tabs so dashboards reload.
   static final refresh = ValueNotifier<int>(0);
+
+  /// Bumped to bring the app back to its Home screen, wherever the person is.
+  static final goHome = ValueNotifier<int>(0);
   static late final AppStorage storage;
   static late final ApiClient api;
   static late final AuthRepository auth;

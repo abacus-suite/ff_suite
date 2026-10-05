@@ -44,26 +44,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
   /// being picked, and the list behaves as it always did.
   final Set<int> _picked = {};
   bool _sending = false;
-  String _base = '';
-  Map<String, String> _headers = const {};
 
   @override
   void initState() {
     super.initState();
     _load();
-    _loadImageKeys();
-  }
-
-  /// Where to fetch product pictures from, with this session's key.
-  Future<void> _loadImageKeys() async {
-    final base = await Services.api.url('');
-    final headers = await Services.api.authHeaders();
-    if (mounted) {
-      setState(() {
-        _base = base;
-        _headers = headers;
-      });
-    }
   }
 
   @override
@@ -250,6 +235,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Widget _row(Map<String, dynamic> o) {
     final products = ((o['products'] as List?) ?? []).cast<Map<String, dynamic>>();
     final count = products.isNotEmpty ? products.length : ((o['line_count'] as num?) ?? 0).toInt();
+    final units = (o['quantity_total'] as num?) ??
+        products.fold<num>(0, (sum, p) => sum + ((p['qty'] as num?) ?? 0));
     final date = parseServerTime(o['date']);
     final route = asText((o['route'] as Map?)?['name']);
     final state = '${o['state']}';
@@ -362,7 +349,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     _meta(Icons.calendar_today_rounded, prettyDay(date.toLocal()), fmtTime(o['date'])),
                   if (count > 0) ...[
                     _divider(),
-                    _meta(Icons.inventory_2_rounded, '$count product${count == 1 ? '' : 's'}', ''),
+                    _meta(Icons.inventory_2_rounded, '$count product${count == 1 ? '' : 's'}',
+                        units > 0 ? '${fmtQty(units)} unit${units == 1 ? '' : 's'}' : ''),
                   ],
                   if (route != null) ...[
                     _divider(),
@@ -377,30 +365,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
               if (_demandFlow) ...[
                 const SizedBox(height: 10),
                 _distributorChip(o),
-              ],
-              if (products.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 46,
-                  child: Row(
-                    children: [
-                      for (final product in products.take(3)) _thumb(product),
-                      if (count > 3)
-                        Container(
-                          width: 46,
-                          height: 46,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text('+${count - 3}',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w800, fontSize: 12.5, color: AppColors.primary)),
-                        ),
-                    ],
-                  ),
-                ),
               ],
             ],
           ),
@@ -483,28 +447,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ),
           ],
         ),
-      );
-
-  Widget _thumb(Map<String, dynamic> product) => Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            width: 46,
-            height: 46,
-            child: product['has_image'] == true && _base.isNotEmpty
-                ? Image.network('$_base/api/v1/products/${product['id']}/image',
-                    headers: _headers,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _thumbFallback())
-                : _thumbFallback(),
-          ),
-        ),
-      );
-
-  Widget _thumbFallback() => Container(
-        color: AppColors.background,
-        child: const Icon(Icons.inventory_2_outlined, size: 18, color: AppColors.muted),
       );
 
   Widget _statBox(IconData icon, String value, String label, Color tint) => Expanded(

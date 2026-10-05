@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'services.dart';
+
 String _two(int n) => n.toString().padLeft(2, '0');
 
 DateTime? parseServerTime(dynamic iso) => iso is String ? DateTime.parse(iso).toLocal() : null;
@@ -49,7 +51,20 @@ void showSnack(BuildContext context, String message) {
 /// The one way the app tells somebody something is wrong or missing: a dialog
 /// that has to be dismissed, so it is read. [message] is a text or a list of
 /// things to put right.
-Future<void> showProblem(BuildContext context, Object message, {String title = 'Please check'}) {
+/// Back to the Home screen, closing whatever is open on top of it.
+void goToHome() {
+  Services.navigatorKey.currentState?.popUntil((route) => route.isFirst);
+  Services.goHome.value++;
+}
+
+Future<void> showProblem(BuildContext context, Object message, {String title = 'Please check'}) async {
+  await _problemDialog(context, message, title);
+  // "Check in for the day" is always answered on Home, where the button is.
+  final text = message is List ? message.join(' ') : '$message';
+  if (text.contains('Check in for the day') || text.contains('Start your day')) goToHome();
+}
+
+Future<void> _problemDialog(BuildContext context, Object message, String title) {
   final items = message is List
       ? message.map((e) => '$e').toList()
       : [('$message').replaceFirst(RegExp(r'^(Exception|ApiException|Bad state): '), '')];
