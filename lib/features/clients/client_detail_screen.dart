@@ -1080,11 +1080,20 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     final open = v['state'] != 'done';
     final started = parseServerTime(v['check_in_at']);
     final minutes = (v['duration_min'] as num?)?.toInt();
-    final purpose = switch (v['purpose']) {
-      'client_visit' => 'Client visit',
-      'chiller_update' => 'Chiller update',
-      'other' => 'Other',
-      _ => null,
+    // A visit opened for a task is called by that task; older ones by what they were for.
+    final purpose = switch (v['task']) {
+      'client_visit' => 'Client Visit',
+      'new_lead' => 'New Lead',
+      'lead_follow_up' => 'New Lead Follow Up',
+      'adhoc' => 'Adhoc Task',
+      'sample_collection' => 'Sample Collection',
+      'marketing_supply' => 'Marketing Material Supply',
+      _ => switch (v['purpose']) {
+          'client_visit' => 'Client visit',
+          'chiller_update' => 'Chiller update',
+          'other' => 'Other',
+          _ => null,
+        },
     };
     final note = asText(v['note']);
     return Container(
