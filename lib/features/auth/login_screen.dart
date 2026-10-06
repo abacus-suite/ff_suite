@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/security_guard.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
+import '../../widgets/powered_by.dart';
 import '../../widgets/common.dart';
 import '../shell/app_shell.dart';
 
@@ -132,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(_showServer ? 'Hide server settings' : 'Server settings'),
                     ),
                     const SizedBox(height: 12),
-                    const Center(child: Text('by ABS', style: TextStyle(color: AppColors.muted, fontSize: 12))),
+                    const Center(child: PoweredBy()),
                   ],
                 ),
               ),

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
+import '../../widgets/powered_by.dart';
 
 /// The opening animation: the icon pops in on a pulse, a route draws itself
 /// to a pin, the name rises letter by letter, then the app fades in.
@@ -172,13 +173,12 @@ class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStat
                         ),
                         const Spacer(flex: 4),
                         Opacity(
-                          opacity: tagline * 0.7,
-                          child: const Padding(
-                            padding: EdgeInsets.only(bottom: 34),
-                            child: SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                          opacity: tagline,
+                          child: Transform.translate(
+                            offset: Offset(0, 14 * (1 - tagline)),
+                            child: const Padding(
+                              padding: EdgeInsets.only(bottom: 40),
+                              child: PoweredBy(onDark: true, height: 30),
                             ),
                           ),
                         ),
