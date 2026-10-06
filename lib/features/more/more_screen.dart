@@ -11,13 +11,11 @@ import 'contact_access_screen.dart';
 import 'my_samples_screen.dart';
 import '../collections/collections_screen.dart';
 import '../collections/deposits_receive_screen.dart';
-import '../clients/add_client_screen.dart';
 import '../expenses/expenses_screen.dart';
 import '../leaves/leaves_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../reports/reports_screen.dart';
 import '../forms/forms_screen.dart';
-import '../chat/chat_screen.dart';
 import '../receivables/receivables_screen.dart';
 import '../tasks/tasks_screen.dart';
 import 'profile_screen.dart';
@@ -37,17 +35,13 @@ class MoreScreen extends StatelessWidget {
       (Icons.bar_chart_rounded, 'Reports', AppColors.primary, const ReportsScreen()),
       if (profile.isManager) (Icons.account_tree_rounded, 'Team', AppColors.purple, const TeamTreeScreen()),
       (Icons.task_alt_rounded, 'Tasks', AppColors.success, const TasksScreen()),
-      (Icons.forum_rounded, 'Chat', AppColors.primary, const ChatListScreen()),
       (Icons.science_rounded, 'My Samples', AppColors.teal, const MySamplesScreen()),
       (Icons.lock_open_rounded, 'Contact Access', AppColors.sky, const ContactAccessScreen()),
       (Icons.account_balance_wallet_rounded, 'Receivables', AppColors.danger, const ReceivablesScreen()),
       if (profile.feature('routes')) ...[
         (Icons.calendar_month_rounded, 'My ${profile.routeLabel} Plan', AppColors.primary, const BeatTodayScreen()),
-        (Icons.edit_calendar_rounded, 'Create Beat Plan', AppColors.sky, const PlanBeatScreen()),
         (Icons.event_note_rounded, 'Planned Days', AppColors.primary, PlannedDaysScreen(start: DateUtils.dateOnly(DateTime.now()))),
       ],
-      if (profile.feature('visits'))
-        (Icons.add_business_rounded, 'Add ${profile.label('client', 'Customer')}', AppColors.teal, const AddClientScreen()),
       if (profile.feature('attendance')) ...[
         (Icons.event_available_rounded, 'My Attendance', AppColors.success, const MonthScreen()),
         (Icons.edit_calendar_rounded, 'Attendance Correction', AppColors.sky, const RegularisationScreen()),

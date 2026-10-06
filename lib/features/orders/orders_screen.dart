@@ -8,10 +8,8 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/group_kit.dart';
 import '../../widgets/member_picker.dart';
-import 'catalog_screen.dart';
 import 'demand_detail_screen.dart';
 import 'demand_send.dart';
-import 'distributor_orders_screen.dart';
 import '../../widgets/skeleton.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -518,9 +516,10 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
               const SizedBox(height: 6),
               Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
               Text(label,
-                  maxLines: 1,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
+                  style: const TextStyle(fontSize: 11.5, height: 1.15, color: AppColors.muted)),
             ],
           ),
         ),
@@ -649,12 +648,6 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                     )
                   else if (_canSend) ...[
                     IconButton(
-                      tooltip: 'Distributor orders',
-                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => const DistributorOrdersScreen())),
-                      icon: const Icon(Icons.local_shipping_outlined),
-                    ),
-                    IconButton(
                       tooltip: 'Choose demands to send',
                       onPressed: _visible.where(_sendable).isEmpty
                           ? null
@@ -662,19 +655,6 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                       icon: const Icon(Icons.checklist_rounded),
                     ),
                   ],
-                  FilledButton.icon(
-                    onPressed: () async {
-                      await Navigator.of(context)
-                          .push(MaterialPageRoute(builder: (_) => const CatalogScreen()));
-                      _load();
-                    },
-                    style: FilledButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    ),
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('New'),
-                  ),
                 ],
               ),
             ),
@@ -798,10 +778,21 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                       margin: const EdgeInsets.only(bottom: 14),
                       child: Padding(
                         padding: const EdgeInsets.all(8),
-                        child: Row(
+                        child: Column(
                           children: [
-                            for (final box in _statBoxes)
-                              _statBox(box.$1, '${_countOf(box.$2)}', box.$3, box.$4, box.$2),
+                            for (var start = 0; start < _statBoxes.length; start += 3)
+                              Padding(
+                                padding: EdgeInsets.only(top: start == 0 ? 0 : 6),
+                                child: Row(
+                                  children: [
+                                    for (final box in _statBoxes.skip(start).take(3))
+                                      _statBox(box.$1, '${_countOf(box.$2)}', box.$3, box.$4, box.$2),
+                                    // A short last row keeps the boxes the same width as the rest.
+                                    for (var pad = _statBoxes.skip(start).take(3).length; pad < 3 && _statBoxes.length > 3; pad++)
+                                      const Expanded(child: SizedBox()),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
                       ),
