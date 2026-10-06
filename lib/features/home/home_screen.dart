@@ -33,6 +33,7 @@ import '../clients/client_detail_screen.dart';
 import '../clients/clients_screen.dart';
 import '../orders/catalog_screen.dart';
 import '../../widgets/skeleton.dart';
+import 'team_dashboard.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.onOpenTab});
@@ -54,6 +55,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Top Products has its own period: changing it must not move the sales card.
   String _topPeriod = 'today';
+
+  /// A manager's choice: their own day, or the team's.
+  bool _teamView = false;
   List<Map<String, dynamic>>? _topRows;
   String _member = 'me';
   bool _loading = true;
@@ -373,7 +377,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 onAvatar: () => _push(const ProfileScreen()),
               ),
               const SizedBox(height: 14),
-              if (_loading && _status == null)
+              if (profile.isManager) ...[
+                SegmentedButton<bool>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Own'), icon: Icon(Icons.person_rounded)),
+                    ButtonSegment(value: true, label: Text('Team'), icon: Icon(Icons.groups_rounded)),
+                  ],
+                  selected: {_teamView},
+                  onSelectionChanged: (v) => setState(() => _teamView = v.first),
+                ),
+                const SizedBox(height: 14),
+              ],
+              if (profile.isManager && _teamView)
+                const TeamDashboard()
+              else if (_loading && _status == null)
                 const Padding(
                     padding: EdgeInsets.all(40),
                     child: const LoadingView())
