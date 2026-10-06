@@ -158,11 +158,27 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         final client = await navigator.push<Map<String, dynamic>>(
             MaterialPageRoute(builder: (_) => const ClientsScreen(pickMode: true)));
         if (client == null || !context.mounted) break;
+        // Was this person already at the customer? Then the visit is theirs to close, not ours.
+        Map<String, dynamic>? already;
+        try {
+          already = await Services.api.get('/api/v1/visits/current') as Map<String, dynamic>?;
+        } catch (_) {}
+        if (!context.mounted) break;
         final visit = await ensureCheckedIn(context, client);
         if (visit == null || !context.mounted) break;
-        await open(choice == 'order'
-            ? CatalogScreen(client: client)
-            : CollectPaymentScreen(client: client, visitId: visit['id'] as int?));
+        if (choice == 'order') {
+          await navigator.push<bool>(MaterialPageRoute(builder: (_) => CatalogScreen(client: client)));
+          // A demand or order was placed, or the person backed out: either way the visit this "+"
+          // opened ends here, so nobody is left checked in at a customer they are no longer at.
+          if (already == null) {
+            final closed = await autoCheckOut(visit);
+            if (!closed && context.mounted) {
+              showSnack(context, 'Could not check you out automatically. Check out from the customer screen.');
+            }
+          }
+        } else {
+          await open(CollectPaymentScreen(client: client, visitId: visit['id'] as int?));
+        }
       case 'beat':
         await open(const PlanBeatScreen());
       case 'field_task':
