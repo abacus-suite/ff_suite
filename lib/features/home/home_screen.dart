@@ -528,6 +528,9 @@ class _HomeScreenState extends State<HomeScreen> {
       compareWith: _compareWord,
       count: ((sales?['count'] as num?) ?? 0).toInt(),
       points: [for (final row in rows) ((row['amount'] as num?) ?? 0).toDouble()],
+      second: rows.any((row) => row.containsKey('distributor'))
+          ? [for (final row in rows) ((row['distributor'] as num?) ?? 0).toDouble()]
+          : null,
       labels: [for (final row in rows) '${row['label']}'],
       period: _period,
       onPeriod: _reloadSales,

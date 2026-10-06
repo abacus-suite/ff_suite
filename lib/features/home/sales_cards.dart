@@ -155,6 +155,7 @@ class SalesCard extends StatelessWidget {
     required this.compareWith,
     required this.count,
     required this.points,
+    this.second,
     required this.labels,
     required this.period,
     required this.onPeriod,
@@ -168,6 +169,9 @@ class SalesCard extends StatelessWidget {
   final String compareWith;
   final int count;
   final List<double> points;
+
+  /// A second line (distributor orders) when there is one; [points] are then the outlet demands.
+  final List<double>? second;
   final List<String> labels;
   final String period;
   final ValueChanged<String> onPeriod;
@@ -247,7 +251,15 @@ class SalesCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            SizedBox(height: 118, child: SalesCurve(values: points, labels: labels, currency: currency)),
+            SizedBox(height: 118, child: SalesCurve(values: points, second: second, labels: labels, currency: currency)),
+            if (second != null) ...[
+              const SizedBox(height: 6),
+              const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                _Key(color: AppColors.primary, label: 'Outlet demands'),
+                SizedBox(width: 16),
+                _Key(color: Color(0xFFF59E0B), label: 'Distributor orders'),
+              ]),
+            ],
             if (onOpen != null) ...[
               const SizedBox(height: 4),
               Align(
@@ -269,9 +281,10 @@ class SalesCard extends StatelessWidget {
 /// The curve of the period with its dots, the hours along the bottom, and a
 /// small flag on the best point.
 class SalesCurve extends StatelessWidget {
-  const SalesCurve({super.key, required this.values, required this.labels, this.currency});
+  const SalesCurve({super.key, required this.values, required this.labels, this.currency, this.second});
 
   final List<double> values;
+  final List<double>? second;
   final List<String> labels;
   final String? currency;
 
@@ -280,8 +293,8 @@ class SalesCurve extends StatelessWidget {
     if (values.length < 2) {
       return const Center(child: Text('Nothing to chart yet', style: TextStyle(color: AppColors.muted, fontSize: 12)));
     }
-    final peak = values.reduce((a, b) => a > b ? a : b);
-    final bestAt = peak > 0 ? values.indexOf(peak) : -1;
+    final peak = [...values, ...?second].reduce((a, b) => a > b ? a : b);
+    final bestAt = second == null && peak > 0 ? values.indexOf(peak) : -1;
     // Every other label when they would collide.
     final step = labels.length > 7 ? (labels.length / 6).ceil() : 1;
     return LayoutBuilder(
@@ -293,7 +306,7 @@ class SalesCurve extends StatelessWidget {
               height: chartHeight,
               width: double.infinity,
               child: CustomPaint(
-                painter: _CurvePainter(values),
+                painter: _CurvePainter(values, second),
                 child: peak <= 0 || bestAt < 0
                     ? null
                     : LayoutBuilder(
@@ -358,13 +371,14 @@ class SalesCurve extends StatelessWidget {
 }
 
 class _CurvePainter extends CustomPainter {
-  _CurvePainter(this.values);
+  _CurvePainter(this.values, [this.second]);
 
   final List<double> values;
+  final List<double>? second;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final peak = values.reduce((a, b) => a > b ? a : b);
+    final peak = [...values, ...?second].reduce((a, b) => a > b ? a : b);
     final step = size.width / (values.length - 1);
     final grid = Paint()
       ..color = AppColors.border
@@ -417,10 +431,52 @@ class _CurvePainter extends CustomPainter {
       canvas.drawCircle(point, 4.5, Paint()..color = Colors.white);
       canvas.drawCircle(point, 3, Paint()..color = AppColors.primary);
     }
+    final other = second;
+    if (other != null && other.length == values.length) {
+      const tone = Color(0xFFF59E0B);
+      final pts = [
+        for (final (i, value) in other.indexed)
+          Offset(i * step, size.height - (value / peak) * (size.height - 34) - 6)
+      ];
+      final path = ui.Path()..moveTo(pts.first.dx, pts.first.dy);
+      for (var i = 1; i < pts.length; i++) {
+        final from = pts[i - 1];
+        final to = pts[i];
+        final mid = (from.dx + to.dx) / 2;
+        path.cubicTo(mid, from.dy, mid, to.dy, to.dx, to.dy);
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.6
+          ..strokeCap = StrokeCap.round
+          ..color = tone,
+      );
+      for (final (i, point) in pts.indexed) {
+        if (other[i] <= 0) continue;
+        canvas.drawCircle(point, 4.5, Paint()..color = Colors.white);
+        canvas.drawCircle(point, 3, Paint()..color = tone);
+      }
+    }
   }
 
   @override
-  bool shouldRepaint(_CurvePainter old) => old.values != values;
+  bool shouldRepaint(_CurvePainter old) => old.values != values || old.second != second;
+}
+
+class _Key extends StatelessWidget {
+  const _Key({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 14, height: 4, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
+      ]);
 }
 
 /// The best selling items of the period, with their picture when there is one.
