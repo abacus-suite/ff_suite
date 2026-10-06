@@ -524,6 +524,8 @@ class _TeamDashboardState extends State<TeamDashboard> {
       _performance(),
       _trend(),
       _shortcuts(),
+      // The bar at the bottom floats over the page: leave its height free.
+      SizedBox(height: 120 + MediaQuery.of(context).padding.bottom),
     ]);
   }
 }
