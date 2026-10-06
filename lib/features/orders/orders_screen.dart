@@ -36,6 +36,9 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
 
   /// Demands by whether a distributor is linked to them: all, linked, unlinked.
   String _mapping = 'all';
+
+  /// Both kinds are listed on the demand flow: outlet demands, and orders taken for distributors.
+  String _kind = 'all';
   final _search = TextEditingController();
   Timer? _debounce;
   final Set<String> _collapsed = {};
@@ -84,7 +87,7 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
   bool get _canSend => _demandFlow && (Services.auth.profile?.demandSubmit ?? false);
 
   /// A demand already sent on, or cancelled, cannot be sent again.
-  bool _sendable(Map<String, dynamic> o) => demandSendable(o);
+  bool _sendable(Map<String, dynamic> o) => o['kind'] != 'order' && demandSendable(o);
 
   Future<void> _sendPicked() async {
     final demands = _orders.where((o) => _picked.contains(o['id'])).toList();
@@ -115,10 +118,14 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
       final saved = await Future.wait([
         Services.api.peek(_demandFlow ? '/api/v1/demands' : '/api/v1/orders', query: {..._query, 'limit': 1000}),
         Services.api.peek('/api/v1/orders/summary', query: _query),
+        if (_demandFlow) Services.api.peek('/api/v1/orders', query: {..._query, 'limit': 1000}),
       ]);
       if (mounted && saved[0] is List && saved[1] is Map && _orders.isEmpty) {
         setState(() {
-          _orders = (saved[0] as List).cast<Map<String, dynamic>>();
+          _orders = [
+            ...(saved[0] as List).cast<Map<String, dynamic>>(),
+            if (_demandFlow && saved.length > 2 && saved[2] is List) ..._distributorOrders(saved[2] as List),
+          ];
           _summary = (saved[1] as Map).cast<String, dynamic>();
         });
       }
@@ -127,10 +134,14 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
       final results = await Future.wait([
         Services.api.get(_demandFlow ? '/api/v1/demands' : '/api/v1/orders', query: {..._query, 'limit': 1000}),
         Services.api.get('/api/v1/orders/summary', query: _query),
+        if (_demandFlow) Services.api.get('/api/v1/orders', query: {..._query, 'limit': 1000}),
       ]);
       if (!mounted) return;
       setState(() {
-        _orders = (results[0] as List).cast<Map<String, dynamic>>();
+        _orders = [
+          ...(results[0] as List).cast<Map<String, dynamic>>(),
+          if (_demandFlow && results.length > 2) ..._distributorOrders(results[2] as List),
+        ];
         _summary = results[1] as Map<String, dynamic>;
         _error = null;
       });
@@ -141,8 +152,15 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
     }
   }
 
-  Future<void> _showOrder(int id) async {
-    if (_demandFlow) {
+  /// Orders taken for distributors. Those that only exist because a demand was sent on are left out:
+  /// the demand already shows them.
+  List<Map<String, dynamic>> _distributorOrders(List rows) => [
+        for (final r in rows.cast<Map<String, dynamic>>())
+          if (r['for_demand'] != true) {...r, 'kind': 'order'},
+      ];
+
+  Future<void> _showOrder(int id, {bool isOrder = false}) async {
+    if (_demandFlow && !isOrder) {
       final changed = await Navigator.of(context)
           .push<bool>(MaterialPageRoute(builder: (_) => DemandDetailScreen(id: id, canSend: _canSend)));
       if (changed == true) _load();
@@ -152,7 +170,7 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => _OrderDetail(orderId: id, demandFlow: _demandFlow),
+      builder: (_) => _OrderDetail(orderId: id, demandFlow: false),
     );
   }
 
@@ -166,6 +184,7 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
 
   List<Map<String, dynamic>> get _visible => _orders.where((o) {
         if (_status != 'all' && o['state'] != _status) return false;
+        if (_demandFlow && _kind != 'all' && (o['kind'] == 'order') != (_kind == 'order')) return false;
         if (_demandFlow && _mapping != 'all') {
           final linked = o['distributor'] != null;
           if ((_mapping == 'linked') != linked) return false;
@@ -244,7 +263,8 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
           (Icons.local_shipping_rounded, ['waiting', 'quoted', 'partial'], 'With distributor', AppColors.warning),
           (Icons.thumb_up_alt_rounded, ['approved'], 'Approved', AppColors.primary),
           (Icons.inventory_rounded, ['supplied'], 'Delivered', AppColors.success),
-          (Icons.cancel_rounded, ['cancelled'], 'Cancelled', AppColors.danger),
+          (Icons.storefront_rounded, ['sale', 'done'], 'Distributor orders', AppColors.teal),
+          (Icons.cancel_rounded, ['cancelled', 'cancel'], 'Cancelled', AppColors.danger),
         ]
       : const [
           (Icons.description_rounded, ['draft', 'sent'], 'Submitted', AppColors.primary),
@@ -277,7 +297,7 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
         // While demands are being picked, a tap ticks instead of opening.
         onTap: picking && pickable
             ? () => setState(() => _picked.contains(id) ? _picked.remove(id) : _picked.add(id))
-            : () => _showOrder(id),
+            : () => _showOrder(id, isOrder: o['kind'] == 'order'),
         onLongPress: pickable && !picking ? () => setState(() => _picked.add(id)) : null,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
@@ -703,6 +723,21 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                       value: _groupBy, options: _groupOptions, onChanged: (v) => setState(() => _groupBy = v)),
                   const SizedBox(width: 8),
                   _sortPill(),
+                  if (_demandFlow) ...[
+                    const SizedBox(width: 8),
+                    for (final e in const [('all', 'All'), ('demand', 'Outlet demands'), ('order', 'Distributor orders')])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          avatar: e.$1 == 'all'
+                              ? null
+                              : Icon(e.$1 == 'order' ? Icons.local_shipping_rounded : Icons.storefront_rounded, size: 15),
+                          label: Text(e.$2),
+                          selected: _kind == e.$1,
+                          onSelected: (_) => setState(() => _kind = e.$1),
+                        ),
+                      ),
+                  ],
                   if (_demandFlow) ...[
                     const SizedBox(width: 8),
                     for (final e in const [('all', 'Any distributor'), ('linked', 'Linked'), ('unlinked', 'Not linked')])
