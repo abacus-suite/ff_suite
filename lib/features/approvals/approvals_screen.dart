@@ -24,7 +24,6 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   final Map<String, List<Map<String, dynamic>>> _items = {};
   bool _loading = true;
   String? _error;
-  late String _open = widget.start ?? 'all';
   final Set<String> _busy = {};
 
   /// key, title, one line about it, icon, colour
@@ -472,16 +471,18 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   Widget _tile((String, String, String, IconData, Color) k) {
     final n = _count(k.$1);
-    final on = _open == k.$1;
     return InkWell(
       borderRadius: BorderRadius.circular(20),
-      onTap: () => setState(() => _open = on ? 'all' : k.$1),
+      onTap: () async {
+        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ApprovalsScreen(start: k.$1)));
+        _load();
+      },
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: on ? k.$5.withValues(alpha: 0.12) : Colors.white,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: on ? k.$5 : Colors.transparent, width: 1.8),
+          
           boxShadow: [BoxShadow(color: const Color(0xFF1B3A7A).withValues(alpha: 0.07), blurRadius: 10, offset: const Offset(0, 4))],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -513,10 +514,10 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final shown = _open == 'all' ? _kinds.where((k) => _count(k.$1) > 0).toList() : _kinds.where((k) => k.$1 == _open).toList();
+    final kind = widget.start == null ? null : _kinds.firstWhere((k) => k.$1 == widget.start);
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Approvals')),
+      appBar: AppBar(title: Text(kind?.$2 ?? 'Approvals')),
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
@@ -525,37 +526,34 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
                 children: [
                   if (_error != null) ErrorView(message: _error!, onRetry: _load),
-                  _hero(),
-                  const SizedBox(height: 14),
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 1.32,
-                    children: [for (final k in _kinds) _tile(k)],
-                  ),
-                  const SizedBox(height: 16),
-                  if (_open != 'all')
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: InputChip(label: const Text('Show all categories'), onPressed: () => setState(() => _open = 'all')),
+                  if (kind == null) ...[
+                    // The main screen is only the categories; each one opens its own list.
+                    _hero(),
+                    const SizedBox(height: 14),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 1.32,
+                      children: [for (final k in _kinds) _tile(k)],
                     ),
-                  if (shown.isEmpty && _error == null)
-                    const Padding(padding: EdgeInsets.all(28), child: EmptyView(icon: Icons.check_circle_rounded, text: 'Nothing to approve right now')),
-                  for (final k in shown) ...[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+                  ] else ...[
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: kind.$5.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(18)),
                       child: Row(children: [
-                        Icon(k.$4, color: k.$5, size: 19),
-                        const SizedBox(width: 8),
-                        Text('${k.$2} (${_count(k.$1)})', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A))),
+                        Icon(kind.$4, color: kind.$5),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(kind.$3, style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF0F172A)))),
+                        Text('${_count(kind.$1)} waiting', style: TextStyle(fontWeight: FontWeight.w900, color: kind.$5)),
                       ]),
                     ),
-                    if (_count(k.$1) == 0)
-                      const Padding(padding: EdgeInsets.all(12), child: Text('Nothing waiting here.', style: TextStyle(color: Color(0xFF475569)))),
-                    ..._cards(k.$1),
+                    const SizedBox(height: 12),
+                    if (_count(kind.$1) == 0 && _error == null)
+                      const Padding(padding: EdgeInsets.all(28), child: EmptyView(icon: Icons.check_circle_rounded, text: 'Nothing waiting here')),
+                    ..._cards(kind.$1),
                   ],
                 ],
               ),
