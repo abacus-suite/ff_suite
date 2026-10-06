@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -14,6 +15,7 @@ import '../../widgets/common.dart';
 import '../clients/clients_screen.dart';
 import '../collections/collect_payment_screen.dart';
 import '../collections/ledger_share.dart';
+import '../../core/draft_store.dart';
 import 'task_widgets.dart';
 
 /// Whether a task screen is on show, so a visit left open is not reopened over itself.
@@ -34,6 +36,33 @@ class _Draft {
   final Set<int> available = {};
   Map<String, dynamic>? client;
   Map<String, dynamic>? ledger;
+
+  Map<String, dynamic> toMap() => {
+        'code': code, 'uuid': uuid, 'index': index, 'a': a, 'photos': photos, 'text': text,
+        'qty': qty, 'available': available.toList(), 'client': client, 'ledger': ledger,
+      };
+
+  static _Draft? fromMap(Map<String, dynamic> m) {
+    try {
+      final d = _Draft('${m['code']}', '${m['uuid']}', (m['index'] as num).toInt());
+      d.a.addAll((m['a'] as Map).cast<String, dynamic>());
+      for (final e in (m['photos'] as Map).entries) {
+        d.photos['${e.key}'] = [for (final b in e.value as List) b as Uint8List];
+      }
+      for (final e in (m['text'] as Map).entries) {
+        d.text['${e.key}'] = '${e.value}';
+      }
+      for (final e in (m['qty'] as Map).entries) {
+        d.qty['${e.key}'] = {for (final q in (e.value as Map).entries) (q.key as num).toInt(): (q.value as num).toDouble()};
+      }
+      d.available.addAll(((m['available'] as List?) ?? []).map((v) => (v as num).toInt()));
+      d.client = (m['client'] as Map?)?.cast<String, dynamic>();
+      d.ledger = (m['ledger'] as Map?)?.cast<String, dynamic>();
+      return d;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 final Map<int, _Draft> _drafts = {};
@@ -90,23 +119,59 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
 
   int? get _visitId => (widget.visit?['id'] as num?)?.toInt();
 
+  /// Where this task's answers are kept: its visit, or (with no visit) the task and the customer.
+  int get _draftId =>
+      _visitId ?? -(1 + ((widget.code.hashCode ^ (((widget.client?['id'] as num?)?.toInt() ?? 0) * 31)) & 0x3FFFFFFF));
+
+  String get _draftKey => 'task-$_draftId';
+
+  void _dropDraft() {
+    _drafts.remove(_draftId);
+    DraftStore.remove(_draftKey);
+  }
+
+  void _applyDraft(_Draft draft) {
+    _uuid = draft.uuid;
+    _index = draft.index;
+    _a.addAll(draft.a);
+    _photos.addAll(draft.photos);
+    _qty.addAll(draft.qty);
+    _available.addAll(draft.available);
+    for (final e in draft.text.entries) {
+      _t(e.key).text = e.value;
+    }
+    _client = draft.client ?? _client;
+    _ledger = draft.ledger;
+  }
+
+  /// A task left earlier and not finished: its answers come back, even after the app was closed.
+  Future<void> _restoreFromDisk() async {
+    final saved = await DraftStore.read(_draftKey);
+    if (saved == null || !mounted) return;
+    final draft = _Draft.fromMap(saved);
+    if (draft == null || draft.code != widget.code) return;
+    setState(() {
+      _applyDraft(draft);
+      _drafts[_draftId] = draft;
+    });
+    showSnack(context, 'Your earlier answers are back.');
+  }
+
   /// Leaves the task without losing a thing: the answers are kept for this visit and
   /// the person is back on the contact, still checked in, to open the task again.
   void _minimize() {
-    final id = _visitId;
-    if (id != null) {
-      final d = _Draft(widget.code, _uuid, _index)
-        ..a.addAll(_a)
-        ..photos.addAll(_photos)
-        ..qty.addAll(_qty)
-        ..available.addAll(_available)
-        ..client = _client
-        ..ledger = _ledger;
-      for (final e in _text.entries) {
-        d.text[e.key] = e.value.text;
-      }
-      _drafts[id] = d;
+    final d = _Draft(widget.code, _uuid, _index)
+      ..a.addAll(_a)
+      ..photos.addAll(_photos)
+      ..qty.addAll(_qty)
+      ..available.addAll(_available)
+      ..client = _client
+      ..ledger = _ledger;
+    for (final e in _text.entries) {
+      d.text[e.key] = e.value.text;
     }
+    _drafts[_draftId] = d;
+    DraftStore.write(_draftKey, d.toMap());
     Navigator.of(context).pop();
   }
 
@@ -147,19 +212,11 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     taskScreenOpen = true;
     _client = widget.client;
     if (widget.preset != null) _a.addAll(widget.preset!);
-    final draft = _drafts[_visitId];
+    final draft = _drafts[_draftId];
     if (draft != null && draft.code == widget.code) {
-      _uuid = draft.uuid;
-      _index = draft.index;
-      _a.addAll(draft.a);
-      _photos.addAll(draft.photos);
-      _qty.addAll(draft.qty);
-      _available.addAll(draft.available);
-      for (final e in draft.text.entries) {
-        _t(e.key).text = e.value;
-      }
-      _client = draft.client ?? _client;
-      _ledger = draft.ledger;
+      _applyDraft(draft);
+    } else {
+      unawaited(_restoreFromDisk());
     }
     if (widget.code == 'sample_collection' && widget.client != null) {
       // Checked in at a contact, so that contact is where the samples come from:
@@ -1175,7 +1232,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       } else {
         await _showDone(done);
       }
-      _drafts.remove(_visitId);
+      _dropDraft();
       if (mounted) Navigator.of(context).pop(done);
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
@@ -1229,7 +1286,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
         'note': 'Left the task unfinished: $why',
       });
       settleAndRefresh();
-      _drafts.remove(_visitId);
+      _dropDraft();
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
@@ -1530,18 +1587,31 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
           _minimize();
           return;
         }
-        final leave = await showDialog<bool>(
+        final filled = _a.isNotEmpty || _photos.values.any((p) => p.isNotEmpty) ||
+            _text.values.any((c) => c.text.trim().isNotEmpty) || _qty.values.any((q) => q.isNotEmpty);
+        if (!filled) {
+          Navigator.of(context).pop();
+          return;
+        }
+        // Yes clears it; No keeps it for when the task is opened again; tapping outside stays.
+        final clear = await showDialog<bool>(
           context: context,
           builder: (dialog) => AlertDialog(
-            title: const Text('Leave this task?'),
-            content: const Text('What you have entered will be lost.'),
+            title: const Text('Clear this form?'),
+            content: const Text('You have filled in some of it. Clear everything, or keep it to carry on later?'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Stay')),
-              FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Leave')),
+              TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('No, keep it')),
+              FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Yes, clear it')),
             ],
           ),
         );
-        if (leave == true && context.mounted) Navigator.of(context).pop();
+        if (clear == null || !context.mounted) return;
+        if (clear) {
+          _dropDraft();
+          Navigator.of(context).pop();
+        } else {
+          _minimize();
+        }
       },
       child: Scaffold(
         backgroundColor: AppColors.background,

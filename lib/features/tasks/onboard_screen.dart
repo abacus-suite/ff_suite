@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/draft_store.dart';
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
@@ -34,6 +35,69 @@ class _OnboardScreenState extends State<OnboardScreen> {
   String? _chillerModel;
   Map<String, dynamic>? _distributor;
   bool _busy = false;
+  bool _saved = false;
+
+  String get _draftKey => 'onboard-${widget.client['id']}';
+
+  /// Anything typed or chosen beyond what the contact already had.
+  bool get _filled =>
+      _c.entries.any((e) => e.value.text.trim().isNotEmpty && e.value.text.trim() != _starting[e.key]) ||
+      _swiggy != null || _chiller != null || _mrp != null || _category != null || _scheme != null ||
+      _chillerModel != null || _distributor != null;
+
+  final Map<String, String> _starting = {};
+
+  Map<String, dynamic> _toDraft() => {
+        'kind': _kind,
+        'text': {for (final e in _c.entries) e.key: e.value.text},
+        'swiggy': _swiggy, 'chiller': _chiller, 'mrp': _mrp, 'category': _category, 'scheme': _scheme,
+        'chiller_model': _chillerModel, 'distributor': _distributor,
+      };
+
+  Future<void> _restore() async {
+    final d = await DraftStore.read(_draftKey);
+    if (d == null || !mounted) return;
+    setState(() {
+      _kind = '${d['kind'] ?? _kind}';
+      for (final e in ((d['text'] as Map?) ?? {}).entries) {
+        _t('${e.key}').text = '${e.value}';
+      }
+      _swiggy = d['swiggy'] as bool?;
+      _chiller = d['chiller'] as bool?;
+      _mrp = d['mrp'] as String?;
+      _category = d['category'] as String?;
+      _scheme = d['scheme'] as String?;
+      _chillerModel = d['chiller_model'] as String?;
+      _distributor = (d['distributor'] as Map?)?.cast<String, dynamic>();
+    });
+    showSnack(context, 'The details you filled earlier are back.');
+  }
+
+  /// Going back with details filled in: Yes clears the form, No keeps it for next time, tapping outside stays.
+  Future<void> _leave() async {
+    if (_saved || !_filled) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final clear = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Clear this form?'),
+        content: const Text('You have filled in some of it. Clear everything, or keep it to finish later?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('No, keep it')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Yes, clear it')),
+        ],
+      ),
+    );
+    if (clear == null || !mounted) return;
+    if (clear) {
+      await DraftStore.remove(_draftKey);
+    } else {
+      await DraftStore.write(_draftKey, _toDraft());
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
 
   TextEditingController _t(String key, [String? initial]) =>
       _c.putIfAbsent(key, () => TextEditingController(text: initial ?? ''));
@@ -48,6 +112,10 @@ class _OnboardScreenState extends State<OnboardScreen> {
     _t('zip', '${c['zip'] ?? ''}');
     _t('poc_phone', '${c['phone'] ?? ''}');
     _t('poc_email', '${c['email'] ?? ''}');
+    for (final e in _c.entries) {
+      _starting[e.key] = e.value.text.trim();
+    }
+    _restore();
     Services.api.get('/api/v1/onboarding/options').then((d) {
       if (mounted) setState(() => _options = d as Map<String, dynamic>);
     }).catchError((_) {});
@@ -149,6 +217,8 @@ class _OnboardScreenState extends State<OnboardScreen> {
               'margin': _v('margin'),
             },
           ));
+      _saved = true;
+      await DraftStore.remove(_draftKey);
       if (mounted) Navigator.of(context).pop(result as Map<String, dynamic>);
     } catch (e) {
       if (mounted) await showProblem(context, e.toString());
@@ -181,8 +251,13 @@ class _OnboardScreenState extends State<OnboardScreen> {
   @override
   Widget build(BuildContext context) {
     final outlet = _kind == 'outlet';
-    return Scaffold(
-      appBar: AppBar(title: Text('Onboard ${widget.client['name']}')),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leave();
+      },
+      child: Scaffold(
+      appBar: AppBar(title: Text('Onboard ${widget.client['name']}'), leading: BackButton(onPressed: _leave)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -304,6 +379,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
           const SizedBox(height: 24),
         ],
       ),
+    ),
     );
   }
 }
