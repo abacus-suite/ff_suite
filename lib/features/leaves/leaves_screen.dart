@@ -174,16 +174,9 @@ class _LeavesScreenState extends State<LeavesScreen> {
                       if (_next != null) ...[const SizedBox(height: 12), _nextBanner(_next!)],
                       if (_list('types').isNotEmpty) ...[
                         const SizedBox(height: 18),
-                        _heading('Your balance', 'Tap a type to ask for it'),
+                        _heading('Your balance', 'Tap a row to ask for it'),
                         const SizedBox(height: 8),
-                        SizedBox(
-                          height: 142,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            clipBehavior: Clip.none,
-                            children: [for (final (i, t) in _list('types').indexed) _typeCard(t, i)],
-                          ),
-                        ),
+                        _balanceTable(),
                       ],
                       if (_list('holidays').isNotEmpty) ...[
                         const SizedBox(height: 18),
@@ -330,56 +323,66 @@ class _LeavesScreenState extends State<LeavesScreen> {
     );
   }
 
-  // ------------------------------------------------------------------ balance cards
-  Widget _typeCard(Map<String, dynamic> t, int index) {
-    const palette = [AppColors.primary, AppColors.purple, AppColors.success, AppColors.warning, AppColors.sky, AppColors.teal];
-    final colour = palette[index % palette.length];
-    final limited = t['requires_allocation'] == true;
-    final allocated = ((t['allocated'] as num?) ?? 0).toDouble();
-    final used = ((t['used'] as num?) ?? 0).toDouble();
-    final pending = ((t['pending'] as num?) ?? 0).toDouble();
-    final remaining = ((t['remaining'] as num?) ?? 0).toDouble();
-    final canAsk = t['can_request'] != false;
-    return GestureDetector(
-      onTap: canAsk ? () => _request(type: t) : () => showSnack(context, 'Nothing left to request for ${t['name']}.'),
-      child: Container(
-        width: 156,
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [BoxShadow(color: colour.withValues(alpha: 0.14), blurRadius: 14, offset: const Offset(0, 6))],
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            SizedBox(
-              width: 46,
-              height: 46,
-              child: CustomPaint(
-                painter: _RingPainter(
-                  parts: limited ? [(used, colour), (pending, AppColors.warning)] : [(1, colour)],
-                  total: limited ? (allocated <= 0 ? 1 : allocated) : 1,
-                  track: colour.withValues(alpha: 0.15),
-                  width: 6,
-                ),
-                child: Center(
-                  child: Icon(limited ? Icons.event_available_rounded : Icons.all_inclusive_rounded, size: 17, color: colour),
-                ),
-              ),
-            ),
-            const Spacer(),
-            if (canAsk) Icon(Icons.add_circle_rounded, color: colour, size: 24),
-          ]),
-          const Spacer(),
-          Text('${t['name']}',
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-          const SizedBox(height: 2),
-          Text(limited ? '${fmtQty(remaining)} left of ${fmtQty(allocated)}' : 'No limit',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: limited && remaining <= 0 ? AppColors.danger : AppColors.muted)),
-          if (pending > 0) Text('${fmtQty(pending)} waiting', style: const TextStyle(fontSize: 11, color: AppColors.warning)),
-        ]),
+  // ------------------------------------------------------------------ balance table
+  /// Every type on one small table: allocated, used, waiting and left. A row is tapped to ask for that type.
+  Widget _balanceTable() {
+    const head = TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.3);
+    Widget cell(Widget child, int flex, [Alignment align = Alignment.center]) =>
+        Expanded(flex: flex, child: Align(alignment: align, child: child));
+    String n(num? v) => fmtQty(v ?? 0);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
       ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: [
+        Container(
+          color: AppColors.background,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(children: [
+            cell(const Text('TYPE', style: head), 5, Alignment.centerLeft),
+            cell(const Text('ALLOT', style: head), 2),
+            cell(const Text('USED', style: head), 2),
+            cell(const Text('WAIT', style: head), 2),
+            cell(const Text('LEFT', style: head), 2),
+          ]),
+        ),
+        for (final t in _list('types'))
+          InkWell(
+            onTap: t['can_request'] != false
+                ? () => _request(type: t)
+                : () => showSnack(context, 'Nothing left to request for ${t['name']}.'),
+            child: Container(
+              decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(children: [
+                cell(
+                    Text('${t['name']}',
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                    5,
+                    Alignment.centerLeft),
+                cell(Text(t['requires_allocation'] == true ? n(t['allocated'] as num?) : '-', style: const TextStyle(fontSize: 13)), 2),
+                cell(Text(n(t['used'] as num?), style: const TextStyle(fontSize: 13)), 2),
+                cell(
+                    Text(n(t['pending'] as num?),
+                        style: TextStyle(fontSize: 13, color: ((t['pending'] as num?) ?? 0) > 0 ? AppColors.warning : AppColors.muted)),
+                    2),
+                cell(
+                    Text(
+                        t['requires_allocation'] == true ? n(t['remaining'] as num?) : 'No limit',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: t['requires_allocation'] == true ? 14 : 11,
+                            color: t['requires_allocation'] == true && ((t['remaining'] as num?) ?? 0) <= 0
+                                ? AppColors.danger
+                                : AppColors.success)),
+                    2),
+              ]),
+            ),
+          ),
+      ]),
     );
   }
 
