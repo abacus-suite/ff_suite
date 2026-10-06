@@ -481,53 +481,107 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
     );
   }
 
+  static const _vehicleHints = {
+    'two_wheeler': 'Bike or scooter',
+    'four_wheeler': 'Car or jeep',
+    'public': 'Bus, train or auto',
+    'walk': 'On foot',
+    'other': 'Something else',
+  };
+
   Widget _vehicleField() {
     final missing = _tried && _vehicle == null;
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: missing ? AppColors.danger : Colors.transparent),
-      ),
-      child: Padding(
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
         padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('How are you travelling today?',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-            const SizedBox(height: 2),
-            const Text('Your travel allowance is worked out from this.',
-                style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final (code, label, icon) in vehicleChoices)
-                  ChoiceChip(
-                    avatar: Icon(icon, size: 18, color: _vehicle == code ? Colors.white : AppColors.primary),
-                    label: Text(label),
-                    selected: _vehicle == code,
-                    onSelected: (_) => setState(() => _vehicle = code),
-                  ),
-              ],
+        decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(18)),
+        child: const Row(children: [
+          Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text('Your travel allowance is worked out from how you travel today.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF334155), fontWeight: FontWeight.w600)),
+          ),
+        ]),
+      ),
+      const SizedBox(height: 14),
+      LayoutBuilder(builder: (context, box) {
+        final width = (box.maxWidth - 12) / 2;
+        return Wrap(spacing: 12, runSpacing: 12, children: [
+          for (final (code, label, icon) in vehicleChoices)
+            SizedBox(
+              width: code == 'other' && vehicleChoices.length.isOdd ? box.maxWidth : width,
+              child: _vehicleTile(code, label, icon),
             ),
-            if (_vehicle == 'other')
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: TextField(
-                  controller: _note,
-                  onChanged: (_) => setState(() {}),
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    labelText: 'What are you travelling by?',
-                    hintText: 'A lift with a colleague, a hired vehicle, the company van...',
-                    errorText: _tried && _note.text.trim().isEmpty ? 'Say it in a few words.' : null,
-                  ),
-                ),
-              ),
+        ]);
+      }),
+      if (missing)
+        const Padding(
+          padding: EdgeInsets.only(top: 10),
+          child: Text('Choose how you are travelling.', style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w700)),
+        ),
+      if (_vehicle == 'other')
+        Padding(
+          padding: const EdgeInsets.only(top: 14),
+          child: TextField(
+            controller: _note,
+            onChanged: (_) => setState(() {}),
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              labelText: 'What are you travelling by?',
+              hintText: 'A lift with a colleague, a hired vehicle, the company van...',
+              errorText: _tried && _note.text.trim().isEmpty ? 'Say it in a few words.' : null,
+            ),
+          ),
+        ),
+    ]);
+  }
+
+  Widget _vehicleTile(String code, String label, IconData icon) {
+    final on = _vehicle == code;
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: () => setState(() => _vehicle = code),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+        decoration: BoxDecoration(
+          gradient: on ? const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF06B6D4)], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
+          color: on ? null : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: on ? Colors.transparent : AppColors.border, width: 1.4),
+          boxShadow: [
+            BoxShadow(
+              color: (on ? const Color(0xFF2563EB) : const Color(0xFF1B3A7A)).withValues(alpha: on ? 0.3 : 0.06),
+              blurRadius: on ? 16 : 10,
+              offset: const Offset(0, 6),
+            ),
           ],
         ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: on ? Colors.white.withValues(alpha: 0.25) : AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(icon, color: on ? Colors.white : AppColors.primary, size: 25),
+            ),
+            const Spacer(),
+            Icon(on ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                color: on ? Colors.white : AppColors.border, size: 22),
+          ]),
+          const SizedBox(height: 14),
+          Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5, color: on ? Colors.white : const Color(0xFF0F172A))),
+          const SizedBox(height: 2),
+          Text(_vehicleHints[code] ?? '',
+              style: TextStyle(fontSize: 12, color: on ? Colors.white : const Color(0xFF475569), fontWeight: FontWeight.w600)),
+        ]),
       ),
     );
   }

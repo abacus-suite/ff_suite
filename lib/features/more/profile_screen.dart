@@ -313,13 +313,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Icon(icon, size: 17, color: tint),
               ),
               const SizedBox(width: 10),
+              // The label keeps only the room it needs; the value gets all the rest.
+              Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
-              ),
-              Flexible(
                 child: Text(value,
                     textAlign: TextAlign.right,
-                    maxLines: 2,
+                    maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
               ),
@@ -399,7 +399,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
                   Text(value,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                   if (hint.isNotEmpty)
