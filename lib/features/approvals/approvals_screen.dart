@@ -92,7 +92,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   int _count(String key) => _items[key]?.length ?? 0;
   int get _total => _kinds.fold(0, (s, k) => s + _count(k.$1));
 
-  Future<void> _decide(String kind, int id, bool approve,
+  Future<bool> _decide(String kind, int id, bool approve,
       {Map<String, dynamic> extra = const {}, String? path, Map<String, dynamic>? payload}) async {
     final key = '$kind-$id';
     setState(() => _busy.add(key));
@@ -107,8 +107,10 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       if (mounted) showSnack(context, approve ? 'Approved' : 'Rejected');
       settleAndRefresh();
       await _load();
+      return true;
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
+      return false;
     } finally {
       if (mounted) setState(() => _busy.remove(key));
     }
@@ -116,7 +118,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   /// An expense is approved for what was claimed or for less, and a reason is needed
   /// whenever it is reduced or rejected.
-  Future<void> _decideExpense(Map<String, dynamic> e, bool approve) async {
+  Future<bool> _decideExpense(Map<String, dynamic> e, bool approve) async {
     final claimed = (e['amount'] as num?)?.toDouble() ?? 0;
     final amount = TextEditingController(text: claimed == claimed.roundToDouble() ? '${claimed.toInt()}' : '$claimed');
     final reason = TextEditingController();
@@ -154,16 +156,16 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     final why = reason.text.trim();
     amount.dispose();
     reason.dispose();
-    if (go != true || !mounted) return;
+    if (go != true || !mounted) return false;
     if (approve && (value == null || value <= 0 || value > claimed)) {
       await showProblem(context, 'The approved amount must be more than zero and not more than the claim.');
-      return;
+      return false;
     }
     if ((!approve || (value ?? claimed) < claimed) && why.isEmpty) {
       await showProblem(context, approve ? 'Give the reason for reducing the amount.' : 'Give the reason for rejecting.');
-      return;
+      return false;
     }
-    await _decide('expense', e['id'] as int, approve,
+    return _decide('expense', e['id'] as int, approve,
         extra: {if (approve) 'amount': value, if (why.isNotEmpty) 'reason': why});
   }
 
@@ -178,10 +180,18 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     String? amount,
     String approveLabel = 'Approve',
     String rejectLabel = 'Reject',
-    Future<void> Function(bool approve)? onDecide,
+    Future<bool> Function(bool approve)? onDecide,
+    _Detail? detail,
   }) {
     final busy = _busy.contains('$kind-$id');
-    Future<void> go(bool a) => (onDecide ?? (x) => _decide(kind, id, x))(a);
+    Future<bool> go(bool a) => (onDecide ?? (x) => _decide(kind, id, x))(a);
+    Future<void> view() async {
+      if (detail == null) return;
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => _ApprovalDetailScreen(detail: detail, color: color, icon: icon, approveLabel: approveLabel, rejectLabel: rejectLabel, onDecide: go),
+      ));
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -194,7 +204,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Container(width: 6, color: color),
           Expanded(
-            child: Padding(
+            child: InkWell(
+              onTap: detail == null ? null : view,
+              child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
@@ -226,7 +238,17 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                   const SizedBox(width: 8),
                   FilledButton(onPressed: busy ? null : () => go(true), child: Text(approveLabel)),
                 ]),
+                if (detail != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(children: [
+                      Icon(Icons.visibility_rounded, size: 15, color: color),
+                      const SizedBox(width: 5),
+                      Text('View full details', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: color)),
+                    ]),
+                  ),
               ]),
+            ),
             ),
           ),
         ]),
@@ -244,6 +266,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           for (final h in rows)
             _card(
               kind: 'handover',
+              detail: _Detail(title: '${(h['distributor'] as Map?)?['name'] ?? ''}', status: 'Waiting for you', amount: fmtMoney(h['amount'] as num?, h['currency'] as String?), facts: [('Handed to', '${(h['distributor'] as Map?)?['name'] ?? '-'}'), ('Handed over by', '${(h['employee'] as Map?)?['name'] ?? '-'}'), ('Date', fmtTime(h['date'])), ('Reference', '${h['reference'] ?? '-'}'), ('Mode', '${h['mode'] ?? '-'}'), ('Collections', '${h['count']}')], lineHead: const ['Outlet', 'Mode', 'Amount'], lines: [for (final p in ((h['payments'] as List?) ?? []).cast<Map<String, dynamic>>()) ['${(p['outlet'] as Map?)?['name']}', '${p['mode'] ?? '-'}${(p['invoices'] as List?)?.isNotEmpty == true ? ' · ${(p['invoices'] as List).join(', ')}' : ''}', fmtMoney(p['amount'] as num?, p['currency'] as String?)]], note: asText(h['note']), steps: const []),
               id: h['id'] as int,
               icon: Icons.handshake_rounded,
               color: color,
@@ -265,6 +288,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           for (final d in rows)
             _card(
               kind: 'deposit',
+              detail: _Detail(title: '${(d['employee'] as Map?)?['name'] ?? d['name']}', status: 'Waiting for you', amount: fmtMoney(d['amount'] as num?, d['currency'] as String?), facts: [('Deposit', '${d['name']}'), ('Submitted by', '${(d['employee'] as Map?)?['name'] ?? '-'}'), ('Submitted', fmtTime(d['submitted_at'])), ('Slip / reference', '${d['reference'] ?? '-'}'), ('Collections', '${d['count']}')], lineHead: const ['From', 'Mode', 'Amount'], lines: [for (final c in ((d['collections'] as List?) ?? []).cast<Map<String, dynamic>>()) ['${(c['contact'] as Map?)?['name'] ?? '-'}', '${(c['mode'] as Map?)?['name'] ?? ''} · ${fmtTime(c['date'])}', fmtMoney(c['amount'] as num?, c['currency'] as String?)]], note: null, steps: const []),
               id: d['id'] as int,
               icon: Icons.account_balance_rounded,
               color: color,
@@ -281,6 +305,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           for (final r in rows)
             _card(
               kind: 'access',
+              detail: _Detail(title: '${r['target']} (${r['scope_type']})', status: 'Waiting for you', amount: null, facts: [('For', '${(r['employee'] as Map?)?['name'] ?? '-'}'), ('Type', '${r['scope_type']}'), ('Which', '${r['target']}'), ('From', '${r['date_from']}'), ('To', '${r['date_to']}'), ('Given by', r['source'] == 'assigned' ? 'Assigned by a manager' : 'Asked by the employee')], lineHead: const [], lines: const [], note: asText(r['reason']), steps: const []),
               id: r['id'] as int,
               icon: Icons.lock_open_rounded,
               color: color,
@@ -299,6 +324,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           for (final n in rows)
             _card(
               kind: 'note',
+              detail: _Detail(title: '${n['name']} · ${n['kind'] == 'debit' ? 'Debit' : 'Credit'} note', status: 'Waiting for you', amount: fmtMoney(n['amount'] as num?, n['currency'] as String?), facts: [('Raised for', '${n['source_label']}'), ('Raised by', '${(n['employee'] as Map?)?['name'] ?? '-'}'), ('Distributor', '${(n['distributor'] as Map?)?['name'] ?? '-'}'), ('Outlet', '${(n['outlet'] as Map?)?['name'] ?? '-'}'), ('Demand', '${n['demand'] ?? '-'}'), ('Date', fmtTime(n['date'])), ('Units', fmtQty((n['quantity'] as num?) ?? 0))], lineHead: const ['Product', 'Qty', 'Value'], lines: [for (final l in ((n['lines'] as List?) ?? []).cast<Map<String, dynamic>>()) ['${l['product']}', fmtQty((l['qty'] as num?) ?? 0), fmtMoney(l['subtotal'] as num?, n['currency'] as String?)]], note: asText(n['reason']), steps: const []),
               id: n['id'] as int,
               icon: Icons.request_quote_rounded,
               color: color,
@@ -322,6 +348,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           for (final b in rows)
             _card(
               kind: 'beat',
+              detail: _Detail(title: '${b['name']}', status: 'Waiting for you', amount: null, facts: [('Drawn by', '${(b['added_by'] as Map?)?['name'] ?? '-'}'), ('City', '${b['city'] ?? '-'}'), ('Type', '${b['route_type'] ?? '-'}'), ('Customers', '${b['customer_count']}'), ('Code', '${b['code'] ?? '-'}')], lineHead: const [], lines: const [], note: null, steps: const []),
               id: b['id'] as int,
               icon: Icons.route_rounded,
               color: color,
@@ -338,6 +365,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           for (final c in rows)
             _card(
               kind: 'client',
+              detail: _Detail(title: '${c['name']}', status: 'Waiting for you', amount: null, facts: [('Added by', '${(c['added_by'] as Map?)?['name'] ?? '-'}'), ('Added on', fmtTime(c['added_at'])), ('Contact type', '${(c['category'] as Map?)?['name'] ?? c['category_type'] ?? '-'}'), ('Address', '${c['address'] ?? '-'}'), ('Phone', '${c['phone'] ?? '-'}'), ('GPS', c['lat'] != null ? 'Location captured' : 'No location')], lineHead: const [], lines: const [], note: null, steps: const []),
               id: c['id'] as int,
               icon: Icons.storefront_rounded,
               color: color,
@@ -355,6 +383,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           for (final e in rows)
             _card(
               kind: 'expense',
+              detail: _Detail(title: '${(e['employee'] as Map?)?['name'] ?? ''}', status: 'Waiting for you', amount: fmtMoney(e['amount'] as num?, e['currency'] as String?), facts: [('Category', '${(e['category'] as Map?)?['name'] ?? '-'}'), ('Date', '${e['date']}'), ('Contact', '${(e['contact'] as Map?)?['name'] ?? '-'}'), ('Receipts', '${e['receipt_count']}'), ('Claimed', fmtMoney(e['amount'] as num?, e['currency'] as String?))], lineHead: const [], lines: const [], note: asText(e['note']), steps: const []),
               onDecide: (approve) => _decideExpense(e, approve),
               id: e['id'] as int,
               icon: Icons.receipt_long_rounded,
@@ -373,6 +402,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           for (final r in rows)
             _card(
               kind: 'return',
+              detail: _Detail(title: '${(r['employee'] as Map?)?['name'] ?? ''} · ${r['reason_label']}', status: 'Waiting for you', amount: fmtMoney(r['amount'] as num?, r['currency'] as String?), facts: [('Return', '${r['name']}'), ('Customer', '${(r['customer'] as Map?)?['name'] ?? '-'}'), ('Reason', '${r['reason_label']}'), ('Photos', '${r['photos'] ?? 0}')], lineHead: const ['Product', 'Qty'], lines: [for (final l in ((r['lines'] as List?) ?? []).cast<Map<String, dynamic>>()) ['${l['product']}', fmtQty((l['quantity'] as num?) ?? 0)]], note: asText(r['note']), steps: const []),
               id: r['id'] as int,
               icon: Icons.assignment_return_rounded,
               color: color,
@@ -392,6 +422,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           for (final l in rows)
             _card(
               kind: 'leave',
+              detail: _Detail(title: '${(l['employee'] as Map?)?['name'] ?? ''}', status: 'Waiting for you', amount: null, facts: [('Type', '${(l['type'] as Map?)?['name'] ?? '-'}'), ('Days', fmtQty(l['days'] as num? ?? 0)), ('From', '${l['from']}'), ('To', '${l['to']}'), ('Half day', l['half_day'] == true ? 'Yes (${l['half_day_period'] ?? ''})' : 'No'), ('Asked on', fmtTime(l['requested_on']))], lineHead: const [], lines: const [], note: asText(l['reason']), steps: [for (final st in (((l['approval'] as Map?)?['steps'] as List?) ?? []).cast<Map<String, dynamic>>()) '${st['name']} · ${st['approver'] ?? ''} · ${st['state']}']),
               id: l['id'] as int,
               icon: Icons.beach_access_rounded,
               color: color,
@@ -408,6 +439,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           for (final a in rows)
             _card(
               kind: 'allowance',
+              detail: _Detail(title: '${(a['employee'] as Map?)?['name'] ?? ''}', status: 'Waiting for you', amount: fmtMoney(a['amount'] as num?, a['currency'] as String?), facts: [('Date', '${a['date']}'), ('Distance', '${a['distance_km']} km'), ('Visits', '${a['visit_count']}'), ('Estimated legs', a['estimated'] == true ? 'Yes' : 'No')], lineHead: const ['Leg', 'Distance'], lines: [for (final leg in ((a['legs'] as List?) ?? []).cast<Map<String, dynamic>>()) ['${leg['name']}', '${(leg['km'] as num?)?.toStringAsFixed(1) ?? '0'} km']], note: null, steps: const []),
               id: a['id'] as int,
               icon: Icons.local_gas_station_rounded,
               color: color,
@@ -426,6 +458,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           for (final r in rows)
             _card(
               kind: 'regularisation',
+              detail: _Detail(title: '${(r['employee'] as Map)['name']}', status: 'Waiting for you', amount: null, facts: [('Date', '${r['date']}'), ('Check-in', fmtTime(r['check_in'])), ('Check-out', fmtTime(r['check_out'])), ('Reason', '${reasons[r['reason']] ?? r['reason']}')], lineHead: const [], lines: const [], note: asText(r['note']), steps: const []),
               id: r['id'] as int,
               icon: Icons.edit_calendar_rounded,
               color: color,
@@ -557,6 +590,208 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                   ],
                 ],
               ),
+      ),
+    );
+  }
+}
+
+
+/// Everything about one request, laid out for reading before a decision.
+class _Detail {
+  const _Detail({
+    required this.title,
+    this.status = 'Waiting for you',
+    this.amount,
+    this.facts = const [],
+    this.lineHead = const [],
+    this.lines = const [],
+    this.note,
+    this.steps = const [],
+  });
+
+  final String title;
+  final String status;
+  final String? amount;
+  final List<(String, String)> facts;
+  final List<String> lineHead;
+  final List<List<String>> lines;
+  final String? note;
+  final List<String> steps;
+}
+
+class _ApprovalDetailScreen extends StatefulWidget {
+  const _ApprovalDetailScreen({
+    required this.detail,
+    required this.color,
+    required this.icon,
+    required this.approveLabel,
+    required this.rejectLabel,
+    required this.onDecide,
+  });
+
+  final _Detail detail;
+  final Color color;
+  final IconData icon;
+  final String approveLabel;
+  final String rejectLabel;
+  final Future<bool> Function(bool approve) onDecide;
+
+  @override
+  State<_ApprovalDetailScreen> createState() => _ApprovalDetailScreenState();
+}
+
+class _ApprovalDetailScreenState extends State<_ApprovalDetailScreen> {
+  bool _busy = false;
+  static const _ink = Color(0xFF0F172A);
+  static const _sub = Color(0xFF475569);
+
+  Future<void> _go(bool approve) async {
+    setState(() => _busy = true);
+    final done = await widget.onDecide(approve);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (done) Navigator.of(context).pop();
+  }
+
+  Widget _card(String title, Widget child) => Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: const Color(0xFF1B3A7A).withValues(alpha: 0.07), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: _ink)),
+          const SizedBox(height: 10),
+          child,
+        ]),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final d = widget.detail;
+    final c = widget.color;
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Request details')),
+      body: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [c, c.withValues(alpha: 0.78)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [BoxShadow(color: c.withValues(alpha: 0.3), blurRadius: 18, offset: const Offset(0, 8))],
+          ),
+          child: Row(children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(16)),
+              child: Icon(widget.icon, color: Colors.white, size: 27),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(d.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(12)),
+                  child: Text(d.status, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+                ),
+              ]),
+            ),
+            if (d.amount != null) Text(d.amount!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20)),
+          ]),
+        ),
+        const SizedBox(height: 14),
+        if (d.facts.isNotEmpty)
+          _card(
+            'Details',
+            Column(children: [
+              for (final (k, v) in d.facts)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    SizedBox(width: 118, child: Text(k, style: const TextStyle(color: _sub, fontSize: 13.5, fontWeight: FontWeight.w600))),
+                    Expanded(child: Text(v, style: const TextStyle(color: _ink, fontSize: 14, fontWeight: FontWeight.w800))),
+                  ]),
+                ),
+            ]),
+          ),
+        if (d.lines.isNotEmpty)
+          _card(
+            'Items (${d.lines.length})',
+            Column(children: [
+              if (d.lineHead.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(children: [
+                    for (final (i, h) in d.lineHead.indexed)
+                      Expanded(
+                        flex: i == 0 ? 5 : 3,
+                        child: Text(h.toUpperCase(),
+                            textAlign: i == 0 ? TextAlign.left : TextAlign.right,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _sub, letterSpacing: 0.4)),
+                      ),
+                  ]),
+                ),
+              for (final row in d.lines)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE2E8F0)))),
+                  child: Row(children: [
+                    for (final (i, cell) in row.indexed)
+                      Expanded(
+                        flex: i == 0 ? 5 : 3,
+                        child: Text(cell,
+                            textAlign: i == 0 ? TextAlign.left : TextAlign.right,
+                            style: TextStyle(fontSize: 13.5, fontWeight: i == row.length - 1 ? FontWeight.w900 : FontWeight.w700, color: _ink)),
+                      ),
+                  ]),
+                ),
+            ]),
+          ),
+        if (d.steps.isNotEmpty)
+          _card('Approval steps', Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            for (final st in d.steps) Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Text(st, style: const TextStyle(color: _ink, fontSize: 13.5))),
+          ])),
+        if (d.note != null) _card('Note', Text(d.note!, style: const TextStyle(color: _ink, fontSize: 14, height: 1.35))),
+      ]),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: Row(children: [
+            Expanded(
+              child: SizedBox(
+                height: 52,
+                child: OutlinedButton(
+                  onPressed: _busy ? null : () => _go(false),
+                  style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.danger,
+                      side: const BorderSide(color: AppColors.danger),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26))),
+                  child: Text(widget.rejectLabel, style: const TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: SizedBox(
+                height: 52,
+                child: FilledButton(
+                  onPressed: _busy ? null : () => _go(true),
+                  style: FilledButton.styleFrom(backgroundColor: c, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26))),
+                  child: _busy
+                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                      : Text(widget.approveLabel, style: const TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ),
+          ]),
+        ),
       ),
     );
   }
