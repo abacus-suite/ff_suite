@@ -20,6 +20,10 @@ class Services {
 
   /// Bumped to bring the app back to its Home screen, wherever the person is.
   static final goHome = ValueNotifier<int>(0);
+
+  /// True from an action that changes the day (a check-out, a payment, a task done) until Home has
+  /// read the new state, so the old picture is never shown for a moment as if it were current.
+  static final settling = ValueNotifier<bool>(false);
   static late final AppStorage storage;
   static late final ApiClient api;
   static late final AuthRepository auth;

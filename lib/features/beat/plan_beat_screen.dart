@@ -416,7 +416,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
         'routes': routes,
         if (_repeatWeeks > 0) 'repeat_weeks': _repeatWeeks,
       });
-      Services.refresh.value++;
+      settleAndRefresh();
       if (!mounted) return;
       if (result.queued) {
         showSnack(context, 'Saved on the phone; it will be planned when you are online.');
@@ -452,7 +452,7 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
         'partner_ids': _picked.toList(),
         if (_repeatWeeks > 0) 'repeat_weeks': _repeatWeeks,
       });
-      Services.refresh.value++;
+      settleAndRefresh();
       if (!mounted) return;
       if (result.queued) {
         showSnack(context, 'Saved on the phone; it will be planned when you are online.');

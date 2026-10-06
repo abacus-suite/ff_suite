@@ -295,7 +295,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       });
       final word = action == 'done' ? 'Task finished' : 'Task started';
       showSnack(context, result.queued ? '$word · Saved on the phone · it will sync when you are back online' : word);
-      Services.refresh.value++;
+      settleAndRefresh();
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
     } finally {

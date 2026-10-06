@@ -37,7 +37,7 @@ class _SyncScreenState extends State<SyncScreen> {
       if (mounted) {
         showSnack(context, Services.api.online.value ? 'Synced what could be sent' : 'Still offline');
       }
-      Services.refresh.value++;
+      settleAndRefresh();
     } finally {
       await _reload();
       if (mounted) setState(() => _syncing = false);

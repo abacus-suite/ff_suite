@@ -180,7 +180,7 @@ class DutyWatch {
         'device_time': DateTime.now().toUtc().toIso8601String(),
       }, label: 'Automatic check-out');
       await Services.tracker.stop();
-      Services.refresh.value++;
+      settleAndRefresh();
       _failures = 0;
       stop();
     } catch (e) {

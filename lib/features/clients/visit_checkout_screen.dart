@@ -209,7 +209,7 @@ class _VisitCheckoutScreenState extends State<VisitCheckoutScreen> {
         await LocalState.visitClosed();
         if (mounted) showSnack(context, 'Checked out · Saved on the phone · it will sync when you are back online');
       }
-      Services.refresh.value++;
+      settleAndRefresh();
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) showProblem(context, e.toString());

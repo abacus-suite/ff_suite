@@ -465,7 +465,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         'half_day_period': _halfPeriod,
         'reason': _reason.text.trim(),
       });
-      Services.refresh.value++;
+      settleAndRefresh();
       if (!mounted) return;
       showSnack(context, 'Request sent for approval');
       Navigator.of(context).pop(true);

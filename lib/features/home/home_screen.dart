@@ -168,6 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
+      Services.settling.value = false;
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -309,7 +310,31 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final profile = _profile;
     return Scaffold(
-      body: SafeArea(
+      body: Stack(children: [
+        _homeBody(profile),
+        ValueListenableBuilder<bool>(
+          valueListenable: Services.settling,
+          builder: (_, settling, __) => settling
+              ? Positioned.fill(
+                  child: Container(
+                    color: Colors.white.withValues(alpha: 0.88),
+                    alignment: Alignment.center,
+                    child: const Column(mainAxisSize: MainAxisSize.min, children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 14),
+                      Text('Updating your day...', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ]),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ]),
+    );
+  }
+
+  Widget _homeBody(Profile profile) {
+    return Builder(builder: (context) {
+      return SafeArea(
         bottom: false,
         child: RefreshIndicator(
           onRefresh: _load,
@@ -337,8 +362,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   /// The day in one card: where it stands, how it is going, and what moves it on.

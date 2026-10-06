@@ -1167,7 +1167,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       final result = await Services.outbox.submit('/api/v1/field-tasks/submit', _payload(pos),
           label: '$_name${_client != null ? ' · ${_client!['name']}' : ''}');
       if (result.queued && widget.visit != null) await LocalState.visitClosed();
-      Services.refresh.value++;
+      settleAndRefresh();
       if (!mounted) return;
       final done = result.queued ? <String, dynamic>{} : result.map;
       if (result.queued) {
@@ -1228,7 +1228,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
         'outcome': 'other',
         'note': 'Left the task unfinished: $why',
       });
-      Services.refresh.value++;
+      settleAndRefresh();
       _drafts.remove(_visitId);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {

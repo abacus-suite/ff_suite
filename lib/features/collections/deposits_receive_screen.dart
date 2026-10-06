@@ -50,7 +50,7 @@ class _DepositsReceiveScreenState extends State<DepositsReceiveScreen> {
     setState(() => _busyId = deposit['id'] as int);
     try {
       await Services.outbox.submit('/api/v1/deposits/${deposit['id']}/${received ? 'receive' : 'reject'}', {'uuid': const Uuid().v4()});
-      Services.refresh.value++;
+      settleAndRefresh();
       if (mounted) showSnack(context, received ? 'Marked as received' : 'Sent back to the employee');
       await _load();
     } catch (e) {

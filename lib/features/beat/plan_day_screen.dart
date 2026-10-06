@@ -129,7 +129,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
         'beat_id': route['id'],
         'partner_ids': _selected.toList(),
       });
-      Services.refresh.value++;
+      settleAndRefresh();
       if (!mounted) return;
       showSnack(context, '${_selected.length} customers planned for ${fmtDate(_date)}');
       Navigator.of(context).pop(true);

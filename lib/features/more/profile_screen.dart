@@ -511,7 +511,7 @@ class _ChangeablePhotoState extends State<_ChangeablePhoto> {
     try {
       await Services.api.post('/api/v1/me/photo', {'image': base64Encode(bytes)});
       await Services.auth.refreshProfile();
-      Services.refresh.value++;
+      settleAndRefresh();
       if (mounted) showSnack(context, 'Photo updated');
     } catch (e) {
       if (mounted) showProblem(context, e.toString());

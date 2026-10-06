@@ -137,7 +137,7 @@ Future<Map<String, dynamic>?> autoCheckIn(Map<String, dynamic> client) async {
       'uuid': const Uuid().v4(),
       'device_time': DateTime.now().toUtc().toIso8601String(),
     }) as Map<String, dynamic>;
-    Services.refresh.value++;
+    settleAndRefresh();
     return result;
   } catch (_) {
     // Arrival check-in is a convenience: when it cannot happen, the button still can.
@@ -157,7 +157,7 @@ Future<bool> autoCheckOut(Map<String, dynamic> visit) async {
       if (pos != null) 'lng': pos.longitude,
       'device_time': DateTime.now().toUtc().toIso8601String(),
     });
-    Services.refresh.value++;
+    settleAndRefresh();
     return true;
   } catch (_) {
     return false;
@@ -184,7 +184,7 @@ Future<Map<String, dynamic>> _checkIn(
               ? 'Checked in offline · ${fmtDistance(away)} away, it will be saved as an offsite visit'
               : 'Checked in offline · it will sync when you are back online');
     }
-    Services.refresh.value++;
+    settleAndRefresh();
     return visit;
   }
   final visit = result.map;
@@ -198,6 +198,6 @@ Future<Map<String, dynamic>> _checkIn(
               : 'Checked in',
     );
   }
-  Services.refresh.value++;
+  settleAndRefresh();
   return visit;
 }

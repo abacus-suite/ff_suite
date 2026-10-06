@@ -118,7 +118,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
     setState(() => _busy = true);
     try {
       await Services.outbox.submit('/api/v1/deposits', {'reference': ref, 'uuid': const Uuid().v4()});
-      Services.refresh.value++;
+      settleAndRefresh();
       if (mounted) showSnack(context, 'Submitted to the office');
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
@@ -216,7 +216,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
         'reference': ref,
         'note': memo,
       });
-      Services.refresh.value++;
+      settleAndRefresh();
       if (mounted) showSnack(context, 'Handed over to ${distributor['name']}');
     } catch (e) {
       if (mounted) showProblem(context, e.toString());

@@ -453,7 +453,7 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
       final saved = result.queued
           ? <String, dynamic>{'amount': double.tryParse(_amount.text.trim()) ?? 0, 'currency': null}
           : result.map;
-      Services.refresh.value++;
+      settleAndRefresh();
       if (!mounted) return;
       showSnack(
           context,

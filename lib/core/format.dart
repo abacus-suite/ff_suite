@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'services.dart';
@@ -41,6 +43,14 @@ String? asText(dynamic value) {
 }
 
 String fmtQty(num qty) => qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toStringAsFixed(2);
+
+/// Tell every screen something changed, and hold the Home screen behind a loader until it has the new state.
+void settleAndRefresh() {
+  Services.settling.value = true;
+  // Never stuck: if Home is not on screen to clear it, it clears itself.
+  Timer(const Duration(seconds: 10), () => Services.settling.value = false);
+  Services.refresh.value++;
+}
 
 void showSnack(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
