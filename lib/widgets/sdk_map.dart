@@ -73,8 +73,14 @@ class SdkMap extends StatefulWidget {
   /// screen. Nothing off screen needs grouping: it is not being looked at.
   final void Function(MapView view)? onCameraIdle;
 
-  /// Whether this build of the app can draw Google's map at all.
+  /// Set only by a build that was given a Google key (`--dart-define=MAPS_BUILD_KEY=1` with `-PMAPS_API_KEY=...`).
+  /// Without it the app carries a placeholder key, and Google's map would open as a blank grey square.
+  static const _builtWithKey = bool.fromEnvironment('MAPS_BUILD_KEY');
+
+  /// Whether this build of the app can draw Google's map at all: the office chose it, a key is set in Odoo,
+  /// and this build actually has a key inside it.
   static bool get available =>
+      _builtWithKey &&
       (Services.auth.profile?.mapMode ?? '') == 'sdk' &&
       (Services.auth.profile?.googleMapsKey ?? '').isNotEmpty;
 
