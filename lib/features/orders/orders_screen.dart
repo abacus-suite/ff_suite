@@ -39,6 +39,9 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
 
   /// Both kinds are listed on the demand flow: outlet demands, and orders taken for distributors.
   String _kind = 'all';
+
+  /// The top box that was tapped: only its states are listed. Tapping it again clears it.
+  List<String>? _boxStates;
   final _search = TextEditingController();
   Timer? _debounce;
   final Set<String> _collapsed = {};
@@ -184,6 +187,7 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
 
   List<Map<String, dynamic>> get _visible => _orders.where((o) {
         if (_status != 'all' && o['state'] != _status) return false;
+        if (_boxStates != null && !_boxStates!.contains('${o['state']}')) return false;
         if (_demandFlow && _kind != 'all' && (o['kind'] == 'order') != (_kind == 'order')) return false;
         if (_demandFlow && _mapping != 'all') {
           final linked = o['distributor'] != null;
@@ -403,7 +407,8 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                   ],
                 ],
               ),
-              if (_demandFlow) ...[
+              // An order taken for a distributor has no distributor to link: the customer is the distributor.
+              if (_demandFlow && o['kind'] != 'order') ...[
                 const SizedBox(height: 10),
                 _distributorChip(o),
               ],
@@ -490,12 +495,18 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
         ),
       );
 
-  Widget _statBox(IconData icon, String value, String label, Color tint) => Expanded(
+  Widget _statBox(IconData icon, String value, String label, Color tint, List<String> states) {
+    final on = _boxStates != null && _boxStates!.join(',') == states.join(',');
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _boxStates = on ? null : states),
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 3),
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           decoration: BoxDecoration(
-              color: tint.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14)),
+              color: tint.withValues(alpha: on ? 0.2 : 0.08),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: on ? tint : Colors.transparent, width: 1.6)),
           child: Column(
             children: [
               Container(
@@ -513,7 +524,9 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
             ],
           ),
         ),
-      );
+      ),
+    );
+  }
 
   Widget _sortPill() => Container(
         padding: const EdgeInsets.only(left: 10, right: 2),
@@ -788,7 +801,7 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                         child: Row(
                           children: [
                             for (final box in _statBoxes)
-                              _statBox(box.$1, '${_countOf(box.$2)}', box.$3, box.$4),
+                              _statBox(box.$1, '${_countOf(box.$2)}', box.$3, box.$4, box.$2),
                           ],
                         ),
                       ),
