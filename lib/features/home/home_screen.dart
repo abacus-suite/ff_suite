@@ -29,7 +29,6 @@ import 'recommendations_card.dart';
 import 'my_requests_card.dart';
 import '../../widgets/sync_status.dart';
 import '../beat/beat_today_screen.dart';
-import '../beat/plan_day_screen.dart';
 import '../clients/client_detail_screen.dart';
 import '../clients/clients_screen.dart';
 import '../orders/catalog_screen.dart';
@@ -197,41 +196,19 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() => _sales = data as Map<String, dynamic>?);
   }
 
-  /// At check-in, with nothing planned for today, ask which beat is being worked and which of its customers.
-  /// Returns false when they backed out, so nothing is checked in.
-  Future<bool> _chooseBeatFirst() async {
-    if (!_profile.beatAtCheckin) return true;
-    try {
-      final today = fmtDate(DateTime.now());
-      final planned =
-          await Services.api.get('/api/v1/route-plan/days', query: {'start': today, 'end': today}) as List;
-      if (planned.isNotEmpty) return true;
-      final routes = await Services.api.get('/api/v1/route-plan/routes') as List;
-      if (routes.isEmpty) return true;
-    } catch (_) {
-      // Offline or no planning: the check-in is not held up by it.
-      return true;
-    }
-    if (!mounted) return false;
-    final result = await Navigator.of(context).push<Object>(
-      MaterialPageRoute(builder: (_) => const PlanDayScreen(atCheckIn: true)),
-    );
-    return result != null;
-  }
-
   Future<void> _punch(bool punchIn) async {
     setState(() => _punching = true);
     try {
-      if (punchIn && !await _chooseBeatFirst()) return;
       final permissionError = await PermissionsHelper.ensureLocation();
       if (permissionError != null) throw permissionError;
-      final pos = await Geolocator.getCurrentPosition(
+      // The fix is taken while the steps are on screen, so there is no wait between them and the check-in.
+      final posFuture = Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.best, timeLimit: Duration(seconds: 25)),
       );
-      if (pos.isMocked && !_profile.allowMock)
-        throw 'A fake GPS app was detected. Disable it to punch.';
-      final place = await currentPlace(fresh: true);
+      final placeFuture = currentPlace(fresh: true);
+      posFuture.then((_) {}, onError: (_) {});
+      placeFuture.then((_) {}, onError: (_) {});
       final shiftEnd = _shiftEndsAt();
       final asksEarly = _profile.earlyCheckoutReason && !punchIn && shiftEnd != null &&
           DateTime.now().isBefore(shiftEnd);
@@ -239,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final needVehicle = punchIn && _profile.punchVehicle;
       final needOdometer = _profile.punchOdometer;
       PunchInput? filled = const PunchInput();
-      if (needSelfie || needVehicle || needOdometer || asksEarly) {
+      if (needSelfie || needVehicle || needOdometer || asksEarly || (punchIn && _profile.beatAtCheckin)) {
         if (!mounted) return;
         filled = await Navigator.of(context).push<PunchInput>(MaterialPageRoute(
           builder: (_) => PunchFormScreen(
@@ -252,10 +229,16 @@ class _HomeScreenState extends State<HomeScreen> {
             askEarlyReason: _profile.earlyCheckoutReason,
             odometerIn: ((_status?['current'] as Map?)?['odometer_in'] as num?)?.toDouble(),
             odometerLast: (_status?['odometer_last'] as num?)?.toDouble(),
+            planBeat: punchIn && _profile.beatAtCheckin,
           ),
         ));
         if (filled == null) return; // backed out of the form: nothing is punched
       }
+      final pos = await posFuture;
+      if (pos.isMocked && !_profile.allowMock) {
+        throw 'A fake GPS app was detected. Disable it to punch.';
+      }
+      final place = await placeFuture;
       final selfie = filled.selfie == null ? null : base64Encode(filled.selfie!);
       final vehicle = filled.vehicle;
       final vehicleNote = filled.vehicleNote;

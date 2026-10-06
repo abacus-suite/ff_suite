@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/photos.dart';
 import '../../core/theme.dart';
 import '../../core/format.dart';
+import '../beat/plan_day_screen.dart';
+import '../../core/services.dart';
 import 'punch_extras.dart';
 
 /// What the person filled in before punching.
@@ -41,6 +43,7 @@ class PunchFormScreen extends StatefulWidget {
     this.askEarlyReason = false,
     this.odometerIn,
     this.odometerLast,
+    this.planBeat = false,
   });
 
   final bool punchIn;
@@ -61,6 +64,9 @@ class PunchFormScreen extends StatefulWidget {
   final double? odometerIn;
   final double? odometerLast;
 
+  /// At check-in the first step is choosing today's beat, when nothing is planned yet.
+  final bool planBeat;
+
   @override
   State<PunchFormScreen> createState() => _PunchFormScreenState();
 }
@@ -74,6 +80,80 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
   final _early = TextEditingController();
   bool _tried = false;
   bool _busy = false;
+
+  /// The steps, one at a time: which of them there are comes from the office's settings.
+  int _step = 0;
+  bool _autoSent = false;
+
+  /// Choosing today's beat: still being looked up, needed, or not needed (planned, no beats, done or skipped).
+  String _beat = 'checking';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.planBeat && widget.punchIn) {
+      _checkBeat();
+    } else {
+      _beat = 'done';
+    }
+  }
+
+  Future<void> _checkBeat() async {
+    try {
+      final today = fmtDate(DateTime.now());
+      final planned = await Services.api.get('/api/v1/route-plan/days', query: {'start': today, 'end': today}) as List;
+      final routes = planned.isEmpty ? await Services.api.get('/api/v1/route-plan/routes') as List : const [];
+      if (mounted) setState(() => _beat = planned.isEmpty && routes.isNotEmpty ? 'needed' : 'done');
+    } catch (_) {
+      // Offline or no planning: the check-in is not held up by it.
+      if (mounted) setState(() => _beat = 'done');
+    }
+  }
+
+  List<String> get _steps => [
+        if (_beat != 'done') 'beat',
+        if (_isEarly) 'early',
+        if (widget.needSelfie) 'selfie',
+        if (widget.needVehicle) 'vehicle',
+        if (_hasMeter) 'meter',
+      ];
+
+  static const _stepTitle = {
+    'beat': 'Choose today\'s beat',
+    'early': 'Leaving early',
+    'selfie': 'Selfie',
+    'vehicle': 'Your vehicle',
+    'meter': 'Odometer',
+  };
+
+  /// What is missing on this step, or null when it is complete.
+  String? _stepProblem(String key) => switch (key) {
+        'early' => _early.text.trim().isEmpty ? 'Please say why you are leaving early.' : null,
+        'selfie' => _selfie == null ? 'Take the selfie to go on.' : null,
+        'vehicle' => _vehicle == null
+            ? 'Choose how you are travelling.'
+            : (_vehicle == 'other' && _note.text.trim().isEmpty ? 'Say what vehicle it is.' : null),
+        'meter' => _meterProblem ??
+            (_odometerPhoto == null
+                ? 'Take the photo of the meter.'
+                : ((_odometer ?? 0) <= 0 ? 'Type the number on the meter.' : null)),
+        _ => null,
+      };
+
+  void _next() {
+    final steps = _steps;
+    final key = steps[_step.clamp(0, steps.length - 1)];
+    final problem = _stepProblem(key);
+    setState(() => _tried = true);
+    if (problem != null) {
+      showSnack(context, problem);
+      return;
+    }
+    setState(() {
+      _tried = false;
+      _step++;
+    });
+  }
 
   @override
   void dispose() {
@@ -173,111 +253,178 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
     ));
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(_word)),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-        children: [
-          Text(
-            widget.punchIn
-                ? 'A few things before your day starts.'
-                : 'A few things before you close the day.',
-            style: const TextStyle(color: AppColors.muted),
-          ),
-          const SizedBox(height: 12),
-          if (_isEarly)
-            Card(
-              color: const Color(0xFFFFF6E5),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.schedule_rounded, size: 18, color: AppColors.warning),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text('You are ending the day $_earlyBy before your shift ends.',
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
-                        ),
-                      ],
-                    ),
-                    TextField(
-                      controller: _early,
-                      onChanged: (_) => setState(() {}),
-                      textCapitalization: TextCapitalization.sentences,
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        labelText: 'Why are you leaving early?',
-                        hintText: 'Not well, family matter, work finished early...',
-                        errorText: _tried && _early.text.trim().isEmpty ? 'Please say why.' : null,
-                      ),
-                    ),
-                  ],
-                ),
+  /// The progress along the top: a dot per step, the current one stretched.
+  Widget _progress(int count, int at) => Row(children: [
+        for (var i = 0; i < count; i++)
+          Expanded(
+            child: Container(
+              height: 5,
+              margin: EdgeInsets.only(right: i == count - 1 ? 0 : 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                color: i <= at ? (widget.punchIn ? AppColors.primary : AppColors.danger) : AppColors.border,
               ),
             ),
-          if (widget.needSelfie)
-            _photoField(
-              title: 'Selfie',
-              hint: 'Taken with the place and time on it.',
-              icon: Icons.person_rounded,
-              photo: _selfie,
-              missing: _tried && _selfie == null,
-              onTap: () => _shoot(selfie: true),
-            ),
-          if (widget.needVehicle) _vehicleField(),
-          if (_hasMeter) ...[
-            _photoField(
-              title: 'Odometer photo',
-              hint: 'Point at the meter so the numbers can be read.',
-              icon: Icons.speed_rounded,
-              photo: _odometerPhoto,
-              missing: _tried && _odometerPhoto == null,
-              onTap: () => _shoot(selfie: false),
-            ),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
-                child: TextField(
-                  controller: _reading,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+          ),
+      ]);
+
+  Widget _stepBody(String key) {
+    switch (key) {
+      case 'early':
+        return Card(
+          color: const Color(0xFFFFF6E5),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.schedule_rounded, size: 18, color: AppColors.warning),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text('You are ending the day $_earlyBy before your shift ends.',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                  ),
+                ]),
+                TextField(
+                  controller: _early,
                   onChanged: (_) => setState(() {}),
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLines: 2,
                   decoration: InputDecoration(
-                    labelText: 'Odometer reading',
-                    suffixText: 'km',
-                    errorText: _meterProblem ?? (_tried && (_odometer ?? 0) <= 0 ? 'Type the number on the meter.' : null),
-                    helperText: _meterKm != null
-                        ? 'Distance today by the meter: ${_meterKm!.toStringAsFixed(1)} km (check-in ${fmtQty(widget.odometerIn!)})'
-                        : 'Only asked when you ride your own two- or four-wheeler.',
+                    labelText: 'Why are you leaving early?',
+                    hintText: 'Not well, family matter, work finished early...',
+                    errorText: _tried && _early.text.trim().isEmpty ? 'Please say why.' : null,
                   ),
                 ),
-              ),
-            ),
-          ],
-        ],
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: SizedBox(
-            height: 52,
-            child: FilledButton.icon(
-              onPressed: _busy ? null : _submit,
-              style: FilledButton.styleFrom(
-                backgroundColor: widget.punchIn ? AppColors.primary : AppColors.danger,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-              ),
-              icon: const Icon(Icons.check_rounded),
-              label: Text('Submit and $_word', style: const TextStyle(fontWeight: FontWeight.w800)),
+              ],
             ),
           ),
-        ),
-      ),
+        );
+      case 'selfie':
+        return _photoField(
+          title: 'Selfie',
+          hint: 'Taken with the place and time on it.',
+          icon: Icons.person_rounded,
+          photo: _selfie,
+          missing: _tried && _selfie == null,
+          onTap: () => _shoot(selfie: true),
+        );
+      case 'vehicle':
+        return _vehicleField();
+      case 'meter':
+        return Column(children: [
+          _photoField(
+            title: 'Odometer photo',
+            hint: 'Point at the meter so the numbers can be read.',
+            icon: Icons.speed_rounded,
+            photo: _odometerPhoto,
+            missing: _tried && _odometerPhoto == null,
+            onTap: () => _shoot(selfie: false),
+          ),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+              child: TextField(
+                controller: _reading,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: 'Odometer reading',
+                  suffixText: 'km',
+                  errorText: _meterProblem ?? (_tried && (_odometer ?? 0) <= 0 ? 'Type the number on the meter.' : null),
+                  helperText: _meterKm != null
+                      ? 'Distance today by the meter: ${_meterKm!.toStringAsFixed(1)} km (check-in ${fmtQty(widget.odometerIn!)})'
+                      : 'Only asked when you ride your own two- or four-wheeler.',
+                ),
+              ),
+            ),
+          ),
+        ]);
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = _steps;
+    final checking = _beat == 'checking';
+    // Nothing to ask at all (and the beat is settled): go straight through.
+    if (!checking && steps.isEmpty && !_autoSent) {
+      _autoSent = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _submit();
+      });
+    }
+    final at = steps.isEmpty ? 0 : _step.clamp(0, steps.length - 1);
+    final key = steps.isEmpty ? '' : steps[at];
+    final last = at >= steps.length - 1;
+    return Scaffold(
+      appBar: AppBar(title: Text(_word)),
+      body: checking
+          ? const Center(child: CircularProgressIndicator())
+          : Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _progress(steps.length, at),
+                  const SizedBox(height: 10),
+                  Text('Step ${at + 1} of ${steps.length}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w700)),
+                  Text(_stepTitle[key] ?? '', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
+                ]),
+              ),
+              Expanded(
+                child: key == 'beat'
+                    ? PlanDayScreen(
+                        atCheckIn: true,
+                        embedded: true,
+                        onDone: (_) => setState(() {
+                          _beat = 'done';
+                          _step = 0;
+                        }),
+                        onUnneeded: () => setState(() => _beat = 'done'),
+                      )
+                    : ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [_stepBody(key)]),
+              ),
+              if (key != 'beat')
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(children: [
+                      if (at > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: SizedBox(
+                            height: 52,
+                            child: OutlinedButton(
+                              onPressed: _busy ? null : () => setState(() => _step = at - 1),
+                              style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26))),
+                              child: const Icon(Icons.arrow_back_rounded),
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: SizedBox(
+                          height: 52,
+                          child: FilledButton.icon(
+                            onPressed: _busy ? null : (last ? _submit : _next),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: widget.punchIn ? AppColors.primary : AppColors.danger,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+                            ),
+                            icon: Icon(last ? Icons.check_rounded : Icons.arrow_forward_rounded),
+                            label: Text(last ? 'Submit and $_word' : 'Next',
+                                style: const TextStyle(fontWeight: FontWeight.w800)),
+                          ),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+            ]),
     );
   }
 

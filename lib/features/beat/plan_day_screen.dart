@@ -9,12 +9,19 @@ import '../../widgets/skeleton.dart';
 
 /// Plan a route day: pick the day, pick the route, keep the customers you will reach.
 class PlanDayScreen extends StatefulWidget {
-  const PlanDayScreen({super.key, this.initialDate, this.atCheckIn = false});
+  const PlanDayScreen({super.key, this.initialDate, this.atCheckIn = false, this.embedded = false, this.onDone, this.onUnneeded});
 
   final DateTime? initialDate;
 
   /// Opened by the check-in: today is fixed, saving carries on to the check-in, and it can be skipped.
   final bool atCheckIn;
+
+  /// Drawn inside another screen (the check-in steps): no app bar, and the result goes to [onDone].
+  final bool embedded;
+  final ValueChanged<Object>? onDone;
+
+  /// There is nothing to choose from (no beats): the step is not needed.
+  final VoidCallback? onUnneeded;
 
   @override
   State<PlanDayScreen> createState() => _PlanDayScreenState();
@@ -53,6 +60,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
         _routes = list;
         _loading = false;
       });
+      if (list.isEmpty && widget.embedded) widget.onUnneeded?.call();
       if (list.length == 1) await _pickRoute(list.first);
     } catch (e) {
       if (mounted) {
@@ -135,7 +143,11 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
       if (!widget.atCheckIn) settleAndRefresh();
       if (!mounted) return;
       if (!widget.atCheckIn) showSnack(context, '${_selected.length} customers planned for ${fmtDate(_date)}');
-      Navigator.of(context).pop(true);
+      if (widget.embedded) {
+        widget.onDone?.call(true);
+      } else {
+        Navigator.of(context).pop(true);
+      }
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
     } finally {
@@ -225,15 +237,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
   Widget build(BuildContext context) {
     final profile = Services.auth.profile!;
     final routeLabel = profile.routeLabel;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.atCheckIn ? 'Choose today\'s $routeLabel' : 'Plan a $routeLabel Day'),
-        actions: [
-          if (widget.atCheckIn)
-            TextButton(onPressed: () => Navigator.of(context).pop('skip'), child: const Text('Skip')),
-        ],
-      ),
-      body: _loading
+    final body = _loading
           ? const LoadingView()
           : _error != null
               ? ErrorView(message: _error!, onRetry: _loadRoutes)
@@ -318,7 +322,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: GradientButton(
-                          label: widget.atCheckIn ? 'Save and check in' : 'Save Plan',
+                          label: widget.embedded ? 'Save and continue' : (widget.atCheckIn ? 'Save and check in' : 'Save Plan'),
                           icon: widget.atCheckIn ? Icons.login_rounded : Icons.event_available_rounded,
                           busy: _busy,
                           onPressed: _busy || _route == null ? null : _save,
@@ -326,7 +330,25 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                       ),
                     ),
                   ],
-                ),
+                );
+    if (widget.embedded) {
+      return Column(children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(onPressed: () => widget.onDone?.call('skip'), child: const Text('Skip')),
+        ),
+        Expanded(child: body),
+      ]);
+    }
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.atCheckIn ? 'Choose today\'s $routeLabel' : 'Plan a $routeLabel Day'),
+        actions: [
+          if (widget.atCheckIn)
+            TextButton(onPressed: () => Navigator.of(context).pop('skip'), child: const Text('Skip')),
+        ],
+      ),
+      body: body,
     );
   }
 
