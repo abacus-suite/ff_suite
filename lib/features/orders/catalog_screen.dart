@@ -399,6 +399,121 @@ class _CatalogScreenState extends State<CatalogScreen> {
         ),
       );
 
+  Widget _section(IconData icon, String title, String note, Widget child) => Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [BoxShadow(color: const Color(0xFF1B3A7A).withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(13)),
+              child: Icon(icon, color: AppColors.primary, size: 21),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17))),
+          ]),
+          const SizedBox(height: 6),
+          Text(note, style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+          const SizedBox(height: 10),
+          child,
+        ]),
+      );
+
+  /// Quantities for the whole range on one screen: what is ordered, and what is given free.
+  Widget _quantities() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+      children: [
+        _section(Icons.shopping_cart_rounded, 'Order quantity', 'What the customer is ordering, at the customer price.',
+            QtyGrid(products: _products, values: _cart, onChanged: () => setState(() {}))),
+        _section(
+          Icons.redeem_rounded,
+          'Free quantity',
+          'Kept apart from the order. Goes with an order.',
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            QtyGrid(products: _products, values: _freeQ, onChanged: () => setState(() {})),
+            if (_anyFree) ...[
+              const SizedBox(height: 12),
+              const Text('Free reason *', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final reason in _freeReasons)
+                  ChoiceChip(
+                    label: Text(reason),
+                    selected: _freeReason == reason,
+                    onSelected: (_) => setState(() => _freeReason = reason),
+                  ),
+              ]),
+              if (_freeReason == 'Other') ...[
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _freeNote,
+                  maxLines: 2,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(hintText: 'Describe the free reason'),
+                ),
+              ],
+            ],
+          ]),
+        ),
+      ],
+    );
+  }
+
+  /// The way on: a note on what is missing, and Next.
+  Widget _nextBar() {
+    final problem = _problem;
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [BoxShadow(color: Color(0x1A1B3A7A), blurRadius: 16, offset: Offset(0, -4))],
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (problem != null)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+              child: Row(children: [
+                const Icon(Icons.info_outline_rounded, color: AppColors.warning, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text(problem, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+              ]),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(children: [
+                Expanded(
+                    child: Text('${fmtQty(_units)} units${_anyFree ? ' + free' : ''}',
+                        style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700))),
+                Text(fmtMoney(_total + _tax), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
+              ]),
+            ),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: problem == null ? _review : null,
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: const Text('Next: summary'),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
