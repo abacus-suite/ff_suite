@@ -8,10 +8,13 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 
 class OrderReviewScreen extends StatefulWidget {
-  const OrderReviewScreen({super.key, required this.client, required this.lines});
+  const OrderReviewScreen({super.key, required this.client, required this.lines, this.free = const []});
 
   final Map<String, dynamic> client;
   final List<Map<String, dynamic>> lines;
+
+  /// Free goods already chosen on the quantity screen: product_id, name, qty, reason.
+  final List<Map<String, dynamic>> free;
 
   @override
   State<OrderReviewScreen> createState() => _OrderReviewScreenState();
@@ -41,6 +44,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
   @override
   void initState() {
     super.initState();
+    _manual.addAll(widget.free);
     _loadFoc();
     _loadDistributors();
   }

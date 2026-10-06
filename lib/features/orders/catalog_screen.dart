@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/format.dart';
+import '../tasks/task_widgets.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import 'order_review_screen.dart';
@@ -26,6 +27,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
   List<Map<String, dynamic>> _schemes = [];
   int? _categoryId;
   final Map<int, double> _cart = {};
+  final Map<int, double> _freeQ = {};
+  String? _freeReason;
+  final _freeNote = TextEditingController();
+  static const _freeReasons = ['Sample', 'Display', 'Damage cover', 'Festival offer', 'Other'];
   final Map<int, Map<String, dynamic>> _known = {};
   bool _loading = true;
   String? _error;
@@ -107,22 +112,48 @@ class _CatalogScreenState extends State<CatalogScreen> {
   }
 
   double get _total =>
-      _cart.entries.fold(0.0, (sum, e) => sum + ((_known[e.key]?['price'] as num?) ?? 0) * e.value);
+      _cart.entries.fold(0.0, (sum, e) => sum + ((_known[e.key]?['price'] as num?) ?? 0) * (e.value > 0 ? e.value : 0));
 
   /// The taxes the products carry, on what is in the cart. The server works out the real figure.
   double get _tax => _cart.entries.fold(0.0, (sum, e) {
         final p = _known[e.key];
         final price = (p?['price'] as num?) ?? 0;
         final rate = (p?['tax_percent'] as num?) ?? 0;
-        return sum + price * e.value * rate / 100;
+        return sum + price * (e.value > 0 ? e.value : 0) * rate / 100;
       });
 
-  double get _units => _cart.values.fold(0.0, (a, b) => a + b);
+  double get _units => _cart.values.fold(0.0, (a, b) => a + (b > 0 ? b : 0));
+
+  bool get _anyFree => _freeQ.values.any((v) => v > 0);
+
+  /// What is missing before the person can go on, or null when it is complete.
+  String? get _problem {
+    final order = _cart.values.any((v) => v > 0);
+    if (!order && !_anyFree) return 'Enter the order quantity, or the free quantity.';
+    if (!order) return 'Enter the order quantity: free goods go with an order.';
+    if (_anyFree && _freeReason == null) return 'Say why the quantity is free.';
+    if (_anyFree && _freeReason == 'Other' && _freeNote.text.trim().isEmpty) return 'Describe the free reason.';
+    return null;
+  }
 
   Future<void> _review() async {
-    final lines = _cart.entries.map((e) => {..._known[e.key]!, 'qty': e.value}).toList();
+    final problem = _problem;
+    if (problem != null) {
+      showSnack(context, problem);
+      return;
+    }
+    final lines = _cart.entries
+        .where((e) => e.value > 0 && _known[e.key] != null)
+        .map((e) => {..._known[e.key]!, 'qty': e.value})
+        .toList();
+    final reason = _freeReason == 'Other' ? _freeNote.text.trim() : _freeReason;
+    final free = [
+      for (final e in _freeQ.entries)
+        if (e.value > 0 && _known[e.key] != null)
+          {'product_id': e.key, 'name': _known[e.key]!['name'], 'qty': e.value, 'reason': reason},
+    ];
     final placed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => OrderReviewScreen(client: widget.client!, lines: lines)),
+      MaterialPageRoute(builder: (_) => OrderReviewScreen(client: widget.client!, lines: lines, free: free)),
     );
     if (placed == true && mounted) Navigator.of(context).pop(true);
   }
@@ -368,133 +399,6 @@ class _CatalogScreenState extends State<CatalogScreen> {
         ),
       );
 
-  /// What is in the cart, to change or remove before reviewing.
-  Future<void> _showCart() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheet) => StatefulBuilder(
-        builder: (context, set) {
-          final entries = _cart.entries.toList();
-          return SafeArea(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                  child: Row(children: [
-                    const Expanded(child: Text('Your cart', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19))),
-                    TextButton(
-                      onPressed: entries.isEmpty
-                          ? null
-                          : () {
-                              setState(_cart.clear);
-                              Navigator.pop(sheet);
-                            },
-                      child: const Text('Clear'),
-                    ),
-                  ]),
-                ),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    children: [
-                      for (final e in entries)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(16)),
-                          child: Row(children: [
-                            _picture(_known[e.key]!, 44),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text('${_known[e.key]!['name']}',
-                                  maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                _stepButton(Icons.remove_rounded, () {
-                                  _setQty(e.key, e.value - 1);
-                                  set(() {});
-                                }),
-                                Text(fmtQty(e.value), style: const TextStyle(fontWeight: FontWeight.w900)),
-                                _stepButton(Icons.add_rounded, () {
-                                  _setQty(e.key, e.value + 1);
-                                  set(() {});
-                                }),
-                              ]),
-                            ),
-                          ]),
-                        ),
-                    ],
-                  ),
-                ),
-              ]),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _cartBar() {
-    final count = _cart.length;
-    return AnimatedSlide(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-      offset: count == 0 || widget.client == null ? const Offset(0, 1.5) : Offset.zero,
-      child: SafeArea(
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-          padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
-          decoration: BoxDecoration(
-            gradient: AppColors.brandGradient,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.35), blurRadius: 22, offset: const Offset(0, 10))],
-          ),
-          child: Row(children: [
-            Expanded(
-              child: InkWell(
-                onTap: _showCart,
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Row(children: [
-                    const Icon(Icons.shopping_basket_rounded, color: Colors.white70, size: 16),
-                    const SizedBox(width: 6),
-                    Text('$count product${count == 1 ? '' : 's'} · ${fmtQty(_units)} units',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w700)),
-                    const Icon(Icons.keyboard_arrow_up_rounded, color: Colors.white70, size: 18),
-                  ]),
-                  const SizedBox(height: 2),
-                  Text(fmtMoney(_total + _tax),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20)),
-                  if (_tax > 0)
-                    Text('incl. ${fmtMoney(_tax)} tax', style: const TextStyle(color: Colors.white60, fontSize: 11)),
-                ]),
-              ),
-            ),
-            FilledButton(
-              onPressed: _review,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Text('Review', style: TextStyle(fontWeight: FontWeight.w900)),
-                SizedBox(width: 4),
-                Icon(Icons.arrow_forward_rounded, size: 18),
-              ]),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -507,7 +411,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
             Text('${widget.client!['name']}', style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
         ]),
       ),
-      bottomNavigationBar: widget.client == null ? null : _cartBar(),
+      bottomNavigationBar: widget.client == null ? null : _nextBar(),
       body: Column(children: [
         _searchBar(),
         if (_categories.isNotEmpty) _chips(),
@@ -516,11 +420,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
         Expanded(
           child: _products.isEmpty && !_loading
               ? const Center(child: Text('No products found', style: TextStyle(color: AppColors.muted)))
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-                  itemCount: _products.length,
-                  itemBuilder: (_, i) => _card(_products[i]),
-                ),
+              : widget.client != null
+                  ? _quantities()
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                      itemCount: _products.length,
+                      itemBuilder: (_, i) => _card(_products[i]),
+                    ),
         ),
       ]),
     );
