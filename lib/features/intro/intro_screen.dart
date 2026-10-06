@@ -106,19 +106,19 @@ class _IntroScreenState extends State<IntroScreen> with SingleTickerProviderStat
                           child: Transform.scale(
                             scale: 0.2 + 0.8 * pop,
                             child: Container(
-                              width: 118,
-                              height: 118,
+                              width: 150,
+                              height: 140,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(30),
+                                shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.22),
-                                    blurRadius: 30,
-                                    offset: const Offset(0, 14),
+                                    color: Colors.white.withValues(alpha: 0.16),
+                                    blurRadius: 60,
+                                    spreadRadius: 6,
                                   ),
                                 ],
                               ),
-                              child: Image.asset('assets/images/app_icon.png', fit: BoxFit.contain),
+                              child: Image.asset('assets/images/ff_logo_symbol.png', fit: BoxFit.contain),
                             ),
                           ),
                         ),
