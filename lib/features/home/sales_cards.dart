@@ -251,7 +251,7 @@ class SalesCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            SizedBox(height: 118, child: SalesCurve(values: points, second: second, labels: labels, currency: currency)),
+            SizedBox(height: 190, child: SalesCurve(values: points, second: second, labels: labels, currency: currency)),
             if (second != null) ...[
               const SizedBox(height: 6),
               const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -278,9 +278,9 @@ class SalesCard extends StatelessWidget {
   }
 }
 
-/// The curve of the period with its dots, the hours along the bottom, and a
-/// small flag on the best point.
-class SalesCurve extends StatelessWidget {
+/// The sales chart: touch or drag along it to read any point; a marker and a card
+/// show that point's figures (both lines when there are two).
+class SalesCurve extends StatefulWidget {
   const SalesCurve({super.key, required this.values, required this.labels, this.currency, this.second});
 
   final List<double> values;
@@ -289,180 +289,249 @@ class SalesCurve extends StatelessWidget {
   final String? currency;
 
   @override
+  State<SalesCurve> createState() => _SalesCurveState();
+}
+
+class _SalesCurveState extends State<SalesCurve> {
+  static const _left = 40.0;
+  static const _right = 10.0;
+  static const _amber = Color(0xFFF59E0B);
+  int? _at;
+
+  @override
+  void didUpdateWidget(SalesCurve old) {
+    super.didUpdateWidget(old);
+    if (_at != null && _at! >= widget.values.length) _at = null;
+  }
+
+  void _pick(double dx, double width) {
+    final n = widget.values.length;
+    final plot = width - _left - _right;
+    final step = plot / (n - 1);
+    final index = ((dx - _left) / step).round().clamp(0, n - 1);
+    if (index != _at) setState(() => _at = index);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final values = widget.values;
+    final second = widget.second;
     if (values.length < 2) {
       return const Center(child: Text('Nothing to chart yet', style: TextStyle(color: AppColors.muted, fontSize: 12)));
     }
-    final peak = [...values, ...?second].reduce((a, b) => a > b ? a : b);
-    final bestAt = second == null && peak > 0 ? values.indexOf(peak) : -1;
-    // Every other label when they would collide.
-    final step = labels.length > 7 ? (labels.length / 6).ceil() : 1;
-    return LayoutBuilder(
-      builder: (_, box) {
-        final chartHeight = box.maxHeight - 20;
-        return Column(
-          children: [
-            SizedBox(
-              height: chartHeight,
-              width: double.infinity,
-              child: CustomPaint(
-                painter: _CurvePainter(values, second),
-                child: peak <= 0 || bestAt < 0
-                    ? null
-                    : LayoutBuilder(
-                        builder: (_, inner) {
-                          final x = inner.maxWidth / (values.length - 1) * bestAt;
-                          return Stack(
-                            children: [
-                              Positioned(
-                                left: (x - 44).clamp(0, (inner.maxWidth - 88).clamp(0, double.infinity)),
-                                top: 0,
-                                child: _flag(peak, bestAt),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
+    final every = [...values, ...?second];
+    final peak = every.reduce((a, b) => a > b ? a : b);
+    final labelStep = widget.labels.length > 7 ? (widget.labels.length / 6).ceil() : 1;
+    return LayoutBuilder(builder: (_, box) {
+      final plotHeight = box.maxHeight - 22;
+      final plot = box.maxWidth - _left - _right;
+      final step = plot / (values.length - 1);
+      final at = _at;
+      return Column(children: [
+        SizedBox(
+          height: plotHeight,
+          width: double.infinity,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (d) => _pick(d.localPosition.dx, box.maxWidth),
+            onHorizontalDragStart: (d) => _pick(d.localPosition.dx, box.maxWidth),
+            onHorizontalDragUpdate: (d) => _pick(d.localPosition.dx, box.maxWidth),
+            child: Stack(clipBehavior: Clip.none, children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _CurvePainter(values, second, peak, at, widget.currency),
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            SizedBox(
-              height: 14,
-              child: Row(
-                children: [
-                  for (final (i, label) in labels.indexed)
-                    Expanded(
-                      child: Text(
-                        i % step == 0 ? label : '',
-                        textAlign: i == 0
-                            ? TextAlign.left
-                            : (i == labels.length - 1 ? TextAlign.right : TextAlign.center),
-                        maxLines: 1,
-                        overflow: TextOverflow.clip,
-                        style: const TextStyle(fontSize: 10, color: AppColors.muted),
-                      ),
+              if (at != null) _tooltip(at, peak, plotHeight, plot, step, box.maxWidth),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 14,
+          child: Padding(
+            padding: EdgeInsets.only(left: _left - step / 2, right: _right - step / 2),
+            child: Row(children: [
+              for (final (i, label) in widget.labels.indexed)
+                Expanded(
+                  child: Text(
+                    i % labelStep == 0 || i == at ? label : '',
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: i == at ? AppColors.text : AppColors.muted,
+                      fontWeight: i == at ? FontWeight.w800 : FontWeight.w400,
                     ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
+                  ),
+                ),
+            ]),
+          ),
+        ),
+      ]);
+    });
   }
 
-  Widget _flag(double value, int at) => Container(
-        width: 88,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(color: AppColors.text, borderRadius: BorderRadius.circular(10)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(fmtMoney(value, currency),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
-            Text(at < labels.length ? labels[at] : '',
-                maxLines: 1,
-                style: const TextStyle(color: Colors.white70, fontSize: 10.5)),
-          ],
+  Widget _tooltip(int at, double peak, double plotHeight, double plot, double step, double width) {
+    final values = widget.values;
+    final second = widget.second;
+    final x = _left + at * step;
+    const cardWidth = 150.0;
+    final left = (x - cardWidth / 2).clamp(0.0, (width - cardWidth).clamp(0.0, double.infinity));
+    final label = at < widget.labels.length ? widget.labels[at] : '';
+    Widget row(Color color, String name, double value) => Row(children: [
+          Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 6),
+          Expanded(child: Text(name, style: const TextStyle(color: Colors.white70, fontSize: 11))),
+          Text(fmtMoney(value, widget.currency),
+              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
+        ]);
+    return Positioned(
+      left: left,
+      top: 0,
+      width: cardWidth,
+      child: IgnorePointer(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: AppColors.text,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 10, offset: Offset(0, 4))],
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 3),
+            if (second == null)
+              row(AppColors.primary, 'Sales', values[at])
+            else ...[
+              row(AppColors.primary, 'Outlet demands', values[at]),
+              const SizedBox(height: 2),
+              row(_amber, 'Distributor orders', second[at]),
+              const SizedBox(height: 2),
+              row(Colors.white, 'Together', values[at] + second[at]),
+            ],
+          ]),
         ),
-      );
+      ),
+    );
+  }
+}
+
+String _short(double v) {
+  if (v >= 10000000) return '${(v / 10000000).toStringAsFixed(1)}Cr'.replaceAll('.0', '');
+  if (v >= 100000) return '${(v / 100000).toStringAsFixed(1)}L'.replaceAll('.0', '');
+  if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}K'.replaceAll('.0', '');
+  return v.round().toString();
 }
 
 class _CurvePainter extends CustomPainter {
-  _CurvePainter(this.values, [this.second]);
+  _CurvePainter(this.values, this.second, this.peak, this.at, this.currency);
 
   final List<double> values;
   final List<double>? second;
+  final double peak;
+  final int? at;
+  final String? currency;
+
+  static const _amber = Color(0xFFF59E0B);
+
+  void _text(Canvas canvas, String text, Offset at, {TextAlign align = TextAlign.right, double width = 36}) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: const TextStyle(fontSize: 9.5, color: AppColors.muted)),
+      textDirection: TextDirection.ltr,
+      textAlign: align,
+      maxLines: 1,
+    )..layout(maxWidth: width);
+    painter.paint(canvas, Offset(at.dx + (align == TextAlign.right ? width - painter.width : 0), at.dy - painter.height / 2));
+  }
+
+  ui.Path _line(List<Offset> points) {
+    final path = ui.Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 1; i < points.length; i++) {
+      final from = points[i - 1];
+      final to = points[i];
+      final mid = (from.dx + to.dx) / 2;
+      path.cubicTo(mid, from.dy, mid, to.dy, to.dx, to.dy);
+    }
+    return path;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final peak = [...values, ...?second].reduce((a, b) => a > b ? a : b);
-    final step = size.width / (values.length - 1);
+    const left = _SalesCurveState._left;
+    const right = _SalesCurveState._right;
+    const top = 30.0;
+    final plotW = size.width - left - right;
+    final plotH = size.height - top - 4;
+    final step = plotW / (values.length - 1);
+    final top0 = peak > 0 ? peak : 1.0;
+    double y(double v) => top + plotH - (v / top0) * plotH;
+
     final grid = Paint()
       ..color = AppColors.border
       ..strokeWidth = 1;
-    for (var i = 0; i < values.length; i += (values.length / 6).ceil().clamp(1, 12)) {
-      canvas.drawLine(Offset(i * step, 0), Offset(i * step, size.height), grid);
+    for (var k = 0; k <= 3; k++) {
+      final value = top0 * k / 3;
+      final gy = y(value);
+      canvas.drawLine(Offset(left, gy), Offset(size.width - right, gy), grid);
+      _text(canvas, _short(value), Offset(0, gy));
     }
-    if (peak <= 0) {
-      canvas.drawLine(Offset(0, size.height - 4), Offset(size.width, size.height - 4),
+    if (peak <= 0) return;
+
+    void series(List<double> data, Color color, {bool area = false}) {
+      final pts = [for (final (i, v) in data.indexed) Offset(left + i * step, y(v))];
+      final line = _line(pts);
+      if (area) {
+        final fill = ui.Path.from(line)
+          ..lineTo(pts.last.dx, top + plotH)
+          ..lineTo(pts.first.dx, top + plotH)
+          ..close();
+        canvas.drawPath(
+          fill,
           Paint()
-            ..color = AppColors.border
-            ..strokeWidth = 3
-            ..strokeCap = StrokeCap.round);
-      return;
-    }
-    final points = [
-      for (final (i, value) in values.indexed)
-        Offset(i * step, size.height - (value / peak) * (size.height - 34) - 6)
-    ];
-    final line = ui.Path()..moveTo(points.first.dx, points.first.dy);
-    for (var i = 1; i < points.length; i++) {
-      final previous = points[i - 1];
-      final current = points[i];
-      final midX = (previous.dx + current.dx) / 2;
-      line.cubicTo(midX, previous.dy, midX, current.dy, current.dx, current.dy);
-    }
-    final area = ui.Path.from(line)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(
-      area,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0x381A56DB), Color(0x001A56DB)],
-        ).createShader(Offset.zero & size),
-    );
-    canvas.drawPath(
-      line,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.6
-        ..strokeCap = StrokeCap.round
-        ..color = AppColors.primary,
-    );
-    for (final (i, point) in points.indexed) {
-      if (values[i] <= 0) continue;
-      canvas.drawCircle(point, 4.5, Paint()..color = Colors.white);
-      canvas.drawCircle(point, 3, Paint()..color = AppColors.primary);
-    }
-    final other = second;
-    if (other != null && other.length == values.length) {
-      const tone = Color(0xFFF59E0B);
-      final pts = [
-        for (final (i, value) in other.indexed)
-          Offset(i * step, size.height - (value / peak) * (size.height - 34) - 6)
-      ];
-      final path = ui.Path()..moveTo(pts.first.dx, pts.first.dy);
-      for (var i = 1; i < pts.length; i++) {
-        final from = pts[i - 1];
-        final to = pts[i];
-        final mid = (from.dx + to.dx) / 2;
-        path.cubicTo(mid, from.dy, mid, to.dy, to.dx, to.dy);
+            ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0)],
+            ).createShader(Rect.fromLTWH(left, top, plotW, plotH)),
+        );
       }
       canvas.drawPath(
-        path,
+        line,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.6
           ..strokeCap = StrokeCap.round
-          ..color = tone,
+          ..color = color,
       );
-      for (final (i, point) in pts.indexed) {
-        if (other[i] <= 0) continue;
-        canvas.drawCircle(point, 4.5, Paint()..color = Colors.white);
-        canvas.drawCircle(point, 3, Paint()..color = tone);
+      for (final (i, p) in pts.indexed) {
+        final chosen = i == at;
+        if (data[i] <= 0 && !chosen) continue;
+        canvas.drawCircle(p, chosen ? 7 : 4.5, Paint()..color = Colors.white);
+        canvas.drawCircle(p, chosen ? 5 : 3, Paint()..color = color);
       }
     }
+
+    if (at != null) {
+      final x = left + at! * step;
+      canvas.drawLine(
+        Offset(x, top),
+        Offset(x, top + plotH),
+        Paint()
+          ..color = AppColors.muted.withValues(alpha: 0.5)
+          ..strokeWidth = 1.2,
+      );
+    }
+    series(values, AppColors.primary, area: true);
+    final other = second;
+    if (other != null && other.length == values.length) series(other, _amber);
   }
 
   @override
-  bool shouldRepaint(_CurvePainter old) => old.values != values || old.second != second;
+  bool shouldRepaint(_CurvePainter old) =>
+      old.values != values || old.second != second || old.at != at || old.peak != peak;
 }
 
 class SalesKey extends StatelessWidget {

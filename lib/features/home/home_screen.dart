@@ -927,7 +927,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 8),
             SizedBox(
-              height: 170,
+              height: 240,
               child: SalesCurve(
                 values: [for (final row in rows) ((row['amount'] as num?) ?? 0).toDouble()],
                 second: rows.any((row) => row.containsKey('distributor'))
