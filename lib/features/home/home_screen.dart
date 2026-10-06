@@ -234,6 +234,8 @@ class _HomeScreenState extends State<HomeScreen> {
             vehicle: punchIn ? null : (_status?['current'] as Map?)?['vehicle'] as String?,
             shiftEndsAt: shiftEnd,
             askEarlyReason: _profile.earlyCheckoutReason,
+            odometerIn: ((_status?['current'] as Map?)?['odometer_in'] as num?)?.toDouble(),
+            odometerLast: (_status?['odometer_last'] as num?)?.toDouble(),
           ),
         ));
         if (filled == null) return; // backed out of the form: nothing is punched
@@ -410,7 +412,8 @@ class _HomeScreenState extends State<HomeScreen> {
       busy: _punching,
       onDutySince: DateTime.tryParse('${current?['check_in'] ?? ''}')?.toLocal(),
       workedHours: ((_day?['worked_hours_today'] as num?) ?? 0).toDouble(),
-      km: (_travel?['distance_km'] as num?) ?? 0,
+      // On a bike or car the meter decides; the phone's own track is the fallback.
+      km: (_travel?['odometer_km'] as num?) ?? (_travel?['distance_km'] as num?) ?? 0,
       visits: _visits.length,
       // Time spent moving, counted by the server over the hours on duty.
       travelMinutes: ((_travel?['travel_minutes'] as num?) ?? 0).toInt(),
@@ -674,6 +677,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// A summary tile that opens today's customers already narrowed to what it counts.
+  Widget _drill(String filter, Widget tile) => InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _push(BeatTodayScreen(filter: filter)),
+        child: tile,
+      );
+
   Widget _todaySummary() {
     final clients =
         ((_today?['clients'] as List?) ?? []).cast<Map<String, dynamic>>();
@@ -711,43 +721,43 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: SummaryTile(
+                  child: _drill('all', SummaryTile(
                     icon: Icons.event_note_rounded,
                     colour: AppColors.primary,
                     value: planned,
                     label: 'Planned',
                     percent: planned == 0 ? 0 : 1,
-                  ),
+                  )),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: SummaryTile(
+                  child: _drill('visited', SummaryTile(
                     icon: Icons.check_circle_rounded,
                     colour: AppColors.success,
                     value: visited,
                     label: 'Visited',
                     percent: share(visited),
-                  ),
+                  )),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: SummaryTile(
+                  child: _drill('pending', SummaryTile(
                     icon: Icons.schedule_rounded,
                     colour: AppColors.warning,
                     value: pending,
                     label: 'Pending',
                     percent: share(pending),
-                  ),
+                  )),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: SummaryTile(
+                  child: _drill('cancelled', SummaryTile(
                     icon: Icons.cancel_rounded,
                     colour: AppColors.danger,
                     value: cancelled,
                     label: 'Cancelled',
                     percent: share(cancelled),
-                  ),
+                  )),
                 ),
               ],
             )),

@@ -114,11 +114,6 @@ class _CheckInHeroState extends State<CheckInHero> {
     return minutes >= 60 ? '${minutes ~/ 60}h ${minutes % 60}m' : '${minutes}m';
   }
 
-  String get _speed {
-    if (widget.travelMinutes <= 0 || widget.km <= 0) return '—';
-    return '${(widget.km / (widget.travelMinutes / 60)).toStringAsFixed(1)} km/h';
-  }
-
   @override
   Widget build(BuildContext context) {
     final green = widget.punchedIn;
@@ -138,10 +133,10 @@ class _CheckInHeroState extends State<CheckInHero> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(child: _statusPill(green)),
-              if (widget.target > 0) _targetBadge(),
+              if (widget.target > 0) ...[const SizedBox(width: 8), _targetBadge()],
             ],
           ),
           const SizedBox(height: 12),
@@ -285,27 +280,19 @@ class _CheckInHeroState extends State<CheckInHero> {
         ),
       );
 
+  /// The target as a pill the same height as the status pill, so both sit on one line.
   Widget _targetBadge() => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 10, offset: Offset(0, 4))],
-        ),
-        child: Column(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(color: const Color(0xCCFFFFFF), borderRadius: BorderRadius.circular(20)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Today's Target", style: TextStyle(fontSize: 10, color: AppColors.muted)),
-            const SizedBox(height: 2),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.adjust_rounded, size: 16, color: AppColors.danger),
-                const SizedBox(width: 5),
-                Text('${widget.target}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.text)),
-              ],
-            ),
-            const Text('Visits', style: TextStyle(fontSize: 9.5, color: AppColors.muted)),
+            const Icon(Icons.adjust_rounded, size: 15, color: AppColors.danger),
+            const SizedBox(width: 6),
+            Text("Target ${widget.target}",
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.text)),
+            const SizedBox(width: 3),
+            const Text('visits', style: TextStyle(fontSize: 12, color: AppColors.muted)),
           ],
         ),
       );
@@ -316,7 +303,6 @@ class _CheckInHeroState extends State<CheckInHero> {
       (Icons.place_rounded, '${widget.km.toStringAsFixed(1)} km', 'Total Travelled', AppColors.success),
       (Icons.directions_car_rounded, '${widget.visits}', 'Visits', AppColors.primary),
       (Icons.timer_rounded, _travelTime, 'Travel Time', AppColors.success),
-      (Icons.speed_rounded, _speed, 'Avg. Speed', AppColors.danger),
     ];
     return InkWell(
       borderRadius: BorderRadius.circular(18),

@@ -13,9 +13,12 @@ const _weekdayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', '
 
 /// The day's journey plan: one or several routes, each customer with its plan status.
 class BeatTodayScreen extends StatefulWidget {
-  const BeatTodayScreen({super.key, this.embedded = false});
+  const BeatTodayScreen({super.key, this.embedded = false, this.filter = 'all'});
 
   final bool embedded;
+
+  /// Which of today's customers to list: all, visited, pending or cancelled.
+  final String filter;
 
   @override
   State<BeatTodayScreen> createState() => _BeatTodayScreenState();
@@ -23,6 +26,7 @@ class BeatTodayScreen extends StatefulWidget {
 
 class _BeatTodayScreenState extends State<BeatTodayScreen> {
   DateTime _day = DateTime.now();
+  late String _filter = widget.filter;
   Map<String, dynamic>? _data;
   bool _loading = true;
   String? _error;
@@ -158,13 +162,35 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
 
   List<Widget> _content(Map<String, dynamic> data, String label) {
     final plans = ((data['plans'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final clients = ((data['clients'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final every = ((data['clients'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final clients = every.where((c) {
+      if (_filter == 'all') return true;
+      final status = c['visit_status'] == 'done' ? 'visited' : (c['plan_status'] as String? ?? 'planned');
+      return switch (_filter) {
+        'visited' => status == 'visited',
+        'cancelled' => status == 'cancelled',
+        _ => status != 'visited' && status != 'cancelled' && status != 'skipped',
+      };
+    }).toList();
     final adhoc = ((data['adhoc_visits'] as List?) ?? []).cast<Map<String, dynamic>>();
     return [
       if (plans.isEmpty)
         EmptyView(icon: Icons.event_busy_rounded,
             text: 'No $label planned for this day.\nUse "Adhoc visit" to visit anyone.'),
       for (final plan in plans) _planCard(plan),
+      if (_filter != 'all')
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: InputChip(
+              label: Text('Showing ${_filter[0].toUpperCase()}${_filter.substring(1)} (${clients.length})'),
+              onDeleted: () => setState(() => _filter = 'all'),
+            ),
+          ),
+        ),
+      if (clients.isEmpty && _filter != 'all')
+        const EmptyView(icon: Icons.filter_alt_off_rounded, text: 'Nothing in this group.'),
       if (clients.isNotEmpty) ...[
         const Padding(
           padding: EdgeInsets.fromLTRB(4, 14, 4, 4),

@@ -39,6 +39,8 @@ class PunchFormScreen extends StatefulWidget {
     this.vehicle,
     this.shiftEndsAt,
     this.askEarlyReason = false,
+    this.odometerIn,
+    this.odometerLast,
   });
 
   final bool punchIn;
@@ -54,6 +56,10 @@ class PunchFormScreen extends StatefulWidget {
 
   /// The office asks for a reason when the day ends early.
   final bool askEarlyReason;
+
+  /// At check-out: the reading entered at check-in. At check-in: the last reading on record.
+  final double? odometerIn;
+  final double? odometerLast;
 
   @override
   State<PunchFormScreen> createState() => _PunchFormScreenState();
@@ -120,7 +126,32 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
           ? const ['two_wheeler', 'four_wheeler'].contains(_vehicle)
           : true);
 
+  /// The reading to stay at or above: check-in's own at check-out, the last one on record at check-in.
+  double? get _floor => widget.punchIn ? widget.odometerLast : widget.odometerIn;
+
+  /// What is wrong with the typed reading, or null when it is fine.
+  String? get _meterProblem {
+    final value = _odometer;
+    final floor = _floor;
+    if (!_hasMeter || value == null || floor == null || floor <= 0) return null;
+    if (value < floor) {
+      return widget.punchIn
+          ? 'Below the last reading on record (${fmtQty(floor)}). Enter the correct reading.'
+          : 'Below the check-in reading (${fmtQty(floor)}). Enter the correct reading.';
+    }
+    return null;
+  }
+
+  /// Today's distance by the meter, once check-out has a reading to subtract from.
+  double? get _meterKm {
+    final value = _odometer;
+    final start = widget.odometerIn;
+    if (widget.punchIn || !_hasMeter || value == null || start == null || value < start) return null;
+    return value - start;
+  }
+
   bool get _ready =>
+      _meterProblem == null &&
       (!widget.needSelfie || _selfie != null) &&
       (!widget.needVehicle || (_vehicle != null && (_vehicle != 'other' || _note.text.trim().isNotEmpty))) &&
       (!_hasMeter || (_odometerPhoto != null && (_odometer ?? 0) > 0)) &&
@@ -219,8 +250,10 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
                   decoration: InputDecoration(
                     labelText: 'Odometer reading',
                     suffixText: 'km',
-                    errorText: _tried && (_odometer ?? 0) <= 0 ? 'Type the number on the meter.' : null,
-                    helperText: 'Only asked when you ride your own two- or four-wheeler.',
+                    errorText: _meterProblem ?? (_tried && (_odometer ?? 0) <= 0 ? 'Type the number on the meter.' : null),
+                    helperText: _meterKm != null
+                        ? 'Distance today by the meter: ${_meterKm!.toStringAsFixed(1)} km (check-in ${fmtQty(widget.odometerIn!)})'
+                        : 'Only asked when you ride your own two- or four-wheeler.',
                   ),
                 ),
               ),
