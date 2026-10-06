@@ -82,6 +82,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
         'limit': 300,
         if (q.isNotEmpty) 'q': q,
         if (_categoryId != null) 'category_id': _categoryId,
+        if (widget.client != null) 'partner_id': widget.client!['id'],
       }) as Map<String, dynamic>;
       final products = (data['products'] as List).cast<Map<String, dynamic>>();
       for (final p in products) {
