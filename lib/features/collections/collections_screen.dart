@@ -89,35 +89,65 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
 
   Future<void> _submitDeposit(Map<String, dynamic> pending) async {
     final reference = TextEditingController();
+    final person = TextEditingController();
+    var when = DateTime.now();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Submit to the office'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${fmtMoney(pending['amount'] as num?, _currency)} from ${pending['count']} '
-                'distributor collections will be marked as submitted.'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reference,
-              decoration: const InputDecoration(labelText: 'Slip / receipt number (optional)'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) => AlertDialog(
+          title: const Text('Submit to the office'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${fmtMoney(pending['amount'] as num?, _currency)} from ${pending['count']} '
+                    'distributor collections'),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: person,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(labelText: 'Who in the company took it', prefixIcon: Icon(Icons.person_rounded)),
+                ),
+                const SizedBox(height: 10),
+                _DateField(value: when, onChanged: (d) => setDialog(() => when = d)),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: reference,
+                  decoration: const InputDecoration(labelText: 'Slip / receipt number (optional)'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                if (person.text.trim().isEmpty) {
+                  showSnack(ctx, 'Enter the name of the person who took the money.');
+                  return;
+                }
+                Navigator.of(ctx).pop(true);
+              },
+              child: const Text('Submit'),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Submit')),
-        ],
       ),
     );
     final ref = reference.text.trim();
+    final who = person.text.trim();
     reference.dispose();
+    person.dispose();
     if (confirmed != true) return;
     setState(() => _busy = true);
     try {
-      await Services.outbox.submit('/api/v1/deposits', {'reference': ref, 'uuid': const Uuid().v4()});
+      await Services.outbox.submit('/api/v1/deposits', {
+        'reference': ref,
+        'uuid': const Uuid().v4(),
+        'handed_to': who,
+        'date': when.toUtc().toIso8601String(),
+      });
       settleAndRefresh();
       if (mounted) showSnack(context, 'Submitted to the office');
     } catch (e) {
@@ -131,17 +161,24 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
     final distributor = group['distributor'] as Map<String, dynamic>;
     final payments = (group['payments'] as List).cast<Map<String, dynamic>>();
     final picked = {for (final p in payments) p['id'] as int};
+    // What is given from each outlet collection: all that is still held, unless changed.
+    final amounts = {
+      for (final p in payments)
+        p['id'] as int: TextEditingController(text: _plain((p['held'] ?? p['amount']) as num)),
+    };
     final reference = TextEditingController();
     final note = TextEditingController();
+    final person = TextEditingController();
+    var when = DateTime.now();
     int? mode;
+    String? problem;
     final go = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setSheet) {
-        final total = payments
-            .where((p) => picked.contains(p['id']))
-            .fold<num>(0, (sum, p) => sum + (p['amount'] as num));
+        num given(Map<String, dynamic> p) => num.tryParse(amounts[p['id']]!.text.trim()) ?? 0;
+        final total = payments.where((p) => picked.contains(p['id'])).fold<num>(0, (sum, p) => sum + given(p));
         return Padding(
           padding: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.of(ctx).viewInsets.bottom + 16),
           child: SingleChildScrollView(
@@ -151,24 +188,19 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
               children: [
                 Text('Hand over to ${distributor['name']}',
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 4),
-                const Text('Tick the outlet collections you are giving now.',
-                    style: TextStyle(color: AppColors.muted)),
-                const SizedBox(height: 8),
-                for (final p in payments)
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    value: picked.contains(p['id']),
-                    onChanged: (v) => setSheet(() => v == true ? picked.add(p['id'] as int) : picked.remove(p['id'])),
-                    title: Text('${(p['outlet'] as Map)['name']}'),
-                    subtitle: Text([
-                      if (asText(p['mode']) != null) '${p['mode']}',
-                      fmtTime(p['date']),
-                    ].join(' · ')),
-                    secondary: Text(fmtMoney(p['amount'] as num?, p['currency'] as String?),
-                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: person,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: 'Who at ${distributor['name']} took it',
+                    prefixIcon: const Icon(Icons.person_rounded),
                   ),
+                ),
+                const SizedBox(height: 10),
+                _DateField(value: when, onChanged: (d) => setSheet(() => when = d)),
+                const SizedBox(height: 12),
+                for (final p in payments) _paymentRow(p, picked, amounts[p['id']]!, setSheet),
                 const Divider(),
                 if (_modes.isNotEmpty)
                   DropdownButtonFormField<int>(
@@ -187,13 +219,34 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
                 const SizedBox(height: 8),
                 TextField(
                   controller: note,
-                  decoration: const InputDecoration(labelText: 'Note (optional)'),
+                  decoration: const InputDecoration(labelText: 'Note about this handover'),
                 ),
+                if (problem != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(problem!, style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w700)),
+                  ),
                 const SizedBox(height: 14),
                 GradientButton(
                   label: 'Hand over ${fmtMoney(total, group['currency'] as String?)}',
                   icon: Icons.handshake_rounded,
-                  onPressed: picked.isEmpty ? null : () => Navigator.of(ctx).pop(true),
+                  onPressed: picked.isEmpty || total <= 0
+                      ? null
+                      : () {
+                          final bad = payments.where((p) {
+                            if (!picked.contains(p['id'])) return false;
+                            final held = (p['held'] ?? p['amount']) as num;
+                            return given(p) <= 0 || given(p) - held > 0.005;
+                          });
+                          if (person.text.trim().isEmpty) {
+                            setSheet(() => problem = 'Enter the name of the person who took the money.');
+                          } else if (bad.isNotEmpty) {
+                            setSheet(() => problem =
+                                'Check the amount for ${(bad.first['outlet'] as Map)['name']}: it must be more than 0 and no more than what is still with you.');
+                          } else {
+                            Navigator.of(ctx).pop(true);
+                          }
+                        },
                 ),
               ],
             ),
@@ -203,18 +256,30 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
     );
     final ref = reference.text.trim();
     final memo = note.text.trim();
+    final who = person.text.trim();
+    final items = [
+      for (final p in payments)
+        if (picked.contains(p['id']))
+          {'payment_id': p['id'], 'amount': num.tryParse(amounts[p['id']]!.text.trim()) ?? 0},
+    ];
     reference.dispose();
     note.dispose();
+    person.dispose();
+    for (final c in amounts.values) {
+      c.dispose();
+    }
     if (go != true) return;
     setState(() => _busy = true);
     try {
       await Services.outbox.submit('/api/v1/handovers', {
         'uuid': const Uuid().v4(),
         'distributor_id': distributor['id'],
-        'payment_ids': picked.toList(),
+        'items': items,
         'mode_id': mode,
         'reference': ref,
         'note': memo,
+        'received_by': who,
+        'date': when.toUtc().toIso8601String(),
       });
       settleAndRefresh();
       if (mounted) showSnack(context, 'Handed over to ${distributor['name']}');
@@ -224,6 +289,84 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  String _plain(num v) => v == v.roundToDouble() ? '${v.toInt()}' : v.toStringAsFixed(2);
+
+  /// One outlet collection: tick it, see what was collected and what was already given, change today's part.
+  Widget _paymentRow(Map<String, dynamic> p, Set<int> picked, TextEditingController amount, StateSetter setSheet) {
+    final currency = p['currency'] as String?;
+    final total = p['amount'] as num;
+    final handed = (p['handed'] as num?) ?? 0;
+    final held = (p['held'] as num?) ?? total;
+    final parts = ((p['parts'] as List?) ?? const []).cast<Map<String, dynamic>>();
+    final on = picked.contains(p['id']);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: on ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
+        border: Border.all(color: on ? AppColors.primary.withValues(alpha: 0.4) : AppColors.border),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Checkbox(
+            value: on,
+            visualDensity: VisualDensity.compact,
+            onChanged: (v) => setSheet(() => v == true ? picked.add(p['id'] as int) : picked.remove(p['id'])),
+          ),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${(p['outlet'] as Map)['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+              Text(
+                [
+                  'Collected ${fmtMoney(total, currency)}',
+                  fmtTime(p['date']),
+                  if (asText(p['mode']) != null) '${p['mode']}',
+                ].join(' · '),
+                style: const TextStyle(fontSize: 12, color: AppColors.muted),
+              ),
+            ]),
+          ),
+        ]),
+        Padding(
+          padding: const EdgeInsets.only(left: 12, top: 4),
+          child: Wrap(spacing: 8, runSpacing: 4, children: [
+            _chip('Given before ${fmtMoney(handed, currency)}', AppColors.success),
+            _chip('Still with you ${fmtMoney(held, currency)}', AppColors.warning),
+          ]),
+        ),
+        for (final part in parts)
+          Padding(
+            padding: const EdgeInsets.only(left: 12, top: 3),
+            child: Text(
+              '${fmtMoney(part['amount'] as num?, currency)} on ${fmtTime(part['date'])} (${part['handover']}, ${part['state']})',
+              style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
+            ),
+          ),
+        if (on)
+          Padding(
+            padding: const EdgeInsets.only(left: 12, top: 8),
+            child: TextField(
+              controller: amount,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setSheet(() {}),
+              decoration: InputDecoration(
+                labelText: 'Giving now',
+                isDense: true,
+                helperText: 'Up to ${fmtMoney(held, currency)}',
+              ),
+            ),
+          ),
+      ]),
+    );
+  }
+
+  Widget _chip(String text, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+        child: Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: color)),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -279,7 +422,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
                   ]),
                   const SizedBox(height: 6),
                   Text(fmtMoney(amount, _currency), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                  Text(sub, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                  if (sub.isNotEmpty) Text(sub, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
                 ],
               ),
             ),
@@ -288,9 +431,9 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Row(children: [
-        tile('For the office', 'from distributors', office, Icons.apartment_rounded, AppColors.primary, 0),
+        tile('For the office', '', office, Icons.apartment_rounded, AppColors.primary, 0),
         const SizedBox(width: 10),
-        tile('For distributors', 'from outlets', distributors, Icons.local_shipping_rounded, AppColors.warning, 1),
+        tile('For distributors', '', distributors, Icons.local_shipping_rounded, AppColors.warning, 1),
       ]),
     );
   }
@@ -304,11 +447,6 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const _FlowNote(
-            icon: Icons.info_outline_rounded,
-            text: 'Money you collect from a distributor belongs to the company. Submit it to the office.',
-          ),
-          const SizedBox(height: 12),
           if (count == 0)
             const SectionCard(
               title: 'Nothing to submit',
@@ -377,12 +515,6 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const _FlowNote(
-            icon: Icons.info_outline_rounded,
-            text: 'Money you collect from an outlet belongs to its distributor, not the company. '
-                'Hand it to that distributor.',
-          ),
-          const SizedBox(height: 12),
           if (groups.isEmpty)
             const SectionCard(
               title: 'Nothing to hand over',
@@ -396,7 +528,11 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
               for (final h in _handovers)
                 _moneyTile(
                   title: '${h['name']} · ${(h['distributor'] as Map)['name']}',
-                  subtitle: '${h['count']} collections · ${fmtTime(h['date'])}',
+                  subtitle: [
+                    '${h['count']} collections',
+                    fmtTime(h['date']),
+                    if (asText(h['received_by']) != null) 'taken by ${h['received_by']}',
+                  ].join(' · '),
                   amount: h['amount'] as num?,
                   currency: h['currency'] as String?,
                   state: '${h['state']}',
@@ -442,7 +578,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
                   const Icon(Icons.storefront_rounded, size: 14, color: AppColors.muted),
                   const SizedBox(width: 6),
                   Expanded(child: Text('${(p['outlet'] as Map)['name']}', overflow: TextOverflow.ellipsis)),
-                  Text(fmtMoney(p['amount'] as num?, p['currency'] as String?)),
+                  Text(fmtMoney((p['held'] ?? p['amount']) as num?, p['currency'] as String?)),
                 ]),
               ),
             if (payments.length > 4)
@@ -515,28 +651,6 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
   }
 }
 
-class _FlowNote extends StatelessWidget {
-  const _FlowNote({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(children: [
-        Icon(icon, size: 18, color: AppColors.primary),
-        const SizedBox(width: 10),
-        Expanded(child: Text(text, style: const TextStyle(fontSize: 13))),
-      ]),
-    );
-  }
-}
-
 class _Empty extends StatelessWidget {
   const _Empty(this.text);
   final String text;
@@ -546,4 +660,35 @@ class _Empty extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(text, style: const TextStyle(color: AppColors.muted)),
       );
+}
+
+/// A date to change; today unless the handover happened earlier.
+class _DateField extends StatelessWidget {
+  const _DateField({required this.value, required this.onChanged});
+
+  final DateTime value;
+  final ValueChanged<DateTime> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () async {
+        final now = DateTime.now();
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: value,
+          firstDate: now.subtract(const Duration(days: 90)),
+          lastDate: now,
+        );
+        if (picked != null) {
+          onChanged(DateTime(picked.year, picked.month, picked.day, now.hour, now.minute));
+        }
+      },
+      child: InputDecorator(
+        decoration: const InputDecoration(labelText: 'Date given', prefixIcon: Icon(Icons.event_rounded)),
+        child: Text('${value.day.toString().padLeft(2, '0')}-${value.month.toString().padLeft(2, '0')}-${value.year}'),
+      ),
+    );
+  }
 }

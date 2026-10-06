@@ -255,9 +255,9 @@ class SalesCard extends StatelessWidget {
             if (second != null) ...[
               const SizedBox(height: 6),
               const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                _Key(color: AppColors.primary, label: 'Outlet demands'),
+                SalesKey(color: AppColors.primary, label: 'Outlet demands'),
                 SizedBox(width: 16),
-                _Key(color: Color(0xFFF59E0B), label: 'Distributor orders'),
+                SalesKey(color: Color(0xFFF59E0B), label: 'Distributor orders'),
               ]),
             ],
             if (onOpen != null) ...[
@@ -465,8 +465,8 @@ class _CurvePainter extends CustomPainter {
   bool shouldRepaint(_CurvePainter old) => old.values != values || old.second != second;
 }
 
-class _Key extends StatelessWidget {
-  const _Key({required this.color, required this.label});
+class SalesKey extends StatelessWidget {
+  const SalesKey({super.key, required this.color, required this.label});
 
   final Color color;
   final String label;

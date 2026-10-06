@@ -345,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_visit != null) _ongoingVisitCard(_visit!),
       _todaySummary(),
       if (_day?['punched_in'] == true && profile.feature('visits')) const RecommendationsCard(),
-      if (profile.feature('orders')) ...[_salesCard(), _topProductsCard()],
+      if (profile.feature('orders')) ...[_salesCard()],
       _upcomingVisits(profile),
       const MyTasksCard(),
       const MyRequestsCard(),
@@ -570,7 +570,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ListView(
               controller: controller,
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
-              children: [_salesSummary()],
+              children: [_salesSummary(), const SizedBox(height: 12), _topProductsCard()],
             ),
           ),
         ),
@@ -926,17 +926,25 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            SalesLineChart(
-              points: [
-                for (final row in rows)
-                  ((row['amount'] as num?) ?? 0).toDouble()
-              ],
-              labels: [for (final row in rows) '${row['label']}'],
-              format: (value) => value >= 1000
-                  ? '${fmtMoney(value / 1000, currency)}K'
-                      .replaceAll('.0K', 'K')
-                  : fmtMoney(value, currency),
+            SizedBox(
+              height: 170,
+              child: SalesCurve(
+                values: [for (final row in rows) ((row['amount'] as num?) ?? 0).toDouble()],
+                second: rows.any((row) => row.containsKey('distributor'))
+                    ? [for (final row in rows) ((row['distributor'] as num?) ?? 0).toDouble()]
+                    : null,
+                labels: [for (final row in rows) '${row['label']}'],
+                currency: currency,
+              ),
             ),
+            if (rows.any((row) => row.containsKey('distributor'))) ...[
+              const SizedBox(height: 8),
+              const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                SalesKey(color: AppColors.primary, label: 'Outlet demands'),
+                SizedBox(width: 16),
+                SalesKey(color: Color(0xFFF59E0B), label: 'Distributor orders'),
+              ]),
+            ],
           ],
         ),
       ),
