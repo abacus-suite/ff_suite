@@ -48,6 +48,7 @@ class Profile {
     this.shiftEnd,
     this.scope = 'own',
     this.routeLabel = 'Beat',
+    this.beatAtCheckin = false,
     this.routes = const [],
     this.features = const {},
     this.labels = const {},
@@ -129,6 +130,9 @@ class Profile {
   /// What an order is called in this company.
   String get orderWord => isDemandFlow ? 'Demand' : 'Order';
   final String routeLabel;
+
+  /// Asked which beat they are working when they check in with nothing planned.
+  final bool beatAtCheckin;
   final List<IdName> routes;
   final Map<String, bool> features;
   final Map<String, String> labels;
@@ -189,6 +193,7 @@ class Profile {
       photoVersion: employee['photo_version'] as String?,
       idleLogoutHours: (settings['idle_logout_hours'] as num? ?? 0).toInt(),
       routeLabel: employee['route_label'] as String? ?? 'Beat',
+      beatAtCheckin: employee['beat_at_checkin'] == true,
       routes: ((employee['routes'] as List?) ?? []).map(IdName.from).whereType<IdName>().toList(),
       features: ((app?['features'] as Map?) ?? {}).map((k, v) => MapEntry('$k', v == true)),
       labels: ((app?['labels'] as Map?) ?? {}).map((k, v) => MapEntry('$k', '${v ?? ''}')),

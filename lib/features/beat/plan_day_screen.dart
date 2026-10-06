@@ -9,9 +9,12 @@ import '../../widgets/skeleton.dart';
 
 /// Plan a route day: pick the day, pick the route, keep the customers you will reach.
 class PlanDayScreen extends StatefulWidget {
-  const PlanDayScreen({super.key, this.initialDate});
+  const PlanDayScreen({super.key, this.initialDate, this.atCheckIn = false});
 
   final DateTime? initialDate;
+
+  /// Opened by the check-in: today is fixed, saving carries on to the check-in, and it can be skipped.
+  final bool atCheckIn;
 
   @override
   State<PlanDayScreen> createState() => _PlanDayScreenState();
@@ -129,9 +132,9 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
         'beat_id': route['id'],
         'partner_ids': _selected.toList(),
       });
-      settleAndRefresh();
+      if (!widget.atCheckIn) settleAndRefresh();
       if (!mounted) return;
-      showSnack(context, '${_selected.length} customers planned for ${fmtDate(_date)}');
+      if (!widget.atCheckIn) showSnack(context, '${_selected.length} customers planned for ${fmtDate(_date)}');
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
@@ -223,7 +226,13 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
     final profile = Services.auth.profile!;
     final routeLabel = profile.routeLabel;
     return Scaffold(
-      appBar: AppBar(title: Text('Plan a $routeLabel Day')),
+      appBar: AppBar(
+        title: Text(widget.atCheckIn ? 'Choose today\'s $routeLabel' : 'Plan a $routeLabel Day'),
+        actions: [
+          if (widget.atCheckIn)
+            TextButton(onPressed: () => Navigator.of(context).pop('skip'), child: const Text('Skip')),
+        ],
+      ),
       body: _loading
           ? const LoadingView()
           : _error != null
@@ -243,7 +252,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                                   : 'Already planned: ${_plannedDay!['planned_count']} customers'),
                               trailing: Text(fmtDate(_date),
                                   style: const TextStyle(fontWeight: FontWeight.w700)),
-                              onTap: _pickDate,
+                              onTap: widget.atCheckIn ? null : _pickDate,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -309,8 +318,8 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: GradientButton(
-                          label: 'Save Plan',
-                          icon: Icons.event_available_rounded,
+                          label: widget.atCheckIn ? 'Save and check in' : 'Save Plan',
+                          icon: widget.atCheckIn ? Icons.login_rounded : Icons.event_available_rounded,
                           busy: _busy,
                           onPressed: _busy || _route == null ? null : _save,
                         ),

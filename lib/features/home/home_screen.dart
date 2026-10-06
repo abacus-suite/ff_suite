@@ -29,6 +29,7 @@ import 'recommendations_card.dart';
 import 'my_requests_card.dart';
 import '../../widgets/sync_status.dart';
 import '../beat/beat_today_screen.dart';
+import '../beat/plan_day_screen.dart';
 import '../clients/client_detail_screen.dart';
 import '../clients/clients_screen.dart';
 import '../orders/catalog_screen.dart';
@@ -180,9 +181,32 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() => _sales = data as Map<String, dynamic>?);
   }
 
+  /// At check-in, with nothing planned for today, ask which beat is being worked and which of its customers.
+  /// Returns false when they backed out, so nothing is checked in.
+  Future<bool> _chooseBeatFirst() async {
+    if (!_profile.beatAtCheckin) return true;
+    try {
+      final today = fmtDate(DateTime.now());
+      final planned =
+          await Services.api.get('/api/v1/route-plan/days', query: {'start': today, 'end': today}) as List;
+      if (planned.isNotEmpty) return true;
+      final routes = await Services.api.get('/api/v1/route-plan/routes') as List;
+      if (routes.isEmpty) return true;
+    } catch (_) {
+      // Offline or no planning: the check-in is not held up by it.
+      return true;
+    }
+    if (!mounted) return false;
+    final result = await Navigator.of(context).push<Object>(
+      MaterialPageRoute(builder: (_) => const PlanDayScreen(atCheckIn: true)),
+    );
+    return result != null;
+  }
+
   Future<void> _punch(bool punchIn) async {
     setState(() => _punching = true);
     try {
+      if (punchIn && !await _chooseBeatFirst()) return;
       final permissionError = await PermissionsHelper.ensureLocation();
       if (permissionError != null) throw permissionError;
       final pos = await Geolocator.getCurrentPosition(
