@@ -1593,25 +1593,21 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
           Navigator.of(context).pop();
           return;
         }
-        // Yes clears it; No keeps it for when the task is opened again; tapping outside stays.
+        // Yes clears it and leaves; No keeps the task as it is, on this screen.
         final clear = await showDialog<bool>(
           context: context,
           builder: (dialog) => AlertDialog(
             title: const Text('Clear this form?'),
-            content: const Text('You have filled in some of it. Clear everything, or keep it to carry on later?'),
+            content: const Text('You have filled in some of it. Going back will clear what you entered. Clear it?'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('No, keep it')),
               FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Yes, clear it')),
             ],
           ),
         );
-        if (clear == null || !context.mounted) return;
-        if (clear) {
-          _dropDraft();
-          Navigator.of(context).pop();
-        } else {
-          _minimize();
-        }
+        if (clear != true || !context.mounted) return;
+        _dropDraft();
+        Navigator.of(context).pop();
       },
       child: Scaffold(
         backgroundColor: AppColors.background,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/draft_store.dart';
@@ -73,7 +75,16 @@ class _OnboardScreenState extends State<OnboardScreen> {
     showSnack(context, 'The details you filled earlier are back.');
   }
 
-  /// Going back with details filled in: Yes clears the form, No keeps it for next time, tapping outside stays.
+  Timer? _autosave;
+
+  /// Saved every few seconds while there is something filled, so closing the app does not lose it.
+  void _startAutosave() {
+    _autosave = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!_saved && _filled) DraftStore.write(_draftKey, _toDraft());
+    });
+  }
+
+  /// Going back with details filled in: Yes clears the form and leaves; No keeps the form as it is.
   Future<void> _leave() async {
     if (_saved || !_filled) {
       Navigator.of(context).pop();
@@ -83,19 +94,18 @@ class _OnboardScreenState extends State<OnboardScreen> {
       context: context,
       builder: (dialog) => AlertDialog(
         title: const Text('Clear this form?'),
-        content: const Text('You have filled in some of it. Clear everything, or keep it to finish later?'),
+        content: const Text('You have filled in some of it. Going back will clear what you entered. Clear it?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('No, keep it')),
           FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Yes, clear it')),
         ],
       ),
     );
-    if (clear == null || !mounted) return;
-    if (clear) {
-      await DraftStore.remove(_draftKey);
-    } else {
-      await DraftStore.write(_draftKey, _toDraft());
-    }
+    // No (or tapping outside): stay on the form with everything still in it.
+    if (clear != true || !mounted) return;
+    _autosave?.cancel();
+    _saved = true;
+    await DraftStore.remove(_draftKey);
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -116,6 +126,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
       _starting[e.key] = e.value.text.trim();
     }
     _restore();
+    _startAutosave();
     Services.api.get('/api/v1/onboarding/options').then((d) {
       if (mounted) setState(() => _options = d as Map<String, dynamic>);
     }).catchError((_) {});
@@ -123,6 +134,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
 
   @override
   void dispose() {
+    _autosave?.cancel();
     for (final c in _c.values) {
       c.dispose();
     }
@@ -218,6 +230,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
             },
           ));
       _saved = true;
+      _autosave?.cancel();
       await DraftStore.remove(_draftKey);
       if (mounted) Navigator.of(context).pop(result as Map<String, dynamic>);
     } catch (e) {
