@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/format.dart';
-import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/dashboard.dart';
 
@@ -444,27 +443,7 @@ class TopProductsCard extends StatefulWidget {
 }
 
 class _TopProductsCardState extends State<TopProductsCard> {
-  String _base = '';
-  Map<String, String> _headers = const {};
-
   static const _ranks = [AppColors.warning, AppColors.primary, AppColors.success, AppColors.purple, AppColors.sky];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadImageKeys();
-  }
-
-  Future<void> _loadImageKeys() async {
-    final base = await Services.api.url('');
-    final headers = await Services.api.authHeaders();
-    if (mounted) {
-      setState(() {
-        _base = base;
-        _headers = headers;
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -584,11 +563,6 @@ class _TopProductsCardState extends State<TopProductsCard> {
       ]),
     );
   }
-
-  Widget _placeholder(Color colour) => Container(
-        color: colour.withValues(alpha: 0.08),
-        child: Icon(Icons.inventory_2_outlined, size: 19, color: colour),
-      );
 }
 
 /// How far the person went today, with the day's path beside it.
