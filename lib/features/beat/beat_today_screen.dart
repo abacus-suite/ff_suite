@@ -177,7 +177,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       if (plans.isEmpty)
         EmptyView(icon: Icons.event_busy_rounded,
             text: 'No $label planned for this day.\nUse "Adhoc visit" to visit anyone.'),
-      for (final plan in plans) _planCard(plan),
+      if (_filter == 'all') for (final plan in plans) _planCard(plan),
       if (_filter != 'all')
         Padding(
           padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
@@ -198,7 +198,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
         ),
         for (final client in clients) _clientTile(client, showRoute: plans.length > 1),
       ],
-      if (adhoc.isNotEmpty) ...[
+      if (adhoc.isNotEmpty && _filter == 'all') ...[
         const Padding(
           padding: EdgeInsets.fromLTRB(4, 14, 4, 4),
           child: Text('Adhoc visits', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),

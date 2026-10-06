@@ -469,9 +469,6 @@ class _TopProductsCardState extends State<TopProductsCard> {
   @override
   Widget build(BuildContext context) {
     final rows = widget.rows;
-    final peak = rows.isEmpty
-        ? 0.0
-        : rows.map((r) => ((r['qty'] as num?) ?? 0).toDouble()).reduce((a, b) => a > b ? a : b);
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -512,7 +509,7 @@ class _TopProductsCardState extends State<TopProductsCard> {
                 ),
               )
             else
-              for (final (i, row) in rows.take(4).indexed) _row(i, row, peak),
+              _table(rows.take(5).toList()),
             if (widget.onViewAll != null) ...[
               const SizedBox(height: 4),
               InkWell(
@@ -549,83 +546,42 @@ class _TopProductsCardState extends State<TopProductsCard> {
     );
   }
 
-  Widget _row(int index, Map<String, dynamic> row, double peak) {
-    final colour = _ranks[index % _ranks.length];
-    final quantity = ((row['qty'] as num?) ?? 0).toDouble();
-    // Odoo's display name may already carry the code; do not print it twice.
-    final plain = '${row['name']}';
-    final name = row['sku'] == null || plain.contains('${row['sku']}') ? plain : '[${row['sku']}] $plain';
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        children: [
+  /// The best sellers as a table: rank, product, units and value.
+  Widget _table(List<Map<String, dynamic>> rows) {
+    const head = TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.muted, letterSpacing: 0.4);
+    Widget cell(Widget child, {int flex = 1, Alignment align = Alignment.centerLeft}) =>
+        Expanded(flex: flex, child: Align(alignment: align, child: child));
+    return Container(
+      decoration: BoxDecoration(border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(14)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: [
+        Container(
+          color: AppColors.background,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(children: [
+            cell(const Text('#', style: head), flex: 1),
+            cell(const Text('PRODUCT', style: head), flex: 8),
+            cell(const Text('UNITS', style: head), flex: 3, align: Alignment.centerRight),
+            cell(const Text('VALUE', style: head), flex: 4, align: Alignment.centerRight),
+          ]),
+        ),
+        for (final (i, row) in rows.indexed)
           Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: colour.withValues(alpha: 0.13),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text('${index + 1}',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: colour)),
+            decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            child: Row(children: [
+              cell(Text('${i + 1}', style: TextStyle(fontWeight: FontWeight.w900, color: _ranks[i % _ranks.length])), flex: 1),
+              cell(
+                  Text('${row['name']}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  flex: 8),
+              cell(Text(fmtQty((row['qty'] as num?) ?? 0), style: const TextStyle(fontWeight: FontWeight.w800)),
+                  flex: 3, align: Alignment.centerRight),
+              cell(Text(fmtMoney(row['amount'] as num?), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
+                  flex: 4, align: Alignment.centerRight),
+            ]),
           ),
-          const SizedBox(width: 9),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: SizedBox(
-              width: 42,
-              height: 42,
-              child: row['has_image'] == true && _base.isNotEmpty
-                  ? Image.network(
-                      '$_base/api/v1/products/${row['id']}/image',
-                      headers: _headers,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _placeholder(colour),
-                    )
-                  : _placeholder(colour),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-                const SizedBox(height: 1),
-                Text('${fmtQty(quantity)} units',
-                    style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-                const SizedBox(height: 5),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(5),
-                  child: LinearProgressIndicator(
-                    value: peak == 0 ? 0 : quantity / peak,
-                    minHeight: 6,
-                    backgroundColor: AppColors.border,
-                    color: colour,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 9),
-          Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: colour.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Text(fmtQty(quantity),
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: colour)),
-          ),
-        ],
-      ),
+      ]),
     );
   }
 

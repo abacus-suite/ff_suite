@@ -52,6 +52,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _travel;
   List<Map<String, dynamic>> _visits = [];
   String _period = 'today';
+
+  /// Top Products has its own period: changing it must not move the sales card.
+  String _topPeriod = 'today';
+  List<Map<String, dynamic>>? _topRows;
   String _member = 'me';
   bool _loading = true;
   bool _punching = false;
@@ -156,12 +160,15 @@ class _HomeScreenState extends State<HomeScreen> {
         await Services.tracker.stop();
       }
       unawaited(Services.tracker.flush());
+      // Top Products keeps its own period: bring it up to date when it differs from the sales card's.
+      if (_topPeriod != _period) unawaited(_reloadTop(_topPeriod));
       if (!mounted) return;
       setState(() {
         _status = status;
         _visit = results[1] as Map<String, dynamic>?;
         _today = results[2] as Map<String, dynamic>?;
         _sales = results[3] as Map<String, dynamic>?;
+        _topRows = null;
         _travel = results[4] as Map<String, dynamic>?;
         _visits = ((results[5] as List?) ?? []).cast<Map<String, dynamic>>();
         _error = null;
@@ -171,6 +178,15 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       Services.settling.value = false;
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _reloadTop(String period) async {
+    setState(() => _topPeriod = period);
+    final data = await _optional(Services.api
+        .get('/api/v1/orders/dashboard', query: {'period': period, 'member': _member}));
+    if (mounted && data is Map && _topPeriod == period) {
+      setState(() => _topRows = ((data['top_products'] as List?) ?? []).cast<Map<String, dynamic>>());
     }
   }
 
@@ -451,9 +467,12 @@ class _HomeScreenState extends State<HomeScreen> {
   /// What moved most, in its own wide card.
   Widget _topProductsCard() {
     return TopProductsCard(
-      rows: ((_sales?['top_products'] as List?) ?? []).cast<Map<String, dynamic>>(),
-      period: _period,
-      onPeriod: _reloadSales,
+      rows: _topRows ??
+          (_topPeriod == _period
+              ? ((_sales?['top_products'] as List?) ?? []).cast<Map<String, dynamic>>()
+              : <Map<String, dynamic>>[]),
+      period: _topPeriod,
+      onPeriod: _reloadTop,
       onViewAll: () => _push(const CatalogScreen()),
     );
   }
