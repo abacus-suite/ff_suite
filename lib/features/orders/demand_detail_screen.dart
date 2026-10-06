@@ -199,7 +199,7 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
       ('Demand raised', prettyDay(parseServerTime(d['date']) ?? DateTime.now()), true, null),
       ('Sent to distributor', sent ? '${orders.isNotEmpty ? orders.first['name'] : ''}' : 'Not sent yet', sent, null),
       if (turnedDown.isNotEmpty && !accepted)
-        ('Turned down', '${turnedDown.first['distributor_note'] ?? 'No reason given'}', true, AppColors.danger),
+        ('Rejected', '${turnedDown.first['distributor_note'] ?? 'No reason given'}', true, AppColors.danger),
       ('Distributor accepted', accepted ? 'Order confirmed' : 'Waiting', accepted, null),
       ('Supplied', state == 'supplied' ? 'Delivered' : '', state == 'supplied', null),
     ];
@@ -253,7 +253,7 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
     final steps = <(String, String, bool, Color?)>[
       ('Demand raised', prettyDay(parseServerTime(d['date']) ?? DateTime.now()), true, null),
       ('Sent to distributor', '${request['name']}', true, null),
-      if (rejected) ('Turned down', '${d['reject_note'] ?? 'No reason given'}', true, AppColors.danger),
+      if (rejected) ('Rejected', '${d['reject_note'] ?? 'No reason given'}', true, AppColors.danger),
       if (!rejected) ('Distributor approved', approved ? 'Approved ${fmtQty(approvedQty)} units' : 'Waiting', approved, null),
       if (!rejected)
         (
@@ -324,7 +324,7 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
             Expanded(child: Text('${request['name']}', style: const TextStyle(fontWeight: FontWeight.w900))),
             Text(
                 rejected
-                    ? 'Turned down'
+                    ? 'Rejected'
                     : waiting
                         ? 'Waiting for approval'
                         : 'Approved',
@@ -465,7 +465,7 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
     final turned = status == 'rejected' || o['state'] == 'cancel';
     final confirmed = o['state'] == 'sale' || o['state'] == 'done';
     final tone = turned ? AppColors.danger : confirmed ? AppColors.success : AppColors.warning;
-    final label = turned ? 'Turned down' : confirmed ? 'Accepted' : 'Waiting for the distributor';
+    final label = turned ? 'Rejected' : confirmed ? 'Accepted' : 'Waiting for the distributor';
     final link = o['portal_link'] as String?;
     final dist = (o['distributor'] as Map?)?['name'] ?? (_d?['distributor'] as Map?)?['name'];
     return Container(

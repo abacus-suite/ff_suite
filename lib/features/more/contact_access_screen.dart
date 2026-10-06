@@ -19,6 +19,7 @@ class _ContactAccessScreenState extends State<ContactAccessScreen> {
   String? _error;
   List _mine = [];
   List _toDecide = [];
+  List _given = [];
   bool _canDecide = false;
 
   @override
@@ -38,6 +39,7 @@ class _ContactAccessScreenState extends State<ContactAccessScreen> {
       setState(() {
         _mine = (data['mine'] as List?) ?? [];
         _toDecide = (data['to_decide'] as List?) ?? [];
+        _given = (data['given'] as List?) ?? [];
         _canDecide = data['can_decide'] == true;
       });
     } catch (e) {
@@ -50,10 +52,23 @@ class _ContactAccessScreenState extends State<ContactAccessScreen> {
   Future<void> _decide(Map r, bool approve) async {
     try {
       await Services.api.post('/api/v1/contact-access/${r['id']}/decide', {'approve': approve});
-      if (mounted) showSnack(context, approve ? 'Approved' : 'Turned down');
+      if (mounted) showSnack(context, approve ? 'Approved' : 'Rejected');
       _load();
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
+    }
+  }
+
+  /// A manager gives somebody in the team access, for a day or a stretch, with no request to wait for.
+  Future<void> _assign() async {
+    final done = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _RequestSheet(assign: true),
+    );
+    if (done == true) {
+      if (mounted) showSnack(context, 'Access given');
+      _load();
     }
   }
 
@@ -80,10 +95,10 @@ class _ContactAccessScreenState extends State<ContactAccessScreen> {
         'upcoming' => 'Starts later',
         'active' => 'Active',
         'expired' => 'Expired',
-        _ => 'Turned down',
+        _ => 'Rejected',
       };
 
-  Widget _row(Map r, {bool decide = false}) {
+  Widget _row(Map r, {bool decide = false, bool who = false}) {
     final status = '${r['status']}';
     return Card(
       child: Padding(
@@ -103,14 +118,16 @@ class _ContactAccessScreenState extends State<ContactAccessScreen> {
                 visualDensity: VisualDensity.compact,
               ),
             ]),
-            if (decide) Text('${(r['employee'] as Map?)?['name'] ?? ''}', style: const TextStyle(fontSize: 12.5)),
+            if (decide || who)
+              Text('${(r['employee'] as Map?)?['name'] ?? ''}${r['source'] == 'assigned' ? ' · assigned by a manager' : ''}',
+                  style: const TextStyle(fontSize: 12.5)),
             Text('${r['date_from']}  to  ${r['date_to']}', style: const TextStyle(color: AppColors.muted)),
             if ((r['reason'] ?? '').toString().isNotEmpty) Text('${r['reason']}'),
             if ((r['decision_note'] ?? '').toString().isNotEmpty)
               Text('${r['decision_note']}', style: const TextStyle(color: AppColors.danger)),
             if (decide)
               Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                TextButton(onPressed: () => _decide(r, false), child: const Text('Turn down')),
+                TextButton(onPressed: () => _decide(r, false), child: const Text('Reject')),
                 FilledButton(onPressed: () => _decide(r, true), child: const Text('Approve')),
               ]),
           ],
@@ -123,11 +140,23 @@ class _ContactAccessScreenState extends State<ContactAccessScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Contact Access')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _new,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Request access'),
-      ),
+      floatingActionButton: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+        if (_canDecide) ...[
+          FloatingActionButton.extended(
+            heroTag: 'assign',
+            onPressed: _assign,
+            icon: const Icon(Icons.person_add_alt_1_rounded),
+            label: const Text('Assign to team'),
+          ),
+          const SizedBox(height: 10),
+        ],
+        FloatingActionButton.extended(
+          heroTag: 'request',
+          onPressed: _new,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Request access'),
+        ),
+      ]),
       body: _loading
           ? const LoadingView()
           : _error != null
@@ -140,6 +169,11 @@ class _ContactAccessScreenState extends State<ContactAccessScreen> {
                       if (_canDecide && _toDecide.isNotEmpty) ...[
                         const Text('Waiting for you', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                         for (final r in _toDecide) _row(r as Map, decide: true),
+                        const SizedBox(height: 12),
+                      ],
+                      if (_canDecide && _given.isNotEmpty) ...[
+                        const Text('Given to my team', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                        for (final r in _given) _row(r as Map, decide: false, who: true),
                         const SizedBox(height: 12),
                       ],
                       const Text('My requests', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
@@ -158,7 +192,10 @@ class _ContactAccessScreenState extends State<ContactAccessScreen> {
 }
 
 class _RequestSheet extends StatefulWidget {
-  const _RequestSheet();
+  const _RequestSheet({this.assign = false});
+
+  /// A manager giving access to somebody in the team, rather than asking for it.
+  final bool assign;
 
   @override
   State<_RequestSheet> createState() => _RequestSheetState();
@@ -172,10 +209,18 @@ class _RequestSheetState extends State<_RequestSheet> {
   DateTime? _to;
   final _reason = TextEditingController();
   bool _busy = false;
+  List _members = [];
+  int? _member;
+  bool _planDay = true;
 
   @override
   void initState() {
     super.initState();
+    if (widget.assign) {
+      Services.api.get('/api/v1/team/members').then((d) {
+        if (mounted) setState(() => _members = ((d as Map)['members'] as List?) ?? []);
+      }).catchError((_) {});
+    }
     Services.api.get('/api/v1/contact-access/options').then((d) {
       if (mounted) setState(() => _options = d as Map<String, dynamic>);
     }).catchError((_) {});
@@ -200,17 +245,23 @@ class _RequestSheetState extends State<_RequestSheet> {
   }
 
   Future<void> _send() async {
-    if (_target == null || _to == null) {
+    if (widget.assign && _member == null) {
+      showProblem(context, 'Choose who it is for');
+      return;
+    }
+    if (_target == null || (_to == null && !widget.assign)) {
       showProblem(context, 'Choose what you need and until when');
       return;
     }
     setState(() => _busy = true);
     try {
-      await Services.api.post('/api/v1/contact-access', {
+      await Services.api.post(widget.assign ? '/api/v1/contact-access/assign' : '/api/v1/contact-access', {
+        if (widget.assign) 'employee_id': _member,
+        if (widget.assign && _scope == 'beat') 'plan_day': _planDay,
         'scope_type': _scope,
         'target_id': _target,
         'date_from': fmtDate(_from),
-        'date_to': fmtDate(_to!),
+        'date_to': fmtDate(_to ?? _from),
         'reason': _reason.text,
       });
       if (mounted) Navigator.of(context).pop(true);
@@ -231,8 +282,22 @@ class _RequestSheetState extends State<_RequestSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Request contact access', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            Text(widget.assign ? 'Assign contact access' : 'Request contact access',
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
             const SizedBox(height: 12),
+            if (widget.assign) ...[
+              DropdownButtonFormField<int>(
+                initialValue: _member,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Who is it for', border: OutlineInputBorder()),
+                items: [
+                  for (final m in _members)
+                    DropdownMenuItem(value: (m as Map)['id'] as int, child: Text('${m['name']}', overflow: TextOverflow.ellipsis)),
+                ],
+                onChanged: (v) => setState(() => _member = v),
+              ),
+              const SizedBox(height: 12),
+            ],
             SegmentedButton<String>(
               segments: const [
                 ButtonSegment(value: 'city', label: Text('City')),
@@ -264,14 +329,23 @@ class _RequestSheetState extends State<_RequestSheet> {
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton(
-                    onPressed: () => _pick(false), child: Text(_to == null ? 'To date' : 'To ${fmtDate(_to!)}')),
+                    onPressed: () => _pick(false),
+                    child: Text(_to == null ? (widget.assign ? 'To (same day)' : 'To date') : 'To ${fmtDate(_to!)}')),
               ),
             ]),
+            if (widget.assign && _scope == 'beat')
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _planDay,
+                onChanged: (v) => setState(() => _planDay = v ?? false),
+                title: const Text('Also plan this beat for them on the first day'),
+                subtitle: const Text('Their check-in then finds it ready'),
+              ),
             const SizedBox(height: 12),
             TextField(
               controller: _reason,
               maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Why do you need it?', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: widget.assign ? 'Note (optional)' : 'Why do you need it?', border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 14),
             SizedBox(
@@ -280,7 +354,7 @@ class _RequestSheetState extends State<_RequestSheet> {
                 onPressed: _busy ? null : _send,
                 child: _busy
                     ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Send to my manager'),
+                    : Text(widget.assign ? 'Give access' : 'Send to my manager'),
               ),
             ),
           ],
