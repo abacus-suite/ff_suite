@@ -87,10 +87,10 @@ class _TeamLiveScreenState extends State<TeamLiveScreen> {
             padding: const EdgeInsets.symmetric(vertical: 11),
             decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
             child: Column(children: [
-              Icon(icon, color: Colors.white70, size: 17),
+              Icon(icon, color: Colors.white, size: 17),
               const SizedBox(height: 4),
               Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10.5)),
+              Text(label, style: const TextStyle(color: Colors.white, fontSize: 10.5)),
             ]),
           ),
         );
@@ -107,7 +107,7 @@ class _TeamLiveScreenState extends State<TeamLiveScreen> {
           const SizedBox(width: 8),
           const Text('Live now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17)),
           const Spacer(),
-          Text(fmtTime(_data?['server_time']), style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          Text(fmtTime(_data?['server_time']), style: const TextStyle(color: Colors.white, fontSize: 12)),
         ]),
         const SizedBox(height: 12),
         Row(children: [

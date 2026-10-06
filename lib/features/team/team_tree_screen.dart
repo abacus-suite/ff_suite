@@ -192,10 +192,10 @@ class _TeamTreeScreenState extends State<TeamTreeScreen> {
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
             decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
             child: Column(children: [
-              Icon(icon, color: Colors.white70, size: 16),
+              Icon(icon, color: Colors.white, size: 16),
               const SizedBox(height: 4),
               FittedBox(child: Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15.5))),
-              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 10.5)),
+              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 10.5)),
             ]),
           ),
         );
@@ -221,7 +221,7 @@ class _TeamTreeScreenState extends State<TeamTreeScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${p['name']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 19)),
                 Text([if (p['job'] != null) p['job'], if (p['code'] != null) p['code']].join(' · '),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+                    style: const TextStyle(color: Colors.white, fontSize: 12.5)),
               ]),
             ),
           ]),

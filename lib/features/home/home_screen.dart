@@ -33,6 +33,7 @@ import '../clients/client_detail_screen.dart';
 import '../clients/clients_screen.dart';
 import '../orders/catalog_screen.dart';
 import '../../widgets/skeleton.dart';
+import '../approvals/approvals_screen.dart';
 import 'team_dashboard.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -58,6 +59,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// A manager's choice: their own day, or the team's.
   bool _teamView = false;
+
+  /// How many requests wait for this manager, for the number on the Approvals button.
+  int _pending = 0;
   List<Map<String, dynamic>>? _topRows;
   String _member = 'me';
   bool _loading = true;
@@ -163,6 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
         await Services.tracker.stop();
       }
       unawaited(Services.tracker.flush());
+      if (profile.isManager) unawaited(_loadPending());
       // Top Products keeps its own period: bring it up to date when it differs from the sales card's.
       if (_topPeriod != _period) unawaited(_reloadTop(_topPeriod));
       if (!mounted) return;
@@ -182,6 +187,11 @@ class _HomeScreenState extends State<HomeScreen> {
       Services.settling.value = false;
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _loadPending() async {
+    final data = await _optional(Services.api.get('/api/v1/approvals/summary'));
+    if (mounted && data is Map) setState(() => _pending = ((data['total'] as num?) ?? 0).toInt());
   }
 
   Future<void> _reloadTop(String period) async {
@@ -389,6 +399,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 14),
               ],
+              if (profile.isManager) ...[
+                _approvalsButton(),
+                const SizedBox(height: 14),
+              ],
               if (profile.isManager && _teamView)
                 const TeamDashboard()
               else if (_loading && _status == null)
@@ -408,6 +422,48 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     });
   }
+
+  /// The quick way to everything waiting for a decision, with how many there are.
+  Widget _approvalsButton() => InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () async {
+          await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ApprovalsScreen()));
+          _loadPending();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: _pending > 0 ? const [Color(0xFFEA580C), Color(0xFFF59E0B)] : const [Color(0xFF059669), Color(0xFF10B981)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: (_pending > 0 ? const Color(0xFFEA580C) : const Color(0xFF059669)).withValues(alpha: 0.28), blurRadius: 14, offset: const Offset(0, 6))],
+          ),
+          child: Row(children: [
+            const Icon(Icons.fact_check_rounded, color: Colors.white, size: 26),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Approvals', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16.5)),
+                Text(_pending > 0 ? 'Handovers, access, expenses, leave and more' : 'Nothing waiting for you',
+                    style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+              ]),
+            ),
+            Container(
+              constraints: const BoxConstraints(minWidth: 36),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+              child: Text(_pending > 0 ? '$_pending' : '0',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: _pending > 0 ? const Color(0xFFEA580C) : const Color(0xFF059669))),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white),
+          ]),
+        ),
+      );
 
   /// The day in one card: where it stands, how it is going, and what moves it on.
   Widget _hero(Profile profile) {

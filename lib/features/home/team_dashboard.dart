@@ -7,6 +7,7 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/skeleton.dart';
+import '../team/team_collections_screen.dart';
 import '../team/team_live_screen.dart';
 import '../team/team_tree_screen.dart';
 import '../team/timeline_screen.dart';
@@ -27,6 +28,7 @@ class _TeamDashboardState extends State<TeamDashboard> {
   String _period = 'today';
   String _sort = 'order_amount';
   bool _all = false;
+  Map<String, dynamic>? _hold;
 
   static const _periods = [('today', 'Today'), ('yesterday', 'Yesterday'), ('week', 'This week'), ('month', 'This month')];
 
@@ -51,8 +53,15 @@ class _TeamDashboardState extends State<TeamDashboard> {
     if (!silent) setState(() => _loading = _data == null);
     try {
       final data = await Services.api.get('/api/v1/team/dashboard', query: {'period': _period}) as Map<String, dynamic>;
+      Map<String, dynamic>? hold;
+      try {
+        hold = await Services.api.get('/api/v1/team/collections') as Map<String, dynamic>;
+      } catch (_) {
+        // an older server has no collections view
+      }
       if (mounted) {
         setState(() {
+          _hold = hold;
           _data = data;
           _error = null;
         });
@@ -182,12 +191,12 @@ class _TeamDashboardState extends State<TeamDashboard> {
               padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 6),
               decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
               child: Column(children: [
-                Icon(icon, color: Colors.white70, size: 17),
+                Icon(icon, color: Colors.white, size: 17),
                 const SizedBox(height: 5),
                 FittedBox(
                     child: Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16))),
                 const SizedBox(height: 1),
-                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 10.5)),
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 10.5)),
               ]),
             ),
           ),
@@ -215,7 +224,7 @@ class _TeamDashboardState extends State<TeamDashboard> {
                 child: Center(
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     Text('${inNow + out}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 26, height: 1)),
-                    Text('of $total', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                    Text('of $total', style: const TextStyle(color: Colors.white, fontSize: 11)),
                   ]),
                 ),
               ),
@@ -223,15 +232,15 @@ class _TeamDashboardState extends State<TeamDashboard> {
             const SizedBox(width: 16),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(_period == 'today' ? 'Your team today' : 'Your team', style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700, fontSize: 12.5)),
+                Text(_period == 'today' ? 'Your team today' : 'Your team', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12.5)),
                 const SizedBox(height: 3),
                 Text('$inNow working now', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
                 const SizedBox(height: 6),
                 Text('$absent not in · $leave on leave${(_people['late'] as num? ?? 0) > 0 ? ' · ${_people['late']} late' : ''}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+                    style: const TextStyle(color: Colors.white, fontSize: 12.5)),
               ]),
             ),
-            const Icon(Icons.chevron_right_rounded, color: Colors.white70),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white),
           ]),
         ),
         const SizedBox(height: 14),
@@ -308,6 +317,49 @@ class _TeamDashboardState extends State<TeamDashboard> {
         chip('Leave', (p['leave'] as num?) ?? 0, AppColors.warning, 'leave'),
         chip('Late', (p['late'] as num?) ?? 0, AppColors.purple, 'late'),
       ]),
+    );
+  }
+
+  // ------------------------------------------------------------------ collections in hand
+  Widget _holding() {
+    final h = _hold;
+    if (h == null) return const SizedBox.shrink();
+    final totals = (h['totals'] as Map?)?.cast<String, dynamic>() ?? {};
+    Widget part(String label, num? v, Color c, IconData icon) => Expanded(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: c.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(icon, size: 17, color: c),
+              const SizedBox(height: 4),
+              FittedBox(child: Text(fmtMoney(v, h['currency'] as String?), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A)))),
+              Text(label, style: const TextStyle(fontSize: 11.5, color: Color(0xFF334155), fontWeight: FontWeight.w600)),
+            ]),
+          ),
+        );
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TeamCollectionsScreen())),
+      child: _card(
+        'Collections in hand',
+        Icons.account_balance_wallet_rounded,
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(
+              child: Text(fmtMoney(totals['total'] as num?, h['currency'] as String?),
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: Color(0xFF0F172A))),
+            ),
+            const Text('By person, distributor, outlet', style: TextStyle(fontSize: 11.5, color: Color(0xFF334155))),
+            const Icon(Icons.chevron_right_rounded, color: Color(0xFF334155)),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            part('For the office', totals['office'] as num?, AppColors.primary, Icons.apartment_rounded),
+            part('For distributors', totals['distributors'] as num?, AppColors.warning, Icons.local_shipping_rounded),
+          ]),
+        ]),
+      ),
     );
   }
 
@@ -520,12 +572,13 @@ class _TeamDashboardState extends State<TeamDashboard> {
       _hero(),
       const SizedBox(height: 12),
       _attendance(),
+      _holding(),
       _alertsCard(),
       _performance(),
       _trend(),
       _shortcuts(),
       // The bar at the bottom floats over the page: leave its height free.
-      SizedBox(height: 120 + MediaQuery.of(context).padding.bottom),
+      SizedBox(height: 40 + MediaQuery.of(context).padding.bottom),
     ]);
   }
 }

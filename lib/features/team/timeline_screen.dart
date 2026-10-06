@@ -95,7 +95,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
           child: Column(children: [
             FittedBox(child: Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18))),
             const SizedBox(height: 2),
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
           ]),
         );
     final activity = _list('activity');
@@ -134,7 +134,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
               const SizedBox(height: 3),
               Text(
                   '$status${first != null ? ' · in ${fmtTime(first['check_in'])}' : ''}${open == null && attendance.isNotEmpty ? ' · out ${fmtTime(attendance.last['check_out'])}' : ''}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+                  style: const TextStyle(color: Colors.white, fontSize: 12.5)),
               if (ongoing != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
