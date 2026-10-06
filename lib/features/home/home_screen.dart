@@ -34,6 +34,7 @@ import '../clients/clients_screen.dart';
 import '../orders/catalog_screen.dart';
 import '../../widgets/skeleton.dart';
 import '../approvals/approvals_screen.dart';
+import '../approvals/my_pending_screen.dart';
 import 'team_dashboard.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -62,6 +63,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// How many requests wait for this manager, for the number on the Approvals button.
   int _pending = 0;
+
+  /// My own requests still waiting for somebody else, for the small icon in the check-in card.
+  int _myPending = 0;
   List<Map<String, dynamic>>? _topRows;
   String _member = 'me';
   bool _loading = true;
@@ -168,6 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       unawaited(Services.tracker.flush());
       if (profile.isManager) unawaited(_loadPending());
+      unawaited(_loadMyPending());
       // Top Products keeps its own period: bring it up to date when it differs from the sales card's.
       if (_topPeriod != _period) unawaited(_reloadTop(_topPeriod));
       if (!mounted) return;
@@ -187,6 +192,11 @@ class _HomeScreenState extends State<HomeScreen> {
       Services.settling.value = false;
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _loadMyPending() async {
+    final data = await _optional(Services.api.get('/api/v1/my-pending'));
+    if (mounted && data is Map) setState(() => _myPending = ((data['total'] as num?) ?? 0).toInt());
   }
 
   Future<void> _loadPending() async {
@@ -492,6 +502,11 @@ class _HomeScreenState extends State<HomeScreen> {
       travelMinutes: ((_travel?['travel_minutes'] as num?) ?? 0).toInt(),
       onOpenDay: () => _push(const DayJourneyScreen()),
       routeLabel: profile.routeLabel,
+      pending: _myPending,
+      onPending: () async {
+        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyPendingScreen()));
+        _loadMyPending();
+      },
       onPunch: () => _punch(!punchedIn),
     );
   }

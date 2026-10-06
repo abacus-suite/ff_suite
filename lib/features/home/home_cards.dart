@@ -33,6 +33,8 @@ class CheckInHero extends StatefulWidget {
     this.lastCheckOut = '',
     this.canResume = false,
     this.routeLabel = 'Today',
+    this.pending = 0,
+    this.onPending,
   });
 
   final bool punchedIn;
@@ -44,6 +46,10 @@ class CheckInHero extends StatefulWidget {
   final bool busy;
   final VoidCallback? onPunch;
   final String routeLabel;
+
+  /// How many of my own requests wait for somebody's approval; the small icon opens them.
+  final int pending;
+  final VoidCallback? onPending;
 
   /// When the punch that is still open began; null when the day is not running.
   final DateTime? onDutySince;
@@ -135,8 +141,9 @@ class _CheckInHeroState extends State<CheckInHero> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(child: _statusPill(green)),
+              Expanded(child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: _statusPill(green))),
               if (widget.target > 0) ...[const SizedBox(width: 8), _targetBadge()],
+              if (widget.onPending != null) ...[const SizedBox(width: 8), _pendingIcon()],
             ],
           ),
           const SizedBox(height: 12),
@@ -280,6 +287,31 @@ class _CheckInHeroState extends State<CheckInHero> {
         ),
       );
 
+  /// A small icon: my requests that are still waiting for somebody to approve them.
+  Widget _pendingIcon() => InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: widget.onPending,
+        child: Stack(clipBehavior: Clip.none, children: [
+          Container(
+            width: 38,
+            height: 34,
+            decoration: BoxDecoration(color: const Color(0xCCFFFFFF), borderRadius: BorderRadius.circular(20)),
+            child: const Icon(Icons.pending_actions_rounded, size: 19, color: AppColors.warning),
+          ),
+          if (widget.pending > 0)
+            Positioned(
+              right: -4,
+              top: -5,
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 18),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(color: AppColors.danger, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white, width: 1.5)),
+                child: Text('${widget.pending}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w900)),
+              ),
+            ),
+        ]),
+      );
+
   /// The target as a pill the same height as the status pill, so both sit on one line.
   Widget _targetBadge() => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -291,8 +323,6 @@ class _CheckInHeroState extends State<CheckInHero> {
             const SizedBox(width: 6),
             Text("Target ${widget.target}",
                 style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.text)),
-            const SizedBox(width: 3),
-            const Text('visits', style: TextStyle(fontSize: 12, color: AppColors.muted)),
           ],
         ),
       );
