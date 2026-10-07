@@ -27,6 +27,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
   bool _loading = true;
   bool _busy = false;
   String? _error;
+  String? _pendingProblem;
 
   @override
   void initState() {
@@ -59,8 +60,10 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
       try {
         pending = await Services.api.get('/api/v1/handovers/pending') as Map<String, dynamic>;
         handovers = await _list('/api/v1/handovers');
-      } catch (_) {
-        // an older server has no hand-over to distributors yet
+        _pendingProblem = null;
+      } catch (e) {
+        // An older server has no hand-over to distributors yet, or it needs upgrading: say so, never show 0.
+        _pendingProblem = e.toString();
       }
       if (_modes.isEmpty) {
         try {
@@ -515,7 +518,13 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (groups.isEmpty)
+          if (_pendingProblem != null)
+            SectionCard(
+              title: 'Could not load what you hold for distributors',
+              child: Text('$_pendingProblem. The amounts below may be wrong, pull down to try again.',
+                  style: const TextStyle(color: AppColors.danger)),
+            ),
+          if (groups.isEmpty && _pendingProblem == null)
             const SectionCard(
               title: 'Nothing to hand over',
               child: Text('You hold no outlet money for any distributor.', style: TextStyle(color: AppColors.muted)),
@@ -596,6 +605,22 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
     );
   }
 
+  /// Outlet money is the distributor's: it is "with you" until handed over, in part or whole.
+  String _collectionState(Map<String, dynamic> c) {
+    if (c['handed_to'] != 'distributor') return '${c['state']}';
+    final held = (c['held'] as num?) ?? 0;
+    return held > 0.004 ? 'collected' : 'received';
+  }
+
+  String? _collectionLabel(Map<String, dynamic> c) {
+    if (c['handed_to'] != 'distributor') return null;
+    final held = (c['held'] as num?) ?? 0;
+    final amount = (c['amount'] as num?) ?? 0;
+    if (held <= 0.004) return 'Handed over';
+    if (held < amount - 0.004) return 'Part handed · ${fmtMoney(held, c['currency'] as String?)} with you';
+    return 'With you';
+  }
+
   Widget _historyTab(Map<String, dynamic>? data) {
     final rows = ((data?['collections'] as List?) ?? const []).cast<Map<String, dynamic>>();
     return RefreshIndicator(
@@ -618,7 +643,8 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
                   ].join(' · '),
                   amount: c['amount'] as num?,
                   currency: c['currency'] as String?,
-                  state: '${c['state']}',
+                  state: _collectionState(c),
+                  label: _collectionLabel(c),
                 ),
               if (rows.isEmpty) const _Empty('Nothing collected yet this month.'),
             ]),
@@ -634,6 +660,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
     required num? amount,
     required String? currency,
     required String state,
+    String? label,
   }) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -644,7 +671,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(fmtMoney(amount, currency), style: const TextStyle(fontWeight: FontWeight.w700)),
-          StatusBadge(state),
+          StatusBadge(state, label: label),
         ],
       ),
     );
