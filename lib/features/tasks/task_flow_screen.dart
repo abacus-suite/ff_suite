@@ -1502,6 +1502,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     final notes = ((result['notes'] as List?) ?? []).cast<Map>();
     final lines = <String>[
       for (final d in demands) 'Demand ${d['name']} raised',
+      for (final o in ((result['orders'] as List?) ?? []).cast<Map>()) 'Order ${o['name']} created',
       for (final n in notes) '${n['kind'] == 'credit' ? 'Credit' : 'Debit'} note demand ${n['name']} raised',
       if (result['onboard'] == true) 'Ready to onboard: the outlet form opens next',
     ];
