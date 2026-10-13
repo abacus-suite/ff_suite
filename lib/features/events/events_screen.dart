@@ -1151,21 +1151,14 @@ class _EndScreenState extends State<_EndScreen> {
   void initState() {
     super.initState();
     _returnIt = widget.last;
-    _load();
+    // Stock can only go back to a distributor this event took stock from.
+    _distributors = _list(widget.event['distributors']);
   }
 
   @override
   void dispose() {
     _coupons.dispose();
     super.dispose();
-  }
-
-  Future<void> _load() async {
-    try {
-      final data = await _Options.get();
-      final all = _list(data['distributors']);
-      if (mounted) setState(() => _distributors = [...all.where((d) => d['company'] != true), ...all.where((d) => d['company'] == true)]);
-    } catch (_) {}
   }
 
   num _left(int pid) =>
