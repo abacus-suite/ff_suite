@@ -121,9 +121,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 12),
           _company(),
           _work(profile),
-          const SizedBox(height: 12),
-          _maps(profile),
-          const SizedBox(height: 12),
           _permissions(profile),
           const SizedBox(height: 12),
           const Card(
@@ -131,7 +128,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Padding(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6), child: SyncStatusBar()),
           ),
           const SizedBox(height: 12),
-          _appInfo(),
+          _settingsEntry(profile),
           const SizedBox(height: 14),
           GradientButton(
             label: 'Log out',
@@ -449,26 +446,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _work(Profile profile) {
     final hours = _shiftHours;
     if (profile.shiftName == null && hours == null) return const SizedBox.shrink();
-    return _section(
-      icon: Icons.schedule_rounded,
-      title: 'Work Information',
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: _tile(Icons.access_time_filled_rounded, 'Shift', profile.shiftName ?? 'Not set',
-                    hours ?? '', AppColors.purple),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _tile(Icons.place_rounded, 'Work type', 'Field work', '', AppColors.success),
-              ),
-            ],
-          ),
-        ),
-      ],
+    final rows = <(IconData, String, String)>[
+      (Icons.access_time_filled_rounded, 'Shift', profile.shiftName ?? 'Not set'),
+      if (hours != null) (Icons.schedule_rounded, 'Working hours', hours),
+      (Icons.place_rounded, 'Work type', 'Field work'),
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: _section(
+        icon: Icons.schedule_rounded,
+        title: 'Work Information',
+        children: [
+          for (final (i, row) in rows.indexed)
+            _row(row.$1, row.$2, row.$3, tint: AppColors.purple, last: i == rows.length - 1),
+        ],
+      ),
     );
   }
 
@@ -504,6 +496,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ],
+        ),
+      );
+
+  /// The way to the maps and app details, kept out of the profile itself.
+  Widget _settingsEntry(Profile profile) => Card(
+        margin: EdgeInsets.zero,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(title: const Text('Settings')),
+              body: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                children: [
+                  _maps(profile),
+                  const SizedBox(height: 12),
+                  _appInfo(),
+                ],
+              ),
+            ),
+          )),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(11)),
+                  child: const Icon(Icons.settings_rounded, size: 18, color: AppColors.primary),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Settings', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+                      Text('Maps, app version and server',
+                          style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+              ],
+            ),
+          ),
         ),
       );
 
