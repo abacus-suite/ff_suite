@@ -98,7 +98,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !widget.embedded,
-        title: Text('My $label Plan'),
+        title: Text(fmtDate(_day) == fmtDate(DateTime.now()) ? "Today's Beat Plan" : 'Beat Plan'),
         actions: [
           IconButton(
             tooltip: 'Plan a day',
@@ -123,6 +123,20 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
           children: [
             _dateBar(),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: DropdownButtonFormField<String>(
+                initialValue: _filter == 'planned' ? 'pending' : _filter,
+                decoration: const InputDecoration(labelText: 'Status', isDense: true),
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('All')),
+                  DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                  DropdownMenuItem(value: 'visited', child: Text('Visited')),
+                  DropdownMenuItem(value: 'cancelled', child: Text('Cancelled')),
+                ],
+                onChanged: (v) => setState(() => _filter = v ?? 'all'),
+              ),
+            ),
             if (_loading) const LinearProgressIndicator(),
             if (_error != null && _data == null) ErrorView(message: _error!, onRetry: _load),
             if (_data != null) ..._content(_data!, label),

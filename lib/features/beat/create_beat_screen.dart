@@ -24,6 +24,12 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
   Map<String, dynamic>? _city;
   Map<String, dynamic>? _type;
   List<Map<String, dynamic>> _types = [];
+  List<Map<String, dynamic>> _territories = [];
+  Map<String, dynamic>? _territory;
+  final Set<int> _outlets = {};
+  String _schedule = 'one_time';
+  DateTime _date = DateTime.now();
+  final Set<int> _days = {};
   bool _busy = false;
 
   String get _routeLabel => Services.auth.profile!.routeLabel;
@@ -32,6 +38,16 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
   void initState() {
     super.initState();
     _loadTypes();
+    _loadTerritories();
+  }
+
+  Future<void> _loadTerritories() async {
+    try {
+      final list = await Services.api.get('/api/v1/territories') as List;
+      if (mounted) setState(() => _territories = list.cast<Map<String, dynamic>>());
+    } catch (_) {
+      // Older server: the city alone still works.
+    }
   }
 
   @override
@@ -66,8 +82,20 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
       showProblem(context, 'Give the $_routeLabel a name.');
       return;
     }
-    if (_city == null) {
+    if (_territories.isNotEmpty && _territory == null) {
+      showProblem(context, 'Choose the territory.');
+      return;
+    }
+    if (_city == null && _territory?['district_id'] == null) {
       showProblem(context, 'Choose the city this $_routeLabel covers.');
+      return;
+    }
+    if (_outlets.isEmpty && _territories.isNotEmpty) {
+      showProblem(context, 'Choose at least one outlet.');
+      return;
+    }
+    if (_schedule == 'recurrent' && _days.isEmpty) {
+      showProblem(context, 'Choose the weekdays it repeats on.');
       return;
     }
     setState(() => _busy = true);
@@ -75,7 +103,12 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
       final beat = await Services.api.post('/api/v1/beats', {
         'name': name,
         'code': _code.text.trim(),
-        'district_id': _city!['id'],
+        'district_id': _city?['id'] ?? _territory?['district_id'],
+        if (_territory != null) 'territory_id': _territory!['id'],
+        if (_outlets.isNotEmpty) 'partner_ids': _outlets.toList(),
+        'schedule': _schedule,
+        if (_schedule == 'one_time') 'date': fmtDate(_date),
+        if (_schedule == 'recurrent') 'weekdays': _days.toList()..sort(),
         if (_type != null) 'route_type_id': _type!['id'],
       }) as Map<String, dynamic>;
       if (!mounted) return;
@@ -130,6 +163,13 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
               ],
             ),
           ),
+          if (_territories.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _territoryCard(),
+            const SizedBox(height: 12),
+            _scheduleCard(),
+          ],
+          if (_territory?['district_id'] == null) ...[
           const SizedBox(height: 12),
           _card(
             child: Column(
@@ -183,6 +223,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
               ],
             ),
           ),
+          ],
           if (_types.isNotEmpty) ...[
             const SizedBox(height: 12),
             _card(
@@ -212,14 +253,105 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 4),
             child: Text(
-              'You are put on it, and you can add customers to it straight after. '
-              'If the office has asked to see new routes first, it waits for them before '
-              'anybody else can plan from it.',
+              'It goes to your manager for approval before it can be planned from.',
               style: TextStyle(fontSize: 12, color: AppColors.muted),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _territoryCard() {
+    final outlets = ((_territory?['outlets'] as List?) ?? []).cast<Map<String, dynamic>>();
+    return _card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Territory *', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+        const SizedBox(height: 9),
+        DropdownButtonFormField<int>(
+          initialValue: _territory?['id'] as int?,
+          isExpanded: true,
+          decoration: _box('Choose a territory'),
+          items: [
+            for (final t in _territories) DropdownMenuItem(value: t['id'] as int, child: Text('${t['name']}')),
+          ],
+          onChanged: (v) => setState(() {
+            _territory = _territories.firstWhere((t) => t['id'] == v);
+            _outlets.clear();
+          }),
+        ),
+        if (_territory != null) ...[
+          const SizedBox(height: 12),
+          Row(children: [
+            const Expanded(
+                child: Text('Outlets in this territory', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
+            TextButton(
+              onPressed: () => setState(() {
+                if (_outlets.length == outlets.length) {
+                  _outlets.clear();
+                } else {
+                  _outlets.addAll(outlets.map((o) => o['id'] as int));
+                }
+              }),
+              child: Text(_outlets.length == outlets.length ? 'Clear' : 'Select all'),
+            ),
+          ]),
+          if (outlets.isEmpty)
+            const Text('No outlets in this territory yet.', style: TextStyle(color: AppColors.muted)),
+          for (final o in outlets)
+            CheckboxListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _outlets.contains(o['id']),
+              title: Text('${o['name']}'),
+              onChanged: (v) => setState(() => v == true ? _outlets.add(o['id'] as int) : _outlets.remove(o['id'])),
+            ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _scheduleCard() {
+    const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return _card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Schedule', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+        const SizedBox(height: 9),
+        SegmentedButton<String>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: 'one_time', label: Text('One time')),
+            ButtonSegment(value: 'recurrent', label: Text('Recurrent')),
+          ],
+          selected: {_schedule},
+          onSelectionChanged: (v) => setState(() => _schedule = v.first),
+        ),
+        const SizedBox(height: 10),
+        if (_schedule == 'one_time')
+          OutlinedButton.icon(
+            onPressed: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _date,
+                firstDate: DateTime.now(),
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+              );
+              if (picked != null) setState(() => _date = picked);
+            },
+            icon: const Icon(Icons.event_rounded),
+            label: Text(fmtDate(_date)),
+          )
+        else
+          Wrap(spacing: 8, children: [
+            for (var i = 0; i < 7; i++)
+              FilterChip(
+                label: Text(names[i]),
+                selected: _days.contains(i),
+                onSelected: (v) => setState(() => v ? _days.add(i) : _days.remove(i)),
+              ),
+          ]),
+      ]),
     );
   }
 
