@@ -48,6 +48,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   List<Map<String, dynamic>> _clients = [];
   List<Map<String, dynamic>> _categories = [];
   int? _categoryId;
+  bool _neverVisited = false;
   int _total = 0;
   Map<String, dynamic> _counts = const {};
   String _sort = 'latest';
@@ -99,6 +100,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
       final q = _search.text.trim();
       if (q.isNotEmpty) query['q'] = q;
       if (_categoryId != null) query['category_id'] = _categoryId;
+      if (_neverVisited) query['never_visited'] = 1;
       if (_member != 'me') query['member'] = _member;
       final data = await Services.api.get('/api/v1/clients/map', query: query) as Map<String, dynamic>;
       if (!mounted) return;
@@ -132,6 +134,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
       final q = _search.text.trim();
       if (q.isNotEmpty) query['q'] = q;
       if (_categoryId != null) query['category_id'] = _categoryId;
+      if (_neverVisited) query['never_visited'] = 1;
       if (_member != 'me') query['member'] = _member;
       if (_nearby) {
         // Never leave the list spinning on a slow GPS fix: fall back to the last known place.
@@ -249,11 +252,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
         child: Column(
           children: [
             _header(),
+            _countsCard(),
             _searchBox(),
-            if (_categories.isNotEmpty) _categoryChips(),
-            _filterRow(),
-            if (!_showMap) _countsCard(),
-            _resultRow(),
             if (_loading) const LinearProgressIndicator(minHeight: 2),
             if (_error != null) Padding(padding: const EdgeInsets.all(12), child: Text(_error!)),
             Expanded(child: _showMap ? _map() : _list()),
@@ -283,6 +283,25 @@ class _ClientsScreenState extends State<ClientsScreen> {
               ],
             ),
           ),
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                _viewButton(Icons.format_list_bulleted_rounded, 'List', !_showMap,
+                    () => setState(() => _showMap = false)),
+                _viewButton(Icons.map_rounded, 'Map', _showMap, () {
+                  setState(() => _showMap = true);
+                  if (_points.isEmpty) _loadPoints();
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
           if (Services.auth.profile?.isManager == true)
             MemberPicker(
               value: _member,
@@ -306,12 +325,13 @@ class _ClientsScreenState extends State<ClientsScreen> {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.border),
         ),
-        child: TextField(
+        child: Row(children: [
+          Expanded(child: TextField(
           controller: _search,
           onChanged: _onSearch,
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.search_rounded, color: AppColors.muted),
-            hintText: 'Search name, code, phone, city...',
+            hintText: 'Search name, code...',
             border: InputBorder.none,
             focusedBorder: InputBorder.none,
             enabledBorder: InputBorder.none,
@@ -326,9 +346,37 @@ class _ClientsScreenState extends State<ClientsScreen> {
                     },
                   ),
           ),
-        ),
+        )),
+          PopupMenuButton<String>(
+            tooltip: 'Show',
+            icon: Icon(Icons.filter_list_rounded,
+                color: (_categoryId == null && !_neverVisited) ? AppColors.muted : AppColors.primary),
+            onSelected: _applyKind,
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'all', child: Text('All')),
+              PopupMenuItem(value: 'outlet', child: Text('Outlets')),
+              PopupMenuItem(value: 'distributor', child: Text('Distributors')),
+              PopupMenuItem(value: 'lead', child: Text('Leads')),
+              PopupMenuItem(value: 'never', child: Text('Never Visited')),
+            ],
+          ),
+        ]),
       ),
     );
+  }
+
+  /// One of the filter choices: a kind of contact, everybody, or those never visited.
+  void _applyKind(String kind) {
+    setState(() {
+      _neverVisited = kind == 'never';
+      if (kind == 'all' || kind == 'never') {
+        _categoryId = null;
+      } else {
+        final match = _categories.where((c) => c['type'] == kind).firstOrNull;
+        _categoryId = match?['id'] as int?;
+      }
+    });
+    _load();
   }
 
   Widget _categoryChips() {
@@ -473,20 +521,23 @@ class _ClientsScreenState extends State<ClientsScreen> {
   /// How many of each kind this person is looking after.
   Widget _countsCard() {
     final rows = ((_counts['categories'] as List?) ?? []).cast<Map<String, dynamic>>();
-    if (rows.isEmpty) return const SizedBox.shrink();
-    final tints = [AppColors.success, AppColors.warning, AppColors.purple, AppColors.sky];
+    int ofType(String type) =>
+        rows.where((r) => r['type'] == type).fold<int>(0, (sum, r) => sum + ((r['count'] as num?) ?? 0).toInt());
+    final never = ((_counts['never_visited'] as num?) ?? 0).toInt();
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
       child: Card(
         margin: EdgeInsets.zero,
         child: Padding(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(8),
           child: Row(
             children: [
-              _countBox(Icons.groups_2_rounded, '${_countFor(null)}', 'Total', AppColors.primary),
-              for (final (i, row) in rows.take(3).indexed)
-                _countBox(_categoryIcon(row['type'] as String?), '${row['count']}', '${row['name']}',
-                    tints[i % tints.length]),
+              _countBox(Icons.groups_2_rounded, '${_countFor(null)}', 'Total', AppColors.primary, () => _applyKind('all')),
+              _countBox(Icons.storefront_rounded, '${ofType('outlet')}', 'Outlet', AppColors.success, () => _applyKind('outlet')),
+              _countBox(Icons.local_shipping_rounded, '${ofType('distributor')}', 'Distributor', AppColors.purple,
+                  () => _applyKind('distributor')),
+              _countBox(Icons.person_add_alt_1_rounded, '${ofType('lead')}', 'Lead', AppColors.warning, () => _applyKind('lead')),
+              _countBox(Icons.visibility_off_rounded, '$never', 'Never Visited', AppColors.danger, () => _applyKind('never')),
             ],
           ),
         ),
@@ -494,9 +545,12 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
-  Widget _countBox(IconData icon, String value, String label, Color tint) => Expanded(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 3),
+  Widget _countBox(IconData icon, String value, String label, Color tint, VoidCallback onTap) => Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 2),
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
           decoration: BoxDecoration(
             color: tint.withValues(alpha: 0.07),
@@ -518,6 +572,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                   style: const TextStyle(fontSize: 11, color: AppColors.muted)),
             ],
           ),
+        ),
         ),
       );
 
