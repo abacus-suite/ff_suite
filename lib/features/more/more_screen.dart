@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../events/events_screen.dart';
 
 import '../../core/services.dart';
 import '../../core/theme.dart';
@@ -43,6 +44,7 @@ class MoreScreen extends StatelessWidget {
         (Icons.payments_rounded, 'My Collection', AppColors.teal, const CollectionsScreen()),
       (Icons.receipt_rounded, 'My Expense', AppColors.warning, const ExpensesScreen()),
       (Icons.science_rounded, 'My Samples', AppColors.teal, const MySamplesScreen()),
+      (Icons.celebration_rounded, 'My Events', AppColors.purple, const EventsScreen()),
       if (profile.feature('attendance'))
         (Icons.event_available_rounded, 'My Attendance', AppColors.success, const MonthScreen()),
       (Icons.lock_open_rounded, 'Contact Access', AppColors.sky, const ContactAccessScreen()),

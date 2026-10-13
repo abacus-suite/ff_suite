@@ -48,7 +48,7 @@ Future<void> openTasks(BuildContext context) async {
   final code = await _pickTask(context, config, withAdhoc: true, withNewLead: true);
   if (code == null || !context.mounted) return;
   if (code == 'events') {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EventsScreen()));
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewEventScreen()));
     return;
   }
   await _begin(context, config, code);
@@ -113,7 +113,7 @@ Future<String?> _pickTask(BuildContext context, Map<String, dynamic> config,
   // Events are not a visit to a contact: offered only where a task is started from nothing.
   if (client == null && withAdhoc) {
     tasks.insert(tasks.isEmpty ? 0 : 1,
-        {'code': 'events', 'name': 'Events', 'steps': 3, 'hint': 'Run a sampling event: stock, end of day, report'});
+        {'code': 'events', 'name': 'Events', 'steps': 3, 'hint': 'Sampling, activation, exhibition'});
   }
   return showModalBottomSheet<String>(
     context: context,

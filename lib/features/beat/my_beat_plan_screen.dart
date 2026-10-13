@@ -205,6 +205,12 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
     }
   }
 
+  /// A route comes as {id, name} from the server; show the name, never the map.
+  String? _routeName(dynamic route) {
+    if (route is Map) return route['name'] == null ? null : '${route['name']}';
+    return route == null ? null : '$route';
+  }
+
   @override
   Widget build(BuildContext context) {
     final leading = DateTime(_month.year, _month.month, 1).weekday - 1;
@@ -323,7 +329,7 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
                           const Icon(Icons.storefront_rounded, size: 18, color: AppColors.primary),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text('${c['name']}${c['route'] != null ? '  ·  ${c['route']}' : ''}',
+                            child: Text('${c['name']}${_routeName(c['route']) != null ? '  ·  ${_routeName(c['route'])}' : ''}',
                                 maxLines: 1, overflow: TextOverflow.ellipsis),
                           ),
                         ]),

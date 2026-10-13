@@ -145,8 +145,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 option('field_task', Icons.assignment_turned_in_rounded, AppColors.success, 'New Task',
                     'Client visit, new lead, samples, events', sheet),
               if (profile.feature('routes'))
-                option('beat', Icons.edit_calendar_rounded, AppColors.sky, 'Create Beat Plan',
-                    'Opens Create Beat', sheet),
+                option('beat', Icons.edit_calendar_rounded, AppColors.sky, 'Create Beat',
+                    'Draw a new beat for approval', sheet),
               option('leave', Icons.beach_access_rounded, AppColors.sky, 'Leave Request',
                   'Ask for leave', sheet),
               option('expense', Icons.receipt_long_rounded, AppColors.warning, 'New Expense',

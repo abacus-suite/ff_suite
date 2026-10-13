@@ -27,6 +27,7 @@ import 'home_cards.dart';
 import '../../core/duty_watch.dart';
 import 'day_journey_screen.dart';
 import 'sales_cards.dart';
+import '../events/events_screen.dart';
 import 'recommendations_card.dart';
 import '../../widgets/sync_status.dart';
 import '../beat/beat_today_screen.dart';
@@ -344,6 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// gap between what is left stays the same everywhere.
   List<Widget> _cards(Profile profile) {
     final cards = <Widget>[
+      const ActiveEventCard(),
       if (profile.feature('attendance'))
         _hero(profile)
       else

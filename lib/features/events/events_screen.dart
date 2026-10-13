@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -7,9 +8,14 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/skeleton.dart';
 
-const _stateText = {'draft': 'Draft', 'running': 'Event Running', 'on_hold': 'On Hold', 'done': 'Ended'};
+const _pageBg = Color(0xFFEEF3FB);
+const _orange = Color(0xFFEA580C);
+const _green = Color(0xFF16A34A);
 
 num _n(dynamic v) => v is num ? v : num.tryParse('$v') ?? 0;
+String _q(num v) => fmtQty(v);
+
+List<Map<String, dynamic>> _list(dynamic v) => ((v as List?) ?? []).cast<Map<String, dynamic>>();
 
 Future<Position?> _here(BuildContext context) async {
   try {
@@ -21,7 +27,181 @@ Future<Position?> _here(BuildContext context) async {
   }
 }
 
-/// The events the person created or runs, with a button to start a new one.
+/// Everything an Events screen shares: the title with its step line, the progress bar and the bottom button.
+class _Frame extends StatelessWidget {
+  const _Frame({
+    required this.subtitle,
+    required this.children,
+    this.step,
+    this.steps = 3,
+    this.bottom,
+    this.onBack,
+  });
+
+  final String subtitle;
+  final int? step;
+  final int steps;
+  final List<Widget> children;
+  final Widget? bottom;
+  final VoidCallback? onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _pageBg,
+      appBar: AppBar(
+        backgroundColor: _pageBg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+        ),
+        titleSpacing: 0,
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Events', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+          Text(subtitle, style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
+        ]),
+      ),
+      bottomNavigationBar: bottom == null
+          ? null
+          : SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 14), child: bottom)),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        children: [
+          if (step != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Row(children: [
+                for (var i = 0; i < steps; i++)
+                  Expanded(
+                    child: Container(
+                      height: 5,
+                      margin: EdgeInsets.only(right: i == steps - 1 ? 0 : 6),
+                      decoration: BoxDecoration(
+                        color: i < step! ? AppColors.primary : const Color(0xFFD5DEEE),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+Widget _label(String text, {bool required = false}) => Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 5),
+      child: Text(required ? '$text *' : text,
+          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFF334155))),
+    );
+
+InputDecoration _field([String? hint]) => InputDecoration(
+      hintText: hint,
+      isDense: true,
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFD5DEEE))),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFD5DEEE))),
+    );
+
+Widget _notice(String text, {Color tint = _orange}) => Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: tint.withValues(alpha: 0.35)),
+      ),
+      child: Text(text, style: TextStyle(fontSize: 12.5, color: tint == _green ? const Color(0xFF166534) : tint)),
+    );
+
+Widget _sectionTitle(String text, {String? trailing}) => Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 8),
+      child: Row(children: [
+        Text(text, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5)),
+        if (trailing != null) ...[
+          const SizedBox(width: 6),
+          Text(trailing, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+        ],
+      ]),
+    );
+
+/// Flavours in three columns: the short code on the left and the bottles on the right.
+class _Grid extends StatelessWidget {
+  const _Grid({required this.products, this.controllers, this.values, this.onChanged});
+
+  final List<Map<String, dynamic>> products;
+  final Map<int, TextEditingController>? controllers;
+  final Map<int, num>? values;
+  final VoidCallback? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, box) {
+      final width = (box.maxWidth - 16) / 3;
+      return Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final p in products)
+          SizedBox(
+            width: width,
+            child: Container(
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFD5DEEE)),
+              ),
+              child: Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(color: const Color(0xFFDCE7FB), borderRadius: BorderRadius.circular(6)),
+                  child: Text('${p['code']}'.length > 4 ? '${p['code']}'.substring(0, 4) : '${p['code']}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                ),
+                Expanded(
+                  child: controllers != null
+                      ? TextField(
+                          controller: controllers![p['id']],
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.end,
+                          onChanged: (_) => onChanged?.call(),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                          decoration: const InputDecoration(
+                              isDense: true, border: InputBorder.none, hintText: '0', contentPadding: EdgeInsets.symmetric(horizontal: 4)),
+                        )
+                      : Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(_q(values?[p['id']] ?? 0),
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                        ),
+                ),
+              ]),
+            ),
+          ),
+      ]);
+    });
+  }
+}
+
+Map<int, TextEditingController> _controllers(List<Map<String, dynamic>> products) =>
+    {for (final p in products) p['id'] as int: TextEditingController()};
+
+num _sum(Map<int, TextEditingController> c) =>
+    c.values.fold<num>(0, (a, b) => a + (num.tryParse(b.text.trim()) ?? 0));
+
+void _goDashboard(BuildContext context) {
+  Navigator.of(context).popUntil((r) => r.isFirst);
+  Services.refresh.value++;
+}
+
+String _day(Map<String, dynamic> e) => 'Day ${e['day_no']}';
+
+// ====================================================================== the events list
 class EventsScreen extends StatefulWidget {
   const EventsScreen({super.key});
 
@@ -42,25 +222,24 @@ class _EventsScreenState extends State<EventsScreen> {
   Future<void> _load() async {
     try {
       final data = await Services.api.get('/api/v1/events') as Map<String, dynamic>;
-      if (mounted) setState(() => _events = ((data['events'] as List?) ?? []).cast<Map<String, dynamic>>());
+      if (mounted) setState(() => _events = _list(data['events']));
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     }
   }
 
-  Future<void> _open(Widget page) async {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
-    _load();
-  }
-
   @override
   Widget build(BuildContext context) {
     final events = _events;
+    const names = {'draft': 'Draft', 'running': 'Event Running', 'on_hold': 'On hold', 'done': 'Completed'};
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Events')),
+      backgroundColor: _pageBg,
+      appBar: AppBar(title: const Text('My Events'), backgroundColor: _pageBg),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _open(const NewEventScreen()),
+        onPressed: () async {
+          await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewEventScreen()));
+          _load();
+        },
         icon: const Icon(Icons.add_rounded),
         label: const Text('New Event'),
       ),
@@ -70,36 +249,159 @@ class _EventsScreenState extends State<EventsScreen> {
               ? const LoadingView()
               : RefreshIndicator(
                   onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                    children: [
-                      if (events.isEmpty)
-                        const Padding(
+                  child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 100), children: [
+                    if (events.isEmpty)
+                      const Padding(
                           padding: EdgeInsets.all(40),
-                          child: Center(child: Text('No events yet.', style: TextStyle(color: AppColors.muted))),
+                          child: Center(child: Text('No events yet.', style: TextStyle(color: AppColors.muted)))),
+                    for (final e in events)
+                      Card(
+                        child: ListTile(
+                          onTap: () async {
+                            await Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => EventReportScreen(eventId: e['id'] as int)));
+                            _load();
+                          },
+                          title: Text('${e['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                          subtitle: Text([
+                            '${names[e['state']] ?? e['state']}',
+                            if (e['territory'] != null) '${(e['territory'] as Map)['name']}',
+                            '${e['days']} day${e['days'] == 1 ? '' : 's'}',
+                          ].join(' · ')),
+                          trailing: const Icon(Icons.chevron_right_rounded),
                         ),
-                      for (final e in events)
-                        Card(
-                          child: ListTile(
-                            onTap: () => _open(EventDetailScreen(eventId: e['id'] as int)),
-                            title: Text('${e['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                            subtitle: Text([
-                              '${_stateText[e['state']] ?? e['state']}',
-                              if ((e['territory'] as Map?) != null) '${(e['territory'] as Map)['name']}',
-                              'Rs. ${e['offer_price']} offer',
-                              '${e['days']} day${e['days'] == 1 ? '' : 's'}',
-                            ].join(' · ')),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                          ),
-                        ),
-                    ],
-                  ),
+                      ),
+                  ]),
                 ),
     );
   }
 }
 
-/// Step 1 details, step 2 opening stock by distributor, step 3 confirm.
+// ====================================================================== distributor stock entry
+class _Block {
+  _Block(List<Map<String, dynamic>> products)
+      : qty = _controllers(products);
+  int? distributor;
+  final Map<int, TextEditingController> qty;
+  num get total => _sum(qty);
+}
+
+/// Distributor-wise stock by flavour. Added distributors are listed on top and can be edited.
+class _StockEditor extends StatefulWidget {
+  const _StockEditor({
+    required this.products,
+    required this.distributors,
+    required this.blocks,
+    required this.heading,
+    required this.addLabel,
+    required this.addSubtitle,
+    required this.onChanged,
+    this.first = 'Distributor',
+  });
+
+  final List<Map<String, dynamic>> products;
+  final List<Map<String, dynamic>> distributors;
+  final List<_Block> blocks;
+  final String heading;
+  final String addLabel;
+  final String? addSubtitle;
+  final String first;
+  final VoidCallback onChanged;
+
+  @override
+  State<_StockEditor> createState() => _StockEditorState();
+}
+
+class _StockEditorState extends State<_StockEditor> {
+  int _editing = 0;
+
+  String _name(int? id) => '${widget.distributors.firstWhere((d) => d['id'] == id, orElse: () => {'name': 'Distributor'})['name']}';
+
+  @override
+  Widget build(BuildContext context) {
+    final blocks = widget.blocks;
+    if (_editing >= blocks.length) _editing = blocks.length - 1;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (var i = 0; i < blocks.length; i++)
+        if (i != _editing)
+          InkWell(
+            onTap: () => setState(() => _editing = i),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(_name(blocks[i].distributor), style: const TextStyle(fontWeight: FontWeight.w800)),
+                    Text('${_q(blocks[i].total)} bottles · tap to edit',
+                        style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                  ]),
+                ),
+                const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+              ]),
+            ),
+          ),
+      _label('${widget.first} ${_editing + 1}', required: true),
+      DropdownButtonFormField<int>(
+        key: ValueKey('d$_editing${blocks.length}'),
+        initialValue: blocks[_editing].distributor,
+        isExpanded: true,
+        decoration: _field('Select distributor'),
+        items: [
+          for (final d in widget.distributors)
+            DropdownMenuItem(value: d['id'] as int, child: Text('${d['name']}', overflow: TextOverflow.ellipsis)),
+        ],
+        onChanged: (v) {
+          setState(() => blocks[_editing].distributor = v);
+          widget.onChanged();
+        },
+      ),
+      _sectionTitle(widget.heading),
+      _Grid(products: widget.products, controllers: blocks[_editing].qty, onChanged: widget.onChanged),
+      const SizedBox(height: 12),
+      InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          if (blocks[_editing].distributor == null) {
+            showProblem(context, 'Select the distributor first.');
+            return;
+          }
+          setState(() {
+            blocks.add(_Block(widget.products));
+            _editing = blocks.length - 1;
+          });
+          widget.onChanged();
+        },
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+          child: Row(children: [
+            const CircleAvatar(radius: 16, backgroundColor: AppColors.primary, child: Icon(Icons.add_rounded, color: Colors.white)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(widget.addLabel, style: const TextStyle(fontWeight: FontWeight.w800)),
+                if (widget.addSubtitle != null)
+                  Text(widget.addSubtitle!, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    ]);
+  }
+}
+
+List<Map<String, dynamic>> _stockRows(List<_Block> blocks) => [
+      for (final b in blocks)
+        if (b.distributor != null)
+          for (final e in b.qty.entries)
+            if ((num.tryParse(e.value.text.trim()) ?? 0) > 0)
+              {'distributor_id': b.distributor, 'product_id': e.key, 'qty': num.parse(e.value.text.trim())},
+    ];
+
+// ====================================================================== a new event: 3 steps
 class NewEventScreen extends StatefulWidget {
   const NewEventScreen({super.key});
 
@@ -109,15 +411,13 @@ class NewEventScreen extends StatefulWidget {
 
 class _NewEventScreenState extends State<NewEventScreen> {
   Map<String, dynamic>? _options;
-  int _step = 0;
+  int _step = 1;
   final _name = TextEditingController();
-  final _location = TextEditingController();
   final Set<int> _staff = {};
-  int? _district;
-  int? _territory;
-  int _offer = 20;
-  // One block per distributor: the distributor id and a quantity per product id.
-  final List<Map<String, dynamic>> _blocks = [];
+  Map<String, dynamic>? _territory;
+  bool _offer = true;
+  int _coupon = 30;
+  List<_Block> _blocks = [];
   bool _busy = false;
   Position? _pos;
 
@@ -130,12 +430,6 @@ class _NewEventScreenState extends State<NewEventScreen> {
   @override
   void dispose() {
     _name.dispose();
-    _location.dispose();
-    for (final b in _blocks) {
-      for (final c in (b['qty'] as Map<int, TextEditingController>).values) {
-        c.dispose();
-      }
-    }
     super.dispose();
   }
 
@@ -145,78 +439,121 @@ class _NewEventScreenState extends State<NewEventScreen> {
       if (!mounted) return;
       setState(() {
         _options = data;
-        _addBlock();
+        _blocks = [_Block(_list(data['products']))];
+        final staff = _list(data['staff']);
+        final me = Services.auth.profile;
+        for (final s in staff) {
+          if (me != null && s['name'] == me.name) _staff.add(s['id'] as int);
+        }
       });
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
     }
   }
 
-  List<Map<String, dynamic>> _list(String key) => ((_options?[key] as List?) ?? []).cast<Map<String, dynamic>>();
+  List<Map<String, dynamic>> get _products => _list(_options?['products']);
 
-  void _addBlock() {
-    final products = _list('products');
-    _blocks.add({
-      'distributor': null,
-      'qty': {for (final p in products) p['id'] as int: TextEditingController()},
+  /// The territory's distributors, then Kumbayah Foods.
+  List<Map<String, dynamic>> get _distributors {
+    final all = _list(_options?['distributors']);
+    final local = ((_territory?['distributor_ids'] as List?) ?? []).toSet();
+    final company = all.where((d) => d['company'] == true);
+    final chosen = all.where((d) => d['company'] != true && (local.isEmpty || local.contains(d['id'])));
+    return [...chosen, ...company];
+  }
+
+  Future<void> _pickStaff() async {
+    final staff = _list(_options?['staff']);
+    final picked = Set<int>.from(_staff);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheet) => StatefulBuilder(
+        builder: (context, setSheet) => SafeArea(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Conducted by', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17))),
+            ),
+            Flexible(
+              child: ListView(shrinkWrap: true, children: [
+                for (final s in staff)
+                  CheckboxListTile(
+                    value: picked.contains(s['id']),
+                    title: Text('${s['name']}'),
+                    onChanged: (v) => setSheet(() => v == true ? picked.add(s['id'] as int) : picked.remove(s['id'])),
+                  ),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: FilledButton(onPressed: () => Navigator.pop(sheet), child: const Text('Done')),
+            ),
+          ]),
+        ),
+      ),
+    );
+    setState(() {
+      _staff
+        ..clear()
+        ..addAll(picked);
     });
   }
 
-  String _validateDetails() {
-    if (_name.text.trim().isEmpty) return 'Give the event a name.';
-    if (_staff.isEmpty) return 'Choose who conducts the event.';
-    if (_territory == null) return 'Choose the territory.';
-    return '';
-  }
-
-  List<Map<String, dynamic>> _stockRows() {
-    final rows = <Map<String, dynamic>>[];
-    for (final b in _blocks) {
-      final d = b['distributor'] as int?;
-      if (d == null) continue;
-      (b['qty'] as Map<int, TextEditingController>).forEach((pid, c) {
-        final q = num.tryParse(c.text.trim()) ?? 0;
-        if (q > 0) rows.add({'distributor_id': d, 'product_id': pid, 'qty': q});
-      });
-    }
-    return rows;
-  }
-
   Future<void> _next() async {
-    if (_step == 0) {
-      final problem = _validateDetails();
-      if (problem.isNotEmpty) return showProblem(context, problem);
+    if (_step == 1) {
+      if (_name.text.trim().isEmpty) return showProblem(context, 'Enter the event name.');
+      if (_staff.isEmpty) return showProblem(context, 'Select who conducts the event.');
+      if (_territory == null) return showProblem(context, 'Select the location.');
       _pos ??= await _here(context);
       if (_pos == null) return;
     }
-    if (_step == 1 && _stockRows().isEmpty) {
-      return showProblem(context, 'Add the opening stock for at least one distributor.');
+    if (_step == 2) {
+      if (_stockRows().isEmpty) return showProblem(context, 'Enter the opening stock for at least one distributor.');
     }
-    if (_step < 2) {
-      setState(() => _step++);
-    } else {
-      _submit();
-    }
+    setState(() => _step++);
   }
 
-  Future<void> _submit() async {
+  List<Map<String, dynamic>> _stockRows() => _stockRowsOf(_blocks);
+
+  List<Map<String, dynamic>> _stockRowsOf(List<_Block> b) => [
+        for (final block in b)
+          if (block.distributor != null)
+            for (final e in block.qty.entries)
+              if ((num.tryParse(e.value.text.trim()) ?? 0) > 0)
+                {'distributor_id': block.distributor, 'product_id': e.key, 'qty': num.parse(e.value.text.trim())},
+      ];
+
+  Future<void> _confirm() async {
     setState(() => _busy = true);
     try {
+      final district = _territory?['district_id'];
       await Services.api.post('/api/v1/events', {
         'name': _name.text.trim(),
         'staff_ids': _staff.toList(),
-        'district_id': _district,
-        'territory_id': _territory,
-        'location': _location.text.trim(),
+        'district_id': district,
+        'territory_id': _territory!['id'],
+        'location': '${_territory!['name']}',
         'latitude': _pos?.latitude,
         'longitude': _pos?.longitude,
-        'offer_price': _offer,
+        'mrp': _territory!['mrp'],
+        'has_offer': _offer,
+        if (_offer) 'offer_price': _coupon,
         'stock': _stockRows(),
         'confirm': true,
       });
       if (!mounted) return;
-      showSnack(context, 'Event Running');
-      Navigator.of(context).pop();
+      final total = _stockRows().fold<num>(0, (a, r) => a + (r['qty'] as num));
+      await Navigator.of(context).pushReplacement(MaterialPageRoute(
+        builder: (_) => _MessageScreen(
+          title: _name.text.trim(),
+          message: 'Opening stock confirmed – ${_q(total)} bottles. Event is running. '
+              'Task is on hold till you end the day or the event.',
+        ),
+      ));
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
     } finally {
@@ -227,200 +564,380 @@ class _NewEventScreenState extends State<NewEventScreen> {
   @override
   Widget build(BuildContext context) {
     final o = _options;
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text('New Event · Step ${_step + 1} of 3')),
-      body: o == null
-          ? const LoadingView()
-          : ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 40), children: [
-              if (_step == 0) ..._details(),
-              if (_step == 1) ..._stock(),
-              if (_step == 2) ..._confirm(),
-              const SizedBox(height: 10),
-              Row(children: [
-                if (_step > 0)
-                  Expanded(
-                    child: OutlinedButton(onPressed: () => setState(() => _step--), child: const Text('Back')),
-                  ),
-                if (_step > 0) const SizedBox(width: 10),
-                Expanded(
-                  flex: 2,
-                  child: GradientButton(
-                    label: _step == 2 ? 'Confirm & start event' : 'Next',
-                    icon: Icons.arrow_forward_rounded,
-                    busy: _busy,
-                    onPressed: _busy ? null : _next,
+    if (o == null) {
+      return const _Frame(subtitle: 'Loading', children: [Padding(padding: EdgeInsets.all(40), child: LoadingView())]);
+    }
+    switch (_step) {
+      case 1:
+        return _details();
+      case 2:
+        return _Frame(
+          subtitle: 'Step 2 of 3 – Opening Stock',
+          step: 2,
+          onBack: () => setState(() => _step = 1),
+          bottom: GradientButton(label: 'Next', onPressed: _next),
+          children: [
+            _StockEditor(
+              products: _products,
+              distributors: _distributors,
+              blocks: _blocks,
+              heading: 'Opening stock (bottles)',
+              addLabel: 'Add another distributor',
+              addSubtitle: null,
+              onChanged: () => setState(() {}),
+            ),
+          ],
+        );
+      default:
+        return _confirmStep();
+    }
+  }
+
+  Widget _details() {
+    final territories = _list(_options?['territories']);
+    final staffNames = _list(_options?['staff']).where((s) => _staff.contains(s['id'])).map((s) => s['name']).join(', ');
+    return _Frame(
+      subtitle: 'Step 1 of 3 – Event Details',
+      step: 1,
+      bottom: GradientButton(label: 'Next', onPressed: _next),
+      children: [
+        _label('Event name', required: true),
+        TextField(controller: _name, textCapitalization: TextCapitalization.words, decoration: _field('e.g. Lulu Mall Sampling')),
+        _label('Conducted by', required: true),
+        InkWell(
+          onTap: _pickStaff,
+          child: InputDecorator(
+            decoration: _field().copyWith(suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded)),
+            child: Text(staffNames.isEmpty ? 'Select staff' : staffNames,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: staffNames.isEmpty ? AppColors.muted : AppColors.text)),
+          ),
+        ),
+        _label('Location (District / Territory)', required: true),
+        DropdownButtonFormField<int>(
+          initialValue: _territory?['id'] as int?,
+          isExpanded: true,
+          decoration: _field('Select territory'),
+          items: [
+            for (final t in territories)
+              DropdownMenuItem(
+                  value: t['id'] as int,
+                  child: Text(t['district'] != null ? '${t['district']} · ${t['name']}' : '${t['name']}',
+                      overflow: TextOverflow.ellipsis)),
+          ],
+          onChanged: (v) => setState(() {
+            _territory = territories.firstWhere((t) => t['id'] == v);
+            for (final b in _blocks) {
+              b.distributor = null;
+            }
+          }),
+        ),
+        _label('MRP'),
+        InputDecorator(
+          decoration: _field(),
+          child: Text(
+            _territory == null || _n(_territory!['mrp']) == 0
+                ? 'Fills automatically from the territory'
+                : '₹${_q(_n(_territory!['mrp']))}  (auto – as per territory)',
+            style: TextStyle(color: _territory == null ? AppColors.muted : AppColors.text),
+          ),
+        ),
+        _label('Offer'),
+        Container(
+          height: 42,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(21),
+            border: Border.all(color: const Color(0xFFD5DEEE)),
+          ),
+          child: Row(children: [
+            for (final yes in [true, false])
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _offer = yes),
+                  child: Container(
+                    margin: const EdgeInsets.all(3),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: _offer == yes ? const Color(0xFFDCE7FB) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Text(yes ? (_offer ? '✓ Yes' : 'Yes') : (!_offer ? '✓ No' : 'No'),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: _offer == yes ? AppColors.primary : AppColors.muted)),
                   ),
                 ),
-              ]),
-            ]),
+              ),
+          ]),
+        ),
+        if (_offer) ...[
+          const SizedBox(height: 10),
+          Row(children: [
+            for (final v in [20, 30, 50])
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text('₹$v'),
+                  selected: _coupon == v,
+                  showCheckmark: false,
+                  selectedColor: AppColors.primary,
+                  labelStyle: TextStyle(color: _coupon == v ? Colors.white : AppColors.text, fontWeight: FontWeight.w800),
+                  onSelected: (_) => setState(() => _coupon = v),
+                ),
+              ),
+          ]),
+        ],
+      ],
     );
   }
 
-  List<Widget> _details() {
-    final territories = _list('territories').where((t) => _district == null || t['district_id'] == _district);
-    return [
-      Card(
-        child: Padding(
+  Widget _confirmStep() {
+    final products = _products;
+    final totals = <int, num>{};
+    final byDist = <int, num>{};
+    for (final b in _blocks) {
+      if (b.distributor == null) continue;
+      b.qty.forEach((pid, c) {
+        final v = num.tryParse(c.text.trim()) ?? 0;
+        totals[pid] = (totals[pid] ?? 0) + v;
+        byDist[b.distributor!] = (byDist[b.distributor!] ?? 0) + v;
+      });
+    }
+    final names = {for (final d in _list(_options?['distributors'])) d['id'] as int: '${d['name']}'};
+    final grand = byDist.values.fold<num>(0, (a, b) => a + b);
+    return _Frame(
+      subtitle: 'Step 3 of 3 – Confirm Opening Stock',
+      step: 3,
+      onBack: () => setState(() => _step = 2),
+      children: [
+        _sectionTitle('Total opening stock', trailing: 'all distributors'),
+        _Grid(products: products, values: totals),
+        const SizedBox(height: 14),
+        Container(
           padding: const EdgeInsets.all(14),
-          child: Column(children: [
-            TextField(controller: _name, decoration: const InputDecoration(labelText: 'Event name *')),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<int>(
-              initialValue: _district,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'City / District'),
-              items: [for (final d in _list('districts')) DropdownMenuItem(value: d['id'] as int, child: Text('${d['name']}'))],
-              onChanged: (v) => setState(() {
-                _district = v;
-                _territory = null;
-              }),
-            ),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<int>(
-              initialValue: _territory,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Territory *'),
-              items: [for (final t in territories) DropdownMenuItem(value: t['id'] as int, child: Text('${t['name']}'))],
-              onChanged: (v) => setState(() => _territory = v),
-            ),
-            const SizedBox(height: 10),
-            TextField(controller: _location, decoration: const InputDecoration(labelText: 'Event location')),
-          ]),
-        ),
-      ),
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Conducted by *', style: TextStyle(fontWeight: FontWeight.w900)),
+            const Text('By distributor', style: TextStyle(fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 6, children: [
-              for (final s in _list('staff'))
-                FilterChip(
-                  label: Text('${s['name']}'),
-                  selected: _staff.contains(s['id']),
-                  onSelected: (v) => setState(() => v ? _staff.add(s['id'] as int) : _staff.remove(s['id'])),
-                ),
-            ]),
-          ]),
-        ),
-      ),
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Offer price', style: TextStyle(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
-            SegmentedButton<int>(
-              showSelectedIcon: false,
-              segments: [for (final p in (_options!['offers'] as List)) ButtonSegment(value: p as int, label: Text('Rs. $p'))],
-              selected: {_offer},
-              onSelectionChanged: (v) => setState(() => _offer = v.first),
-            ),
-            const SizedBox(height: 6),
-            const Text('MRP is filled in automatically for each flavour.',
-                style: TextStyle(fontSize: 12, color: AppColors.muted)),
-          ]),
-        ),
-      ),
-    ];
-  }
-
-  List<Widget> _stock() {
-    final products = _list('products');
-    return [
-      for (final (i, b) in _blocks.indexed)
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              DropdownButtonFormField<int>(
-                initialValue: b['distributor'] as int?,
-                isExpanded: true,
-                decoration: InputDecoration(labelText: 'Distributor ${i + 1} *'),
-                items: [
-                  for (final d in _list('distributors'))
-                    DropdownMenuItem(value: d['id'] as int, child: Text('${d['name']}', overflow: TextOverflow.ellipsis)),
-                ],
-                onChanged: (v) => setState(() => b['distributor'] = v),
-              ),
-              const SizedBox(height: 8),
-              for (final p in products)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Row(children: [
-                    Expanded(
-                      child: Text('${p['name']}${'${p['code']}'.isEmpty ? '' : ' (${p['code']})'}',
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
-                    ),
-                    SizedBox(
-                      width: 90,
-                      child: TextField(
-                        controller: (b['qty'] as Map<int, TextEditingController>)[p['id']],
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(isDense: true, hintText: 'Qty'),
-                      ),
-                    ),
-                  ]),
-                ),
-            ]),
-          ),
-        ),
-      OutlinedButton.icon(
-        onPressed: () => setState(_addBlock),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add another distributor'),
-      ),
-    ];
-  }
-
-  List<Widget> _confirm() {
-    final rows = _stockRows();
-    final names = {for (final d in _list('distributors')) d['id']: d['name']};
-    final products = {for (final p in _list('products')) p['id']: p};
-    return [
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_name.text.trim(), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-            const SizedBox(height: 4),
-            Text('Rs. $_offer offer · ${_location.text.trim()}', style: const TextStyle(color: AppColors.muted)),
-            const Divider(height: 22),
-            const Text('Opening stock', style: TextStyle(fontWeight: FontWeight.w900)),
-            for (final r in rows)
+            for (final e in byDist.entries)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(children: [
-                  Expanded(
-                    child: Text('${names[r['distributor_id']]} · ${products[r['product_id']]?['name']}'),
-                  ),
-                  Text('${fmtQty(_n(r['qty']))}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Expanded(child: Text(names[e.key] ?? '')),
+                  Text(_q(e.value), style: const TextStyle(fontWeight: FontWeight.w800)),
                 ]),
               ),
+            const Divider(),
+            Row(children: [
+              const Expanded(child: Text('Total', style: TextStyle(fontWeight: FontWeight.w900))),
+              Text(_q(grand), style: const TextStyle(fontWeight: FontWeight.w900)),
+            ]),
           ]),
         ),
-      ),
-    ];
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+              onPressed: () => setState(() => _step = 2),
+              child: const Text('‹ Back to edit'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: _green, minimumSize: const Size.fromHeight(48)),
+              onPressed: _busy ? null : _confirm,
+              child: _busy
+                  ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Confirm'),
+            ),
+          ),
+        ]),
+      ],
+    );
   }
 }
 
-/// One event: its state, End of Day, End of Event and the report.
-class EventDetailScreen extends StatefulWidget {
-  const EventDetailScreen({super.key, required this.eventId});
+class _MessageScreen extends StatelessWidget {
+  const _MessageScreen({required this.title, required this.message});
 
-  final int eventId;
+  final String title;
+  final String message;
 
   @override
-  State<EventDetailScreen> createState() => _EventDetailScreenState();
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (_, __) => _goDashboard(context),
+      child: _Frame(
+        subtitle: title,
+        onBack: () => _goDashboard(context),
+        bottom: GradientButton(label: 'Go to Dashboard', onPressed: () => _goDashboard(context)),
+        children: [_notice(message, tint: _green)],
+      ),
+    );
+  }
 }
 
-class _EventDetailScreenState extends State<EventDetailScreen> {
+// ====================================================================== the card on Home
+class ActiveEventCard extends StatefulWidget {
+  const ActiveEventCard({super.key});
+
+  @override
+  State<ActiveEventCard> createState() => _ActiveEventCardState();
+}
+
+class _ActiveEventCardState extends State<ActiveEventCard> {
   Map<String, dynamic>? _event;
-  Map<String, dynamic>? _report;
-  String? _reportDay;
-  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    Services.refresh.addListener(_load);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    Services.refresh.removeListener(_load);
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await Services.api.get('/api/v1/events', query: {'active': '1'}) as Map<String, dynamic>;
+      final events = _list(data['events']);
+      if (mounted) setState(() => _event = events.isEmpty ? null : events.first);
+    } catch (_) {
+      // Offline or the module is not on the server: the card is simply not shown.
+    }
+  }
+
+  Future<void> _continue() async {
+    final e = _event!;
+    final pos = await _here(context);
+    if (pos == null || !mounted) return;
+    final lat = (e['latitude'] as num?)?.toDouble();
+    final lng = (e['longitude'] as num?)?.toDouble();
+    if (lat != null && lng != null && !(lat == 0 && lng == 0)) {
+      final metres = Geolocator.distanceBetween(pos.latitude, pos.longitude, lat, lng);
+      if (metres > 200) {
+        showProblem(context, 'You are ${metres.round()} m from the event. Be within 200 m of the event location to continue.');
+        return;
+      }
+    }
+    final today = fmtDate(DateTime.now());
+    final closedToday = ((e['day_dates'] as List?) ?? []).contains(today);
+    if (closedToday) {
+      showProblem(context, 'Today is already closed. The event continues tomorrow.');
+      return;
+    }
+    // A later day starts with its opening stock (Step 2 and 3) before it can be ended.
+    final laterDay = (e['has_previous_day'] == true);
+    if (e['state'] == 'on_hold' && laterDay) {
+      final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => _NextDayStockScreen(event: e)));
+      if (ok != true || !mounted) return;
+      await _load();
+      if (_event == null || !mounted) return;
+    }
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${_event!['name']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            Text('${_day(_event!)} · Event Running', style: const TextStyle(color: AppColors.muted)),
+            const SizedBox(height: 10),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const CircleAvatar(backgroundColor: Color(0xFFFFEDD5), child: Icon(Icons.schedule_rounded, color: _orange)),
+              title: const Text('End of the Day', style: TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: const Text('Event continues tomorrow'),
+              onTap: () => Navigator.pop(sheet, 'day'),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const CircleAvatar(backgroundColor: Color(0xFFDCE7FB), child: Icon(Icons.flag_rounded, color: AppColors.primary)),
+              title: const Text('End of the Event', style: TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: const Text('Last day – close the event and see the report'),
+              onTap: () => Navigator.pop(sheet, 'end'),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => _EndScreen(event: _event!, last: choice == 'end')));
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final e = _event;
+    if (e == null) return const SizedBox.shrink();
+    final staff = (e['staff'] as List?)?.length ?? 0;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _orange, width: 1.6),
+      ),
+      child: Column(children: [
+        Row(children: [
+          const CircleAvatar(backgroundColor: _orange, child: Icon(Icons.celebration_rounded, color: Colors.white)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${e['name']}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+              Text('${(e['territory'] as Map?)?['name'] ?? ''} · ${_day(e)} · $staff staff',
+                  style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+            ]),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(color: _orange, borderRadius: BorderRadius.circular(14)),
+            child: Text(e['state'] == 'on_hold' ? '● On hold' : '● Event Running',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11)),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+            onPressed: _continue,
+            child: const Text('Continue event ›'),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ====================================================================== next day: opening stock
+class _NextDayStockScreen extends StatefulWidget {
+  const _NextDayStockScreen({required this.event});
+
+  final Map<String, dynamic> event;
+
+  @override
+  State<_NextDayStockScreen> createState() => _NextDayStockScreenState();
+}
+
+class _NextDayStockScreenState extends State<_NextDayStockScreen> {
+  int _step = 2;
+  List<Map<String, dynamic>> _distributors = [];
+  late final List<Map<String, dynamic>> _products = _list(widget.event['products']);
+  late final List<_Block> _blocks = [_Block(_products)];
+  bool _busy = false;
+
+  bool get _returned => widget.event['returned_yesterday'] == true;
 
   @override
   void initState() {
@@ -430,229 +947,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Future<void> _load() async {
     try {
-      final e = await Services.api.get('/api/v1/events/${widget.eventId}') as Map<String, dynamic>;
-      final r = await Services.api.get('/api/v1/events/${widget.eventId}/report',
-          query: {if (_reportDay != null) 'day': _reportDay!}) as Map<String, dynamic>;
-      if (mounted) {
-        setState(() {
-          _event = e;
-          _report = r;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
-    }
+      final data = await Services.api.get('/api/v1/events/options') as Map<String, dynamic>;
+      final all = _list(data['distributors']);
+      if (mounted) setState(() => _distributors = [...all.where((d) => d['company'] != true), ...all.where((d) => d['company'] == true)]);
+    } catch (_) {}
   }
 
-  /// The 200 m rule: end of day and end of event happen at the event.
-  Future<bool> _atEvent() async {
-    final e = _event!;
-    final pos = await _here(context);
-    if (pos == null) return false;
-    final lat = (e['latitude'] as num?)?.toDouble();
-    final lng = (e['longitude'] as num?)?.toDouble();
-    if (lat == null || lng == null || (lat == 0 && lng == 0)) return true;
-    final metres = Geolocator.distanceBetween(pos.latitude, pos.longitude, lat, lng);
-    if (metres > 200 && mounted) {
-      showProblem(context, 'You are ${metres.round()} m from the event. Be within 200 m to continue.');
-      return false;
-    }
-    return true;
-  }
-
-  Future<void> _closeDay({required bool end}) async {
-    if (!await _atEvent() || !mounted) return;
-    final products = <int, Map<String, dynamic>>{};
-    for (final s in (_event!['stock'] as List).cast<Map<String, dynamic>>()) {
-      final p = s['product'] as Map<String, dynamic>;
-      products[p['id'] as int] = {'name': p['name'], 'code': s['code']};
-    }
-    final opening = {for (final r in (_event!['today'] as List).cast<Map<String, dynamic>>()) r['product_id'] as int: _n(r['opening'])};
-    final result = await Navigator.of(context).push<bool>(MaterialPageRoute(
-      builder: (_) => _DayEntryScreen(eventId: widget.eventId, products: products, opening: opening, end: end),
-    ));
-    if (result == true) _load();
-  }
-
-  Future<void> _resume() async {
-    try {
-      await Services.api.post('/api/v1/events/${widget.eventId}/resume', {});
-      _load();
-    } catch (e) {
-      if (mounted) showProblem(context, e.toString());
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final e = _event;
-    final report = _report;
-    final days = ((report?['days'] as List?) ?? []).cast<String>();
-    final rows = ((report?['rows'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final totals = (report?['totals'] as Map?)?.cast<String, dynamic>() ?? const {};
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text(e == null ? 'Event' : '${e['name']}')),
-      body: _error != null
-          ? ErrorView(message: _error!, onRetry: _load)
-          : e == null
-              ? const LoadingView()
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 40), children: [
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('${_stateText[e['state']] ?? e['state']}',
-                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: AppColors.primary)),
-                          const SizedBox(height: 4),
-                          Text('Rs. ${e['offer_price']} offer · ${e['location']}',
-                              style: const TextStyle(color: AppColors.muted)),
-                          Text('Conducted by ${(e['staff'] as List).map((s) => (s as Map)['name']).join(', ')}',
-                              style: const TextStyle(color: AppColors.muted)),
-                          if (e['state'] != 'done') ...[
-                            const SizedBox(height: 12),
-                            if (e['state'] == 'on_hold')
-                              FilledButton(onPressed: _resume, child: const Text('Resume event'))
-                            else ...[
-                              FilledButton(onPressed: () => _closeDay(end: false), child: const Text('End of Day')),
-                              const SizedBox(height: 8),
-                              OutlinedButton(onPressed: () => _closeDay(end: true), child: const Text('End of Event')),
-                            ],
-                          ],
-                        ]),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(children: [
-                      const Expanded(child: Text('Event report', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16))),
-                      DropdownButton<String?>(
-                        value: _reportDay,
-                        hint: const Text('All days'),
-                        items: [
-                          const DropdownMenuItem<String?>(value: null, child: Text('All days')),
-                          for (final d in days) DropdownMenuItem<String?>(value: d, child: Text(d)),
-                        ],
-                        onChanged: (v) {
-                          setState(() => _reportDay = v);
-                          _load();
-                        },
-                      ),
-                    ]),
-                    if (rows.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Text('Nothing recorded yet.', style: TextStyle(color: AppColors.muted)),
-                      )
-                    else
-                      Card(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            columnSpacing: 14,
-                            columns: const [
-                              DataColumn(label: Text('Flavour')),
-                              DataColumn(label: Text('Open'), numeric: true),
-                              DataColumn(label: Text('Added'), numeric: true),
-                              DataColumn(label: Text('Samples'), numeric: true),
-                              DataColumn(label: Text('Damage'), numeric: true),
-                              DataColumn(label: Text('Return'), numeric: true),
-                              DataColumn(label: Text('Close'), numeric: true),
-                              DataColumn(label: Text('Sold'), numeric: true),
-                              DataColumn(label: Text('Value'), numeric: true),
-                            ],
-                            rows: [
-                              for (final r in rows)
-                                DataRow(cells: [
-                                  DataCell(Text('${(r['product'] as Map)['name']}')),
-                                  for (final k in ['opening', 'added', 'samples', 'damage', 'returned', 'closing', 'sold', 'value'])
-                                    DataCell(Text(fmtQty(_n(r[k])))),
-                                ]),
-                              DataRow(cells: [
-                                const DataCell(Text('Total', style: TextStyle(fontWeight: FontWeight.w900))),
-                                for (final k in ['opening', 'added', 'samples', 'damage', 'returned', 'closing', 'sold', 'value'])
-                                  DataCell(Text(fmtQty(_n(totals[k])), style: const TextStyle(fontWeight: FontWeight.w900))),
-                              ]),
-                            ],
-                          ),
-                        ),
-                      ),
-                    if (e['state'] == 'done')
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Text('Coupons used: ${e['coupons_used']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      ),
-                  ]),
-                ),
-    );
-  }
-}
-
-/// End of Day or End of Event: samples, damage, closing stock (stays or returned), and at the end the coupons.
-class _DayEntryScreen extends StatefulWidget {
-  const _DayEntryScreen({required this.eventId, required this.products, required this.opening, required this.end});
-
-  final int eventId;
-  final Map<int, Map<String, dynamic>> products;
-  final Map<int, num> opening;
-  final bool end;
-
-  @override
-  State<_DayEntryScreen> createState() => _DayEntryScreenState();
-}
-
-class _DayEntryScreenState extends State<_DayEntryScreen> {
-  late final Map<int, Map<String, TextEditingController>> _c = {
-    for (final id in widget.products.keys)
-      id: {for (final k in ['added', 'samples', 'damage', 'returned', 'closing']) k: TextEditingController()},
-  };
-  final _coupons = TextEditingController();
-  String _action = 'stays';
-  bool _hold = false;
-  bool _busy = false;
-
-  @override
-  void dispose() {
-    for (final m in _c.values) {
-      for (final c in m.values) {
-        c.dispose();
-      }
-    }
-    _coupons.dispose();
-    super.dispose();
-  }
-
-  num _v(int id, String k) => num.tryParse(_c[id]![k]!.text.trim()) ?? 0;
-
-  Future<void> _save() async {
-    for (final id in widget.products.keys) {
-      final left = (widget.opening[id] ?? 0) + _v(id, 'added') - _v(id, 'samples') - _v(id, 'damage') - _v(id, 'returned');
-      if (_v(id, 'closing') > left) {
-        return showProblem(context, 'Closing stock of ${widget.products[id]!['name']} is more than what was available.');
-      }
-    }
-    if (widget.end && (num.tryParse(_coupons.text.trim()) == null)) {
-      return showProblem(context, 'Enter the number of coupons used.');
-    }
+  Future<void> _confirm() async {
     setState(() => _busy = true);
     try {
-      await Services.api.post('/api/v1/events/${widget.eventId}/${widget.end ? 'end' : 'day'}', {
-        'lines': [
-          for (final id in widget.products.keys)
-            {
-              'product_id': id,
-              'added': _v(id, 'added'),
-              'samples': _v(id, 'samples'),
-              'damage': _v(id, 'damage'),
-              'returned': _v(id, 'returned'),
-              'closing': _v(id, 'closing'),
-              'action': _action,
-            },
-        ],
-        if (widget.end) 'coupons_used': int.tryParse(_coupons.text.trim()) ?? 0,
-        if (!widget.end) 'hold': _hold,
-      });
+      await Services.api.post('/api/v1/events/${widget.event['id']}/stock', {'stock': _stockRows(_blocks)});
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
@@ -663,81 +967,459 @@ class _DayEntryScreenState extends State<_DayEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Widget field(int id, String k, String label) => SizedBox(
-          width: 78,
-          child: TextField(
-            controller: _c[id]![k],
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(isDense: true, labelText: label),
-          ),
-        );
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text(widget.end ? 'End of Event' : 'End of Day')),
-      body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 40), children: [
-        for (final entry in widget.products.entries)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${entry.value['name']}', style: const TextStyle(fontWeight: FontWeight.w900)),
-                Text('Opening ${fmtQty(widget.opening[entry.key] ?? 0)}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-                const SizedBox(height: 8),
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  field(entry.key, 'added', 'Added'),
-                  field(entry.key, 'samples', 'Samples'),
-                  field(entry.key, 'damage', 'Damage'),
-                  if (widget.end) field(entry.key, 'returned', 'Return'),
-                  field(entry.key, 'closing', 'Closing'),
-                ]),
-              ]),
+    final opening = {for (final r in _list(widget.event['opening'])) r['product_id'] as int: _n(r['opening']) + 0};
+    final carried = _returned ? <int, num>{} : opening;
+    if (_step == 3) {
+      final totals = <int, num>{...carried};
+      for (final b in _blocks) {
+        b.qty.forEach((pid, c) => totals[pid] = (totals[pid] ?? 0) + (num.tryParse(c.text.trim()) ?? 0));
+      }
+      return _Frame(
+        subtitle: 'Step 3 of 3 – Confirm Opening Stock · ${_day(widget.event)}',
+        step: 3,
+        onBack: () => setState(() => _step = 2),
+        children: [
+          _sectionTitle('Total opening stock', trailing: 'all distributors'),
+          _Grid(products: _products, values: totals),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                  onPressed: () => setState(() => _step = 2),
+                  child: const Text('‹ Back to edit')),
             ),
-          ),
-        if (!widget.end)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Closing stock', style: TextStyle(fontWeight: FontWeight.w900)),
-                const SizedBox(height: 8),
-                SegmentedButton<String>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: 'stays', label: Text('Stays at event')),
-                    ButtonSegment(value: 'returned', label: Text('Returned')),
-                  ],
-                  selected: {_action},
-                  onSelectionChanged: (v) => setState(() => _action = v.first),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Put the event on hold'),
-                  value: _hold,
-                  onChanged: (v) => setState(() => _hold = v),
-                ),
-              ]),
-            ),
-          )
-        else
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: TextField(
-                controller: _coupons,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Coupons used *'),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: _green, minimumSize: const Size.fromHeight(48)),
+                onPressed: _busy ? null : _confirm,
+                child: const Text('Confirm'),
               ),
             ),
-          ),
-        const SizedBox(height: 8),
-        GradientButton(
-          label: widget.end ? 'End event' : 'Save end of day',
-          icon: Icons.check_rounded,
-          busy: _busy,
-          onPressed: _busy ? null : _save,
+          ]),
+        ],
+      );
+    }
+    return _Frame(
+      subtitle: 'Step 2 of 3 – Opening Stock · ${_day(widget.event)}',
+      step: 2,
+      bottom: GradientButton(
+        label: 'Next – confirm',
+        onPressed: () {
+          if (_returned && _stockRows(_blocks).isEmpty) {
+            showProblem(context, 'The stock was returned yesterday. Enter the opening stock from a distributor.');
+            return;
+          }
+          setState(() => _step = 3);
+        },
+      ),
+      children: [
+        if (_returned)
+          _notice('Stock was returned yesterday – opening stock starts at 0.')
+        else ...[
+          _notice('No return yesterday – opening stock = yesterday\'s closing stock.'),
+          _sectionTitle('Opening stock (from Day ${(widget.event['day_no'] as num) - 1} closing)'),
+          _Grid(products: _products, values: carried),
+          const SizedBox(height: 14),
+        ],
+        _StockEditor(
+          products: _products,
+          distributors: _distributors,
+          blocks: _blocks,
+          heading: _returned ? 'Opening stock (bottles)' : 'Stock to add (bottles)',
+          addLabel: _returned ? 'Add another distributor' : 'Add stock from a distributor',
+          addSubtitle: _returned ? null : 'Select distributor → qty by flavour',
+          onChanged: () => setState(() {}),
         ),
-      ]),
+      ],
+    );
+  }
+}
+
+// ====================================================================== end of the day / end of the event
+class _EndScreen extends StatefulWidget {
+  const _EndScreen({required this.event, required this.last});
+
+  final Map<String, dynamic> event;
+  final bool last;
+
+  @override
+  State<_EndScreen> createState() => _EndScreenState();
+}
+
+class _EndScreenState extends State<_EndScreen> {
+  int _step = 1;
+  late final List<Map<String, dynamic>> _products = _list(widget.event['products']);
+  late final Map<int, TextEditingController> _samples = _controllers(_products);
+  late final Map<int, TextEditingController> _damage = _controllers(_products);
+  late final List<_Block> _returns = [_Block(_products)];
+  final _coupons = TextEditingController();
+  List<Map<String, dynamic>> _distributors = [];
+  bool _returnIt = false;
+  bool _busy = false;
+
+  late final Map<int, num> _available = {
+    for (final r in _list(widget.event['opening'])) r['product_id'] as int: _n(r['opening']) + _n(r['added']),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _returnIt = widget.last;
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _coupons.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await Services.api.get('/api/v1/events/options') as Map<String, dynamic>;
+      final all = _list(data['distributors']);
+      if (mounted) setState(() => _distributors = [...all.where((d) => d['company'] != true), ...all.where((d) => d['company'] == true)]);
+    } catch (_) {}
+  }
+
+  num _left(int pid) =>
+      (_available[pid] ?? 0) - (num.tryParse(_samples[pid]!.text.trim()) ?? 0) - (num.tryParse(_damage[pid]!.text.trim()) ?? 0);
+
+  Map<String, dynamic> _map(Map<int, TextEditingController> c) =>
+      {for (final e in c.entries) '${e.key}': num.tryParse(e.value.text.trim()) ?? 0};
+
+  void _toStepTwo() {
+    for (final p in _products) {
+      final pid = p['id'] as int;
+      if (_left(pid) < 0) {
+        showProblem(context, '${p['name']}: samples and damage are more than the stock (${_q(_available[pid] ?? 0)}).');
+        return;
+      }
+    }
+    // The stock that is left is what goes back, so the first distributor starts with it filled in.
+    final first = _returns.first;
+    for (final p in _products) {
+      final pid = p['id'] as int;
+      final left = _left(pid);
+      first.qty[pid]!.text = _returnIt && left > 0 ? _q(left) : '';
+    }
+    setState(() => _step = 2);
+  }
+
+  Future<void> _submit() async {
+    if (_returnIt && _stockRows(_returns).isEmpty) {
+      showProblem(context, 'Choose the distributor the stock goes back to.');
+      return;
+    }
+    if (widget.last && widget.event['has_offer'] == true && (int.tryParse(_coupons.text.trim()) == null)) {
+      showProblem(context, 'Enter the number of coupons used.');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final result = await Services.api.post('/api/v1/events/${widget.event['id']}/${widget.last ? 'end' : 'day'}', {
+        'samples': _map(_samples),
+        'damage': _map(_damage),
+        'action': _returnIt ? 'return' : 'stays',
+        'returns': _returnIt ? _stockRows(_returns) : [],
+        if (widget.last) 'coupons_used': int.tryParse(_coupons.text.trim()) ?? 0,
+      }) as Map<String, dynamic>;
+      if (!mounted) return;
+      if (widget.last) {
+        await Navigator.of(context).pushReplacement(MaterialPageRoute(
+            builder: (_) => EventReportScreen(eventId: widget.event['id'] as int, justEnded: true)));
+      } else {
+        final closing = _n(result['closing_total']);
+        await Navigator.of(context).pushReplacement(MaterialPageRoute(
+          builder: (_) => _MessageScreen(
+            title: '${widget.event['name']}',
+            message: '${_day(widget.event)} closed. Task on hold till tomorrow. '
+                'Closing stock at the event: ${_q(closing)} bottles.',
+          ),
+        ));
+      }
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.last ? 'End of the Event' : 'End of the Day';
+    if (_step == 1) {
+      return _Frame(
+        subtitle: '$title · 1 of 2',
+        step: 1,
+        steps: 3,
+        bottom: GradientButton(label: 'Next', onPressed: _toStepTwo),
+        children: [
+          _sectionTitle(widget.last ? 'Samples given (last day)' : 'Samples given'),
+          _Grid(products: _products, controllers: _samples),
+          _sectionTitle(widget.last ? 'Damage (last day)' : 'Damage'),
+          _Grid(products: _products, controllers: _damage),
+        ],
+      );
+    }
+    final coupon = _n(widget.event['offer_price']);
+    return _Frame(
+      subtitle: '$title · 2 of 2',
+      step: 2,
+      steps: 3,
+      onBack: () => setState(() => _step = 1),
+      bottom: GradientButton(
+        label: widget.last ? 'End the event' : 'End the day',
+        busy: _busy,
+        onPressed: _busy ? null : _submit,
+      ),
+      children: [
+        if (!widget.last) ...[
+          _sectionTitle('Closing stock'),
+          Container(
+            height: 42,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(21),
+              border: Border.all(color: const Color(0xFFD5DEEE)),
+            ),
+            child: Row(children: [
+              for (final back in [false, true])
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _returnIt = back),
+                    child: Container(
+                      margin: const EdgeInsets.all(3),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _returnIt == back ? const Color(0xFFDCE7FB) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Text(back ? (_returnIt ? '✓ Return to distributor' : 'Return to distributor')
+                          : (!_returnIt ? '✓ Stays at the event' : 'Stays at the event'),
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5,
+                              color: _returnIt == back ? AppColors.primary : AppColors.muted)),
+                    ),
+                  ),
+                ),
+            ]),
+          ),
+        ],
+        if (_returnIt)
+          _StockEditor(
+            products: _products,
+            distributors: _distributors,
+            blocks: _returns,
+            first: widget.last ? 'Return remaining stock to' : 'Return to',
+            heading: 'Qty returned',
+            addLabel: 'Return to another distributor',
+            addSubtitle: null,
+            onChanged: () => setState(() {}),
+          )
+        else ...[
+          _sectionTitle('Stays at the event', trailing: 'bottles'),
+          _Grid(products: _products, values: {for (final p in _products) p['id'] as int: _left(p['id'] as int)}),
+        ],
+        if (widget.last && widget.event['has_offer'] == true) ...[
+          _label('No. of coupons used (₹${_q(coupon)} offer)', required: true),
+          TextField(controller: _coupons, keyboardType: TextInputType.number, decoration: _field('0')),
+        ],
+      ],
+    );
+  }
+}
+
+// ====================================================================== the event report
+class EventReportScreen extends StatefulWidget {
+  const EventReportScreen({super.key, required this.eventId, this.justEnded = false});
+
+  final int eventId;
+  final bool justEnded;
+
+  @override
+  State<EventReportScreen> createState() => _EventReportScreenState();
+}
+
+class _EventReportScreenState extends State<EventReportScreen> {
+  Map<String, dynamic>? _data;
+  String? _day;
+  String? _error;
+  bool _exporting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await Services.api.get('/api/v1/events/${widget.eventId}/report',
+          query: {if (_day != null) 'day': _day!}) as Map<String, dynamic>;
+      if (mounted) setState(() => _data = data);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  Future<void> _excel() async {
+    setState(() => _exporting = true);
+    try {
+      final result = await Services.api.post('/api/v1/events/${widget.eventId}/export', {}) as Map<String, dynamic>;
+      final url = Uri.parse(await Services.api.url('${result['path']}'));
+      final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) showSnack(context, 'Could not open the download.');
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = _data;
+    if (_error != null) {
+      return _Frame(subtitle: 'Event report', children: [ErrorView(message: _error!, onRetry: _load)]);
+    }
+    if (d == null) {
+      return const _Frame(subtitle: 'Event report', children: [Padding(padding: EdgeInsets.all(40), child: LoadingView())]);
+    }
+    final e = (d['event'] as Map).cast<String, dynamic>();
+    final rows = _list(d['rows']);
+    final totals = (d['totals'] as Map).cast<String, dynamic>();
+    final days = ((d['days'] as List?) ?? []).cast<String>();
+    final coupons = (d['coupons'] as Map).cast<String, dynamic>();
+    final staff = (e['staff'] as List?)?.length ?? 0;
+    final addedAll = _n(totals['opening']) + _n(totals['added']);
+
+    Widget summary() => Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+          child: Wrap(runSpacing: 10, children: [
+            for (final item in [
+              ('Opening + added', _q(addedAll), AppColors.text),
+              ('Samples', _q(_n(totals['samples'])), AppColors.text),
+              ('Damage', _q(_n(totals['damage'])), AppColors.text),
+              ('Returned', _q(_n(totals['returned'])), AppColors.text),
+              ('Sales (auto)', _q(_n(totals['sold'])), _green),
+              ('Coupons used', e['has_offer'] == true ? '${coupons['used']} × ₹${coupons['value']}' : '–', AppColors.text),
+            ])
+              SizedBox(
+                width: (MediaQuery.of(context).size.width - 32 - 28) / 2,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(item.$1, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                  Text(item.$2, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: item.$3)),
+                ]),
+              ),
+          ]),
+        );
+
+    Widget cellText(String t, {bool head = false, Color? color, bool bold = false, TextAlign align = TextAlign.right}) =>
+        Text(t,
+            textAlign: align,
+            style: TextStyle(
+                fontSize: head ? 11 : 12.5,
+                color: head ? AppColors.muted : color,
+                fontWeight: head || bold ? FontWeight.w800 : FontWeight.w500));
+
+    return _Frame(
+      subtitle: widget.justEnded ? '${e['name']} · ${d['days'] != null ? days.length : 0} days' : '${e['name']}',
+      onBack: widget.justEnded ? () => _goDashboard(context) : null,
+      bottom: widget.justEnded ? GradientButton(label: 'Done', onPressed: () => _goDashboard(context)) : null,
+      children: [
+        if (widget.justEnded) ...[
+          summary(),
+          const SizedBox(height: 10),
+          _notice('Event completed. Full flavour-wise report below.', tint: _green),
+        ],
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+          child: Wrap(runSpacing: 10, children: [
+            for (final item in [
+              ('Location', '${e['location']}'),
+              ('MRP · Offer', '₹${_q(_n(e['mrp']))} · ${e['has_offer'] == true ? '₹${e['offer_price']}' : 'No offer'}'),
+              ('Conducted by', '$staff staff'),
+              ('Coupons used', '${coupons['used']}'),
+            ])
+              SizedBox(
+                width: (MediaQuery.of(context).size.width - 32 - 28) / 2,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(item.$1, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                  Text(item.$2, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                ]),
+              ),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+          child: rows.isEmpty
+              ? const Padding(padding: EdgeInsets.all(16), child: Text('Nothing recorded yet.', style: TextStyle(color: AppColors.muted)))
+              : Table(
+                  columnWidths: const {0: FlexColumnWidth(1.4)},
+                  children: [
+                    TableRow(children: [
+                      cellText('Flav', head: true, align: TextAlign.left),
+                      for (final h in ['Open', 'Add', 'Smpl', 'Dmg', 'Ret', 'Sales']) cellText(h, head: true),
+                    ]),
+                    for (final r in rows)
+                      TableRow(children: [
+                        Padding(padding: const EdgeInsets.symmetric(vertical: 5),
+                            child: cellText('${r['code']}', bold: true, align: TextAlign.left)),
+                        for (final k in ['opening', 'added', 'samples', 'damage', 'returned'])
+                          Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: cellText(_q(_n(r[k])))),
+                        Padding(padding: const EdgeInsets.symmetric(vertical: 5),
+                            child: cellText(_q(_n(r['sold'])), color: _green, bold: true)),
+                      ]),
+                    TableRow(
+                      decoration: const BoxDecoration(color: Color(0xFFEEF3FB)),
+                      children: [
+                        Padding(padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: cellText('Total', bold: true, align: TextAlign.left)),
+                        for (final k in ['opening', 'added', 'samples', 'damage', 'returned'])
+                          Padding(padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: cellText(_q(_n(totals[k])), bold: true)),
+                        Padding(padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: cellText(_q(_n(totals['sold'])), color: _green, bold: true)),
+                      ],
+                    ),
+                  ],
+                ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (var i = 0; i < days.length; i++)
+            ChoiceChip(
+              label: Text('Day ${i + 1}'),
+              selected: _day == days[i],
+              onSelected: (_) {
+                setState(() => _day = days[i]);
+                _load();
+              },
+            ),
+          ChoiceChip(
+            label: const Text('All days'),
+            selected: _day == null,
+            onSelected: (_) {
+              setState(() => _day = null);
+              _load();
+            },
+          ),
+        ]),
+        const SizedBox(height: 14),
+        OutlinedButton.icon(
+          onPressed: _exporting ? null : _excel,
+          icon: _exporting
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.table_view_rounded),
+          label: const Text('Download Excel'),
+        ),
+      ],
     );
   }
 }
