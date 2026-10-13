@@ -1137,6 +1137,7 @@ class _EndScreenState extends State<_EndScreen> {
   late final List<Map<String, dynamic>> _products = _list(widget.event['products']);
   late final Map<int, TextEditingController> _samples = _controllers(_products);
   late final Map<int, TextEditingController> _damage = _controllers(_products);
+  late final Map<int, TextEditingController> _closing = _controllers(_products);
   late final List<_Block> _returns = [_Block(_products)];
   final _coupons = TextEditingController();
   List<Map<String, dynamic>> _distributors = [];
@@ -1175,19 +1176,34 @@ class _EndScreenState extends State<_EndScreen> {
         return;
       }
     }
-    // The stock that is left is what goes back, so the first distributor starts with it filled in.
-    final first = _returns.first;
-    for (final p in _products) {
-      final pid = p['id'] as int;
-      final left = _left(pid);
-      first.qty[pid]!.text = _returnIt && left > 0 ? _q(left) : '';
-    }
     setState(() => _step = 2);
   }
 
+  /// What staff counted as gone back (or left at the event) for a flavour.
+  num _counted(int pid) {
+    if (_returnIt) {
+      num total = 0;
+      for (final b in _returns) {
+        total += num.tryParse(b.qty[pid]?.text.trim() ?? '') ?? 0;
+      }
+      return total;
+    }
+    return num.tryParse(_closing[pid]!.text.trim()) ?? 0;
+  }
+
+  /// Sales = opening + added - samples - damage - returned - closing, worked out by the app.
+  num _sold(int pid) => _left(pid) - _counted(pid);
+
   Future<void> _submit() async {
-    if (_returnIt && _stockRows(_returns).isEmpty) {
-      showProblem(context, 'Choose the distributor the stock goes back to.');
+    for (final p in _products) {
+      final pid = p['id'] as int;
+      if (_sold(pid) < 0) {
+        showProblem(context, '${p['name']}: returned or closing stock is more than what is left (${_q(_left(pid))}).');
+        return;
+      }
+    }
+    if (_returnIt && _stockRows(_returns).isEmpty && _products.any((p) => _left(p['id'] as int) > 0)) {
+      showProblem(context, 'Choose the distributor the stock goes back to and enter the quantity returned.');
       return;
     }
     if (widget.last && widget.event['has_offer'] == true && (int.tryParse(_coupons.text.trim()) == null)) {
@@ -1200,6 +1216,7 @@ class _EndScreenState extends State<_EndScreen> {
         'samples': _map(_samples),
         'damage': _map(_damage),
         'action': _returnIt ? 'return' : 'stays',
+        'closing': _returnIt ? <String, dynamic>{} : _map(_closing),
         'returns': _returnIt ? _stockRows(_returns) : [],
         if (widget.last) 'coupons_used': int.tryParse(_coupons.text.trim()) ?? 0,
       }) as Map<String, dynamic>;
@@ -1290,15 +1307,17 @@ class _EndScreenState extends State<_EndScreen> {
             distributors: _distributors,
             blocks: _returns,
             first: widget.last ? 'Return remaining stock to' : 'Return to',
-            heading: 'Qty returned',
+            heading: 'Qty returned (counted)',
             addLabel: 'Return to another distributor',
             addSubtitle: null,
             onChanged: () => setState(() {}),
           )
         else ...[
-          _sectionTitle('Stays at the event', trailing: 'bottles'),
-          _Grid(products: _products, values: {for (final p in _products) p['id'] as int: _left(p['id'] as int)}),
+          _sectionTitle('Closing stock at the event', trailing: 'count the bottles left'),
+          _Grid(products: _products, controllers: _closing, onChanged: () => setState(() {})),
         ],
+        _sectionTitle('Sales (auto)', trailing: 'what is not samples, damage, returned or left'),
+        _Grid(products: _products, values: {for (final p in _products) p['id'] as int: _sold(p['id'] as int)}),
         if (widget.last && widget.event['has_offer'] == true) ...[
           _label('No. of coupons used (₹${_q(coupon)} offer)', required: true),
           TextField(controller: _coupons, keyboardType: TextInputType.number, decoration: _field('0')),
