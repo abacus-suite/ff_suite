@@ -39,12 +39,11 @@ class HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The greeting is on the left where the logo was; the line about the day sits in the middle.
+    // The greeting is on the left where the logo was; the mode chip, bell and avatar sit on the right.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
-          flex: 5,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -63,13 +62,6 @@ class HomeHeader extends StatelessWidget {
               ),
             ],
           ),
-        ),
-        const Expanded(
-          flex: 5,
-          child: Text("Let's make today count!",
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
         ),
         if (modeChip != null) modeChip!,
         bell,
