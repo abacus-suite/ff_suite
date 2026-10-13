@@ -1,3 +1,4 @@
+import '../beat/plan_beat_screen.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -24,9 +25,7 @@ import 'home_cards.dart';
 import '../../core/duty_watch.dart';
 import 'day_journey_screen.dart';
 import 'sales_cards.dart';
-import 'month_target_card.dart';
 import 'recommendations_card.dart';
-import 'my_requests_card.dart';
 import '../../widgets/sync_status.dart';
 import '../beat/beat_today_screen.dart';
 import '../clients/client_detail_screen.dart';
@@ -324,6 +323,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return ends == null ? null : DateTime.tryParse('$ends');
   }
 
+  List<Map<String, dynamic>> get _plannedClients =>
+      ((_today?['clients'] as List?) ?? []).cast<Map<String, dynamic>>();
+
+  int get _plannedVisits => _plannedClients.length;
+
+  int get _doneVisits => _plannedClients
+      .where((c) => c['visit_status'] == 'done' || c['plan_status'] == 'visited')
+      .length;
+
   Future<void> _push(Widget screen) async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
     _load();
@@ -344,13 +352,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       if (_visit != null) _ongoingVisitCard(_visit!),
       _todaySummary(),
-      if (_day?['punched_in'] == true && profile.feature('visits')) const RecommendationsCard(),
-      if (profile.feature('orders')) ...[_salesCard()],
-      _upcomingVisits(profile),
-      const MyTasksCard(),
-      const MyRequestsCard(),
-      _targetBanner(),
-      const MonthTargetCard(),
+      if (_day?['punched_in'] == true && profile.feature('visits'))
+        RecommendationsCard(done: _doneVisits, target: _plannedVisits),
     ];
     return [for (final card in cards) if (card is! SizedBox) card];
   }
@@ -507,6 +510,7 @@ class _HomeScreenState extends State<HomeScreen> {
         await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyPendingScreen()));
         _loadMyPending();
       },
+      onBeatPlan: () => _push(const PlanBeatScreen()),
       onPunch: () => _punch(!punchedIn),
     );
   }
@@ -803,7 +807,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             CardHeader(
               icon: Icons.assignment_rounded,
-              title: 'Today Summary',
+              title: "Today's Beat Plan Summary",
               trailing: TextButton(
                 onPressed: () => _push(const BeatTodayScreen()),
                 child: const Text('View All'),

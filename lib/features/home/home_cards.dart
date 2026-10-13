@@ -35,6 +35,7 @@ class CheckInHero extends StatefulWidget {
     this.routeLabel = 'Today',
     this.pending = 0,
     this.onPending,
+    this.onBeatPlan,
   });
 
   final bool punchedIn;
@@ -50,6 +51,9 @@ class CheckInHero extends StatefulWidget {
   /// How many of my own requests wait for somebody's approval; the small icon opens them.
   final int pending;
   final VoidCallback? onPending;
+
+  /// Opens My Beat Plan from the card.
+  final VoidCallback? onBeatPlan;
 
   /// When the punch that is still open began; null when the day is not running.
   final DateTime? onDutySince;
@@ -138,49 +142,36 @@ class _CheckInHeroState extends State<CheckInHero> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // The state on the left, and while the day runs, Check Out on the right.
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: _statusPill(green))),
-              if (widget.target > 0) ...[const SizedBox(width: 8), _targetBadge()],
-              if (widget.onPending != null) ...[const SizedBox(width: 8), _pendingIcon()],
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            green
-                ? 'Your Field Day is Running'
-                : (_resumable ? 'Your Day is Paused' : 'Ready to Start\nYour Field Day?'),
-            style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, height: 1.2, color: AppColors.text),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(green ? Icons.schedule_rounded : Icons.play_circle_outline_rounded,
-                  size: 16, color: AppColors.muted),
-              const SizedBox(width: 6),
-              Expanded(
-                child: green
-                    ? Text.rich(
-                        TextSpan(
-                          children: [
-                            const TextSpan(text: 'On duty for '),
-                            TextSpan(
-                                text: _soFar,
-                                style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.text)),
-                            const TextSpan(text: ' so far.'),
-                          ],
-                        ),
-                        style: const TextStyle(fontSize: 13, color: AppColors.muted),
-                      )
-                    : const Text('Track visits, meet customers and create more opportunities.',
-                        style: TextStyle(fontSize: 12.5, color: AppColors.muted, height: 1.35)),
-              ),
+              if (green) ...[const SizedBox(width: 8), _checkOutButton()],
             ],
           ),
           if (green) ...[
-            const SizedBox(height: 12),
-            _figures(),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.schedule_rounded, size: 16, color: AppColors.muted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: 'On duty for '),
+                        TextSpan(
+                            text: _soFar,
+                            style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.text)),
+                        const TextSpan(text: ' so far.'),
+                      ],
+                    ),
+                    style: const TextStyle(fontSize: 13, color: AppColors.muted),
+                  ),
+                ),
+              ],
+            ),
           ],
           if (green && widget.punchesToday > 1) ...[
             const SizedBox(height: 10),
@@ -190,12 +181,70 @@ class _CheckInHeroState extends State<CheckInHero> {
             const SizedBox(height: 10),
             _resumeNote(),
           ],
+          if (!green) ...[
+            const SizedBox(height: 12),
+            _button(green),
+          ],
           const SizedBox(height: 12),
-          green ? _footRow() : _button(green),
+          Row(
+            children: [
+              Expanded(
+                child: _cardButton(Icons.event_note_rounded, 'Select your\nBeat Plan', widget.onBeatPlan),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _cardButton(Icons.insights_rounded, 'My Day\nTravel \u00B7 visits \u00B7 time', widget.onOpenDay),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
+
+  /// Check Out sits at the top right while the day runs.
+  Widget _checkOutButton() => SizedBox(
+        height: 40,
+        child: FilledButton.icon(
+          onPressed: widget.busy ? null : widget.onPunch,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.danger,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+          ),
+          icon: widget.busy
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Icon(Icons.stop_circle_rounded, size: 19),
+          label: const Text('Check Out', style: TextStyle(fontWeight: FontWeight.w800)),
+        ),
+      );
+
+  /// A white button on the card: an icon and two lines.
+  Widget _cardButton(IconData icon, String text, VoidCallback? onTap) => InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+          decoration: BoxDecoration(color: const Color(0xCCFFFFFF), borderRadius: BorderRadius.circular(16)),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(11)),
+                child: Icon(icon, size: 19, color: AppColors.primary),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(text,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.25, color: AppColors.text)),
+              ),
+            ],
+          ),
+        ),
+      );
 
   /// The day has been opened more than once: say so plainly.
   Widget _historyNote() => Container(

@@ -9,7 +9,11 @@ import '../clients/client_detail_screen.dart';
 /// and customers close by that are due a visit. Shown only when the office
 /// turned Visit Recommendations on and the person is punched in.
 class RecommendationsCard extends StatefulWidget {
-  const RecommendationsCard({super.key});
+  const RecommendationsCard({super.key, this.done = 0, this.target = 0});
+
+  /// Today's planned visits that are done, and how many are planned: shown beside the title.
+  final int done;
+  final int target;
 
   @override
   State<RecommendationsCard> createState() => _RecommendationsCardState();
@@ -156,17 +160,18 @@ class _RecommendationsCardState extends State<RecommendationsCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Visit next', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                const SizedBox(height: 3),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    if (planned.isNotEmpty) _chip('${planned.length} left', Icons.flag_rounded, AppColors.primary),
-                    if (data?['planned_km'] != null)
-                      _chip(_km(data?['planned_km'] as num?), Icons.route_rounded, AppColors.purple),
-                  ],
-                ),
+                const Text('Next Visit', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                if (widget.target > 0) ...[
+                  const SizedBox(height: 3),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      _chip('${(widget.done / widget.target * 100).round()}%', Icons.donut_large_rounded, AppColors.success),
+                      _chip('${widget.done} / ${widget.target}  Daily Target', Icons.flag_rounded, AppColors.primary),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

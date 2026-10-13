@@ -35,51 +35,38 @@ class HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The greeting is on the left where the logo was; the line about the day sits in the middle.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset('assets/images/ff_name_logo.png',
-                height: 30, fit: BoxFit.contain),
-            const SizedBox(height: 2),
-            const Text('FIELD SALES, SIMPLIFIED',
-                style: TextStyle(
-                    fontSize: 7.5,
-                    letterSpacing: 1.1,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.muted)),
-          ],
-        ),
-        const SizedBox(width: 8),
         Expanded(
+          flex: 5,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(greeting(),
-                  style:
-                      const TextStyle(fontSize: 12, color: AppColors.muted)),
+              Text(greeting(), style: const TextStyle(fontSize: 12, color: AppColors.muted)),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Flexible(
                     child: Text(name,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w800)),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                   ),
-                  const Text(' 👋', style: TextStyle(fontSize: 14)),
+                  const Text(' \u{1F44B}', style: TextStyle(fontSize: 14)),
                 ],
               ),
-              const Text("Let's make today count!",
-                  style: TextStyle(fontSize: 11, color: AppColors.muted)),
             ],
           ),
         ),
-        const SizedBox(width: 4),
+        const Expanded(
+          flex: 5,
+          child: Text("Let's make today count!",
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
+        ),
         bell,
         GestureDetector(
           onTap: onAvatar,
