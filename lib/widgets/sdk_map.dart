@@ -76,7 +76,9 @@ class SdkMap extends StatefulWidget {
 
   /// Set only by a build that was given a Google key (`--dart-define=MAPS_BUILD_KEY=1` with `-PMAPS_API_KEY=...`).
   /// Without it the app carries a placeholder key, and Google's map would open as a blank grey square.
-  static const _builtWithKey = bool.fromEnvironment('MAPS_BUILD_KEY');
+  // bool.fromEnvironment is true only for the text "true", and the build scripts pass MAPS_BUILD_KEY=1.
+  static const _keyFlag = String.fromEnvironment('MAPS_BUILD_KEY');
+  static const _builtWithKey = _keyFlag == '1' || _keyFlag == 'true';
 
   /// For the Settings page: whether this build carries a Google key at all.
   static bool get builtWithKey => _builtWithKey;
