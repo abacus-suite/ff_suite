@@ -9,6 +9,7 @@ import '../core/map_style.dart';
 import '../core/tile_cache.dart';
 import '../core/services.dart';
 import '../core/theme.dart';
+import 'sdk_map.dart';
 
 /// OpenStreetMap's own tiles: free, no API key, no account.
 ///
@@ -133,8 +134,85 @@ class _AppMapState extends State<AppMap> with TickerProviderStateMixin {
     }
   }
 
+  /// The same map drawn by Google's own SDK, in the app's pale style, when this build carries a key and the
+  /// office chose "Google map inside the app". The layers the screens already build are read back into
+  /// pins, a route and a circle, so every map in the app looks the same.
+  Widget? _sdkMap() {
+    if (!SdkMap.available) return null;
+    final pins = <SdkPin>[];
+    var path = <LatLng>[];
+    LatLng? circle;
+    var circleMetres = 0.0;
+    LatLng? me = widget.myLocation;
+    var n = 0;
+    for (final layer in widget.children) {
+      if (layer is MarkerLayer) {
+        for (final marker in layer.markers) {
+          var child = marker.child;
+          VoidCallback? tap;
+          if (child is GestureDetector) {
+            tap = child.onTap;
+            child = child.child ?? child;
+          }
+          if (child is MyLocationDot) {
+            me ??= marker.point;
+          } else if (child is MapPinWithLabel) {
+            pins.add(SdkPin(id: 'p${n++}', point: marker.point, label: child.label, colour: child.color,
+                onTap: child.onTap ?? tap));
+          } else if (child is MapPin) {
+            pins.add(SdkPin(id: 'p${n++}', point: marker.point, colour: child.color, onTap: tap));
+          } else if (child is Icon) {
+            pins.add(SdkPin(id: 'p${n++}', point: marker.point, colour: child.color ?? AppColors.success, onTap: tap));
+          } else {
+            pins.add(SdkPin(id: 'p${n++}', point: marker.point, onTap: tap));
+          }
+        }
+      } else if (layer is PolylineLayer) {
+        for (final line in layer.polylines) {
+          // The casing under a route is white; the route itself is the last, coloured line.
+          if (line.points.length > 1) path = line.points;
+        }
+      } else if (layer is CircleLayer) {
+        if (layer.circles.isNotEmpty) {
+          circle = layer.circles.first.point;
+          circleMetres = layer.circles.first.radius;
+        }
+      }
+    }
+    final all = widget.fitPoints.length > 1 ? widget.fitPoints : <LatLng>[];
+    var centre = widget.center ?? (all.isNotEmpty ? all.first : (pins.isNotEmpty ? pins.first.point : null));
+    var zoom = widget.zoom;
+    if (all.length > 1) {
+      var south = all.first.latitude, north = south, west = all.first.longitude, east = west;
+      for (final point in all) {
+        south = math.min(south, point.latitude);
+        north = math.max(north, point.latitude);
+        west = math.min(west, point.longitude);
+        east = math.max(east, point.longitude);
+      }
+      centre = LatLng((south + north) / 2, (west + east) / 2);
+      final span = math.max((north - south) * 1.5, east - west);
+      zoom = span <= 0 ? widget.zoom : (math.log(360 / (span * 1.35)) / math.ln2).clamp(3.0, 17.0);
+    }
+    return ClipRRect(
+      borderRadius: widget.borderRadius ?? BorderRadius.zero,
+      child: SdkMap(
+        pins: pins,
+        path: path,
+        centre: centre,
+        zoom: zoom,
+        myLocation: me,
+        circle: circle,
+        circleMetres: circleMetres,
+        interactive: widget.interactive,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final sdk = _sdkMap();
+    if (sdk != null) return sdk;
     final map = Stack(
       children: [
         FlutterMap(
