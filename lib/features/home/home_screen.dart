@@ -474,6 +474,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ]),
       ),
     );
+    if (picked == true && _profile.feature('attendance') && _status?['punched_in'] != true) {
+      // Checked out is always Employee Mode, so there is nothing to switch to until the day is started.
+      if (mounted) showSnack(context, 'Check in first. Manager Mode is available once you are checked in.');
+      return;
+    }
     if (picked != null && picked != Services.managerMode.value) {
       Services.managerMode.value = picked;
       unawaited(Services.storage.write('manager_mode', picked ? '1' : '0'));
