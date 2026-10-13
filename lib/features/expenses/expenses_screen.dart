@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'expense_form_screen.dart';
 import 'new_expense_screen.dart';
+import '../allowance/allowance_screen.dart';
 
 /// My Expenses: what was claimed and approved, the claims not sent yet (tick
 /// and send them), and how each sent one fared.
@@ -196,7 +197,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final deadline = _deadline;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('My Expenses')),
+      appBar: AppBar(title: const Text('My Expense')),
       floatingActionButton: _picked.isEmpty
           ? FloatingActionButton.extended(
               onPressed: _new, icon: const Icon(Icons.add_rounded), label: const Text('New expense'))
@@ -258,11 +259,32 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             const SizedBox(height: 10),
             if (_claims.isEmpty && !_loading) const EmptyView(icon: Icons.receipt_rounded, text: 'No expenses this month'),
             for (final c in _claims) _tile(c, currency),
+            const SizedBox(height: 14),
+            // TA and DA sit on the same page, below the expenses.
+            _allowanceCard(Icons.local_gas_station_rounded, 'Travel Allowance (TA)',
+                'Claims for the kilometres travelled', AppColors.purple,
+                () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllowanceScreen()))),
+            _allowanceCard(Icons.restaurant_rounded, 'Daily Allowance (DA)', 'Daily allowance claims', AppColors.teal,
+                () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _DailyAllowanceScreen()))),
           ],
         ),
       ),
     );
   }
+
+  Widget _allowanceCard(IconData icon, String title, String subtitle, Color tint, VoidCallback onTap) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: tint.withValues(alpha: 0.12),
+            child: Icon(icon, color: tint),
+          ),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: Text(subtitle),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: onTap,
+        ),
+      );
 
   Widget _total(String label, num? v, String? currency, Color tint) => Container(
         margin: const EdgeInsets.only(top: 10),
@@ -313,6 +335,36 @@ class _Detail extends StatelessWidget {
           const SizedBox(height: 6),
           const Text('A sent expense cannot be edited.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
         ]),
+      ),
+    );
+  }
+}
+
+/// Daily allowance: the screen is in place; the claim rules are still to be given.
+class _DailyAllowanceScreen extends StatelessWidget {
+  const _DailyAllowanceScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Daily Allowance (DA)')),
+      body: const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.restaurant_rounded, size: 48, color: AppColors.teal),
+              SizedBox(height: 12),
+              Text('Daily allowance claims',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              SizedBox(height: 6),
+              Text('Your daily allowance claims will be listed here once they are switched on.',
+                  textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
+            ],
+          ),
+        ),
       ),
     );
   }

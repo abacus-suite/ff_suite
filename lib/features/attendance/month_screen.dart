@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
+import '../leaves/leaves_screen.dart';
+import 'regularisation_screen.dart';
 
 const _statusStyle = <String, (String, Color)>{
   'present': ('Present', Colors.green),
@@ -26,6 +28,9 @@ class _MonthScreenState extends State<MonthScreen> {
   Map<String, dynamic>? _data;
   String? _error;
   bool _loading = false;
+
+  /// The status whose days are highlighted and listed under the calendar.
+  String? _selected;
 
   @override
   void initState() {
@@ -99,7 +104,7 @@ class _MonthScreenState extends State<MonthScreen> {
           crossAxisSpacing: 4,
           children: [
             for (var i = 0; i < leading; i++) const SizedBox.shrink(),
-            for (final day in days) _DayCell(day: day),
+            for (final day in days) _DayCell(day: day, dim: _selected != null && day['status'] != _selected),
           ],
         ),
         const SizedBox(height: 16),
@@ -109,10 +114,52 @@ class _MonthScreenState extends State<MonthScreen> {
           children: [
             for (final entry in _statusStyle.entries)
               if (entry.key != 'upcoming' && (summary[entry.key] ?? 0) > 0)
-                Chip(
+                ChoiceChip(
                   avatar: CircleAvatar(backgroundColor: entry.value.$2, radius: 6),
                   label: Text('${entry.value.$1}: ${summary[entry.key]}'),
+                  selected: _selected == entry.key,
+                  onSelected: (_) => setState(() => _selected = _selected == entry.key ? null : entry.key),
                 ),
+          ],
+        ),
+        if (_selected != null) ...[
+          const SizedBox(height: 12),
+          for (final day in days.where((d) => d['status'] == _selected))
+            Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                title: Text(_longDate(day['date'] as String), style: const TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: Text(
+                  (day['first_in'] == null && day['last_out'] == null)
+                      ? 'No check-in'
+                      : 'In ${fmtTime(day['first_in'])} \u00B7 Out ${fmtTime(day['last_out'])} \u00B7 ${fmtHours(day['worked_hours'] as num?)}',
+                ),
+                trailing: Text(_statusStyle[_selected]!.$1,
+                    style: TextStyle(fontWeight: FontWeight.w800, color: _statusStyle[_selected]!.$2)),
+              ),
+            ),
+        ],
+        const SizedBox(height: 16),
+        // Below the calendar there are only two ways on.
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => const RegularisationScreen())),
+                icon: const Icon(Icons.edit_calendar_rounded),
+                label: const Text('Attendance Correction'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () =>
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeavesScreen())),
+                icon: const Icon(Icons.beach_access_rounded),
+                label: const Text('My Leaves'),
+              ),
+            ),
           ],
         ),
       ],
@@ -121,16 +168,21 @@ class _MonthScreenState extends State<MonthScreen> {
 }
 
 class _DayCell extends StatelessWidget {
-  const _DayCell({required this.day});
+  const _DayCell({required this.day, this.dim = false});
 
   final Map<String, dynamic> day;
+
+  /// Another status is selected: this day fades back.
+  final bool dim;
 
   @override
   Widget build(BuildContext context) {
     final status = day['status'] as String;
     final style = _statusStyle[status] ?? ('', Colors.grey);
     final number = int.parse((day['date'] as String).substring(8));
-    return InkWell(
+    return Opacity(
+      opacity: dim ? 0.3 : 1,
+      child: InkWell(
       onTap: status == 'upcoming'
           ? null
           : () => showSnack(context,
@@ -144,6 +196,15 @@ class _DayCell extends StatelessWidget {
         alignment: Alignment.center,
         child: Text('$number'),
       ),
+      ),
     );
   }
+}
+
+String _longDate(String iso) {
+  final d = DateTime.tryParse(iso);
+  if (d == null) return iso;
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return '${days[d.weekday - 1]}, ${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]}';
 }
