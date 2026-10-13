@@ -75,6 +75,45 @@ class _TasksScreenState extends State<TasksScreen> {
     if (changed == true) _load();
   }
 
+  /// "Choose what to assign": a task, or a target for bottles and outlets onboarded.
+  Future<void> _assign() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Assign', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            const Text('Choose what to assign', style: TextStyle(color: AppColors.muted)),
+            const SizedBox(height: 8),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFDBEAFE), child: Icon(Icons.add_task_rounded, color: AppColors.primary)),
+              title: const Text('Assign Task', style: TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: const Text('As in the app'),
+              onTap: () => Navigator.pop(sheet, 'task'),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFFFEDD5), child: Icon(Icons.flag_rounded, color: Color(0xFFEA580C))),
+              title: const Text('Assign Target', style: TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: const Text('Bottles and outlets onboarded'),
+              onTap: () => Navigator.pop(sheet, 'target'),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (choice == 'task') {
+      await _newTask();
+    } else if (choice == 'target' && mounted) {
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AssignTargetScreen()));
+    }
+  }
+
   Future<void> _newTask() async {
     final created = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const NewTaskScreen()));
     if (created == true) {
@@ -90,24 +129,10 @@ class _TasksScreenState extends State<TasksScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Tasks')),
       floatingActionButton: _isManager
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton.extended(
-                  heroTag: 'assign_target',
-                  onPressed: () => Navigator.of(context)
-                      .push(MaterialPageRoute(builder: (_) => const AssignTargetScreen())),
-                  icon: const Icon(Icons.flag_rounded),
-                  label: const Text('Assign Target'),
-                ),
-                const SizedBox(width: 10),
-                FloatingActionButton.extended(
-                  heroTag: 'assign_task',
-                  onPressed: _newTask,
-                  icon: const Icon(Icons.add_task_rounded),
-                  label: const Text('Assign Task'),
-                ),
-              ],
+          ? FloatingActionButton.extended(
+              onPressed: _assign,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Assign'),
             )
           : null,
       body: Column(

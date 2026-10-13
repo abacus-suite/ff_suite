@@ -28,17 +28,18 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   /// key, title, one line about it, icon, colour
   static const _kinds = <(String, String, String, IconData, Color)>[
-    ('handovers', 'Handovers', 'Outlet money given to distributors', Icons.handshake_rounded, Color(0xFF0E9F6E)),
-    ('deposits', 'Money to receive', 'Cash the team submitted to the office', Icons.account_balance_rounded, Color(0xFF0891B2)),
-    ('access', 'Contact access', 'Territory, beat or city requests', Icons.lock_open_rounded, Color(0xFF2563EB)),
-    ('contacts', 'New contacts', 'Customers added in the field', Icons.storefront_rounded, Color(0xFF0D9488)),
-    ('notes', 'Debit / credit notes', 'Samples, free goods, damage, margin', Icons.request_quote_rounded, Color(0xFFD97706)),
-    ('expenses', 'Expense claims', 'Claims and card expenses', Icons.receipt_long_rounded, Color(0xFFEA580C)),
-    ('leaves', 'Time off', 'Leave requests', Icons.beach_access_rounded, Color(0xFF0284C7)),
+    ('beats', 'New Beat', 'Beats drawn in the app', Icons.route_rounded, Color(0xFF9333EA)),
+    ('contacts', 'New Onboarded Outlets', 'Outlets added in the field', Icons.storefront_rounded, Color(0xFF0D9488)),
+    ('notes', 'Debit / Credit Notes', 'Samples, free goods, damage, margin', Icons.request_quote_rounded, Color(0xFFD97706)),
     ('returns', 'Returns', 'Damaged and returned stock', Icons.assignment_return_rounded, Color(0xFFDC2626)),
-    ('allowances', 'Travel allowance', 'Daily allowance claims', Icons.local_gas_station_rounded, Color(0xFF7C3AED)),
-    ('regularisation', 'Attendance fixes', 'Corrections to check-in and out', Icons.edit_calendar_rounded, Color(0xFF4F46E5)),
-    ('beats', 'New beats', 'Beats drawn in the app', Icons.route_rounded, Color(0xFF9333EA)),
+    ('leaves', 'Leave', 'Leave requests', Icons.beach_access_rounded, Color(0xFF0284C7)),
+    ('regularisation', 'Attendance Fixes', 'Corrections to check-in and out', Icons.edit_calendar_rounded, Color(0xFF4F46E5)),
+    ('expenses', 'Expenses', 'Claims and card expenses', Icons.receipt_long_rounded, Color(0xFFEA580C)),
+    ('allowances', 'TA', 'Travel allowance claims', Icons.local_gas_station_rounded, Color(0xFF7C3AED)),
+    ('da', 'DA', 'Daily allowance claims', Icons.restaurant_rounded, Color(0xFF0F766E)),
+    ('handovers', 'Payment Handovered', 'Outlet money given to distributors', Icons.handshake_rounded, Color(0xFF0E9F6E)),
+    ('deposits', 'Payment in Hand', 'Cash the team submitted to the office', Icons.account_balance_rounded, Color(0xFF0891B2)),
+    ('access', 'Contact Access', 'Territory, beat or city requests', Icons.lock_open_rounded, Color(0xFF2563EB)),
   ];
 
   @override

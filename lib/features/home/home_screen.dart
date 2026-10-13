@@ -62,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// A manager's choice: their own day, or the team's.
   bool _teamView = false;
+  bool? _lastPunched;
 
   /// How many requests wait for this manager, for the number on the Approvals button.
   int _pending = 0;
@@ -158,6 +159,17 @@ class _HomeScreenState extends State<HomeScreen> {
         _optional(Services.api.get('/api/v1/visits')),
       ]);
       final status = results[0] as Map<String, dynamic>;
+      // Manager Mode: checked in opens in the mode last used; checked out is always Employee Mode.
+      if (profile.isManager) {
+        final punched = status['punched_in'] == true;
+        if (!punched) {
+          Services.managerMode.value = false;
+        } else if (_lastPunched != true) {
+          final saved = await Services.storage.read('manager_mode');
+          Services.managerMode.value = saved == '1';
+        }
+        _lastPunched = punched;
+      }
       // While the day is open the app asks now and then whether it still is.
       DutyWatch.instance.update(
         onDuty: status['punched_in'] == true,
@@ -464,6 +476,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (picked != null && picked != Services.managerMode.value) {
       Services.managerMode.value = picked;
+      unawaited(Services.storage.write('manager_mode', picked ? '1' : '0'));
       Services.refresh.value++;
     }
   }

@@ -8,11 +8,26 @@ import '../../widgets/common.dart';
 import '../../widgets/skeleton.dart';
 import '../approvals/approvals_screen.dart';
 import '../tasks/tasks_screen.dart';
-import '../team/assign_target_screen.dart';
+import '../team/team_beat_plan_screen.dart';
 import '../team/team_live_screen.dart';
 import '../team/team_target_screen.dart';
 
-/// Manager Mode Home: the team's attendance, approvals, beat plan, target, overdue, the tasks I gave,
+const _blue = Color(0xFF1D4ED8);
+const _green = Color(0xFF16A34A);
+const _orange = Color(0xFFEA580C);
+const _red = Color(0xFFDC2626);
+const _sky = Color(0xFF2563EB);
+
+String initials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) return parts.first[0].toUpperCase();
+  return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+}
+
+List<Map<String, dynamic>> _rows(dynamic v) => ((v as List?) ?? []).cast<Map<String, dynamic>>();
+
+/// Manager Mode Home: the team today, approvals, beat plan summary, target, overdue, the tasks I gave,
 /// alerts, and the live map at the bottom.
 class ManagerHome extends StatefulWidget {
   const ManagerHome({super.key, required this.pending, this.onApprovalsClosed});
@@ -27,6 +42,7 @@ class ManagerHome extends StatefulWidget {
 
 class _ManagerHomeState extends State<ManagerHome> {
   String _period = 'today';
+  String? _date;
   Map<String, dynamic>? _home;
   Map<String, dynamic>? _target;
   bool _loading = true;
@@ -51,7 +67,8 @@ class _ManagerHomeState extends State<ManagerHome> {
       _error = null;
     });
     try {
-      final home = await Services.api.get('/api/v1/team/home', query: {'period': _period}) as Map<String, dynamic>;
+      final home = await Services.api.get('/api/v1/team/home',
+          query: {if (_date != null) 'date': _date! else 'period': _period}) as Map<String, dynamic>;
       Map<String, dynamic>? target;
       try {
         target = await Services.api.get('/api/v1/team/target') as Map<String, dynamic>;
@@ -72,29 +89,21 @@ class _ManagerHomeState extends State<ManagerHome> {
   }
 
   Map<String, dynamic> _block(String key) => (_home?[key] as Map?)?.cast<String, dynamic>() ?? const {};
-
   int _count(String key) => (((_block('attendance')[key] as Map?)?['count']) as num? ?? 0).toInt();
 
-  List<Map<String, dynamic>> _people(String key) =>
-      ((((_block('attendance')[key] as Map?)?['people']) as List?) ?? []).cast<Map<String, dynamic>>();
-
-  Widget _card({required Widget child, EdgeInsets padding = const EdgeInsets.all(14)}) => Container(
+  Widget _card({required Widget child, EdgeInsets padding = const EdgeInsets.all(14), VoidCallback? onTap}) =>
+      Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: padding,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppColors.border.withValues(alpha: 0.7)),
         ),
-        child: child,
-      );
-
-  Widget _title(String text, {Widget? trailing}) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Row(children: [
-          Expanded(child: Text(text, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5))),
-          if (trailing != null) trailing,
-        ]),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(borderRadius: BorderRadius.circular(18), onTap: onTap, child: Padding(padding: padding, child: child)),
+        ),
       );
 
   @override
@@ -117,63 +126,154 @@ class _ManagerHomeState extends State<ManagerHome> {
   }
 
   // ------------------------------------------------------------------ attendance
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date == null ? DateTime.now() : DateTime.parse(_date!),
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _date = fmtDate(picked);
+        _period = 'date';
+      });
+      _load();
+    }
+  }
+
+  void _openPeople(String key) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => PeopleScreen(initial: key, period: _period, date: _date),
+    ));
+  }
+
   Widget _attendance() {
     final team = ((_home?['team_size'] as num?) ?? 0).toInt();
     final present = _count('present');
-    Widget chip(String key, String label) => Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: ChoiceChip(
-            label: Text(label),
-            selected: _period == key,
-            onSelected: (_) {
-              setState(() => _period = key);
-              _load();
-            },
+    final away = _count('absent');
+    final leave = _count('leave');
+    Widget chip(String key, String label) {
+      final selected = _date == null && _period == key;
+      return Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () {
+            setState(() {
+              _period = key;
+              _date = null;
+            });
+            _load();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: selected ? Colors.white : Colors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+            ),
+            child: Text(selected ? '✓ $label' : label,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: selected ? _blue : Colors.white)),
           ),
-        );
-    Widget box(String key, String label, Color tint) => Expanded(
+        ),
+      );
+    }
+
+    Widget box(String key, String label, Color tint, Color bg) => Expanded(
           child: InkWell(
             borderRadius: BorderRadius.circular(14),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => _PeopleScreen(title: '$label (${_count(key)})', people: _people(key), period: _period))),
+            onTap: () => _openPeople(key),
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 3),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(color: tint.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border(bottom: BorderSide(color: tint, width: 3)),
+              ),
               child: Column(children: [
-                Text('${_count(key)}', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: tint)),
-                Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
+                Text('${_count(key)}', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 21, color: tint)),
+                Text(label, style: TextStyle(fontSize: 11.5, color: tint, fontWeight: FontWeight.w800)),
               ]),
             ),
           ),
         );
-    return _card(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+    final ratio = team == 0 ? 0.0 : (present / team).clamp(0.0, 1.0);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+            colors: [Color(0xFF1E40AF), Color(0xFF2563EB), Color(0xFF3B82F6)],
+            begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [BoxShadow(color: _blue.withValues(alpha: 0.28), blurRadius: 16, offset: const Offset(0, 8))],
+      ),
+      child: Column(children: [
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(children: [
+            InkWell(
+              onTap: _pickDate,
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                width: 34,
+                height: 34,
+                margin: const EdgeInsets.only(right: 6),
+                decoration: BoxDecoration(
+                  color: _date != null ? Colors.white : Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                ),
+                child: Icon(Icons.calendar_month_rounded, size: 18, color: _date != null ? _blue : Colors.white),
+              ),
+            ),
             chip('today', 'Today'),
             chip('yesterday', 'Yesterday'),
             chip('week', 'This week'),
             chip('month', 'This month'),
           ]),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
+        InkWell(
+          onTap: () => _openPeople('present'),
+          child: Row(children: [
+            SizedBox(
+              width: 74,
+              height: 74,
+              child: Stack(alignment: Alignment.center, children: [
+                SizedBox(
+                  width: 74,
+                  height: 74,
+                  child: CircularProgressIndicator(
+                      value: ratio, strokeWidth: 6, color: Colors.white, backgroundColor: Colors.white.withValues(alpha: 0.25)),
+                ),
+                Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text('$present', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22, height: 1)),
+                  Text('of $team', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                ]),
+              ]),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Your team today', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                Text('$present present now',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 19)),
+                Text('$away absent · $leave on leave', style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+              ]),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white),
+          ]),
+        ),
+        const SizedBox(height: 12),
         Row(children: [
-          Text('$present', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 30)),
-          const SizedBox(width: 6),
-          Text('of $team', style: const TextStyle(color: AppColors.muted)),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text('Your team today', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-          ),
-        ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          box('present', 'Present', AppColors.success),
-          box('late', 'Late', AppColors.warning),
-          box('absent', 'Absent', AppColors.danger),
-          box('leave', 'On Leave', AppColors.primary),
+          box('present', 'Present', _green, const Color(0xFFDCFCE7)),
+          box('late', 'Late', _orange, const Color(0xFFFFEDD5)),
+          box('absent', 'Absent', _red, const Color(0xFFFEE2E2)),
+          box('leave', 'On Leave', _sky, const Color(0xFFDBEAFE)),
         ]),
         if (_loading) const Padding(padding: EdgeInsets.only(top: 8), child: LinearProgressIndicator(minHeight: 2)),
       ]),
@@ -193,13 +293,13 @@ class _ManagerHomeState extends State<ManagerHome> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: widget.pending > 0
-                  ? const [Color(0xFFEA580C), Color(0xFFF59E0B)]
+                  ? const [Color(0xFF059669), Color(0xFF10B981)]
                   : const [Color(0xFF059669), Color(0xFF10B981)],
             ),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(children: [
-            const Icon(Icons.fact_check_rounded, color: Colors.white, size: 26),
+            const Icon(Icons.fact_check_rounded, color: Colors.white, size: 28),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -210,8 +310,10 @@ class _ManagerHomeState extends State<ManagerHome> {
               ]),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
               child: Text('${widget.pending}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
             ),
             const Icon(Icons.chevron_right_rounded, color: Colors.white),
@@ -224,29 +326,50 @@ class _ManagerHomeState extends State<ManagerHome> {
     final b = _block('beat_plan');
     final planned = ((b['planned'] as num?) ?? 0).toInt();
     int n(String k) => ((b[k] as num?) ?? 0).toInt();
-    String share(int v) => planned == 0 ? '0%' : '${(v * 100 / planned).round()}%';
-    Widget tile(String label, int value, Color tint) => Expanded(
-          child: Column(children: [
-            Text('$value', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19, color: tint)),
-            Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
-            Text(share(value), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: tint)),
+    Widget tile(String label, int value, Color tint, Color bg, {bool first = false}) {
+      final share = first ? 100 : (planned == 0 ? 0 : (value * 100 / planned).round());
+      return Expanded(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Align(
+                alignment: Alignment.centerRight,
+                child: Text('$share%', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: tint))),
+            Text('$value', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+            Text(label, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                  value: first ? 1 : (planned == 0 ? 0 : value / planned),
+                  minHeight: 4,
+                  color: tint,
+                  backgroundColor: tint.withValues(alpha: 0.18)),
+            ),
           ]),
-        );
+        ),
+      );
+    }
+
     return _card(
-      child: InkWell(
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => _BeatPlanScreen(people: ((b['people'] as List?) ?? []).cast<Map<String, dynamic>>()))),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _title('Team Beat Plan Summary',
-              trailing: const Text('View All', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800))),
-          Row(children: [
-            tile('Planned', planned, AppColors.primary),
-            tile('Visited', n('visited'), AppColors.success),
-            tile('Pending', n('pending'), AppColors.warning),
-            tile('Cancelled', n('cancelled'), AppColors.danger),
-          ]),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TeamBeatPlanScreen())),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.event_note_rounded, color: _blue, size: 20),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('Team Beat Plan Summary', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15))),
+          const Text('View All', style: TextStyle(color: _blue, fontWeight: FontWeight.w800, fontSize: 12.5)),
         ]),
-      ),
+        const SizedBox(height: 10),
+        Row(children: [
+          tile('Planned', planned, _sky, const Color(0xFFDBEAFE), first: true),
+          tile('Visited', n('visited'), _green, const Color(0xFFDCFCE7)),
+          tile('Pending', n('pending'), _orange, const Color(0xFFFFEDD5)),
+          tile('Cancelled', n('cancelled'), _red, const Color(0xFFFEE2E2)),
+        ]),
+      ]),
     );
   }
 
@@ -257,305 +380,466 @@ class _ManagerHomeState extends State<ManagerHome> {
     final bottleTarget = ((t['bottle_target'] as num?) ?? 0).toInt();
     final outlets = ((t['outlets'] as num?) ?? 0).toInt();
     final outletTarget = ((t['outlet_target'] as num?) ?? 0).toInt();
-    Widget bar(String label, int actual, int target) {
+    Widget bar(String label, int actual, int target, String unit) {
       final ratio = target == 0 ? 0.0 : (actual / target).clamp(0.0, 1.0);
       return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.only(bottom: 12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700))),
+            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13))),
             Text(target == 0 ? 'No target' : '${(ratio * 100).round()}%',
-                style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary)),
+                style: const TextStyle(fontWeight: FontWeight.w900, color: _orange)),
           ]),
           const SizedBox(height: 5),
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(value: ratio, minHeight: 9, backgroundColor: AppColors.border.withValues(alpha: 0.5)),
+            child: LinearProgressIndicator(
+                value: ratio, minHeight: 9, color: _orange, backgroundColor: AppColors.border.withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 3),
-          Text('${fmtQty(actual)} of ${fmtQty(target)}', style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+          Text('${_money(actual)} of ${_money(target)} $unit', style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
         ]),
       );
     }
 
     final month = monthNames[DateTime.now().month - 1];
     return _card(
-      child: InkWell(
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TeamTargetScreen())),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _title('Team Target · $month (month to date)',
-              trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.muted)),
-          bar('No. of bottles', bottles, bottleTarget),
-          bar('No. of outlets onboarded', outlets, outletTarget),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TeamTargetScreen())),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.track_changes_rounded, color: _red, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Text('Team Target – $month\n(month to date)',
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, height: 1.25))),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
         ]),
-      ),
+        const SizedBox(height: 10),
+        bar('No. of bottles', bottles, bottleTarget, 'bottles'),
+        bar('No. of outlets onboarded', outlets, outletTarget, 'outlets'),
+      ]),
     );
+  }
+
+  String _money(int v) {
+    final s = v.toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+      buf.write(s[i]);
+    }
+    return buf.toString();
   }
 
   // ------------------------------------------------------------------ overdue
   Widget _overdue() {
     final o = _block('overdue');
     final currency = _home?['currency'] as String?;
-    final items = ((o['items'] as List?) ?? []).cast<Map<String, dynamic>>();
-    return _card(
-      child: InkWell(
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => _OverdueScreen(items: items, currency: currency))),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _title('Overdue', trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.muted)),
-          Text(fmtMoney(o['total'] as num?, currency),
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: AppColors.danger)),
-          const SizedBox(height: 8),
-          Row(children: [
-            Expanded(
-              child: _small('Outlet overdue', fmtMoney(o['outlet'] as num?, currency)),
-            ),
-            Expanded(
-              child: _small('Distributor overdue', fmtMoney(o['distributor'] as num?, currency)),
-            ),
-          ]),
-        ]),
-      ),
-    );
-  }
-
-  Widget _small(String label, String value) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-      ]);
-
-  // ------------------------------------------------------------------ tasks I gave
-  Widget _tasks() {
-    final t = _block('tasks');
-    final latest = ((t['latest'] as List?) ?? []).cast<Map<String, dynamic>>();
-    Widget pill(String label, num? v, Color tint) => Padding(
-          padding: const EdgeInsets.only(right: 8),
+    final items = _rows(o['items']);
+    Widget part(IconData icon, Color tint, Color bg, String value, String label) => Expanded(
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: tint.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-            child: Text('$label ${v ?? 0}', style: TextStyle(fontWeight: FontWeight.w800, color: tint, fontSize: 12.5)),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(icon, size: 18, color: tint),
+              const SizedBox(height: 4),
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+              Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+            ]),
           ),
         );
     return _card(
+      onTap: () => Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => OverdueScreen(items: items, currency: currency))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _title('Tasks assigned by me'),
         Row(children: [
-          pill('Pending', t['pending'] as num?, AppColors.warning),
-          pill('Done', t['done'] as num?, AppColors.success),
-          pill('Overdue', t['overdue'] as num?, AppColors.danger),
+          const Icon(Icons.account_balance_wallet_rounded, color: _red, size: 20),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('Overdue', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15))),
         ]),
-        const SizedBox(height: 8),
-        for (final task in latest)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(children: [
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${task['name']}', maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                  Text('To: ${task['to']}${task['due'] != null ? ' · due ${task['due']}' : ''}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-                ]),
-              ),
-              Text(task['status'] == 'overdue' ? 'Overdue' : 'Pending',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
-                      color: task['status'] == 'overdue' ? AppColors.danger : AppColors.warning)),
-            ]),
-          ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TasksScreen())),
-            child: const Text('View all tasks'),
-          ),
-        ),
+        const SizedBox(height: 4),
+        Row(children: [
+          Text(fmtMoney(o['total'] as num?, currency),
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: _red)),
+          const Spacer(),
+          const Text('By outlet, distributor', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+          const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.muted),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          part(Icons.storefront_rounded, _sky, const Color(0xFFDBEAFE), fmtMoney(o['outlet'] as num?, currency), 'Outlet overdue'),
+          part(Icons.local_shipping_rounded, _orange, const Color(0xFFFFF4D6),
+              fmtMoney(o['distributor'] as num?, currency), 'Distributor overdue'),
+        ]),
       ]),
     );
+  }
+
+  // ------------------------------------------------------------------ tasks I gave
+  String _taskTab = 'pending';
+
+  Widget _tasks() {
+    final t = _block('tasks');
+    final latest = _rows(t['latest']);
+    Widget pill(String key, String label, num? v) {
+      final selected = _taskTab == key;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+          label: Text('$label ${v ?? 0}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
+          selected: selected,
+          showCheckmark: false,
+          selectedColor: const Color(0xFFDBEAFE),
+          onSelected: (_) => setState(() => _taskTab = key),
+        ),
+      );
+    }
+
+    final shown = latest.where((x) => _taskTab == 'overdue' ? x['status'] == 'overdue' : _taskTab == 'done' ? false : true).toList();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Padding(
+        padding: EdgeInsets.fromLTRB(2, 4, 0, 8),
+        child: Text('Tasks assigned by me', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+      ),
+      Row(children: [
+        pill('pending', 'Pending', t['pending'] as num?),
+        pill('done', 'Done', t['done'] as num?),
+        pill('overdue', 'Overdue', t['overdue'] as num?),
+      ]),
+      const SizedBox(height: 8),
+      for (final task in shown)
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border(left: BorderSide(color: task['status'] == 'overdue' ? _red : _orange, width: 4)),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${task['name']}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text('To: ${task['to']}${task['due'] != null ? ' · due ${_short('${task['due']}')}' : ''}',
+                    style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+              ]),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                  color: task['status'] == 'overdue' ? _red : _orange, borderRadius: BorderRadius.circular(14)),
+              child: Text(task['status'] == 'overdue' ? 'Overdue' : 'Pending',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11.5)),
+            ),
+          ]),
+        ),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TasksScreen())),
+          child: const Text('View all tasks'),
+        ),
+      ),
+    ]);
+  }
+
+  String _short(String iso) {
+    final d = DateTime.tryParse(iso);
+    return d == null ? iso : '${d.day.toString().padLeft(2, '0')} ${monthNames[d.month - 1].substring(0, 3)}';
   }
 
   // ------------------------------------------------------------------ alerts
   Widget _alerts() {
-    final alerts = ((_home?['alerts'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final alerts = _rows(_home?['alerts']);
     if (alerts.isEmpty) return const SizedBox.shrink();
-    return _card(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _title('Alerts'),
-        for (final a in alerts)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${a['title']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                  Text(((a['names'] as List?) ?? []).join(', '),
-                      style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
-                ]),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(12)),
-                child: Text('${a['count']}', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.warning)),
-              ),
-            ]),
-          ),
-      ]),
-    );
+    const icons = {
+      'beat_not_planned': Icons.calendar_month_rounded,
+      'missed_checkout': Icons.schedule_rounded,
+      'expenses_not_sent': Icons.receipt_long_rounded,
+    };
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Padding(
+        padding: EdgeInsets.fromLTRB(2, 6, 0, 8),
+        child: Text('Alerts', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+      ),
+      for (final a in alerts)
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+          child: Row(children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(color: const Color(0xFFEEF3FB), borderRadius: BorderRadius.circular(19)),
+              child: Icon(icons['${a['key']}'] ?? Icons.warning_amber_rounded, color: _blue, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${a['title']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(((a['names'] as List?) ?? []).join(', '),
+                    style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+              ]),
+            ),
+            Container(
+              width: 26,
+              height: 26,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                  color: a['key'] == 'beat_not_planned' ? _sky : _orange, shape: BoxShape.circle),
+              child: Text('${a['count']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+            ),
+          ]),
+        ),
+    ]);
   }
 
   // ------------------------------------------------------------------ live map
-  Widget _liveMap() => _card(
-        child: InkWell(
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TeamLiveScreen())),
-          child: Row(children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
-              child: const Icon(Icons.map_rounded, color: AppColors.primary),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Live map', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5)),
-                Text('Where your team is right now', style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
-              ]),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+  Widget _liveMap() => InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TeamLiveScreen())),
+        child: Container(
+          margin: const EdgeInsets.only(top: 4, bottom: 12),
+          height: 96,
+          decoration: BoxDecoration(color: const Color(0xFFD9F2E3), borderRadius: BorderRadius.circular(16)),
+          child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.map_rounded, color: _green, size: 28),
+            SizedBox(height: 4),
+            Text('Live map', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF166534))),
           ]),
         ),
       );
 }
 
-/// A list of people for a status, each with the time they checked in and a call button.
-class _PeopleScreen extends StatelessWidget {
-  const _PeopleScreen({required this.title, required this.people, required this.period});
+/// The people behind one attendance box: tabs Present / Late / Absent / On Leave, a calendar for the date,
+/// and for each person the check-in time and place with a call button.
+class PeopleScreen extends StatefulWidget {
+  const PeopleScreen({super.key, required this.initial, required this.period, this.date});
 
-  final String title;
-  final List<Map<String, dynamic>> people;
+  final String initial;
   final String period;
+  final String? date;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: people.isEmpty
-          ? const Center(child: Text('Nobody here.', style: TextStyle(color: AppColors.muted)))
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                for (final p in people)
-                  Card(
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                        child: Text('${p['name']}'.isEmpty ? '?' : '${p['name']}'[0].toUpperCase(),
-                            style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary)),
-                      ),
-                      title: Text('${p['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                      subtitle: Text([
-                        if (p['in_at'] != null) 'In ${fmtTime(p['in_at'])}',
-                        if (p['job'] != null) '${p['job']}',
-                      ].join(' · ')),
-                      trailing: p['phone'] == null
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.call_rounded, color: AppColors.success),
-                              onPressed: () => launchUrl(Uri(scheme: 'tel', path: '${p['phone']}')),
-                            ),
-                    ),
-                  ),
-              ],
-            ),
-    );
-  }
+  State<PeopleScreen> createState() => _PeopleScreenState();
 }
 
-/// Team Beat Plan: each person, the beats and how many visits are done.
-class _BeatPlanScreen extends StatelessWidget {
-  const _BeatPlanScreen({required this.people});
+class _PeopleScreenState extends State<PeopleScreen> {
+  late String _tab = widget.initial;
+  late String? _date = widget.date;
+  late String _period = widget.period;
+  Map<String, dynamic>? _data;
+  String? _error;
 
-  final List<Map<String, dynamic>> people;
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _error = null);
+    try {
+      final d = await Services.api.get('/api/v1/team/home',
+          query: {if (_date != null) 'date': _date! else 'period': _period == 'date' ? 'today' : _period}) as Map<String, dynamic>;
+      if (mounted) setState(() => _data = d);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date == null ? DateTime.now() : DateTime.parse(_date!),
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _date = fmtDate(picked);
+        _data = null;
+      });
+      _load();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final att = (_data?['attendance'] as Map?)?.cast<String, dynamic>() ?? const {};
+    int count(String k) => (((att[k] as Map?)?['count']) as num? ?? 0).toInt();
+    final people = _rows((att[_tab] as Map?)?['people']);
+    const names = {'present': 'Present', 'late': 'Late', 'absent': 'Absent', 'leave': 'On Leave'};
+    const tints = {'present': _green, 'late': _orange, 'absent': _red, 'leave': _sky};
+    final subtitle = _date != null ? _date! : (_period == 'today' ? 'Today' : _period);
     return Scaffold(
-      appBar: AppBar(title: const Text('Team Beat Plan')),
-      body: people.isEmpty
-          ? const Center(child: Text('Nothing planned.', style: TextStyle(color: AppColors.muted)))
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                for (final p in people)
-                  Card(
-                    child: ListTile(
-                      title: Text('${(p['employee'] as Map)['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                      subtitle: Text(((p['beats'] as List?) ?? []).join(', ')),
-                      trailing: Text('${p['visited']}/${p['planned']} visits',
-                          style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)),
+      backgroundColor: const Color(0xFFEEF3FB),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFEEF3FB),
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${names[_tab]} (${count(_tab)})', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+          Text('$subtitle · tap a name for his day',
+              style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
+        ]),
+        actions: [IconButton(onPressed: _pickDate, icon: const Icon(Icons.calendar_month_rounded))],
+      ),
+      body: _error != null
+          ? ErrorView(message: _error!, onRetry: _load)
+          : _data == null
+              ? const LoadingView()
+              : Column(children: [
+                  SizedBox(
+                    height: 52,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      children: [
+                        for (final k in ['present', 'late', 'absent', 'leave'])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text('${names[k]} ${count(k)}',
+                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
+                              selected: _tab == k,
+                              showCheckmark: false,
+                              selectedColor: (tints[k] ?? _blue).withValues(alpha: 0.18),
+                              onSelected: (_) => setState(() => _tab = k),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-              ],
-            ),
+                  Expanded(
+                    child: people.isEmpty
+                        ? const Center(child: Text('Nobody here.', style: TextStyle(color: AppColors.muted)))
+                        : ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 24), children: [
+                            for (final p in people)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+                                child: Row(children: [
+                                  CircleAvatar(
+                                    backgroundColor: const Color(0xFFDBEAFE),
+                                    child: Text(initials('${p['name']}'),
+                                        style: const TextStyle(fontWeight: FontWeight.w900, color: _blue, fontSize: 13)),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                      Text('${p['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                                      Text([
+                                        if (p['in_at'] != null) 'In ${fmtTime(p['in_at'])}',
+                                        if (p['out_at'] != null) 'Out ${fmtTime(p['out_at'])}',
+                                        if (p['place'] != null) '${p['place']}' else if (p['job'] != null) '${p['job']}',
+                                      ].join(' · '),
+                                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                                    ]),
+                                  ),
+                                  if (p['late'] == true || _tab == 'late')
+                                    Container(
+                                      margin: const EdgeInsets.only(right: 8),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                          color: const Color(0xFFFFEDD5), borderRadius: BorderRadius.circular(10)),
+                                      child: const Text('Late',
+                                          style: TextStyle(color: _orange, fontWeight: FontWeight.w800, fontSize: 11)),
+                                    ),
+                                  if (p['phone'] != null)
+                                    InkWell(
+                                      onTap: () => launchUrl(Uri(scheme: 'tel', path: '${p['phone']}')),
+                                      child: Container(
+                                        width: 38,
+                                        height: 38,
+                                        decoration: const BoxDecoration(color: Color(0xFFDBEAFE), shape: BoxShape.circle),
+                                        child: const Icon(Icons.call_rounded, color: _blue, size: 19),
+                                      ),
+                                    ),
+                                ]),
+                              ),
+                          ]),
+                  ),
+                ]),
     );
   }
 }
 
 /// Overdue by outlet or by distributor, with the employee, the days and the invoices.
-class _OverdueScreen extends StatefulWidget {
-  const _OverdueScreen({required this.items, required this.currency});
+class OverdueScreen extends StatefulWidget {
+  const OverdueScreen({super.key, required this.items, required this.currency});
 
   final List<Map<String, dynamic>> items;
   final String? currency;
 
   @override
-  State<_OverdueScreen> createState() => _OverdueScreenState();
+  State<OverdueScreen> createState() => _OverdueScreenState();
 }
 
-class _OverdueScreenState extends State<_OverdueScreen> {
+class _OverdueScreenState extends State<OverdueScreen> {
   String _kind = 'outlet';
 
   @override
   Widget build(BuildContext context) {
     final rows = widget.items.where((i) => i['kind'] == _kind).toList();
+    final today = DateTime.now();
     return Scaffold(
-      appBar: AppBar(title: const Text('Overdue')),
+      backgroundColor: const Color(0xFFEEF3FB),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFEEF3FB),
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Overdue', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+          Text('Team · as on ${today.day.toString().padLeft(2, '0')} ${monthNames[today.month - 1].substring(0, 3)}',
+              style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
+        ]),
+      ),
       body: Column(children: [
         Padding(
-          padding: const EdgeInsets.all(12),
-          child: SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'outlet', label: Text('Outlets')),
-              ButtonSegment(value: 'distributor', label: Text('Distributors')),
-            ],
-            selected: {_kind},
-            onSelectionChanged: (v) => setState(() => _kind = v.first),
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: Row(children: [
+            for (final (key, label) in [('outlet', 'Outlets'), ('distributor', 'Distributors')])
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(_kind == key ? '✓ $label' : label,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
+                  selected: _kind == key,
+                  showCheckmark: false,
+                  selectedColor: const Color(0xFFDBEAFE),
+                  onSelected: (_) => setState(() => _kind = key),
+                ),
+              ),
+          ]),
         ),
         Expanded(
           child: rows.isEmpty
               ? const Center(child: Text('Nothing overdue.', style: TextStyle(color: AppColors.muted)))
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  children: [
-                    for (final r in rows)
-                      Card(
-                        child: ListTile(
-                          title: Text('${(r['customer'] as Map)['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                          subtitle: Text([
-                            if (r['employee'] != null) '${r['employee']}',
-                            '${r['days']} days',
-                            '${r['invoices']} invoice${r['invoices'] == 1 ? '' : 's'}',
-                          ].join(' · ')),
-                          trailing: Text(fmtMoney(r['amount'] as num?, widget.currency),
-                              style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.danger)),
+              : ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 24), children: [
+                  for (final r in rows)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+                      child: Row(children: [
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('${(r['customer'] as Map)['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                            Text('${r['employee'] ?? ''} · ${r['days']} days',
+                                style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                          ]),
                         ),
-                      ),
-                  ],
-                ),
+                        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                          Text(fmtMoney(r['amount'] as num?, widget.currency),
+                              style: const TextStyle(fontWeight: FontWeight.w900, color: _red)),
+                          Text('${r['invoices']} invoice${r['invoices'] == 1 ? '' : 's'}',
+                              style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                        ]),
+                      ]),
+                    ),
+                ]),
         ),
       ]),
     );

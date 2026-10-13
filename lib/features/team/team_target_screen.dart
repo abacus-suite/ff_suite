@@ -6,6 +6,8 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 
 /// Team Target: each person against their month or week target, and each person's share of the team's.
+num _n(dynamic v) => v is num ? v : num.tryParse('$v') ?? 0;
+
 class TeamTargetScreen extends StatefulWidget {
   const TeamTargetScreen({super.key});
 
@@ -153,13 +155,25 @@ class _TeamTargetScreenState extends State<TeamTargetScreen> {
               Text('Each % is the person\'s bottles divided by the team target.',
                   style: const TextStyle(fontSize: 12, color: AppColors.muted)),
               const SizedBox(height: 6),
-              for (final (i, r) in rows.indexed)
+              for (final (i, r) in rows.take(5).indexed)
                 Card(
                   child: ListTile(
                     dense: true,
                     leading: Text('${i + 1}.', style: const TextStyle(fontWeight: FontWeight.w800)),
                     title: Text('${(r['employee'] as Map)['name']}'),
                     trailing: Text('${r['share']}%  ·  ${r['bottles']} btl',
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                  ),
+                ),
+              if (rows.length > 5)
+                Card(
+                  child: ListTile(
+                    dense: true,
+                    leading: const Text('6.', style: TextStyle(fontWeight: FontWeight.w800)),
+                    title: Text('Others (${rows.length - 5})'),
+                    trailing: Text(
+                        '${rows.skip(5).fold<num>(0, (a, r) => a + _n(r['share'])).toStringAsFixed(1)}%  ·  '
+                        '${rows.skip(5).fold<num>(0, (a, r) => a + _n(r['bottles']))} btl',
                         style: const TextStyle(fontWeight: FontWeight.w800)),
                   ),
                 ),

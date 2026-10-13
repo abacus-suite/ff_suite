@@ -19,7 +19,7 @@ import '../expenses/new_expense_screen.dart';
 import '../home/home_screen.dart';
 import '../more/more_screen.dart';
 import '../reports/reports_screen.dart';
-import '../team/team_tree_screen.dart';
+import '../team/my_team_screen.dart';
 import '../orders/orders_screen.dart';
 
 class _ShellTab {
@@ -89,7 +89,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (profile.isManager && Services.managerMode.value) {
       return [
         _ShellTab('home', Icons.home_outlined, Icons.home_rounded, 'Home', HomeScreen(onOpenTab: _open)),
-        const _ShellTab('team', Icons.groups_2_outlined, Icons.groups_2_rounded, 'My Team', TeamTreeScreen()),
+        const _ShellTab('team', Icons.groups_2_outlined, Icons.groups_2_rounded, 'My Team', MyTeamScreen()),
         const _ShellTab('tasks', Icons.assignment_outlined, Icons.assignment_rounded, 'Tasks', TasksScreen()),
         const _ShellTab('reports', Icons.bar_chart_outlined, Icons.bar_chart_rounded, 'Reports', ReportsScreen()),
       ];
