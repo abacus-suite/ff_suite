@@ -479,70 +479,126 @@ class _ManagerHomeState extends State<ManagerHome> {
   // ------------------------------------------------------------------ tasks I gave
   String _taskTab = 'pending';
 
+  /// One look for every section on Home: a tinted icon tile, the title, and an optional action.
+  Widget _head(IconData icon, Color tint, String title, {String? action, VoidCallback? onAction}) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(color: tint.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(11)),
+            child: Icon(icon, color: tint, size: 19),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15.5))),
+          if (action != null)
+            InkWell(
+              onTap: onAction,
+              child: Text(action, style: TextStyle(color: tint, fontWeight: FontWeight.w800, fontSize: 12.5)),
+            ),
+        ]),
+      );
+
   Widget _tasks() {
     final t = _block('tasks');
     final latest = _rows(t['latest']);
-    Widget pill(String key, String label, num? v) {
+    Widget stat(String key, String label, num? v, Color tint) {
       final selected = _taskTab == key;
-      return Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: ChoiceChip(
-          label: Text('$label ${v ?? 0}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
-          selected: selected,
-          showCheckmark: false,
-          selectedColor: const Color(0xFFDBEAFE),
-          onSelected: (_) => setState(() => _taskTab = key),
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => setState(() => _taskTab = key),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: selected ? tint.withValues(alpha: 0.14) : const Color(0xFFF6F8FC),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: selected ? tint : Colors.transparent, width: 1.4),
+            ),
+            child: Column(children: [
+              Text('${v ?? 0}', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: tint)),
+              Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.muted)),
+            ]),
+          ),
         ),
       );
     }
 
     final shown = latest.where((x) => _taskTab == 'overdue' ? x['status'] == 'overdue' : _taskTab == 'done' ? false : true).toList();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Padding(
-        padding: EdgeInsets.fromLTRB(2, 4, 0, 8),
-        child: Text('Tasks assigned by me', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-      ),
-      Row(children: [
-        pill('pending', 'Pending', t['pending'] as num?),
-        pill('done', 'Done', t['done'] as num?),
-        pill('overdue', 'Overdue', t['overdue'] as num?),
-      ]),
-      const SizedBox(height: 8),
-      for (final task in shown)
-        Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border(left: BorderSide(color: task['status'] == 'overdue' ? _red : _orange, width: 4)),
+    return _card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _head(Icons.assignment_turned_in_rounded, _blue, 'Tasks assigned by me',
+            action: 'View all',
+            onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TasksScreen()))),
+        Row(children: [
+          stat('pending', 'Pending', t['pending'] as num?, _orange),
+          stat('done', 'Done', t['done'] as num?, _green),
+          stat('overdue', 'Overdue', t['overdue'] as num?, _red),
+        ]),
+        const SizedBox(height: 12),
+        if (shown.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            alignment: Alignment.center,
+            child: const Text('Nothing here.', style: TextStyle(color: AppColors.muted)),
           ),
-          padding: const EdgeInsets.all(12),
-          child: Row(children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${task['name']}', maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800)),
-                Text('To: ${task['to']}${task['due'] != null ? ' · due ${_short('${task['due']}')}' : ''}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+        for (final task in shown)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.fromLTRB(0, 0, 10, 0),
+            decoration: BoxDecoration(color: const Color(0xFFF6F8FC), borderRadius: BorderRadius.circular(14)),
+            child: IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Container(
+                  width: 4,
+                  decoration: BoxDecoration(
+                    color: task['status'] == 'overdue' ? _red : _orange,
+                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Center(
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Colors.white,
+                    child: Text(initials('${task['to']}'),
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11, color: _blue)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${task['name']}',
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 2),
+                      Text('To: ${task['to']}${task['due'] != null ? ' \u00B7 due ${_short('${task['due']}')}' : ''}',
+                          style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                    ]),
+                  ),
+                ),
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: (task['status'] == 'overdue' ? _red : _orange).withValues(alpha: 0.13),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(task['status'] == 'overdue' ? 'Overdue' : 'Pending',
+                        style: TextStyle(
+                            color: task['status'] == 'overdue' ? _red : _orange,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 11)),
+                  ),
+                ),
               ]),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                  color: task['status'] == 'overdue' ? _red : _orange, borderRadius: BorderRadius.circular(14)),
-              child: Text(task['status'] == 'overdue' ? 'Overdue' : 'Pending',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11.5)),
-            ),
-          ]),
-        ),
-      Align(
-        alignment: Alignment.centerRight,
-        child: TextButton(
-          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TasksScreen())),
-          child: const Text('View all tasks'),
-        ),
-      ),
-    ]);
+          ),
+      ]),
+    );
   }
 
   String _short(String iso) {
@@ -555,63 +611,112 @@ class _ManagerHomeState extends State<ManagerHome> {
     final alerts = _rows(_home?['alerts']);
     if (alerts.isEmpty) return const SizedBox.shrink();
     const icons = {
-      'beat_not_planned': Icons.calendar_month_rounded,
-      'missed_checkout': Icons.schedule_rounded,
-      'expenses_not_sent': Icons.receipt_long_rounded,
+      'beat_not_planned': (Icons.edit_calendar_rounded, _sky),
+      'missed_checkout': (Icons.logout_rounded, _orange),
+      'expenses_not_sent': (Icons.receipt_long_rounded, _red),
     };
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Padding(
-        padding: EdgeInsets.fromLTRB(2, 6, 0, 8),
-        child: Text('Alerts', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-      ),
-      for (final a in alerts)
-        Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-          child: Row(children: [
+    return _card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _head(Icons.notifications_active_rounded, _orange, 'Alerts'),
+        for (final (i, a) in alerts.indexed) ...[
+          if (i > 0) const Divider(height: 18),
+          Row(children: [
             Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(color: const Color(0xFFEEF3FB), borderRadius: BorderRadius.circular(19)),
-              child: Icon(icons['${a['key']}'] ?? Icons.warning_amber_rounded, color: _blue, size: 20),
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: (icons['${a['key']}']?.$2 ?? _orange).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icons['${a['key']}']?.$1 ?? Icons.warning_amber_rounded,
+                  color: icons['${a['key']}']?.$2 ?? _orange, size: 21),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${a['title']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text('${a['title']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                const SizedBox(height: 2),
                 Text(((a['names'] as List?) ?? []).join(', '),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 12, color: AppColors.muted)),
               ]),
             ),
             Container(
-              width: 26,
-              height: 26,
+              constraints: const BoxConstraints(minWidth: 28),
+              height: 28,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                  color: a['key'] == 'beat_not_planned' ? _sky : _orange, shape: BoxShape.circle),
-              child: Text('${a['count']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+                color: icons['${a['key']}']?.$2 ?? _orange,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text('${a['count']}',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12.5)),
             ),
           ]),
-        ),
-    ]);
+        ],
+      ]),
+    );
   }
 
   // ------------------------------------------------------------------ live map
-  Widget _liveMap() => InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TeamLiveScreen())),
-        child: Container(
-          margin: const EdgeInsets.only(top: 4, bottom: 12),
-          height: 96,
-          decoration: BoxDecoration(color: const Color(0xFFD9F2E3), borderRadius: BorderRadius.circular(16)),
-          child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(Icons.map_rounded, color: _green, size: 28),
-            SizedBox(height: 4),
-            Text('Live map', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF166534))),
-          ]),
+  Widget _liveMap() {
+    final working = _count('present');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+            colors: [Color(0xFF0F172A), Color(0xFF1E293B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 14, offset: const Offset(0, 6))],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TeamLiveScreen())),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              Stack(alignment: Alignment.center, children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(18)),
+                ),
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF34D399), Color(0xFF10B981)]),
+                      borderRadius: BorderRadius.circular(13)),
+                  child: const Icon(Icons.my_location_rounded, color: Colors.white, size: 21),
+                ),
+              ]),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Live map',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16.5)),
+                  const SizedBox(height: 2),
+                  Text('$working on duty \u00B7 see where your team is right now',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+                ]),
+              ),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), shape: BoxShape.circle),
+                child: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 19),
+              ),
+            ]),
+          ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 /// The people behind one attendance box: tabs Present / Late / Absent / On Leave, a calendar for the date,

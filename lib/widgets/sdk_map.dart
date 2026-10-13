@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import '../core/map_style.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as g;
 import 'package:latlong2/latlong.dart';
 
@@ -317,6 +318,7 @@ class _SdkMapState extends State<SdkMap> {
     final centre = widget.centre ??
         (widget.pins.isNotEmpty ? widget.pins.first.point : const LatLng(20.5937, 78.9629));
     return g.GoogleMap(
+      style: uberMapStyle,
       initialCameraPosition: g.CameraPosition(
         target: g.LatLng(centre.latitude, centre.longitude),
         zoom: widget.zoom,
@@ -340,7 +342,7 @@ class _SdkMapState extends State<SdkMap> {
               g.Polyline(
                 polylineId: const g.PolylineId('day'),
                 points: [for (final p in widget.path) g.LatLng(p.latitude, p.longitude)],
-                color: AppColors.primary,
+                color: const Color(0xFF111827),
                 width: 5,
               ),
             },

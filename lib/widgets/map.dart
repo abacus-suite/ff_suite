@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../core/map_style.dart';
 import '../core/tile_cache.dart';
 import '../core/services.dart';
 import '../core/theme.dart';
@@ -56,7 +57,7 @@ class _BaseMapLayerState extends State<BaseMapLayer> {
       urlTemplate: google ?? _openTiles,
       retinaMode: google != null && RetinaMode.isHighDensity(context),
       // Google's tiles are already dark when asked; OpenStreetMap's are darkened here.
-      tileBuilder: dark && google == null ? darkModeTileBuilder : null,
+      tileBuilder: dark && google == null ? darkModeTileBuilder : (google == null ? uberTileBuilder : null),
       userAgentPackageName: mapUserAgent,
       // Tiles are kept on the phone; only tiles downloaded from Google are counted.
       tileProvider: CachedTileProvider(paid: google != null),
@@ -361,7 +362,7 @@ class MyLocationDot extends StatelessWidget {
 /// navigation apps draw a route.
 List<Polyline> travelPath(List<LatLng> points, {Color? color}) {
   if (points.length < 2) return const [];
-  final line = color ?? AppColors.primary;
+  final line = color ?? const Color(0xFF111827);
   return [
     Polyline(points: points, strokeWidth: 9, color: Colors.white.withValues(alpha: 0.85)),
     Polyline(points: points, strokeWidth: 5, color: line),

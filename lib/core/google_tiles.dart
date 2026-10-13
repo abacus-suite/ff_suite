@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import 'map_style.dart';
 import 'map_usage.dart';
 import 'services.dart';
 import 'storage.dart';
@@ -63,7 +64,7 @@ class GoogleTiles {
         final saved = jsonDecode(stored) as Map<String, dynamic>;
         final expiry = DateTime.tryParse('${saved['expiry']}');
         if (saved['key'] == key &&
-            saved['map_type'] == mapType &&
+            saved['map_type'] == '$mapType-uber1' &&
             expiry != null &&
             expiry.isAfter(DateTime.now())) {
           _token = '${saved['session']}';
@@ -84,6 +85,7 @@ class GoogleTiles {
           'region': 'IN',
           'scale': highDpi ? 'scaleFactor2x' : 'scaleFactor1x',
           'highDpi': highDpi,
+          'styles': jsonDecode(uberMapStyle),
         },
       );
       final session = res.data?['session'] as String?;
@@ -102,7 +104,7 @@ class GoogleTiles {
         jsonEncode({
           'session': session,
           'key': key,
-          'map_type': mapType,
+          'map_type': '$mapType-uber1',
           'expiry': expiry.toIso8601String(),
         }),
       );
