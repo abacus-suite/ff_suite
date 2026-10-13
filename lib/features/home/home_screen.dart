@@ -1,4 +1,5 @@
 import '../beat/plan_beat_screen.dart';
+import '../beat/my_beat_plan_screen.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -510,7 +511,7 @@ class _HomeScreenState extends State<HomeScreen> {
         await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyPendingScreen()));
         _loadMyPending();
       },
-      onBeatPlan: () => _push(const PlanBeatScreen()),
+      onBeatPlan: () => _push(const MyBeatPlanScreen()),
       onPunch: () => _punch(!punchedIn),
     );
   }

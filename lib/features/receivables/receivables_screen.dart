@@ -36,6 +36,9 @@ class ReceivablesScreen extends StatefulWidget {
 
 class _ReceivablesScreenState extends State<ReceivablesScreen> {
   String _filter = 'open';
+
+  /// Outlets or Distributors only; null shows both.
+  String? _kind;
   final _search = TextEditingController();
   Timer? _debounce;
   Map<String, dynamic>? _data;
@@ -64,6 +67,7 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
       final data = await Services.api.get('/api/v1/receivables', query: {
         'filter': _filter,
         if (widget.partnerId != null) 'partner_id': widget.partnerId,
+        if (_kind != null) 'kind': _kind,
         if (_search.text.trim().isNotEmpty) 'q': _search.text.trim(),
       }) as Map<String, dynamic>;
       if (mounted) setState(() => _data = data);
@@ -81,7 +85,38 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
     final invoices = ((data?['invoices'] as List?) ?? []).cast<Map<String, dynamic>>();
     final ageing = ((data?['ageing'] as List?) ?? []).cast<Map<String, dynamic>>();
     return Scaffold(
-      appBar: AppBar(title: Text(widget.partnerName == null ? 'Receivables' : 'Invoices · ${widget.partnerName}')),
+      appBar: AppBar(
+        title: widget.partnerName != null
+            ? Text('Invoices \u00B7 ${widget.partnerName}')
+            : Row(
+                children: [
+                  const Text('Receivables'),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 38,
+                      child: TextField(
+                        controller: _search,
+                        onChanged: (_) {
+                          _debounce?.cancel();
+                          _debounce = Timer(const Duration(milliseconds: 450), _load);
+                        },
+                        style: const TextStyle(fontSize: 14),
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                          hintText: 'Search...',
+                          isDense: true,
+                          filled: true,
+                          fillColor: AppColors.background,
+                          contentPadding: EdgeInsets.zero,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+      ),
       body: Column(
         children: [
           Container(
@@ -90,14 +125,12 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
             child: Column(
               children: [
                 if (widget.partnerId == null)
-                  TextField(
-                    controller: _search,
-                    onChanged: (_) {
-                      _debounce?.cancel();
-                      _debounce = Timer(const Duration(milliseconds: 450), _load);
-                    },
-                    decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.search_rounded), hintText: 'Search customer or code', isDense: true),
+                  Row(
+                    children: [
+                      Expanded(child: _kindButton('Outlet', 'outlet', Icons.storefront_rounded)),
+                      const SizedBox(width: 10),
+                      Expanded(child: _kindButton('Distributors', 'distributor', Icons.local_shipping_rounded)),
+                    ],
                   ),
                 const SizedBox(height: 8),
                 SegmentedButton<String>(
@@ -116,6 +149,54 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
             ),
           ),
           if (_loading) const LinearProgressIndicator(minHeight: 2),
+          // The summary stays where it is while the invoices scroll under it.
+          if (data != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _figure('Outstanding', fmtMoney(data['total'] as num?, currency), AppColors.primary),
+                          ),
+                          Expanded(
+                            child: _figure('Overdue', fmtMoney(data['overdue'] as num?, currency), AppColors.danger),
+                          ),
+                          Expanded(child: _figure('Invoices', '${data['count']}', AppColors.text)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 14,
+                        runSpacing: 4,
+                        children: [
+                          for (final a in ageing)
+                            if ((a['amount'] as num? ?? 0) != 0)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                      width: 9,
+                                      height: 9,
+                                      decoration: BoxDecoration(color: _bucketColours[a['key']], shape: BoxShape.circle)),
+                                  const SizedBox(width: 5),
+                                  Text('${a['label']}  ${fmtMoney(a['amount'] as num?, currency)}',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           Expanded(
             child: _error != null
                 ? ErrorView(message: _error!, onRetry: _load)
@@ -124,49 +205,6 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
                       children: [
-                        if (data != null)
-                          Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _figure('Outstanding', fmtMoney(data['total'] as num?, currency),
-                                            AppColors.primary),
-                                      ),
-                                      Expanded(
-                                        child: _figure('Overdue', fmtMoney(data['overdue'] as num?, currency),
-                                            AppColors.danger),
-                                      ),
-                                      Expanded(child: _figure('Invoices', '${data['count']}', AppColors.text)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  for (final a in ageing)
-                                    if ((a['amount'] as num? ?? 0) != 0)
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 2),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                                width: 10,
-                                                height: 10,
-                                                decoration: BoxDecoration(
-                                                    color: _bucketColours[a['key']], shape: BoxShape.circle)),
-                                            const SizedBox(width: 8),
-                                            Expanded(child: Text('${a['label']}')),
-                                            Text(fmtMoney(a['amount'] as num?, currency),
-                                                style: const TextStyle(fontWeight: FontWeight.w700)),
-                                          ],
-                                        ),
-                                      ),
-                                ],
-                              ),
-                            ),
-                          ),
                         if (data != null && invoices.isEmpty)
                           Padding(
                             padding: const EdgeInsets.all(40),
@@ -259,6 +297,23 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _kindButton(String label, String kind, IconData icon) {
+    final on = _kind == kind;
+    return OutlinedButton.icon(
+      onPressed: () {
+        setState(() => _kind = on ? null : kind);
+        _load();
+      },
+      style: OutlinedButton.styleFrom(
+        backgroundColor: on ? AppColors.primary.withValues(alpha: 0.1) : null,
+        side: BorderSide(color: on ? AppColors.primary : AppColors.border),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      icon: Icon(icon, size: 18, color: on ? AppColors.primary : AppColors.muted),
+      label: Text(label, style: TextStyle(fontWeight: FontWeight.w800, color: on ? AppColors.primary : AppColors.text)),
     );
   }
 
