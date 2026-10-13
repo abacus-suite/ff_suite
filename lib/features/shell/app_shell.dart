@@ -1,3 +1,4 @@
+import '../beat/create_beat_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/services.dart';
@@ -122,27 +123,27 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Taken at the customer: each one starts with a check-in there.
-              if (profile.feature('orders'))
-                option('order', Icons.add_shopping_cart_rounded, AppColors.primary,
-                    'New ${profile.orderWord.toLowerCase()}', 'Pick the $customer, check in, add products', sheet),
-              if (profile.paymentCollection)
-                option('payment', Icons.payments_rounded, AppColors.teal, 'Collect payment',
-                    'Pick the $customer, check in, record the amount', sheet),
-              if (profile.feature('routes'))
-                option('beat', Icons.edit_calendar_rounded, AppColors.sky, 'Create beat plan',
-                    profile.isManager ? 'Several routes at once, for you or your team' : 'Plan one or several routes for a day', sheet),
-              // A new outlet is made by the New Lead task, so "New customer" is gone from here.
+              // The order the client asked for: New Task, Create Beat Plan, Leave Request, New Expense,
+              // New PO, Collect Payment.
               if (profile.feature('visits'))
-                option('field_task', Icons.assignment_turned_in_rounded, AppColors.success, 'Task',
-                    'Client visit, new lead, samples and more', sheet),
+                option('field_task', Icons.assignment_turned_in_rounded, AppColors.success, 'New Task',
+                    'Client visit, new lead, samples, events', sheet),
+              if (profile.feature('routes'))
+                option('beat', Icons.edit_calendar_rounded, AppColors.sky, 'Create Beat Plan',
+                    'Opens Create Beat', sheet),
+              option('leave', Icons.beach_access_rounded, AppColors.sky, 'Leave Request',
+                  'Ask for leave', sheet),
+              option('expense', Icons.receipt_long_rounded, AppColors.warning, 'New Expense',
+                  'Claim or record an expense', sheet),
+              if (profile.feature('orders'))
+                option('order', Icons.add_shopping_cart_rounded, AppColors.primary, 'New PO',
+                    'Pick the client, check in, add products', sheet),
+              if (profile.paymentCollection)
+                option('payment', Icons.payments_rounded, AppColors.teal, 'Collect Payment',
+                    'Pick the client, check in, record amount', sheet),
               if (profile.isManager)
                 option('task', Icons.add_task_rounded, AppColors.purple, 'Give a task',
                     'Send a task to someone in your team', sheet),
-              option('leave', Icons.beach_access_rounded, AppColors.sky, 'Leave request',
-                  'Ask for time off', sheet),
-              option('expense', Icons.receipt_long_rounded, AppColors.warning, 'New Expense',
-                  'Claim or record an expense', sheet),
               const SizedBox(height: 8),
             ],
           ),
@@ -180,7 +181,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           await open(CollectPaymentScreen(client: client, visitId: visit['id'] as int?));
         }
       case 'beat':
-        await open(const PlanBeatScreen());
+        await open(const CreateBeatScreen());
       case 'field_task':
         await openTasks(context);
       case 'task':

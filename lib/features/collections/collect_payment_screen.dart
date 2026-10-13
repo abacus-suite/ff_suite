@@ -254,6 +254,8 @@ class _CollectPaymentScreenState extends State<CollectPaymentScreen> {
   /// Says where this money goes, because it is not the same from everyone.
   Widget _goesToCard() {
     final toDistributor = _goesTo == 'distributor';
+    // Money paid to a distributor needs no note about it.
+    if (toDistributor) return const SizedBox.shrink();
     final tint = toDistributor ? AppColors.warning : AppColors.success;
     return Container(
       padding: const EdgeInsets.all(12),

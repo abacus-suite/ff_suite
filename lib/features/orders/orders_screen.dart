@@ -185,7 +185,7 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
 
   List<Map<String, dynamic>> get _visible => _orders.where((o) {
         if (_status != 'all' && o['state'] != _status) return false;
-        if (_boxStates != null && !_boxStates!.contains('${o['state']}')) return false;
+        if (_boxStates != null && !_inBox(o, _boxStates!)) return false;
         if (_demandFlow && _kind != 'all' && (o['kind'] == 'order') != (_kind == 'order')) return false;
         if (_demandFlow && _mapping != 'all') {
           final linked = o['distributor'] != null;
@@ -256,20 +256,33 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
     return out;
   }
 
-  int _countOf(List<String> states) => _orders.where((o) => states.contains('${o['state']}')).length;
+  /// Whether a record belongs to a box. "Out for Delivery" is a distributor order that is confirmed
+  /// and not yet fully delivered.
+  bool _inBox(Map<String, dynamic> o, List<String> states) {
+    if (states.length == 1 && states.first == '__out') {
+      final delivered = '${o['delivery_status']}'.toLowerCase();
+      return o['kind'] == 'order' &&
+          const ['sale', 'done'].contains('${o['state']}') &&
+          delivered != 'full' &&
+          delivered != 'delivered';
+    }
+    return states.contains('${o['state']}');
+  }
+
+  int _countOf(List<String> states) => _orders.where((o) => _inBox(o, states)).length;
 
   /// The boxes across the top, named after the states this flow really uses.
   List<(IconData, List<String>, String, Color)> get _statBoxes => _demandFlow
       ? const [
-          (Icons.description_rounded, ['draft', 'submitted'], 'Submitted', AppColors.primary),
+          (Icons.description_rounded, ['draft', 'submitted'], 'To Submit', AppColors.primary),
           (Icons.local_shipping_rounded, ['waiting', 'quoted', 'partial'], 'With distributor', AppColors.warning),
           (Icons.thumb_up_alt_rounded, ['approved'], 'Approved', AppColors.primary),
           (Icons.inventory_rounded, ['supplied'], 'Delivered', AppColors.success),
-          (Icons.storefront_rounded, ['sale', 'done'], 'Distributor orders', AppColors.teal),
+          (Icons.delivery_dining_rounded, ['__out'], 'Out for Delivery', AppColors.teal),
           (Icons.cancel_rounded, ['cancelled', 'cancel'], 'Cancelled', AppColors.danger),
         ]
       : const [
-          (Icons.description_rounded, ['draft', 'sent'], 'Submitted', AppColors.primary),
+          (Icons.description_rounded, ['draft', 'sent'], 'To Submit', AppColors.primary),
           (Icons.check_circle_rounded, ['sale', 'done'], 'Confirmed', AppColors.success),
           (Icons.cancel_rounded, ['cancel'], 'Cancelled', AppColors.danger),
         ];
@@ -632,12 +645,52 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_demandFlow ? 'My Demands' : 'My Orders',
+                        Text('My Orders',
                             style: const TextStyle(
                                 fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.text)),
-                        Text('Track your $word',
-                            style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+                        const Text('Track your orders',
+                            style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
                       ],
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    tooltip: 'Period',
+                    onSelected: (v) async {
+                      if (v == 'custom') {
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now().add(const Duration(days: 1)),
+                          initialDateRange: _range,
+                        );
+                        if (picked == null) return;
+                        setState(() {
+                          _period = 'custom';
+                          _range = picked;
+                        });
+                      } else {
+                        setState(() {
+                          _period = v;
+                          _range = Periods.range(v);
+                        });
+                      }
+                      _load();
+                    },
+                    itemBuilder: (_) => [
+                      for (final c in Periods.choices) PopupMenuItem(value: c.$1, child: Text(c.$2)),
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(Periods.choices.firstWhere((p) => p.$1 == _period, orElse: () => Periods.choices.first).$2,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                        const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                      ]),
                     ),
                   ),
                   if (_picked.isNotEmpty)
@@ -658,16 +711,31 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                 ],
               ),
             ),
-            PeriodChips(
-              period: _period,
-              range: _range,
-              onChanged: (period, range) {
-                setState(() {
-                  _period = period;
-                  _range = range;
-                });
-                _load();
-              },
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+              child: Card(
+                margin: const EdgeInsets.only(bottom: 14),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    children: [
+                      for (var start = 0; start < _statBoxes.length; start += 3)
+                        Padding(
+                          padding: EdgeInsets.only(top: start == 0 ? 0 : 6),
+                          child: Row(
+                            children: [
+                              for (final box in _statBoxes.skip(start).take(3))
+                                _statBox(box.$1, '${_countOf(box.$2)}', box.$3, box.$4, box.$2),
+                              // A short last row keeps the boxes the same width as the rest.
+                              for (var pad = _statBoxes.skip(start).take(3).length; pad < 3 && _statBoxes.length > 3; pad++)
+                                const Expanded(child: SizedBox()),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
@@ -677,7 +745,9 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppColors.border),
                 ),
-                child: TextField(
+                child: Row(children: [
+                  Expanded(
+                    child: TextField(
                   controller: _search,
                   onChanged: (_) {
                     _debounce?.cancel();
@@ -685,85 +755,27 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                   },
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search_rounded, color: AppColors.muted),
-                    hintText: 'Search number, customer or product...',
+                    hintText: 'Search number, customer...',
                     border: InputBorder.none,
                     focusedBorder: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
-              ),
-            ),
-            SizedBox(
-              height: 44,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  MemberPicker(
-                    value: _member,
-                    dense: true,
-                    onChanged: (value) {
-                      setState(() {
-                        _member = value;
-                        if (value == 'me' && _groupBy == 'employee') _groupBy = 'none';
-                      });
-                      _load();
-                    },
                   ),
-                  const SizedBox(width: 8),
-                  GroupByChip(
-                      value: _groupBy, options: _groupOptions, onChanged: (v) => setState(() => _groupBy = v)),
-                  const SizedBox(width: 8),
-                  _sortPill(),
-                  if (_demandFlow) ...[
-                    const SizedBox(width: 8),
-                    for (final e in const [('all', 'All'), ('demand', 'Outlet demands'), ('order', 'Distributor orders')])
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: ChoiceChip(
-                          avatar: e.$1 == 'all'
-                              ? null
-                              : Icon(e.$1 == 'order' ? Icons.local_shipping_rounded : Icons.storefront_rounded, size: 15),
-                          label: Text(e.$2),
-                          selected: _kind == e.$1,
-                          onSelected: (_) => setState(() => _kind = e.$1),
-                        ),
-                      ),
-                  ],
-                  if (_demandFlow) ...[
-                    const SizedBox(width: 8),
-                    for (final e in const [('all', 'Any distributor'), ('linked', 'Linked'), ('unlinked', 'Not linked')])
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: ChoiceChip(
-                          avatar: e.$1 == 'all'
-                              ? null
-                              : Icon(e.$1 == 'linked' ? Icons.local_shipping_rounded : Icons.link_off_rounded, size: 15),
-                          label: Text(e.$2),
-                          selected: _mapping == e.$1,
-                          onSelected: (_) => setState(() => _mapping = e.$1),
-                        ),
-                      ),
-                  ],
-                  if (statuses.length > 1) ...[
-                    const SizedBox(width: 8),
-                    ChoiceChip(
-                      label: const Text('All'),
-                      selected: _status == 'all',
-                      onSelected: (_) => setState(() => _status = 'all'),
+                  if (_demandFlow)
+                    PopupMenuButton<String>(
+                      tooltip: 'Show',
+                      icon: Icon(Icons.filter_list_rounded,
+                          color: _kind == 'all' ? AppColors.muted : AppColors.primary),
+                      onSelected: (v) => setState(() => _kind = v),
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'all', child: Text('All')),
+                        PopupMenuItem(value: 'demand', child: Text('Outlets')),
+                        PopupMenuItem(value: 'order', child: Text('Distributors')),
+                      ],
                     ),
-                    for (final entry in statuses.entries)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 6),
-                        child: ChoiceChip(
-                          label: Text(entry.value),
-                          selected: _status == entry.key,
-                          onSelected: (_) => setState(() => _status = entry.key),
-                        ),
-                      ),
-                  ],
-                ],
+                ]),
               ),
             ),
             if (_loading) const LinearProgressIndicator(minHeight: 2),
@@ -774,29 +786,6 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                   children: [
                     if (_error != null) Text(_error!),
-                    Card(
-                      margin: const EdgeInsets.only(bottom: 14),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Column(
-                          children: [
-                            for (var start = 0; start < _statBoxes.length; start += 3)
-                              Padding(
-                                padding: EdgeInsets.only(top: start == 0 ? 0 : 6),
-                                child: Row(
-                                  children: [
-                                    for (final box in _statBoxes.skip(start).take(3))
-                                      _statBox(box.$1, '${_countOf(box.$2)}', box.$3, box.$4, box.$2),
-                                    // A short last row keeps the boxes the same width as the rest.
-                                    for (var pad = _statBoxes.skip(start).take(3).length; pad < 3 && _statBoxes.length > 3; pad++)
-                                      const Expanded(child: SizedBox()),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Row(

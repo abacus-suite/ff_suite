@@ -79,7 +79,21 @@ class _LeavesScreenState extends State<LeavesScreen> {
     }
   }
 
-  List<Map<String, dynamic>> _list(String key) => ((_data?[key] as List?) ?? []).cast<Map<String, dynamic>>();
+  /// Only these four kinds of leave are offered.
+  static bool allowedType(Map<String, dynamic> type) {
+    final name = '${type['name']}'.toLowerCase();
+    return name.contains('sick') ||
+        name.contains('earned') ||
+        name.contains('compensat') ||
+        name == 'lop' ||
+        name.contains('loss of pay') ||
+        name.contains('lop');
+  }
+
+  List<Map<String, dynamic>> _list(String key) {
+    final rows = ((_data?[key] as List?) ?? []).cast<Map<String, dynamic>>();
+    return key == 'types' ? rows.where(allowedType).toList() : rows;
+  }
 
   Future<void> _request({Map<String, dynamic>? type, Map<String, dynamic>? again}) async {
     final types = _list('types');
@@ -141,7 +155,7 @@ class _LeavesScreenState extends State<LeavesScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('My Time Off'),
+        title: const Text('My Leaves'),
         actions: [
           IconButton(
             tooltip: 'Calendar',
@@ -660,7 +674,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   bool _busy = false;
   List<Map<String, dynamic>> _warnings = [];
 
-  static const _quick = ['Sick', 'Family function', 'Personal work', 'Travel', 'Festival'];
+  static const _quick = ['Sick', 'Family function', 'Personal work', 'Travel', 'Festival', 'Others'];
 
   @override
   void initState() {
@@ -734,7 +748,15 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     }
   }
 
+  String? _reasonKind;
+
+  bool get _othersReason => _reasonKind == 'Others';
+
   Future<void> _submit() async {
+    if (_othersReason && _reason.text.trim().isEmpty) {
+      showProblem(context, 'Describe the reason: it is mandatory for Others.');
+      return;
+    }
     if (_overBalance) {
       showProblem(context, 'You are asking for ${fmtQty(_days)} days and have ${fmtQty(_remaining!)} left of ${_type!['name']}.');
       return;
@@ -800,7 +822,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     final after = remaining == null ? null : remaining - _days;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Request Time Off')),
+      appBar: AppBar(title: const Text('Leave Request')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
@@ -846,13 +868,6 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
           _card(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('Which days', style: TextStyle(fontWeight: FontWeight.w900)),
-              const SizedBox(height: 10),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                ActionChip(label: const Text('Tomorrow'), onPressed: () => _preset(1, 1)),
-                ActionChip(label: const Text('2 days'), onPressed: () => _preset(1, 2)),
-                ActionChip(label: const Text('3 days'), onPressed: () => _preset(1, 3)),
-                ActionChip(label: const Text('A week'), onPressed: () => _preset(1, 7)),
-              ]),
               const SizedBox(height: 10),
               InkWell(
                 borderRadius: BorderRadius.circular(16),
@@ -928,10 +943,24 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
               const Text('Reason', style: TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 10),
               Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final q in _quick) ActionChip(label: Text(q), onPressed: () => setState(() => _reason.text = q)),
+                for (final q in _quick)
+                  ChoiceChip(
+                    label: Text(q),
+                    selected: _reasonKind == q,
+                    onSelected: (_) => setState(() {
+                      _reasonKind = q;
+                      if (q != 'Others') _reason.text = q;
+                      if (q == 'Others') _reason.clear();
+                    }),
+                  ),
               ]),
               const SizedBox(height: 10),
-              TextField(controller: _reason, maxLines: 3, decoration: const InputDecoration(hintText: 'Tell your manager why')),
+              TextField(
+                controller: _reason,
+                maxLines: 3,
+                decoration: InputDecoration(
+                    hintText: _othersReason ? 'Description (mandatory for Others)' : 'Tell your manager why'),
+              ),
             ]),
           ),
           GradientButton(

@@ -31,29 +31,20 @@ class MoreScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final profile = Services.auth.profile!;
     void open(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    // The order and names the client asked for. Planned Days, Forms, Notifications and Chat are gone.
     final menu = <(IconData, String, Color, Widget)>[
       (Icons.bar_chart_rounded, 'Reports', AppColors.primary, const ReportsScreen()),
-      if (profile.isManager) (Icons.account_tree_rounded, 'Team', AppColors.purple, const TeamTreeScreen()),
-      (Icons.task_alt_rounded, 'Tasks', AppColors.success, const TasksScreen()),
-      (Icons.science_rounded, 'My Samples', AppColors.teal, const MySamplesScreen()),
-      (Icons.lock_open_rounded, 'Contact Access', AppColors.sky, const ContactAccessScreen()),
-      (Icons.account_balance_wallet_rounded, 'Receivables', AppColors.danger, const ReceivablesScreen()),
-      if (profile.feature('routes')) ...[
+      (Icons.task_alt_rounded, 'My Tasks', AppColors.success, const TasksScreen()),
+      if (profile.feature('routes'))
         (Icons.calendar_month_rounded, 'My ${profile.routeLabel} Plan', AppColors.primary, const BeatTodayScreen()),
-        (Icons.event_note_rounded, 'Planned Days', AppColors.primary, PlannedDaysScreen(start: DateUtils.dateOnly(DateTime.now()))),
-      ],
-      if (profile.feature('attendance')) ...[
-        (Icons.event_available_rounded, 'My Attendance', AppColors.success, const MonthScreen()),
-        (Icons.edit_calendar_rounded, 'Attendance Correction', AppColors.sky, const RegularisationScreen()),
-      ],
-      if (profile.feature('forms')) (Icons.assignment_rounded, 'Forms', AppColors.purple, const FormsScreen()),
-      (Icons.receipt_rounded, 'My Expenses', AppColors.warning, const ExpensesScreen()),
-      (Icons.beach_access_rounded, 'My Time Off', AppColors.sky, const LeavesScreen()),
-      (Icons.notifications_none_rounded, 'Notifications', AppColors.primary, const NotificationsScreen()),
-      if (profile.feature('allowance'))
-        (Icons.local_gas_station_rounded, 'Travel Allowance', AppColors.purple, const AllowanceScreen()),
+      (Icons.account_balance_wallet_rounded, 'Receivables', AppColors.danger, const ReceivablesScreen()),
       if (profile.paymentCollection)
-        (Icons.payments_rounded, 'Collections', AppColors.teal, const CollectionsScreen()),
+        (Icons.payments_rounded, 'My Collection', AppColors.teal, const CollectionsScreen()),
+      (Icons.receipt_rounded, 'My Expense', AppColors.warning, const ExpensesScreen()),
+      (Icons.science_rounded, 'My Samples', AppColors.teal, const MySamplesScreen()),
+      if (profile.feature('attendance'))
+        (Icons.event_available_rounded, 'My Attendance', AppColors.success, const MonthScreen()),
+      (Icons.lock_open_rounded, 'Contact Access', AppColors.sky, const ContactAccessScreen()),
       if (profile.isManager) ...[
         (Icons.fact_check_rounded, 'Approvals', AppColors.warning, const ApprovalsScreen()),
         if (profile.paymentCollection)

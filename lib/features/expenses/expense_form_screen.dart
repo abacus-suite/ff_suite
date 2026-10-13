@@ -174,7 +174,13 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
       ),
       hint: Text('Choose'),
-      items: [for (final c in items) DropdownMenuItem(value: c['id'] as int, child: Text('${c['name']}'))],
+      // A sub category shows only its own name: the category above is already chosen.
+      items: [
+        for (final c in items)
+          DropdownMenuItem(
+              value: c['id'] as int,
+              child: Text(label == 'Sub category' ? '${c['name']}'.split(' / ').last.trim() : '${c['name']}')),
+      ],
       onChanged: (id) => onChanged(items.where((c) => c['id'] == id).firstOrNull),
     );
   }

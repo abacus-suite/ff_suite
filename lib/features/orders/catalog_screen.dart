@@ -26,6 +26,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
   List<Map<String, dynamic>> _categories = [];
   List<Map<String, dynamic>> _schemes = [];
   int? _categoryId;
+
+  /// The price group chosen: null is All, otherwise the MRP the products carry.
+  num? _mrpTab;
   final Map<int, double> _cart = {};
   final Map<int, double> _freeQ = {};
   String? _freeReason;
@@ -93,7 +96,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
       for (final p in products) {
         _known[p['id'] as int] = p;
       }
-      setState(() => _products = products);
+      final shown = _mrpTab == null
+          ? products
+          : products.where((p) => ((p['mrp'] as num?) ?? 0) == _mrpTab).toList();
+      setState(() => _products = shown);
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -363,41 +369,50 @@ class _CatalogScreenState extends State<CatalogScreen> {
         ),
       );
 
-  Widget _chips() => SizedBox(
-        height: 46,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          children: [
-            for (final category in [<String, dynamic>{'id': null, 'name': 'All'}, ..._categories])
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() => _categoryId = category['id'] as int?);
-                    _load();
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      gradient: _categoryId == category['id'] ? AppColors.brandGradient : null,
-                      color: _categoryId == category['id'] ? null : Colors.white,
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: _categoryId == category['id'] ? Colors.transparent : AppColors.border),
-                    ),
-                    child: Text('${category['name']}',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                            color: _categoryId == category['id'] ? Colors.white : AppColors.text)),
+  /// All, then one tab for each price the products carry (for example 149 and 179).
+  Widget _chips() {
+    final prices = <num>{
+      for (final p in _known.values)
+        if (((p['mrp'] as num?) ?? 0) > 0) p['mrp'] as num,
+    }.toList()
+      ..sort();
+    final tabs = <num?>[null, ...prices];
+    return SizedBox(
+      height: 46,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          for (final tab in tabs)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () {
+                  setState(() => _mrpTab = tab);
+                  _load();
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    gradient: _mrpTab == tab ? AppColors.brandGradient : null,
+                    color: _mrpTab == tab ? null : Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: _mrpTab == tab ? Colors.transparent : AppColors.border),
                   ),
+                  child: Text(tab == null ? 'All' : '\u20B9${tab % 1 == 0 ? tab.toInt() : tab}',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          color: _mrpTab == tab ? Colors.white : AppColors.text)),
                 ),
               ),
-          ],
-        ),
-      );
+            ),
+        ],
+      ),
+    );
+  }
 
   Widget _section(IconData icon, String title, String note, Widget child) => Container(
         margin: const EdgeInsets.only(bottom: 12),
