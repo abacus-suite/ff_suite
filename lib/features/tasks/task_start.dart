@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../clients/clients_screen.dart';
 import '../visits/visit_gate.dart';
 import '../../widgets/busy.dart';
+import '../events/events_screen.dart';
 import 'onboard_screen.dart';
 import 'task_flow_screen.dart';
 import 'task_widgets.dart';
@@ -17,6 +18,7 @@ const _icons = <String, IconData>{
   'adhoc': Icons.bolt_rounded,
   'sample_collection': Icons.science_rounded,
   'marketing_supply': Icons.campaign_rounded,
+  'events': Icons.celebration_rounded,
 };
 
 const _tints = <String, Color>{
@@ -26,6 +28,7 @@ const _tints = <String, Color>{
   'adhoc': AppColors.warning,
   'sample_collection': AppColors.teal,
   'marketing_supply': AppColors.sky,
+  'events': AppColors.purple,
 };
 
 Future<Map<String, dynamic>?> _config(BuildContext context) async {
@@ -44,6 +47,10 @@ Future<void> openTasks(BuildContext context) async {
   if (config == null || !context.mounted) return;
   final code = await _pickTask(context, config, withAdhoc: true, withNewLead: true);
   if (code == null || !context.mounted) return;
+  if (code == 'events') {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EventsScreen()));
+    return;
+  }
   await _begin(context, config, code);
 }
 
@@ -103,6 +110,10 @@ Future<String?> _pickTask(BuildContext context, Map<String, dynamic> config,
       .where((t) => (withAdhoc || t['code'] != 'adhoc') && (withNewLead || t['code'] != 'new_lead'))
       .where((t) => client == null || _offeredFor(t, client))
       .toList();
+  // Events are not a visit to a contact: offered only where a task is started from nothing.
+  if (client == null && withAdhoc) {
+    tasks.add({'code': 'events', 'name': 'Events', 'steps': 3, 'hint': 'Run a sampling event: stock, end of day, report'});
+  }
   return showModalBottomSheet<String>(
     context: context,
     showDragHandle: true,
