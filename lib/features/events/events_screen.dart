@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
+import '../../widgets/busy.dart';
 import '../../widgets/common.dart';
 import '../../widgets/skeleton.dart';
 
@@ -19,11 +20,33 @@ List<Map<String, dynamic>> _list(dynamic v) => ((v as List?) ?? []).cast<Map<Str
 
 Future<Position?> _here(BuildContext context) async {
   try {
+    final last = await Geolocator.getLastKnownPosition();
+    if (last != null && DateTime.now().difference(last.timestamp).inMinutes < 2) return last;
     return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
+        locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 10)));
   } catch (_) {
+    try {
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null) return last;
+    } catch (_) {}
     if (context.mounted) showProblem(context, 'Turn on location to continue.');
     return null;
+  }
+}
+
+/// The lists the screens choose from change rarely, so they are kept for a few minutes.
+class _Options {
+  static Map<String, dynamic>? _data;
+  static DateTime? _at;
+
+  static Future<Map<String, dynamic>> get({bool fresh = false}) async {
+    final at = _at;
+    if (!fresh && _data != null && at != null && DateTime.now().difference(at).inMinutes < 5) return _data!;
+    final data = await Services.api.get('/api/v1/events/options') as Map<String, dynamic>;
+    _data = data;
+    _at = DateTime.now();
+    return data;
   }
 }
 
@@ -451,7 +474,7 @@ class _NewEventScreenState extends State<NewEventScreen> {
 
   Future<void> _loadOptions() async {
     try {
-      final data = await Services.api.get('/api/v1/events/options') as Map<String, dynamic>;
+      final data = await _Options.get();
       if (!mounted) return;
       setState(() {
         _options = data;
@@ -519,13 +542,25 @@ class _NewEventScreenState extends State<NewEventScreen> {
     });
   }
 
+  bool _going = false;
+
   Future<void> _next() async {
+    if (_going) return;
+    _going = true;
+    try {
+      await _nextStep();
+    } finally {
+      _going = false;
+    }
+  }
+
+  Future<void> _nextStep() async {
     if (_step == 1) {
       if (_name.text.trim().isEmpty) return showProblem(context, 'Enter the event name.');
       if (_staff.isEmpty) return showProblem(context, 'Select who conducts the event.');
       if (_territory == null) return showProblem(context, 'Select the location.');
-      _pos ??= await _here(context);
-      if (_pos == null) return;
+      _pos ??= await withBusy(context, 'Getting your location…', () => _here(context));
+      if (_pos == null || !mounted) return;
     }
     if (_step == 2) {
       if (_stockRows().isEmpty) return showProblem(context, 'Enter the opening stock for at least one distributor.');
@@ -831,9 +866,21 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
     }
   }
 
+  bool _opening = false;
+
   Future<void> _continue() async {
-    final e = _event!;
-    final pos = await _here(context);
+    if (_opening) return;
+    setState(() => _opening = true);
+    try {
+      await _continueEvent();
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
+  Future<void> _continueEvent() async {
+    Map<String, dynamic> e = _event!;
+    final pos = await withBusy(context, 'Checking your location…', () => _here(context));
     if (pos == null || !mounted) return;
     final lat = (e['latitude'] as num?)?.toDouble();
     final lng = (e['longitude'] as num?)?.toDouble();
@@ -850,13 +897,27 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
       showProblem(context, 'Today is already closed. The event continues tomorrow.');
       return;
     }
+    // The card is light; the stock figures for the day are read now, under a "please wait".
+    try {
+      e = await withBusy(context, 'Opening the event…',
+          () async => await Services.api.get('/api/v1/events/${e['id']}') as Map<String, dynamic>);
+    } catch (err) {
+      if (mounted) showProblem(context, err.toString());
+      return;
+    }
+    if (!mounted) return;
     // A later day starts with its opening stock (Step 2 and 3) before it can be ended.
     final laterDay = (e['has_previous_day'] == true);
     if (e['state'] == 'on_hold' && laterDay) {
       final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => _NextDayStockScreen(event: e)));
       if (ok != true || !mounted) return;
-      await _load();
-      if (_event == null || !mounted) return;
+      try {
+        e = await withBusy(context, 'Opening the event…',
+            () async => await Services.api.get('/api/v1/events/${e['id']}') as Map<String, dynamic>);
+      } catch (_) {
+        return;
+      }
+      if (!mounted) return;
     }
     final choice = await showModalBottomSheet<String>(
       context: context,
@@ -865,8 +926,8 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${_event!['name']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-            Text('${_day(_event!)} · Event Running', style: const TextStyle(color: AppColors.muted)),
+            Text('${e['name']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            Text('${_day(e)} · Event Running', style: const TextStyle(color: AppColors.muted)),
             const SizedBox(height: 10),
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -887,7 +948,7 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
       ),
     );
     if (choice == null || !mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => _EndScreen(event: _event!, last: choice == 'end')));
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => _EndScreen(event: e, last: choice == 'end')));
     _load();
   }
 
@@ -927,8 +988,10 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
           width: double.infinity,
           child: FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(44)),
-            onPressed: _continue,
-            child: const Text('Continue event ›'),
+            onPressed: _opening ? null : _continue,
+            child: _opening
+                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text('Continue event ›'),
           ),
         ),
       ]),
@@ -963,7 +1026,7 @@ class _NextDayStockScreenState extends State<_NextDayStockScreen> {
 
   Future<void> _load() async {
     try {
-      final data = await Services.api.get('/api/v1/events/options') as Map<String, dynamic>;
+      final data = await _Options.get();
       final all = _list(data['distributors']);
       if (mounted) setState(() => _distributors = [...all.where((d) => d['company'] != true), ...all.where((d) => d['company'] == true)]);
     } catch (_) {}
@@ -1094,7 +1157,7 @@ class _EndScreenState extends State<_EndScreen> {
 
   Future<void> _load() async {
     try {
-      final data = await Services.api.get('/api/v1/events/options') as Map<String, dynamic>;
+      final data = await _Options.get();
       final all = _list(data['distributors']);
       if (mounted) setState(() => _distributors = [...all.where((d) => d['company'] != true), ...all.where((d) => d['company'] == true)]);
     } catch (_) {}
