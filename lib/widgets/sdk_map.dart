@@ -78,6 +78,9 @@ class SdkMap extends StatefulWidget {
   /// Without it the app carries a placeholder key, and Google's map would open as a blank grey square.
   static const _builtWithKey = bool.fromEnvironment('MAPS_BUILD_KEY');
 
+  /// For the Settings page: whether this build carries a Google key at all.
+  static bool get builtWithKey => _builtWithKey;
+
   /// Whether this build of the app can draw Google's map at all: the office chose it, a key is set in Odoo,
   /// and this build actually has a key inside it.
   static bool get available =>

@@ -561,6 +561,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       title: 'Maps',
       children: [
         _row(Icons.layers_rounded, 'Chosen in Odoo', mode),
+        _row(Icons.vpn_key_rounded, 'Google key sent by Odoo', profile.googleMapsKey.isEmpty ? 'No' : 'Yes'),
+        _row(Icons.build_circle_rounded, 'Key built into this app', SdkMap.builtWithKey ? 'Yes' : 'No'),
         _row(
           sdkReady ? Icons.verified_rounded : Icons.public_rounded,
           'This phone is using',
