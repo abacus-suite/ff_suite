@@ -277,14 +277,18 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           ],
           onChanged: (v) => setState(() {
             _territory = _territories.firstWhere((t) => t['id'] == v);
-            _outlets.clear();
+            // Everything mapped to the territory starts selected; the person can untick what is not needed.
+            _outlets
+              ..clear()
+              ..addAll(((_territory!['outlets'] as List?) ?? []).map((o) => (o as Map)['id'] as int));
           }),
         ),
         if (_territory != null) ...[
           const SizedBox(height: 12),
           Row(children: [
-            const Expanded(
-                child: Text('Outlets in this territory', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
+            Expanded(
+                child: Text('${_outlets.length} of ${outlets.length} selected',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
             TextButton(
               onPressed: () => setState(() {
                 if (_outlets.length == outlets.length) {
@@ -297,19 +301,34 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
             ),
           ]),
           if (outlets.isEmpty)
-            const Text('No outlets in this territory yet.', style: TextStyle(color: AppColors.muted)),
-          for (final o in outlets)
-            CheckboxListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-              value: _outlets.contains(o['id']),
-              title: Text('${o['name']}'),
-              onChanged: (v) => setState(() => v == true ? _outlets.add(o['id'] as int) : _outlets.remove(o['id'])),
-            ),
+            const Text('No distributors or outlets are mapped to this territory yet.',
+                style: TextStyle(color: AppColors.muted)),
+          for (final group in const [('distributor', 'Distributors'), ('outlet', 'Outlets'), ('lead', 'Leads')])
+            ..._group(group.$2, outlets.where((o) => '${o['kind']}' == group.$1 ||
+                (group.$1 == 'outlet' && !{'distributor', 'lead'}.contains('${o['kind']}'))).toList()),
         ],
       ]),
     );
+  }
+
+  List<Widget> _group(String title, List<Map<String, dynamic>> rows) {
+    if (rows.isEmpty) return const [];
+    return [
+      Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 2),
+        child: Text('$title (${rows.length})', style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.muted)),
+      ),
+      for (final o in rows)
+        CheckboxListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          value: _outlets.contains(o['id']),
+          title: Text('${o['name']}'),
+          subtitle: o['city'] == null ? null : Text('${o['city']}'),
+          onChanged: (v) => setState(() => v == true ? _outlets.add(o['id'] as int) : _outlets.remove(o['id'])),
+        ),
+    ];
   }
 
   Widget _scheduleCard() {
