@@ -18,6 +18,8 @@ import '../clients/clients_screen.dart';
 import '../expenses/new_expense_screen.dart';
 import '../home/home_screen.dart';
 import '../more/more_screen.dart';
+import '../reports/reports_screen.dart';
+import '../team/team_tree_screen.dart';
 import '../orders/orders_screen.dart';
 
 class _ShellTab {
@@ -47,6 +49,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     super.initState();
     ChatBadge.start();
     Services.goHome.addListener(_goHome);
+    Services.managerMode.addListener(_modeChanged);
     WidgetsBinding.instance.addObserver(this);
     // Opening the app while checked in goes straight back to the visit.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -59,12 +62,17 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     ChatBadge.stop();
     Services.goHome.removeListener(_goHome);
+    Services.managerMode.removeListener(_modeChanged);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) resumeOpenTask(context);
+  }
+
+  void _modeChanged() {
+    if (mounted) setState(() => _current = 'home');
   }
 
   void _goHome() {
@@ -78,6 +86,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   List<_ShellTab> _tabs() {
     final profile = Services.auth.profile!;
+    if (profile.isManager && Services.managerMode.value) {
+      return [
+        _ShellTab('home', Icons.home_outlined, Icons.home_rounded, 'Home', HomeScreen(onOpenTab: _open)),
+        const _ShellTab('team', Icons.groups_2_outlined, Icons.groups_2_rounded, 'My Team', TeamTreeScreen()),
+        const _ShellTab('tasks', Icons.assignment_outlined, Icons.assignment_rounded, 'Tasks', TasksScreen()),
+        const _ShellTab('reports', Icons.bar_chart_outlined, Icons.bar_chart_rounded, 'Reports', ReportsScreen()),
+      ];
+    }
     return [
       _ShellTab('home', Icons.home_outlined, Icons.home_rounded, 'Home',
           HomeScreen(onOpenTab: _open)),
@@ -250,7 +266,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           ],
         ),
       ),
-      floatingActionButton: Container(
+      floatingActionButton: (Services.auth.profile!.isManager && Services.managerMode.value)
+          ? null
+          : Container(
         width: 58,
         height: 58,
         decoration: BoxDecoration(

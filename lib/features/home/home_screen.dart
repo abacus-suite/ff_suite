@@ -5,6 +5,7 @@ import 'dart:convert';
 
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
+import 'manager_home.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../core/photos.dart';
@@ -399,26 +400,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 name: profile.name,
                 bell: const NotificationBell(),
                 onAvatar: () => _push(const ProfileScreen()),
+                modeChip: profile.isManager ? _modeChip() : null,
               ),
               const SizedBox(height: 14),
-              if (profile.isManager) ...[
-                SegmentedButton<bool>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('Own'), icon: Icon(Icons.person_rounded)),
-                    ButtonSegment(value: true, label: Text('Team'), icon: Icon(Icons.groups_rounded)),
-                  ],
-                  selected: {_teamView},
-                  onSelectionChanged: (v) => setState(() => _teamView = v.first),
-                ),
-                const SizedBox(height: 14),
-              ],
-              if (profile.isManager) ...[
-                _approvalsButton(),
-                const SizedBox(height: 14),
-              ],
-              if (profile.isManager && _teamView)
-                const TeamDashboard()
+              if (profile.isManager && Services.managerMode.value)
+                ManagerHome(pending: _pending, onApprovalsClosed: _loadPending)
               else if (_loading && _status == null)
                 const Padding(
                     padding: EdgeInsets.all(40),
@@ -435,6 +421,49 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     });
+  }
+
+  /// "Manager ▾" / "Employee ▾": opens the Switch Modes sheet.
+  Widget _modeChip() {
+    final manager = Services.managerMode.value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: ActionChip(
+        visualDensity: VisualDensity.compact,
+        label: Text(manager ? 'Manager ▾' : 'Employee ▾',
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+        onPressed: _switchModes,
+      ),
+    );
+  }
+
+  Future<void> _switchModes() async {
+    final picked = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Switch Modes', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17))),
+          ),
+          for (final manager in [false, true])
+            ListTile(
+              leading: Icon(manager ? Icons.groups_rounded : Icons.person_rounded),
+              title: Text(manager ? 'Manager' : 'Employee'),
+              subtitle: Text(manager ? 'Your team, approvals and targets' : 'Your own day, beats and visits'),
+              trailing: Services.managerMode.value == manager ? const Icon(Icons.check_circle_rounded) : null,
+              onTap: () => Navigator.pop(sheet, manager),
+            ),
+        ]),
+      ),
+    );
+    if (picked != null && picked != Services.managerMode.value) {
+      Services.managerMode.value = picked;
+      Services.refresh.value++;
+    }
   }
 
   /// The quick way to everything waiting for a decision, with how many there are.

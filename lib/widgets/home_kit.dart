@@ -19,11 +19,15 @@ class HomeHeader extends StatelessWidget {
     required this.name,
     required this.bell,
     this.onAvatar,
+    this.modeChip,
   });
 
   final String name;
   final Widget bell;
   final VoidCallback? onAvatar;
+
+  /// The "Manager ▾" chip, shown to managers only.
+  final Widget? modeChip;
 
   /// Morning, afternoon or evening, as the person would say it.
   static String greeting([DateTime? now]) {
@@ -67,6 +71,7 @@ class HomeHeader extends StatelessWidget {
               maxLines: 2,
               style: TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
         ),
+        if (modeChip != null) modeChip!,
         bell,
         GestureDetector(
           onTap: onAvatar,

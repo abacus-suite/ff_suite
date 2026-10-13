@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../team/assign_target_screen.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -89,10 +90,24 @@ class _TasksScreenState extends State<TasksScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Tasks')),
       floatingActionButton: _isManager
-          ? FloatingActionButton.extended(
-              onPressed: _newTask,
-              icon: const Icon(Icons.add_task_rounded),
-              label: const Text('Give a task'),
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.extended(
+                  heroTag: 'assign_target',
+                  onPressed: () => Navigator.of(context)
+                      .push(MaterialPageRoute(builder: (_) => const AssignTargetScreen())),
+                  icon: const Icon(Icons.flag_rounded),
+                  label: const Text('Assign Target'),
+                ),
+                const SizedBox(width: 10),
+                FloatingActionButton.extended(
+                  heroTag: 'assign_task',
+                  onPressed: _newTask,
+                  icon: const Icon(Icons.add_task_rounded),
+                  label: const Text('Assign Task'),
+                ),
+              ],
             )
           : null,
       body: Column(
