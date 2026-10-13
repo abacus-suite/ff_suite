@@ -85,6 +85,15 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
           if ('${p['date']}' == fmtDate(day) && (p['beat'] as Map?)?['name'] != null) '${(p['beat'] as Map)['name']}',
       ];
 
+  /// The beat codes on a date (the name where a beat has no code), for the calendar cells.
+  List<String> _codesOn(DateTime day) => [
+        for (final p in _plans)
+          if ('${p['date']}' == fmtDate(day) && (p['beat'] as Map?)?['name'] != null)
+            ('${p['beat_code'] ?? ''}'.isNotEmpty && p['beat_code'] != null)
+                ? '${p['beat_code']}'
+                : '${(p['beat'] as Map)['name']}',
+      ];
+
   void _shift(int months) {
     setState(() => _month = DateTime(_month.year, _month.month + months));
     _loadMonth();
@@ -344,14 +353,9 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
   }
 
   Widget _cell(DateTime day) {
-    final beats = _beatsOn(day);
+    final beats = _codesOn(day);
     final selected = DateUtils.isSameDay(day, _day);
     final today = DateUtils.isSameDay(day, DateTime.now());
-    String short(String name) {
-      final m = RegExp(r'\d+').firstMatch(name);
-      return m != null ? 'B${m.group(0)}' : (name.length > 4 ? name.substring(0, 4) : name);
-    }
-
     return InkWell(
       borderRadius: BorderRadius.circular(10),
       onTap: () => _pick(day),
@@ -367,8 +371,12 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
           children: [
             Text('${day.day}', style: TextStyle(fontWeight: FontWeight.w800, color: selected ? _blue : AppColors.text)),
             if (beats.isNotEmpty)
-              Text(beats.length > 1 ? '${short(beats.first)}+${beats.length - 1}' : short(beats.first),
-                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: _blue)),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(beats.length > 1 ? '${beats.first} +${beats.length - 1}' : beats.first,
+                    maxLines: 1,
+                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: _blue)),
+              ),
           ],
         ),
       ),
