@@ -12,7 +12,6 @@ import '../../core/theme.dart';
 import '../../widgets/avatar.dart';
 import '../../core/models.dart';
 import '../../widgets/common.dart';
-import '../../widgets/member_picker.dart';
 import '../../widgets/sdk_map.dart';
 import '../../widgets/sync_status.dart';
 import '../auth/login_screen.dart';
@@ -33,36 +32,33 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  int? _teamCount;
-  double? _targetPercent;
+  /// Teams, territories, beats, details and the company, from the server.
+  Map<String, dynamic>? _info;
 
   @override
   void initState() {
     super.initState();
-    _loadFigures();
+    _loadInfo();
   }
 
-  /// The numbers across the top: how big the team is and how the month is going.
-  Future<void> _loadFigures() async {
+  Future<void> _loadInfo() async {
     try {
-      final scope = await TeamScope.load();
-      if (mounted) setState(() => _teamCount = ((scope['members'] as List?) ?? []).length);
+      final data = await Services.api.get('/api/v1/me/profile-details') as Map<String, dynamic>;
+      if (mounted) setState(() => _info = data);
     } catch (_) {
-      // Somebody without a team simply has no number to show.
+      // Without it the page shows what the app already knows.
     }
-    try {
-      final data = await Services.api.get('/api/v1/targets') as Map<String, dynamic>;
-      final mine = (data['me'] as Map?)?.cast<String, dynamic>();
-      final rows = ((mine?['targets'] as List?) ?? (data['targets'] as List?) ?? [])
-          .cast<Map<String, dynamic>>();
-      if (rows.isNotEmpty) {
-        final done = rows
-            .map((row) => ((row['percent'] as num?) ?? 0).toDouble())
-            .reduce((a, b) => a + b) /
-            rows.length;
-        if (mounted) setState(() => _targetPercent = done);
-      }
-    } catch (_) {}
+  }
+
+  List<Map<String, dynamic>> _list(String key) =>
+      ((_info?[key] as List?) ?? []).cast<Map<String, dynamic>>();
+
+  Map<String, dynamic> _map(String key) => (_info?[key] as Map?)?.cast<String, dynamic>() ?? const {};
+
+  Color _hex(String? value, Color fallback) {
+    final v = (value ?? '').replaceAll('#', '');
+    final n = int.tryParse(v, radix: 16);
+    return v.length == 6 && n != null ? Color(0xFF000000 | n) : fallback;
   }
 
   Future<void> _logout(BuildContext context) async {
@@ -119,10 +115,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           _hero(profile),
           const SizedBox(height: 12),
-          _figures(profile),
+          _listButtons(),
           const SizedBox(height: 12),
           _details(profile),
           const SizedBox(height: 12),
+          _company(),
           _work(profile),
           const SizedBox(height: 12),
           _maps(profile),
@@ -148,18 +145,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _hero(Profile profile) {
+    final colour = _map('colour');
+    final start = _hex(colour['start'] as String?, AppColors.primary);
+    final end = _hex(colour['end'] as String?, const Color(0xFF6D5DF6));
+    final active = '${_info?['status'] ?? 'Active'}' == 'Active';
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary, Color(0xFF6D5DF6)],
-        ),
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [start, end]),
         borderRadius: BorderRadius.circular(22),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const _ChangeablePhoto(),
           const SizedBox(width: 14),
@@ -168,27 +165,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(profile.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900)),
-                if (profile.designation != null)
-                  Text(profile.designation!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Color(0xE6FFFFFF), fontSize: 14)),
-                if (profile.code != null)
-                  Text(profile.code!, style: const TextStyle(color: Color(0xB3FFFFFF), fontSize: 13)),
-                const SizedBox(height: 9),
-                Wrap(
-                  spacing: 7,
-                  runSpacing: 7,
+                Row(
                   children: [
-                    if (profile.isManager) _badge(Icons.work_rounded, 'Manager'),
-                    if (profile.isAdmin) _badge(Icons.shield_rounded, 'Admin'),
-                    _badge(Icons.check_circle_rounded, 'Active', tint: AppColors.success),
+                    Expanded(
+                      child: Text(profile.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900)),
+                    ),
+                    const SizedBox(width: 8),
+                    _badge(Icons.circle, active ? 'Active' : 'Inactive',
+                        tint: active ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5)),
                   ],
                 ),
+                const SizedBox(height: 2),
+                if ((_info?['designation'] ?? profile.designation) != null)
+                  Text('${_info?['designation'] ?? profile.designation}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Color(0xE6FFFFFF), fontSize: 14)),
               ],
             ),
           ),
@@ -214,55 +209,132 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
 
-  Widget _figures(Profile profile) {
-    final cells = <(IconData, String, String, Color)>[
-      if (profile.team != null)
-        (Icons.apartment_rounded, profile.team!, 'Team', AppColors.primary),
-      if (_teamCount != null && _teamCount! > 0)
-        (Icons.groups_2_rounded, '$_teamCount', 'Team members', AppColors.success),
-      if (profile.routes.isNotEmpty)
-        (Icons.route_rounded, '${profile.routes.length}', '${profile.routeLabel}s', AppColors.warning),
-      if (_targetPercent != null)
-        (Icons.adjust_rounded, '${_targetPercent!.round()}%', 'Target', AppColors.purple),
-    ];
-    if (cells.isEmpty) return const SizedBox.shrink();
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final (i, cell) in cells.indexed) ...[
-                if (i > 0) VerticalDivider(width: 1, color: AppColors.border),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(cell.$1, size: 20, color: cell.$4),
-                        const SizedBox(height: 6),
-                        Text(cell.$2,
-                            maxLines: 2,
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-                        Text(cell.$3,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ],
+  /// Team, Territory and Beats: each is a button that opens its full list.
+  Widget _listButtons() {
+    final teams = _list('teams');
+    final primary = ((_map('territories')['primary'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final outside = ((_map('territories')['outside'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final beats = _list('beats');
+    final profile = Services.auth.profile!;
+    String count(int n, String one, String many) => '$n ${n == 1 ? one : many}';
+    Widget cell(IconData icon, String title, String value, Color tint, VoidCallback onTap) => Expanded(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                children: [
+                  Icon(icon, size: 22, color: tint),
+                  const SizedBox(height: 6),
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                  Text(value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+    return Row(
+      children: [
+        cell(Icons.groups_2_rounded, 'Team', count(teams.length, 'team', 'teams'), AppColors.primary,
+            () => _openList('My Teams', Icons.groups_2_rounded, [
+                  for (final t in teams)
+                    (t['name'] as String, 'Lead: ${t['lead'] ?? '-'} \u00B7 ${t['members']} members', null),
+                ])),
+        const SizedBox(width: 10),
+        cell(Icons.place_rounded, 'Territory',
+            count(primary.length + outside.length, 'territory', 'territories'), AppColors.success,
+            () => _openList('My Territories', Icons.place_rounded, [
+                  for (final t in primary) (t['name'] as String, '${t['region'] ?? ''}', 'Primary'),
+                  for (final t in outside) (t['name'] as String, '${t['region'] ?? ''}', 'Outside'),
+                ])),
+        const SizedBox(width: 10),
+        cell(Icons.route_rounded, profile.routeLabel == 'Beat' ? 'Beats' : '${profile.routeLabel}s',
+            count(beats.length, 'beat', 'beats'), AppColors.warning,
+            () => _openList('My Beats', Icons.route_rounded, [
+                  for (final b in beats)
+                    (
+                      b['name'] as String,
+                      '${b['outlets']} outlets${b['city'] != null ? ' \u00B7 ${b['city']}' : ''}',
+                      b['state'] == 'pending' ? 'Pending approval' : 'Approved',
+                    ),
+                ])),
+      ],
     );
+  }
+
+  /// A simple list page: a title, then rows with a name, a line under it and a small status.
+  void _openList(String title, IconData icon, List<(String, String, String?)> rows) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: rows.isEmpty
+            ? const Center(child: Text('Nothing here yet.', style: TextStyle(color: AppColors.muted)))
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  for (final row in rows)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                            child: Icon(icon, color: AppColors.primary, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(row.$1, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                                if (row.$2.isNotEmpty)
+                                  Text(row.$2, style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+                              ],
+                            ),
+                          ),
+                          if (row.$3 != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: (row.$3 == 'Pending approval' || row.$3 == 'Outside'
+                                        ? AppColors.warning
+                                        : AppColors.success)
+                                    .withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(row.$3!,
+                                  style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: row.$3 == 'Pending approval' || row.$3 == 'Outside'
+                                          ? AppColors.warning
+                                          : AppColors.success)),
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+      ),
+    ));
   }
 
   Widget _section({required IconData icon, required String title, Widget? action, required List<Widget> children}) {
@@ -335,13 +407,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _details(Profile profile) {
+    final d = _map('details');
     final rows = <(IconData, String, String?)>[
-      (Icons.badge_rounded, 'Employee code', profile.code),
-      (Icons.work_outline_rounded, 'Designation', profile.designation),
-      (Icons.groups_rounded, 'Team', profile.team),
-      (Icons.supervisor_account_rounded, 'Reports to', profile.manager),
-      if (profile.routes.isNotEmpty)
-        (Icons.route_rounded, '${profile.routeLabel}s', profile.routes.map((r) => r.name).join(', ')),
+      (Icons.supervisor_account_rounded, 'Reports to', (d['reports_to'] as String?) ?? profile.manager),
+      (Icons.apartment_rounded, 'Department', d['department'] as String?),
+      (Icons.badge_rounded, 'Employee ID', (d['employee_id'] as String?) ?? profile.code),
     ].where((row) => (row.$3 ?? '').isNotEmpty).toList();
     return _section(
       icon: Icons.person_rounded,
@@ -350,6 +420,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
         for (final (i, row) in rows.indexed)
           _row(row.$1, row.$2, row.$3!, last: i == rows.length - 1),
       ],
+    );
+  }
+
+  /// The company the person works for.
+  Widget _company() {
+    final c = _map('company');
+    final rows = <(IconData, String, String?)>[
+      (Icons.business_rounded, 'Company', c['name'] as String?),
+      (Icons.receipt_long_rounded, 'GSTIN', c['gstin'] as String?),
+      (Icons.language_rounded, 'Website', c['website'] as String?),
+      (Icons.camera_alt_rounded, 'Instagram', c['instagram'] as String?),
+    ].where((row) => (row.$3 ?? '').isNotEmpty).toList();
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: _section(
+        icon: Icons.business_center_rounded,
+        title: 'Company Details',
+        children: [
+          for (final (i, row) in rows.indexed)
+            _row(row.$1, row.$2, row.$3!, last: i == rows.length - 1),
+        ],
+      ),
     );
   }
 
