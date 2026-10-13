@@ -231,6 +231,47 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     }
     if (widget.code == 'client_visit') _loadLedger();
     if (widget.code == 'new_lead') _loadLeadLists();
+    unawaited(_captureStart());
+  }
+
+  /// Where the task was started: the place every later step is measured from when there is no customer.
+  Position? _startPos;
+
+  Future<void> _captureStart() async {
+    try {
+      _startPos = await currentPosition(recentOk: true);
+    } catch (_) {
+      // Without a fix the 200 m check cannot be made, and the task is not held up for it.
+    }
+  }
+
+  /// The 200 m rule, for every task: each step, and the submit, must be done within 200 m of the
+  /// customer, or of the place the task was started when there is none.
+  Future<bool> _withinRange() async {
+    double? lat;
+    double? lng;
+    final c = _client;
+    if (c != null && c['lat'] != null && c['lng'] != null) {
+      lat = (c['lat'] as num).toDouble();
+      lng = (c['lng'] as num).toDouble();
+    } else if (_startPos != null) {
+      lat = _startPos!.latitude;
+      lng = _startPos!.longitude;
+    }
+    if (lat == null || lng == null) return true;
+    Position here;
+    try {
+      here = await currentPosition(recentOk: true);
+    } catch (_) {
+      return true;
+    }
+    final away = Geolocator.distanceBetween(here.latitude, here.longitude, lat, lng);
+    if (away <= 200) return true;
+    if (mounted) {
+      await showProblem(context,
+          'You are ${away.round()} m away. Be within 200 m of ${c != null ? 'the customer' : 'where you started'} to continue.');
+    }
+    return false;
   }
 
   @override
@@ -1213,6 +1254,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
   }
 
   Future<void> _submit() async {
+    if (!await _withinRange()) return;
     setState(() => _busy = true);
     try {
       Position? pos;
@@ -1484,7 +1526,9 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
                           ? null
                           : last
                               ? _submit
-                              : () => setState(() => _index++),
+                              : () async {
+                                  if (await _withinRange() && mounted) setState(() => _index++);
+                                },
                     ),
                   ),
                 ],
