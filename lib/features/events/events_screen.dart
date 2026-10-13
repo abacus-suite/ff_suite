@@ -131,7 +131,7 @@ Widget _sectionTitle(String text, {String? trailing}) => Padding(
       ]),
     );
 
-/// Flavours in three columns: the short code on the left and the bottles on the right.
+/// Flavours two to a row: the flavour on the left and a square box for the bottles on the right.
 class _Grid extends StatelessWidget {
   const _Grid({required this.products, this.controllers, this.values, this.onChanged});
 
@@ -143,42 +143,58 @@ class _Grid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, box) {
-      final width = (box.maxWidth - 16) / 3;
-      return Wrap(spacing: 8, runSpacing: 8, children: [
+      final width = (box.maxWidth - 10) / 2;
+      return Wrap(spacing: 10, runSpacing: 10, children: [
         for (final p in products)
           SizedBox(
             width: width,
             child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
+              padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFFD5DEEE)),
               ),
               child: Row(children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  decoration: BoxDecoration(color: const Color(0xFFDCE7FB), borderRadius: BorderRadius.circular(6)),
-                  child: Text('${p['code']}'.length > 4 ? '${p['code']}'.substring(0, 4) : '${p['code']}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primary)),
-                ),
                 Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(color: const Color(0xFFDCE7FB), borderRadius: BorderRadius.circular(6)),
+                      child: Text('${p['code']}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: AppColors.primary)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('${p['name']}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11, color: AppColors.muted, height: 1.15)),
+                  ]),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 64,
+                  height: 64,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF6F9FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFB8C7E6), width: 1.4),
+                  ),
                   child: controllers != null
                       ? TextField(
                           controller: controllers![p['id']],
                           keyboardType: TextInputType.number,
-                          textAlign: TextAlign.end,
+                          textAlign: TextAlign.center,
                           onChanged: (_) => onChanged?.call(),
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
                           decoration: const InputDecoration(
-                              isDense: true, border: InputBorder.none, hintText: '0', contentPadding: EdgeInsets.symmetric(horizontal: 4)),
+                              isDense: true, border: InputBorder.none, hintText: '0', contentPadding: EdgeInsets.zero),
                         )
-                      : Align(
-                          alignment: Alignment.centerRight,
-                          child: Text(_q(values?[p['id']] ?? 0),
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                        ),
+                      : Text(_q(values?[p['id']] ?? 0),
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
                 ),
               ]),
             ),
