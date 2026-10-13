@@ -37,7 +37,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
   @override
   void initState() {
     super.initState();
-    _loadTypes();
+    // No route types: everything is simply a Beat.
     _loadTerritories();
   }
 

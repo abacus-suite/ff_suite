@@ -156,7 +156,6 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
   }
 
   String _routeDetails(Map<String, dynamic> r) => [
-        if (r['route_type'] != null) r['route_type'],
         '${r['customer_count']} customers',
         if ((r['planned_km'] as num? ?? 0) > 0) '${r['planned_km']} km',
       ].join(' · ');

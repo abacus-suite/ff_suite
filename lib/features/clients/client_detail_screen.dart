@@ -538,7 +538,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-                    child: Text('Beat: ${routes.first['name']}',
+                    child: Text('${routes.first['name']}',
                         style: const TextStyle(
                             fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.text)),
                   ),

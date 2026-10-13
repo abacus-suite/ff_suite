@@ -192,7 +192,8 @@ class Profile {
       expenseCard: settings['expense_card'] == true,
       photoVersion: employee['photo_version'] as String?,
       idleLogoutHours: (settings['idle_logout_hours'] as num? ?? 0).toInt(),
-      routeLabel: employee['route_label'] as String? ?? 'Beat',
+      // Everything is a Beat in this app: no Patch, Route or other type names.
+      routeLabel: 'Beat',
       beatAtCheckin: employee['beat_at_checkin'] == true,
       routes: ((employee['routes'] as List?) ?? []).map(IdName.from).whereType<IdName>().toList(),
       features: ((app?['features'] as Map?) ?? {}).map((k, v) => MapEntry('$k', v == true)),
