@@ -416,6 +416,11 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                     _divider(),
                     _meta(Icons.person_rounded, '${(o['employee'] as Map)['name']}', ''),
                   ],
+                  if (o['visit_type'] == 'onsite' || o['visit_type'] == 'offsite') ...[
+                    _divider(),
+                    _meta(o['visit_type'] == 'offsite' ? Icons.wrong_location_rounded : Icons.storefront_rounded,
+                        o['visit_type'] == 'offsite' ? 'Offsite' : 'Onsite', ''),
+                  ],
                 ],
               ),
               // An order taken for a distributor has no distributor to link: the customer is the distributor.

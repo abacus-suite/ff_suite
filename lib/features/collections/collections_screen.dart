@@ -640,6 +640,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
                     '${c['mode']?['name'] ?? ''}',
                     if (asText(c['reference']) != null) '${c['reference']}',
                     fmtTime(c['date']),
+                    if (c['visit_type'] == 'offsite') 'Offsite' else if (c['visit_type'] == 'onsite') 'Onsite',
                   ].join(' · '),
                   amount: c['amount'] as num?,
                   currency: c['currency'] as String?,
