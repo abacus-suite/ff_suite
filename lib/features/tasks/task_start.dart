@@ -112,7 +112,8 @@ Future<String?> _pickTask(BuildContext context, Map<String, dynamic> config,
       .toList();
   // Events are not a visit to a contact: offered only where a task is started from nothing.
   if (client == null && withAdhoc) {
-    tasks.add({'code': 'events', 'name': 'Events', 'steps': 3, 'hint': 'Run a sampling event: stock, end of day, report'});
+    tasks.insert(tasks.isEmpty ? 0 : 1,
+        {'code': 'events', 'name': 'Events', 'steps': 3, 'hint': 'Run a sampling event: stock, end of day, report'});
   }
   return showModalBottomSheet<String>(
     context: context,
