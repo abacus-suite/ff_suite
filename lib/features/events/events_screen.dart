@@ -180,21 +180,16 @@ class _Grid extends StatelessWidget {
               ),
               child: Row(children: [
                 Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(color: const Color(0xFFDCE7FB), borderRadius: BorderRadius.circular(6)),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(color: const Color(0xFFDCE7FB), borderRadius: BorderRadius.circular(8)),
                       child: Text('${p['code']}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: AppColors.primary)),
+                          maxLines: 2,
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: AppColors.primary, height: 1.15)),
                     ),
-                    const SizedBox(height: 4),
-                    Text('${p['name']}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11, color: AppColors.muted, height: 1.15)),
-                  ]),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Container(
@@ -214,7 +209,17 @@ class _Grid extends StatelessWidget {
                           onChanged: (_) => onChanged?.call(),
                           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
                           decoration: const InputDecoration(
-                              isDense: true, border: InputBorder.none, hintText: '0', contentPadding: EdgeInsets.zero),
+                            isDense: true,
+                            filled: false,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            focusedErrorBorder: InputBorder.none,
+                            hintText: '0',
+                            contentPadding: EdgeInsets.zero,
+                          ),
                         )
                       : Text(_q(values?[p['id']] ?? 0),
                           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
