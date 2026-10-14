@@ -272,55 +272,80 @@ class _ClientsScreenState extends State<ClientsScreen> {
   }
 
   Widget _header() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 6, 12, 8),
+    final toggle = Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.border),
+      ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (!widget.embedded && Navigator.of(context).canPop())
-            IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.arrow_back_rounded)),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.pickMode ? 'Choose $_clientLabel' : '${_clientLabel}s',
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.text)),
-                Text('Manage your customers and outlets',
-                    style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                _viewButton(Icons.format_list_bulleted_rounded, 'List', !_showMap,
-                    () => setState(() => _showMap = false)),
-                _viewButton(Icons.map_rounded, 'Map', _showMap, () {
-                  setState(() => _showMap = true);
-                  if (_points.isEmpty) _loadPoints();
-                }),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-          if (Services.auth.profile?.isManager == true)
-            MemberPicker(
-              value: _member,
-              dense: true,
-              onChanged: (value) {
-                setState(() => _member = value);
-                _load();
-              },
-            ),
+          _viewButton(Icons.format_list_bulleted_rounded, 'List', !_showMap,
+              () => setState(() => _showMap = false)),
+          _viewButton(Icons.map_rounded, 'Map', _showMap, () {
+            setState(() => _showMap = true);
+            if (_points.isEmpty) _loadPoints();
+          }),
         ],
       ),
+    );
+    final picker = Services.auth.profile?.isManager == true
+        ? MemberPicker(
+            value: _member,
+            dense: true,
+            onChanged: (value) {
+              setState(() => _member = value);
+              _load();
+            },
+          )
+        : null;
+    final title = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.pickMode ? 'Choose $_clientLabel' : '${_clientLabel}s',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.text)),
+        Text(widget.pickMode ? 'Pick who this is for' : 'Manage your customers and outlets',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+      ],
+    );
+    final back = !widget.embedded && Navigator.of(context).canPop();
+    if (widget.embedded) {
+      // The tab has the whole width: title, then the list or map switch and the person picker.
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 6, 12, 8),
+        child: Row(children: [
+          Expanded(child: title),
+          toggle,
+          if (picker != null) ...[const SizedBox(width: 6), picker],
+        ]),
+      );
+    }
+    // A page with a back arrow: the title gets a row of its own so it never wraps letter by letter.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 6, 12, 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          if (back)
+            IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back_rounded))
+          else
+            const SizedBox(width: 8),
+          Expanded(child: title),
+        ]),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Row(children: [
+            toggle,
+            if (picker != null) ...[const Spacer(), picker],
+          ]),
+        ),
+      ]),
     );
   }
 
