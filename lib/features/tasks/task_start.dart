@@ -108,10 +108,10 @@ Future<String?> _pickTask(BuildContext context, Map<String, dynamic> config,
   final tasks = ((config['tasks'] as List?) ?? [])
       .cast<Map<String, dynamic>>()
       .where((t) => (withAdhoc || t['code'] != 'adhoc') && (withNewLead || t['code'] != 'new_lead'))
-      .where((t) => client == null || _offeredFor(t, client))
+      .where((t) => client == null || (t['code'] != 'events' && _offeredFor(t, client)))
       .toList();
   // Events are not a visit to a contact: offered only where a task is started from nothing.
-  if (client == null && withAdhoc) {
+  if (client == null && withAdhoc && !tasks.any((t) => t['code'] == 'events')) {
     tasks.insert(tasks.isEmpty ? 0 : 1,
         {'code': 'events', 'name': 'Events', 'steps': 3, 'hint': 'Sampling, activation, exhibition'});
   }

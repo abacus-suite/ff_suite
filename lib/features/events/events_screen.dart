@@ -889,10 +889,11 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
     if (pos == null || !mounted) return;
     final lat = (e['latitude'] as num?)?.toDouble();
     final lng = (e['longitude'] as num?)?.toDouble();
-    if (lat != null && lng != null && !(lat == 0 && lng == 0)) {
+    final limit = ((e['geofence_m'] as num?) ?? 200).toInt();
+    if (limit > 0 && lat != null && lng != null && !(lat == 0 && lng == 0)) {
       final metres = Geolocator.distanceBetween(pos.latitude, pos.longitude, lat, lng);
-      if (metres > 200) {
-        showProblem(context, 'You are ${metres.round()} m from the event. Be within 200 m of the event location to continue.');
+      if (metres > limit) {
+        showProblem(context, 'You are ${metres.round()} m from the event. Be within $limit m of the event location to continue.');
         return;
       }
     }
