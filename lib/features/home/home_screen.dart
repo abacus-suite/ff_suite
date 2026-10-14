@@ -334,7 +334,7 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (dialog) => AlertDialog(
             icon: const Icon(Icons.celebration_rounded, color: AppColors.warning, size: 36),
             title: const Text("You can't check out yet"),
-            content: Text(message.replaceFirst(RegExp(r'^.*?You can't check out yet\.\s*'), '')),
+            content: Text(message.contains('yet.') ? message.split('yet.').last.trim() : message),
             actions: [
               TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Close')),
               FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Go to the event')),
