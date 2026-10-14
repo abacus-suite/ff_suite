@@ -326,7 +326,27 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       await _load();
     } catch (e) {
-      if (mounted) showProblem(context, e.toString());
+      final message = e.toString();
+      if (mounted && message.contains('check out yet')) {
+        // An event is still running: the day or the event must be ended first.
+        final go = await showDialog<bool>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+            icon: const Icon(Icons.celebration_rounded, color: AppColors.warning, size: 36),
+            title: const Text("You can't check out yet"),
+            content: Text(message.replaceFirst(RegExp(r'^.*?You can't check out yet\.\s*'), '')),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Close')),
+              FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Go to the event')),
+            ],
+          ),
+        );
+        if (go == true && mounted) {
+          await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EventsScreen()));
+        }
+      } else if (mounted) {
+        showProblem(context, message);
+      }
     } finally {
       if (mounted) setState(() => _punching = false);
     }

@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../widgets/busy.dart';
 import '../../widgets/common.dart';
 import '../../widgets/skeleton.dart';
+import 'event_reports_screen.dart';
 
 const _pageBg = Color(0xFFEEF3FB);
 const _orange = Color(0xFFEA580C);
@@ -156,7 +157,9 @@ Widget _sectionTitle(String text, {String? trailing}) => Padding(
 
 /// Flavours two to a row: the flavour on the left and a square box for the bottles on the right.
 class _Grid extends StatelessWidget {
-  const _Grid({required this.products, this.controllers, this.values, this.onChanged});
+  const _Grid({required this.products, this.controllers, this.values, this.onChanged, this.prefix = ''});
+
+  final String prefix;
 
   final List<Map<String, dynamic>> products;
   final Map<int, TextEditingController>? controllers;
@@ -221,8 +224,8 @@ class _Grid extends StatelessWidget {
                             contentPadding: EdgeInsets.zero,
                           ),
                         )
-                      : Text(_q(values?[p['id']] ?? 0),
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+                      : Text('$prefix${_q(values?[p['id']] ?? 0)}',
+                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: prefix.isEmpty ? 20 : 17)),
                 ),
               ]),
             ),
@@ -303,7 +306,9 @@ class _EventsScreenState extends State<EventsScreen> {
                         child: ListTile(
                           onTap: () async {
                             await Navigator.of(context).push(MaterialPageRoute(
-                                builder: (_) => EventReportScreen(eventId: e['id'] as int)));
+                                builder: (_) => e['state'] == 'done'
+                                    ? EventCompletedScreen(eventId: e['id'] as int, name: '${e['name']}')
+                                    : EventReportScreen(eventId: e['id'] as int)));
                             _load();
                           },
                           title: Text('${e['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -459,6 +464,7 @@ class _NewEventScreenState extends State<NewEventScreen> {
   final _name = TextEditingController();
   final Set<int> _staff = {};
   Map<String, dynamic>? _territory;
+  Map<String, dynamic>? _category;
   bool _offer = true;
   int _coupon = 30;
   List<_Block> _blocks = [];
@@ -564,6 +570,7 @@ class _NewEventScreenState extends State<NewEventScreen> {
       if (_name.text.trim().isEmpty) return showProblem(context, 'Enter the event name.');
       if (_staff.isEmpty) return showProblem(context, 'Select who conducts the event.');
       if (_territory == null) return showProblem(context, 'Select the location.');
+      if (_category == null) return showProblem(context, 'Select the price category.');
       _pos ??= await withBusy(context, 'Getting your location…', () => _here(context));
       if (_pos == null || !mounted) return;
     }
@@ -595,7 +602,7 @@ class _NewEventScreenState extends State<NewEventScreen> {
         'location': '${_territory!['name']}',
         'latitude': _pos?.latitude,
         'longitude': _pos?.longitude,
-        'mrp': _territory!['mrp'],
+        'price_category_id': _category!['id'],
         'has_offer': _offer,
         if (_offer) 'offer_price': _coupon,
         'stock': _stockRows(),
@@ -688,16 +695,52 @@ class _NewEventScreenState extends State<NewEventScreen> {
             }
           }),
         ),
-        _label('MRP'),
-        InputDecorator(
-          decoration: _field(),
-          child: Text(
-            _territory == null || _n(_territory!['mrp']) == 0
-                ? 'Fills automatically from the territory'
-                : '₹${_q(_n(_territory!['mrp']))}  (auto – as per territory)',
-            style: TextStyle(color: _territory == null ? AppColors.muted : AppColors.text),
+        _label('Price category', required: true),
+        Container(
+          height: 42,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(21),
+            border: Border.all(color: const Color(0xFFD5DEEE)),
           ),
+          child: Row(children: [
+            for (final c in _list(_options?['price_categories']))
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _category = c),
+                  child: Container(
+                    margin: const EdgeInsets.all(3),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: _category?['id'] == c['id'] ? const Color(0xFFDCE7FB) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Text(_category?['id'] == c['id'] ? '\u2713 ${c['name']}' : '${c['name']}',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: _category?['id'] == c['id'] ? AppColors.primary : AppColors.muted)),
+                  ),
+                ),
+              ),
+          ]),
         ),
+        if (_list(_options?['price_categories']).isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text('No price category is set up yet. Ask the office to add the 149 and 179 categories.',
+                style: TextStyle(fontSize: 12, color: AppColors.warning)),
+          ),
+        if (_category != null) ...[
+          _sectionTitle('MRP by flavour', trailing: '${_category!['name']} category \u00B7 auto'),
+          _Grid(
+            products: _products,
+            prefix: '\u20B9',
+            values: {
+              for (final p in _products)
+                p['id'] as int: _n((_category!['mrp'] as Map)['${p['id']}'] ?? 0),
+            },
+          ),
+        ],
         _label('Offer'),
         Container(
           height: 42,
@@ -900,7 +943,7 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
     final today = fmtDate(DateTime.now());
     final closedToday = ((e['day_dates'] as List?) ?? []).contains(today);
     if (closedToday) {
-      showProblem(context, 'Today is already closed. The event continues tomorrow.');
+      showProblem(context, 'Day ${e['days']} is closed. Start Day ${((e['days'] as num?) ?? 0).toInt() + 1} tomorrow.');
       return;
     }
     // The card is light; the stock figures for the day are read now, under a "please wait".
@@ -915,7 +958,7 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
     // A later day starts with its opening stock (Step 2 and 3) before it can be ended.
     final laterDay = (e['has_previous_day'] == true);
     if (e['state'] == 'on_hold' && laterDay) {
-      final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => _NextDayStockScreen(event: e)));
+      final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => _StartDayScreen(event: e)));
       if (ok != true || !mounted) return;
       try {
         e = await withBusy(context, 'Opening the event…',
@@ -978,7 +1021,9 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('${e['name']}', maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-              Text('${(e['territory'] as Map?)?['name'] ?? ''} · ${_day(e)} · $staff staff',
+              Text(e['state'] == 'on_hold'
+                  ? '${(e['territory'] as Map?)?['name'] ?? ''} · Day ${e['days']} closed · $staff staff'
+                  : '${(e['territory'] as Map?)?['name'] ?? ''} · ${_day(e)} · $staff staff',
                   style: const TextStyle(fontSize: 12, color: AppColors.muted)),
             ]),
           ),
@@ -997,7 +1042,7 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
             onPressed: _opening ? null : _continue,
             child: _opening
                 ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Continue event ›'),
+                : Text(e['state'] == 'on_hold' ? 'Start Day ${((e['days'] as num?) ?? 0).toInt() + 1} ›' : 'Continue event ›'),
           ),
         ),
       ]),
@@ -1141,6 +1186,7 @@ class _EndScreenState extends State<_EndScreen> {
   late final Map<int, TextEditingController> _closing = _controllers(_products);
   late final List<_Block> _returns = [_Block(_products)];
   final _coupons = TextEditingController();
+  final _cash = TextEditingController();
   List<Map<String, dynamic>> _distributors = [];
   bool _returnIt = false;
   bool _busy = false;
@@ -1159,6 +1205,7 @@ class _EndScreenState extends State<_EndScreen> {
 
   @override
   void dispose() {
+    _cash.dispose();
     _coupons.dispose();
     super.dispose();
   }
@@ -1195,6 +1242,21 @@ class _EndScreenState extends State<_EndScreen> {
   /// Sales = opening + added - samples - damage - returned - closing, worked out by the app.
   num _sold(int pid) => _left(pid) - _counted(pid);
 
+  void _toStepThree() {
+    for (final p in _products) {
+      final pid = p['id'] as int;
+      if (_sold(pid) < 0) {
+        showProblem(context, '${p['name']}: returned or closing stock is more than what is left (${_q(_left(pid))}).');
+        return;
+      }
+    }
+    if (_returnIt && _stockRows(_returns).isEmpty && _products.any((p) => _left(p['id'] as int) > 0)) {
+      showProblem(context, 'Choose the distributor the stock goes back to and enter the quantity returned.');
+      return;
+    }
+    setState(() => _step = 3);
+  }
+
   Future<void> _submit() async {
     for (final p in _products) {
       final pid = p['id'] as int;
@@ -1207,8 +1269,12 @@ class _EndScreenState extends State<_EndScreen> {
       showProblem(context, 'Choose the distributor the stock goes back to and enter the quantity returned.');
       return;
     }
-    if (widget.last && widget.event['has_offer'] == true && (int.tryParse(_coupons.text.trim()) == null)) {
-      showProblem(context, 'Enter the number of coupons used.');
+    if (widget.event['has_offer'] == true && (int.tryParse(_coupons.text.trim()) == null)) {
+      showProblem(context, 'Enter the number of coupons used today.');
+      return;
+    }
+    if (num.tryParse(_cash.text.trim().replaceAll(',', '')) == null) {
+      showProblem(context, 'Enter the cash received today.');
       return;
     }
     setState(() => _busy = true);
@@ -1219,19 +1285,25 @@ class _EndScreenState extends State<_EndScreen> {
         'action': _returnIt ? 'return' : 'stays',
         'closing': _returnIt ? <String, dynamic>{} : _map(_closing),
         'returns': _returnIt ? _stockRows(_returns) : [],
-        if (widget.last) 'coupons_used': int.tryParse(_coupons.text.trim()) ?? 0,
+        'coupons_used': int.tryParse(_coupons.text.trim()) ?? 0,
+        'cash_received': num.tryParse(_cash.text.trim().replaceAll(',', '')) ?? 0,
       }) as Map<String, dynamic>;
       if (!mounted) return;
       if (widget.last) {
         await Navigator.of(context).pushReplacement(MaterialPageRoute(
-            builder: (_) => EventReportScreen(eventId: widget.event['id'] as int, justEnded: true)));
+            builder: (_) => EventCashSummaryScreen(
+                eventId: widget.event['id'] as int, name: '${widget.event['name']}')));
       } else {
-        final closing = _n(result['closing_total']);
+        final returned = _products.fold<num>(0, (a, p) => a + (_returnIt ? _counted(p['id'] as int) : 0));
         await Navigator.of(context).pushReplacement(MaterialPageRoute(
-          builder: (_) => _MessageScreen(
-            title: '${widget.event['name']}',
-            message: '${_day(widget.event)} closed. Task on hold till tomorrow. '
-                'Closing stock at the event: ${_q(closing)} bottles.',
+          builder: (_) => _DayClosedScreen(
+            name: '${widget.event['name']}',
+            dayNo: ((result['days'] as num?) ?? 1).toInt(),
+            returned: returned,
+            closing: _n(result['closing_total']),
+            coupons: int.tryParse(_coupons.text.trim()) ?? 0,
+            cash: num.tryParse(_cash.text.trim().replaceAll(',', '')) ?? 0,
+            hasOffer: widget.event['has_offer'] == true,
           ),
         ));
       }
@@ -1245,9 +1317,11 @@ class _EndScreenState extends State<_EndScreen> {
   @override
   Widget build(BuildContext context) {
     final title = widget.last ? 'End of the Event' : 'End of the Day';
+    final dayLabel = _day(widget.event);
+    final coupon = _n(widget.event['offer_price']);
     if (_step == 1) {
       return _Frame(
-        subtitle: '$title · 1 of 2',
+        subtitle: 'Step 1 of 3 \u2013 $title \u00B7 $dayLabel',
         step: 1,
         steps: 3,
         bottom: GradientButton(label: 'Next', onPressed: _toStepTwo),
@@ -1259,17 +1333,37 @@ class _EndScreenState extends State<_EndScreen> {
         ],
       );
     }
-    final coupon = _n(widget.event['offer_price']);
+    if (_step == 3) {
+      return _Frame(
+        subtitle: 'Step 3 of 3 \u2013 $title \u00B7 $dayLabel',
+        step: 3,
+        steps: 3,
+        onBack: () => setState(() => _step = 2),
+        bottom: GradientButton(
+          label: widget.last ? 'Next' : 'End the day',
+          busy: _busy,
+          onPressed: _busy ? null : _submit,
+        ),
+        children: [
+          if (widget.event['has_offer'] == true) ...[
+            _label('Coupons used today (\u20B9${_q(coupon)} offer)', required: true),
+            TextField(controller: _coupons, keyboardType: TextInputType.number, decoration: _field('0')),
+          ],
+          _label('Cash received today', required: true),
+          TextField(
+            controller: _cash,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: _field('\u20B9 0'),
+          ),
+        ],
+      );
+    }
     return _Frame(
-      subtitle: '$title · 2 of 2',
+      subtitle: 'Step 2 of 3 \u2013 $title \u00B7 $dayLabel',
       step: 2,
       steps: 3,
       onBack: () => setState(() => _step = 1),
-      bottom: GradientButton(
-        label: widget.last ? 'End the event' : 'End the day',
-        busy: _busy,
-        onPressed: _busy ? null : _submit,
-      ),
+      bottom: GradientButton(label: 'Next', onPressed: _toStepThree),
       children: [
         if (!widget.last) ...[
           _sectionTitle('Closing stock'),
@@ -1292,8 +1386,8 @@ class _EndScreenState extends State<_EndScreen> {
                         color: _returnIt == back ? const Color(0xFFDCE7FB) : Colors.transparent,
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: Text(back ? (_returnIt ? '✓ Return to distributor' : 'Return to distributor')
-                          : (!_returnIt ? '✓ Stays at the event' : 'Stays at the event'),
+                      child: Text(back ? (_returnIt ? '\u2713 Return to distributor' : 'Return to distributor')
+                          : (!_returnIt ? '\u2713 Stays at the event' : 'Stays at the event'),
                           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5,
                               color: _returnIt == back ? AppColors.primary : AppColors.muted)),
                     ),
@@ -1308,21 +1402,120 @@ class _EndScreenState extends State<_EndScreen> {
             distributors: _distributors,
             blocks: _returns,
             first: widget.last ? 'Return remaining stock to' : 'Return to',
-            heading: 'Qty returned (counted)',
+            heading: 'Qty returned',
             addLabel: 'Return to another distributor',
             addSubtitle: null,
             onChanged: () => setState(() {}),
           )
         else ...[
-          _sectionTitle('Closing stock at the event', trailing: 'count the bottles left'),
+          _sectionTitle('Stays at the event', trailing: 'count the bottles left'),
           _Grid(products: _products, controllers: _closing, onChanged: () => setState(() {})),
         ],
-        _sectionTitle('Sales (auto)', trailing: 'what is not samples, damage, returned or left'),
+        _sectionTitle('Sales (auto)', trailing: 'calculated by the app'),
         _Grid(products: _products, values: {for (final p in _products) p['id'] as int: _sold(p['id'] as int)}),
-        if (widget.last && widget.event['has_offer'] == true) ...[
-          _label('No. of coupons used (₹${_q(coupon)} offer)', required: true),
-          TextField(controller: _coupons, keyboardType: TextInputType.number, decoration: _field('0')),
+      ],
+    );
+  }
+}
+
+/// Day closed: the event is on hold till the next day, with the day's summary.
+class _DayClosedScreen extends StatelessWidget {
+  const _DayClosedScreen({
+    required this.name,
+    required this.dayNo,
+    required this.returned,
+    required this.closing,
+    required this.coupons,
+    required this.cash,
+    required this.hasOffer,
+  });
+
+  final String name;
+  final int dayNo;
+  final num returned;
+  final num closing;
+  final int coupons;
+  final num cash;
+  final bool hasOffer;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget row(String label, String value) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          child: Row(children: [
+            Expanded(child: Text(label, style: const TextStyle(color: AppColors.muted))),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
+          ]),
+        );
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (_, __) => _goDashboard(context),
+      child: _Frame(
+        subtitle: name,
+        onBack: () => _goDashboard(context),
+        bottom: GradientButton(label: 'Go to Dashboard', onPressed: () => _goDashboard(context)),
+        children: [
+          _notice('Day $dayNo closed. Task on hold till tomorrow.', tint: _green),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Day $dayNo summary', style: const TextStyle(fontWeight: FontWeight.w900)),
+              const SizedBox(height: 6),
+              if (returned > 0) row('Returned to distributor', '${_q(returned)} bottles'),
+              if (closing > 0) row('Closing stock at the event', '${_q(closing)} bottles'),
+              if (hasOffer) row('Coupons used today', '$coupons'),
+              row('Cash received today', '\u20B9${_q(cash)}'),
+            ]),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Start Day N: how yesterday closed, then the opening stock for today.
+class _StartDayScreen extends StatelessWidget {
+  const _StartDayScreen({required this.event});
+
+  final Map<String, dynamic> event;
+
+  @override
+  Widget build(BuildContext context) {
+    final last = (event['last_day'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final returned = last['closing_action'] == 'return';
+    final dayNo = ((event['days'] as num?) ?? 0).toInt();
+    Widget row(String label, String value) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          child: Row(children: [
+            Expanded(child: Text(label, style: const TextStyle(color: AppColors.muted))),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w900)),
+          ]),
+        );
+    return _Frame(
+      subtitle: '${event['name']} \u00B7 Start Day ${dayNo + 1}',
+      bottom: GradientButton(
+        label: 'Enter opening stock \u203A',
+        onPressed: () async {
+          final ok = await Navigator.of(context)
+              .push<bool>(MaterialPageRoute(builder: (_) => _NextDayStockScreen(event: event)));
+          if (ok == true && context.mounted) Navigator.of(context).pop(true);
+        },
+      ),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Yesterday (Day $dayNo)', style: const TextStyle(fontWeight: FontWeight.w900)),
+            const SizedBox(height: 6),
+            row('Closing stock', returned ? 'Returned to distributor' : 'Stayed at the event'),
+            if (returned) row('Qty returned', '${_q(_n(last['returned']))} bottles'),
+            if (!returned) row('Bottles at the event', '${_q(_n(last['closing']))}'),
+            if (event['has_offer'] == true) row('Coupons used', '${last['coupons'] ?? 0}'),
+            row('Cash received', '\u20B9${_q(_n(last['cash']))}'),
+          ]),
+        ),
       ],
     );
   }
