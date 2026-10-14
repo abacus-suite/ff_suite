@@ -66,6 +66,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         _optional(Services.api.get('/api/v1/deposits/to-receive')),
         _optional(Services.api.get('/api/v1/notes/to-approve')),
         _optional(Services.api.get('/api/v1/beats/to-approve')),
+        _optional(Services.api.get('/api/v1/da/to-approve')),
       ]);
       final base = results[0] as Map<String, dynamic>;
       if (!mounted) return;
@@ -81,6 +82,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         _items['deposits'] = _list(results[7]);
         _items['notes'] = _list(results[8]);
         _items['beats'] = _list(results[9]);
+        _items['da'] = _list(results[10]);
         _error = null;
       });
     } catch (e) {
@@ -432,6 +434,39 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                 '${(l['type'] as Map?)?['name'] ?? ''} · ${fmtQty(l['days'] as num? ?? 0)} days',
                 '${l['from']}${l['to'] != l['from'] ? ' to ${l['to']}' : ''}',
                 if (asText(l['reason']) != null) '${l['reason']}',
+              ],
+            ),
+        ];
+      case 'da':
+        return [
+          for (final w in rows)
+            _card(
+              kind: 'da',
+              detail: _Detail(
+                  title: '${(w['employee'] as Map?)?['name'] ?? ''}',
+                  status: 'Waiting for you',
+                  amount: fmtMoney(w['total'] as num?, w['currency'] as String?),
+                  facts: [
+                    ('Week', '${w['week_start']} to ${w['week_end']}'),
+                    ('Days', '${(w['days'] as List).length}'),
+                    ('Outside territory', '${w['outside_days']} day(s)'),
+                  ],
+                  lineHead: const ['Day', 'Amount'],
+                  lines: [
+                    for (final d in ((w['days'] as List?) ?? []).cast<Map<String, dynamic>>())
+                      ['${d['date']}  ${d['kind'] == 'outside' ? 'Outside' : 'Primary'}',
+                       fmtMoney(d['amount'] as num?, w['currency'] as String?)]
+                  ],
+                  note: null,
+                  steps: const []),
+              id: w['id'] as int,
+              icon: Icons.restaurant_rounded,
+              color: color,
+              title: '${(w['employee'] as Map?)?['name'] ?? ''}',
+              amount: fmtMoney(w['total'] as num?, w['currency'] as String?),
+              lines: [
+                'Week ${w['week_start']} to ${w['week_end']}',
+                '${(w['days'] as List).length} day(s) \u00B7 ${w['outside_days']} outside territory',
               ],
             ),
         ];
