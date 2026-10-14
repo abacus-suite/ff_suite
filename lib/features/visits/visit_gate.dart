@@ -10,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../core/format.dart';
 import '../../core/local_state.dart';
+import '../clients/client_extras.dart';
 
 /// Demands, orders and payments are taken at a customer, so they start with a
 /// check-in there. Returns the open visit, or null when the person backed out.
@@ -104,6 +105,34 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
     try {
       return await withBusy(context, 'Checking you in…', () => _checkIn(context, payload, client));
     } on ApiException catch (e) {
+      if (e.code == 'details_missing' && context.mounted) {
+        // An onboarded outlet or distributor with required details missing: fill them in, then carry on.
+        final fill = await showDialog<bool>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+            icon: const Icon(Icons.assignment_late_rounded, color: AppColors.warning, size: 36),
+            title: const Text('Complete the details'),
+            content: Text(e.message),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Not now')),
+              FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Fill details')),
+            ],
+          ),
+        );
+        if (fill != true || !context.mounted) return null;
+        try {
+          final full = await withBusy(context, 'Opening the contact\u2026',
+              () async => await Services.api.get('/api/v1/clients/$clientId') as Map<String, dynamic>);
+          if (!context.mounted) return null;
+          final saved = await Navigator.of(context)
+              .push<bool>(MaterialPageRoute(builder: (_) => EditClientScreen(client: full)));
+          if (saved != true || !context.mounted) return null;
+          return await ensureCheckedIn(context, full, task: task, geofenceM: geofenceM);
+        } catch (err) {
+          if (context.mounted) showProblem(context, err.toString());
+          return null;
+        }
+      }
       if (e.code != 'offsite_confirm' || !context.mounted) rethrow;
       final reason = TextEditingController();
       final offsite = await showDialog<bool>(
