@@ -5,12 +5,14 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import 'travel_form_screen.dart';
 
 const _basisLabels = {
   'gps': 'GPS distance',
   'client': 'Client to client',
   'route': 'Route to route',
   'fixed': 'Fixed per day',
+  'odometer': 'Odometer',
 };
 
 /// Daily travel allowance calculated by the server, with the journey legs.
@@ -114,7 +116,20 @@ class _AllowanceScreenState extends State<AllowanceScreen> {
     final now = DateTime.now();
     final isCurrent = _month.year == now.year && _month.month == now.month;
     return Scaffold(
-      appBar: AppBar(title: const Text('Travel Allowance')),
+      appBar: AppBar(
+        title: const Text('Travel Allowance'),
+        actions: [
+          IconButton(
+            tooltip: 'New travel allowance',
+            icon: const Icon(Icons.add_circle_rounded),
+            onPressed: () async {
+              final saved = await Navigator.of(context)
+                  .push<bool>(MaterialPageRoute(builder: (_) => const TravelFormScreen()));
+              if (saved == true) _load();
+            },
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
