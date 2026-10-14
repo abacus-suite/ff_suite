@@ -18,7 +18,7 @@ import '../../core/local_state.dart';
 /// them from this check-in; one too far away comes back as `offsite_confirm`,
 /// and only an explicit "yes, offsite" checks in anyway.
 Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, dynamic> client,
-    {String? task}) async {
+    {String? task, int? geofenceM}) async {
   final clientId = client['id'] as int;
   try {
     // What the server says about today, asked together and with a spinner if it
@@ -66,12 +66,14 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
     final pos = await withBusy(context, 'Finding your location…', currentPosition);
     // A task is started at the customer: within 200 m, and there is no offsite for it. Offsite is only
     // for a PO or a collection, which come here without a task.
-    if (task != null) {
+    // geofenceM is set by the task's own setting in Odoo; without it the task may start from anywhere
+    // (the offsite question is asked as for a PO or a collection).
+    if (task != null && geofenceM != null) {
       final lat = (client['lat'] as num?)?.toDouble();
       final lng = (client['lng'] as num?)?.toDouble();
       if (lat != null && lng != null && !(lat == 0 && lng == 0)) {
         final away = Geolocator.distanceBetween(pos.latitude, pos.longitude, lat, lng);
-        if (away > 200) {
+        if (away > geofenceM) {
           if (context.mounted) {
             await showDialog<void>(
               context: context,
@@ -79,7 +81,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
                 icon: const Icon(Icons.wrong_location_rounded, color: AppColors.danger, size: 36),
                 title: const Text('Too far from the customer'),
                 content: Text('You are ${fmtDistance(away)} from ${client['name']}. '
-                    'A task can only be started within 200 m of the customer. '
+                    'This task can only be started within $geofenceM m of the customer. '
                     'Move closer and try again.'),
                 actions: [FilledButton(onPressed: () => Navigator.pop(dialog), child: const Text('OK'))],
               ),

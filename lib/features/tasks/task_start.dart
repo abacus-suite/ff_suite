@@ -274,6 +274,15 @@ Future<String?> _pickSampleSource(BuildContext context, {required bool companyAl
   );
 }
 
+/// How close to the customer this task must be started, from the task's own setting in Odoo (null: anywhere).
+int? _geofenceFor(Map<String, dynamic> config, String code) {
+  for (final t in ((config['tasks'] as List?) ?? [])) {
+    final task = (t as Map).cast<String, dynamic>();
+    if (task['code'] == code) return (task['geofence_m'] as num?)?.toInt();
+  }
+  return null;
+}
+
 Future<void> _begin(BuildContext context, Map<String, dynamic> config, String code,
     {Map<String, dynamic>? client}) async {
   // These two make a contact or do not need one.
@@ -300,7 +309,7 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
       try {
         final full = await Services.api.get('/api/v1/clients/${picked['id']}') as Map<String, dynamic>;
         if (!context.mounted) return;
-        final visit = await ensureCheckedIn(context, full, task: code);
+        final visit = await ensureCheckedIn(context, full, task: code, geofenceM: _geofenceFor(config, code));
         if (visit == null || !context.mounted) return;
         await _run(context, config, code, full, visit, preset: {'source': 'distributor', 'distributor': full});
       } catch (e) {
@@ -313,10 +322,10 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
   Map<String, dynamic>? visit;
   if (chosen != null) {
     // Already on the customer's own screen, which is where any question belongs.
-    visit = await ensureCheckedIn(context, chosen, task: code);
+    visit = await ensureCheckedIn(context, chosen, task: code, geofenceM: _geofenceFor(config, code));
   } else if (code == 'lead_follow_up') {
     chosen = await _pickLead(context, (sheet, lead) async {
-      visit = await ensureCheckedIn(sheet, lead, task: code);
+      visit = await ensureCheckedIn(sheet, lead, task: code, geofenceM: _geofenceFor(config, code));
       return visit == null ? null : lead;
     });
   } else {
@@ -333,7 +342,7 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
             showSnack(picker, '${task['name']} is not done for ${(contact['category'] as Map?)?['name'] ?? 'this'} contacts');
             return null;
           }
-          visit = await ensureCheckedIn(picker, contact, task: code);
+          visit = await ensureCheckedIn(picker, contact, task: code, geofenceM: _geofenceFor(config, code));
           return visit == null ? null : contact;
         },
       ),
