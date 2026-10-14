@@ -49,6 +49,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
   List<Map<String, dynamic>> _categories = [];
   int? _categoryId;
   bool _neverVisited = false;
+  int? _territoryId;
+  int? _beatId;
+  String _group = 'none';
+  List<Map<String, dynamic>> _territories = [];
+  List<Map<String, dynamic>> _beats = [];
   int _total = 0;
   Map<String, dynamic> _counts = const {};
   String _sort = 'latest';
@@ -80,6 +85,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   void initState() {
     super.initState();
     _loadCategories();
+    _loadFilterLists();
     _load();
   }
 
@@ -135,6 +141,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
       if (q.isNotEmpty) query['q'] = q;
       if (_categoryId != null) query['category_id'] = _categoryId;
       if (_neverVisited) query['never_visited'] = 1;
+      if (_territoryId != null) query['territory_id'] = _territoryId;
+      if (_beatId != null) query['beat_id'] = _beatId;
       if (_member != 'me') query['member'] = _member;
       if (_nearby) {
         // Never leave the list spinning on a slow GPS fix: fall back to the last known place.
@@ -347,6 +355,12 @@ class _ClientsScreenState extends State<ClientsScreen> {
                   ),
           ),
         )),
+          IconButton(
+            tooltip: 'Territory, beat and group by',
+            icon: Icon(Icons.tune_rounded,
+                color: (_territoryId == null && _beatId == null && _group == 'none') ? AppColors.muted : AppColors.primary),
+            onPressed: _openFilterSheet,
+          ),
           PopupMenuButton<String>(
             tooltip: 'Show',
             icon: Icon(Icons.filter_list_rounded,
@@ -363,6 +377,105 @@ class _ClientsScreenState extends State<ClientsScreen> {
         ]),
       ),
     );
+  }
+
+  Future<void> _loadFilterLists() async {
+    try {
+      final data = await Services.api.get('/api/v1/clients/filters') as Map<String, dynamic>;
+      if (mounted) {
+        setState(() {
+          _territories = ((data['territories'] as List?) ?? []).cast<Map<String, dynamic>>();
+          _beats = ((data['beats'] as List?) ?? []).cast<Map<String, dynamic>>();
+        });
+      }
+    } catch (_) {
+      // Older server: the extra filters simply do not appear.
+    }
+  }
+
+  /// Narrow the list to a territory (primary or secondary) or a beat, and group it by either.
+  Future<void> _openFilterSheet() async {
+    if (_territories.isEmpty && _beats.isEmpty) await _loadFilterLists();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheet) => StatefulBuilder(
+        builder: (context, setSheet) {
+          Widget chips<T>(List<(String, T?)> items, T? current, void Function(T?) onPick) => Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  for (final (label, value) in items)
+                    ChoiceChip(
+                      label: Text(label),
+                      selected: current == value,
+                      onSelected: (_) {
+                        onPick(value);
+                        setSheet(() {});
+                      },
+                    ),
+                ],
+              );
+          final beats = _beats.where((b) => _territoryId == null || b['territory_id'] == _territoryId).toList();
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Territory', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                const SizedBox(height: 8),
+                chips<int>([
+                  ('All', null),
+                  for (final t in _territories)
+                    ('${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}', t['id'] as int),
+                ], _territoryId, (v) {
+                  _territoryId = v;
+                  if (_beatId != null && beats.every((b) => b['id'] != _beatId)) _beatId = null;
+                }),
+                const SizedBox(height: 16),
+                const Text('Beat', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                const SizedBox(height: 8),
+                chips<int>([
+                  ('All', null),
+                  for (final b in beats) ('${b['name']}', b['id'] as int),
+                ], _beatId, (v) => _beatId = v),
+                const SizedBox(height: 16),
+                const Text('Group by', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                const SizedBox(height: 8),
+                chips<String>(const [
+                  ('None', 'none'),
+                  ('Territory', 'territory'),
+                  ('Beat', 'beat'),
+                ], _group, (v) => _group = v ?? 'none'),
+                const SizedBox(height: 18),
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        _territoryId = null;
+                        _beatId = null;
+                        _group = 'none';
+                        setSheet(() {});
+                      },
+                      child: const Text('Clear'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(onPressed: () => Navigator.pop(sheet), child: const Text('Apply')),
+                  ),
+                ]),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
+    if (mounted) {
+      setState(() {});
+      _load();
+    }
   }
 
   /// One of the filter choices: a kind of contact, everybody, or those never visited.
@@ -638,12 +751,51 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 text: _nearby ? 'No ${_clientLabel.toLowerCase()}s within 25 km' : 'No ${_clientLabel.toLowerCase()}s found',
               ),
             ])
-          : ListView.builder(
+          : Builder(builder: (context) {
+              final rows = _groupedRows();
+              return ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
-              itemCount: _clients.length,
-              itemBuilder: (_, i) => ClientTile(client: _clients[i], onTap: () => _open(_clients[i])),
-            ),
+              itemCount: rows.length,
+              itemBuilder: (_, i) {
+                final row = rows[i];
+                if (row is String) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(2, 14, 2, 6),
+                    child: Text(row, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: AppColors.primary)),
+                  );
+                }
+                final c = row as Map<String, dynamic>;
+                return ClientTile(client: c, onTap: () => _open(c));
+              },
+              );
+            }),
     );
+  }
+
+  /// The list as rows: a header whenever the territory or the beat changes, when grouping is on.
+  List<Object> _groupedRows() {
+    if (_group == 'none') return List<Object>.from(_clients);
+    String keyOf(Map<String, dynamic> c) {
+      if (_group == 'territory') return '${(c['territory'] as Map?)?['name'] ?? 'No territory'}';
+      final routes = (c['routes'] as List?) ?? const [];
+      return routes.isEmpty ? 'No beat' : '${(routes.first as Map)['name']}';
+    }
+
+    final sorted = [..._clients]..sort((a, b) {
+        final byGroup = keyOf(a).toLowerCase().compareTo(keyOf(b).toLowerCase());
+        return byGroup != 0 ? byGroup : '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase());
+      });
+    final rows = <Object>[];
+    String? last;
+    for (final c in sorted) {
+      final key = keyOf(c);
+      if (key != last) {
+        rows.add(key);
+        last = key;
+      }
+      rows.add(c);
+    }
+    return rows;
   }
 
   /// What to draw right now: the points on screen, grouped for this zoom.

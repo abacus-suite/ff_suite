@@ -210,6 +210,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _listButtons() {
     final teams = _list('teams');
     final primary = ((_map('territories')['primary'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final secondary = ((_map('territories')['secondary'] as List?) ?? []).cast<Map<String, dynamic>>();
     final outside = ((_map('territories')['outside'] as List?) ?? []).cast<Map<String, dynamic>>();
     final beats = _list('beats');
     final profile = Services.auth.profile!;
@@ -248,9 +249,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ])),
         const SizedBox(width: 10),
         cell(Icons.place_rounded, 'Territory',
-            count(primary.length + outside.length, 'territory', 'territories'), AppColors.success,
+            count(primary.length + secondary.length + outside.length, 'territory', 'territories'), AppColors.success,
             () => _openList('My Territories', Icons.place_rounded, [
                   for (final t in primary) (t['name'] as String, '${t['region'] ?? ''}', 'Primary'),
+                  for (final t in secondary) (t['name'] as String, '${t['region'] ?? ''}', 'Secondary'),
                   for (final t in outside) (t['name'] as String, '${t['region'] ?? ''}', 'Outside'),
                 ])),
         const SizedBox(width: 10),
