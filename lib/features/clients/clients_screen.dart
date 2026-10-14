@@ -55,6 +55,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
   List<Map<String, dynamic>> _territories = [];
   List<Map<String, dynamic>> _beats = [];
   int _total = 0;
+  bool _loadingMore = false;
+  final ScrollController _scroll = ScrollController();
   Map<String, dynamic> _counts = const {};
   String _sort = 'latest';
   LatLng? _me;
@@ -86,6 +88,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
     super.initState();
     _loadCategories();
     _loadFilterLists();
+    _scroll.addListener(() {
+      if (_scroll.hasClients && _scroll.position.pixels > _scroll.position.maxScrollExtent - 700) _loadMore();
+    });
     _load();
   }
 
@@ -93,6 +98,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   void dispose() {
     _debounce?.cancel();
     _mapController.dispose();
+    _scroll.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -130,29 +136,34 @@ class _ClientsScreenState extends State<ClientsScreen> {
     }
   }
 
+  /// One page of the list, with whatever filters are on.
+  Future<Map<String, dynamic>> _fetch({int offset = 0}) async {
+    final query = <String, dynamic>{'limit': 100, if (offset > 0) 'offset': offset};
+    final q = _search.text.trim();
+    if (q.isNotEmpty) query['q'] = q;
+    if (_categoryId != null) query['category_id'] = _categoryId;
+    if (_neverVisited) query['never_visited'] = 1;
+    if (_territoryId != null) query['territory_id'] = _territoryId;
+    if (_beatId != null) query['beat_id'] = _beatId;
+    if (_member != 'me') query['member'] = _member;
+    if (_nearby) {
+      // Never leave the list spinning on a slow GPS fix: fall back to the last known place.
+      final pos = await currentPosition(recentOk: true)
+          .timeout(const Duration(seconds: 12))
+          .catchError((_) async => (await lastKnownPosition())!);
+      _me = LatLng(pos.latitude, pos.longitude);
+      query.addAll({'lat': pos.latitude, 'lng': pos.longitude, 'radius_km': 25});
+    }
+    return await Services.api.get('/api/v1/clients', query: query) as Map<String, dynamic>;
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final query = <String, dynamic>{'limit': 100};
-      final q = _search.text.trim();
-      if (q.isNotEmpty) query['q'] = q;
-      if (_categoryId != null) query['category_id'] = _categoryId;
-      if (_neverVisited) query['never_visited'] = 1;
-      if (_territoryId != null) query['territory_id'] = _territoryId;
-      if (_beatId != null) query['beat_id'] = _beatId;
-      if (_member != 'me') query['member'] = _member;
-      if (_nearby) {
-        // Never leave the list spinning on a slow GPS fix: fall back to the last known place.
-        final pos = await currentPosition(recentOk: true)
-            .timeout(const Duration(seconds: 12))
-            .catchError((_) async => (await lastKnownPosition())!);
-        _me = LatLng(pos.latitude, pos.longitude);
-        query.addAll({'lat': pos.latitude, 'lng': pos.longitude, 'radius_km': 25});
-      }
-      final data = await Services.api.get('/api/v1/clients', query: query) as Map<String, dynamic>;
+      final data = await _fetch();
       if (!mounted) return;
       setState(() {
         _clients = (data['clients'] as List).cast<Map<String, dynamic>>();
@@ -166,6 +177,27 @@ class _ClientsScreenState extends State<ClientsScreen> {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// The next hundred, when the list is scrolled near its end.
+  Future<void> _loadMore() async {
+    if (_loading || _loadingMore || _clients.length >= _total) return;
+    setState(() => _loadingMore = true);
+    try {
+      final data = await _fetch(offset: _clients.length);
+      if (!mounted) return;
+      final more = (data['clients'] as List).cast<Map<String, dynamic>>();
+      final have = _clients.map((c) => c['id']).toSet();
+      setState(() {
+        _clients = [..._clients, ...more.where((c) => !have.contains(c['id']))];
+        _total = data['total'] as int;
+        _sortClients();
+      });
+    } catch (_) {
+      // The next scroll tries again.
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
@@ -779,9 +811,16 @@ class _ClientsScreenState extends State<ClientsScreen> {
           : Builder(builder: (context) {
               final rows = _groupedRows();
               return ListView.builder(
+              controller: _scroll,
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
-              itemCount: rows.length,
+              itemCount: rows.length + (_clients.length < _total ? 1 : 0),
               itemBuilder: (_, i) {
+                if (i >= rows.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))),
+                  );
+                }
                 final row = rows[i];
                 if (row is String) {
                   return Padding(
