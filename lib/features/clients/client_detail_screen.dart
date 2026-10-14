@@ -438,6 +438,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => ClientHistoryScreen(clientId: widget.clientId, name: '${client['name']}'))),
             ),
+            if (!(client['onboarded'] == true && !Services.auth.profile!.canEditOnboarded))
             IconButton(
               tooltip: 'Edit',
               icon: const Icon(Icons.edit_rounded),

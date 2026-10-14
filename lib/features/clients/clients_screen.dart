@@ -428,7 +428,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 chips<int>([
                   ('All', null),
                   for (final t in _territories)
-                    ('${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}', t['id'] as int),
+                    ('${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : t['kind'] == 'other' ? ' (team / beat)' : ''}', t['id'] as int),
                 ], _territoryId, (v) {
                   _territoryId = v;
                   if (_beatId != null && beats.every((b) => b['id'] != _beatId)) _beatId = null;

@@ -13,6 +13,7 @@ class Profile {
     required this.employeeId,
     required this.name,
     required this.isManager,
+    this.canEditOnboarded = false,
     required this.isAdmin,
     required this.pingInterval,
     required this.distanceFilter,
@@ -66,6 +67,7 @@ class Profile {
   final double? shiftStart;
   final double? shiftEnd;
   final bool isManager;
+  final bool canEditOnboarded;
   final bool isAdmin;
   final String scope;
   final int pingInterval;
@@ -165,6 +167,7 @@ class Profile {
       shiftStart: (shift?['start_time'] as num?)?.toDouble(),
       shiftEnd: (shift?['end_time'] as num?)?.toDouble(),
       isManager: roles['is_manager'] == true,
+      canEditOnboarded: roles['can_edit_onboarded'] == true,
       isAdmin: roles['is_admin'] == true,
       scope: roles['scope'] as String? ?? 'own',
       pingInterval: (settings['ping_interval'] as num? ?? 120).toInt(),
