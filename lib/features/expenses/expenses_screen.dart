@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../allowance/da_screen.dart';
+import '../allowance/ola_screen.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -267,6 +268,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllowanceScreen()))),
             _allowanceCard(Icons.restaurant_rounded, 'Daily Allowance (DA)', 'Daily allowance claims', AppColors.teal,
                 () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DailyAllowanceScreen()))),
+            _allowanceCard(Icons.timer_rounded, 'OLA', 'Monthly allowance by the hours worked', AppColors.warning,
+                () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OlaScreen()))),
           ],
         ),
       ),
