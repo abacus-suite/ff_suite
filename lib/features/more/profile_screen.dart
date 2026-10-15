@@ -499,42 +499,128 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  String _formatGst(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      return '32XXXXXXXXXXXZX';
+    }
+    final clean = raw.trim().toUpperCase().replaceAll(' ', '');
+    if (clean.contains('X') || clean.contains('*')) {
+      return clean.replaceAll('*', 'X');
+    }
+    if (clean.length >= 4) {
+      final prefix = clean.substring(0, 2);
+      final suffix = clean.substring(clean.length - 2);
+      final maskLen = clean.length - 4;
+      return '$prefix${'X' * maskLen}$suffix';
+    }
+    return '32XXXXXXXXXXXZX';
+  }
+
+  String _formatWebsite(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      return 'www.kumbayah.in';
+    }
+    var clean = raw.trim().toLowerCase();
+    clean = clean.replaceFirst(RegExp(r'^https?:\/\/'), '');
+    clean = clean.replaceFirst(RegExp(r'\/$'), '');
+    return clean.isEmpty ? 'www.kumbayah.in' : clean;
+  }
+
+  String _formatInstagram(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      return '@kumbayah';
+    }
+    var clean = raw.trim();
+    if (clean.contains('instagram.com/')) {
+      clean = clean.split('instagram.com/').last.split('?').first.replaceAll('/', '').trim();
+    }
+    if (clean.startsWith('@')) return clean;
+    return clean.isEmpty ? '@kumbayah' : '@$clean';
+  }
+
+  Widget _infoCard({required String title, required List<(String, String)> rows}) {
+    return Card(
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF0F1B3D)),
+            ),
+            const SizedBox(height: 12),
+            for (var i = 0; i < rows.length; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    rows[i].$1,
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      rows[i].$2,
+                      textAlign: TextAlign.right,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13.5,
+                        color: Color(0xFF0F1B3D),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _details(Profile profile) {
     final d = _map('details');
-    final rows = <(IconData, String, String?)>[
-      (Icons.supervisor_account_rounded, 'Reports to', (d['reports_to'] as String?) ?? profile.manager),
-      (Icons.apartment_rounded, 'Department', d['department'] as String?),
-      (Icons.badge_rounded, 'Employee ID', (d['employee_id'] as String?) ?? profile.code),
-    ].where((row) => (row.$3 ?? '').isNotEmpty).toList();
-    return _section(
-      icon: Icons.person_rounded,
+    final rows = <(String, String?)>[
+      ('Reports to', (d['reports_to'] as String?) ?? profile.manager),
+      ('Department', d['department'] as String?),
+      ('Employee ID', (d['employee_id'] as String?) ?? profile.code),
+    ].where((row) => (row.$2 ?? '').isNotEmpty).map((row) => (row.$1, row.$2!)).toList();
+    return _infoCard(
       title: 'Employee Details',
-      children: [
-        for (final (i, row) in rows.indexed)
-          _row(row.$1, row.$2, row.$3!, last: i == rows.length - 1),
-      ],
+      rows: rows,
     );
   }
 
   /// The company the person works for.
   Widget _company() {
     final c = _map('company');
-    final rows = <(IconData, String, String?)>[
-      (Icons.business_rounded, 'Company', c['name'] as String?),
-      (Icons.receipt_long_rounded, 'GSTIN', c['gstin'] as String?),
-      (Icons.language_rounded, 'Website', c['website'] as String?),
-      (Icons.camera_alt_rounded, 'Instagram', c['instagram'] as String?),
-    ].where((row) => (row.$3 ?? '').isNotEmpty).toList();
-    if (rows.isEmpty) return const SizedBox.shrink();
+    final name = (c['name'] as String?)?.trim();
+    final companyName = (name != null && name.isNotEmpty) ? name : 'Kumbayah Foods Pvt Ltd';
+    final gstin = _formatGst(c['gstin'] as String?);
+    final website = _formatWebsite(c['website'] as String?);
+    final instagram = _formatInstagram(c['instagram'] as String?);
+
+    final rows = <(String, String)>[
+      ('Company', companyName),
+      ('GSTIN', gstin),
+      ('Website', website),
+      ('Instagram', instagram),
+    ];
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: _section(
-        icon: Icons.business_center_rounded,
+      child: _infoCard(
         title: 'Company Details',
-        children: [
-          for (final (i, row) in rows.indexed)
-            _row(row.$1, row.$2, row.$3!, last: i == rows.length - 1),
-        ],
+        rows: rows,
       ),
     );
   }
