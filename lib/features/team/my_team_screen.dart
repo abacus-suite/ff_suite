@@ -358,12 +358,57 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
   }
 
   Future<void> _download() async {
+    final format = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Download Employee Report', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+              const SizedBox(height: 6),
+              Text('${widget.name} (${prettyShort(_start)} – ${prettyShort(_end)})',
+                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE8F7EE),
+                    child: Icon(Icons.table_chart_outlined, color: Color(0xFF16A34A))),
+                title: const Text('Excel Spreadsheet (.xlsx)', style: TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: const Text('Full performance report in Excel'),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
+                onTap: () => Navigator.pop(sheet, 'excel'),
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFEFF6FF),
+                    child: Icon(Icons.picture_as_pdf_outlined, color: Color(0xFF2563EB))),
+                title: const Text('PDF Document (.pdf)', style: TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: const Text('Download or print as PDF'),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE2E8F0))),
+                onTap: () => Navigator.pop(sheet, 'pdf'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (format == null) return;
+
     setState(() => _exporting = true);
     try {
       final r = await Services.api.post('/api/v1/team/employee-report/export', {
         'member': widget.memberId,
         'start': fmtDate(_start),
         'end': fmtDate(_end),
+        'format': format,
       }) as Map<String, dynamic>;
       final url = Uri.parse(await Services.api.url('${r['path']}'));
       final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -380,15 +425,25 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (sheet) => SafeArea(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
           child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), shrinkWrap: true, children: [
             Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             if (lines.isEmpty) const Text('Nothing for these dates.', style: TextStyle(color: AppColors.muted)),
             for (final l in lines)
-              Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Text(l)),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                child: Row(
+                  children: [
+                    const Icon(Icons.circle, size: 6, color: Color(0xFF1E5BE3)),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(l, style: const TextStyle(fontSize: 13.5, color: Color(0xFF0F1B3D)))),
+                  ],
+                ),
+              ),
           ]),
         ),
       ),
@@ -411,68 +466,135 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
     final days = _rows(details['days']);
     final late = _rows(details['late']);
 
-    Widget work(IconData icon, Color tint, String value, String label, VoidCallback onTap) => Expanded(
+    const cardBorder = Color(0xFFE2E8F0);
+
+    Widget work({
+      required IconData icon,
+      required Color iconColor,
+      required Color bg,
+      required Color border,
+      required String value,
+      required String label,
+      required VoidCallback onTap,
+    }) =>
+        Expanded(
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(color: tint.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
-              child: Column(children: [
-                Icon(icon, color: tint, size: 20),
-                const SizedBox(height: 4),
-                FittedBox(child: Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: tint))),
-                Text('$label ›', style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
-              ]),
+              margin: const EdgeInsets.symmetric(horizontal: 2.5),
+              padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 3),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: border),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: iconColor, size: 18),
+                  const SizedBox(height: 4),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      value,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF0F1B3D)),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$label ›',
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
             ),
           ),
         );
 
-    Widget box(IconData icon, Color tint, String label, String value, {VoidCallback? onTap}) => InkWell(
+    Widget box(IconData icon, Color iconColor, String label, String value, {VoidCallback? onTap}) => InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: tint.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
-            child: Row(children: [
-              Icon(icon, color: tint),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
-                  Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                ]),
-              ),
-              if (onTap != null) const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.muted),
-            ]),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: cardBorder),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(icon, color: iconColor, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        value,
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF0F1B3D)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
 
     Widget detail(String label, List<String> values, String title) => Expanded(
           child: InkWell(
-            onTap: values.length > 1 ? () => _list(title, values) : null,
+            onTap: values.isNotEmpty ? () => _list(title, values) : null,
+            borderRadius: BorderRadius.circular(12),
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-              child: Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(label, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-                    Text(values.isEmpty ? '–' : values.first,
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w900)),
-                  ]),
-                ),
-                if (values.length > 1)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: const Color(0xFFDBEAFE), borderRadius: BorderRadius.circular(10)),
-                    child: Text('+${values.length - 1}',
-                        style: const TextStyle(fontWeight: FontWeight.w900, color: _blue, fontSize: 12)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: cardBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          values.isEmpty ? '–' : values.first,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F1B3D)),
+                        ),
+                      ),
+                      if (values.length > 1)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0EDFF),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '+${values.length - 1}',
+                            style: const TextStyle(fontWeight: FontWeight.w800, color: _blue, fontSize: 11),
+                          ),
+                        ),
+                    ],
                   ),
-              ]),
+                ],
+              ),
             ),
           ),
         );
@@ -481,28 +603,45 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
       backgroundColor: _bg,
       appBar: AppBar(
         backgroundColor: _bg,
-        title: const Text('Employee report', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F1B3D)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Employee report', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: Color(0xFF0F1B3D))),
+        centerTitle: false,
       ),
       body: _error != null
           ? ErrorView(message: _error!, onRetry: _load)
           : d == null
               ? const LoadingView()
               : ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 32), children: [
+                  // 1. Employee header & dates
                   Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: cardBorder),
+                    ),
                     child: Row(children: [
                       CircleAvatar(
-                        backgroundColor: const Color(0xFFDBEAFE),
+                        radius: 20,
+                        backgroundColor: const Color(0xFFE0EDFF),
                         child: Text(initials(widget.name),
-                            style: const TextStyle(fontWeight: FontWeight.w900, color: _blue)),
+                            style: const TextStyle(fontWeight: FontWeight.w800, color: _blue, fontSize: 13)),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(widget.name.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900)),
+                          Text(widget.name.toUpperCase(),
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF0F1B3D)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 2),
                           Text('${prettyShort(_start)} – ${prettyShort(_end)}',
-                              style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
                         ]),
                       ),
                       PopupMenuButton<String>(
@@ -511,82 +650,166 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
                           PopupMenuItem(value: 'today', child: Text('Today')),
                           PopupMenuItem(value: 'week', child: Text('This week')),
                           PopupMenuItem(value: 'month', child: Text('This month')),
-                          PopupMenuItem(value: 'custom', child: Text('Choose dates…')),
+                          PopupMenuItem(value: 'custom', child: Text('Custom dates…')),
                         ],
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           decoration: BoxDecoration(
-                              color: const Color(0xFFEEF3FB), borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: _blue)),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+                          ),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            const Icon(Icons.calendar_month_rounded, size: 18, color: _blue),
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE0EDFF),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(Icons.calendar_today_outlined, size: 13, color: _blue),
+                            ),
                             const SizedBox(width: 6),
-                            Text(_label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
-                            const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                            Text(_label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF0F1B3D))),
+                            const SizedBox(width: 2),
+                            const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF64748B)),
                           ]),
                         ),
                       ),
                     ]),
                   ),
                   const SizedBox(height: 10),
+
+                  // 2. Territory and Route cards
                   Row(children: [
                     detail('Territory', territories, 'Territories'),
+                    const SizedBox(width: 8),
                     detail('Route', routes, 'Routes'),
                   ]),
                   const SizedBox(height: 10),
+
+                  // 3. Four work cards
                   Row(children: [
-                    work(Icons.event_available_rounded, const Color(0xFF16A34A), '${d['days_worked']}', 'Days worked',
-                        () => _list('Days worked', [
-                              for (final r in days)
-                                '${r['date']}  ·  In ${r['in_at'] != null ? fmtTime(r['in_at']) : '-'}'
-                                    '  Out ${r['out_at'] != null ? fmtTime(r['out_at']) : '-'}  ·  ${_hours((r['hours'] as num?) ?? 0)}'
-                            ])),
-                    work(Icons.schedule_rounded, const Color(0xFFEA580C), '${d['late_days']}', 'Late days',
-                        () => _list('Late days', [
-                              for (final r in late) '${r['date']}  ·  In ${r['in_at'] != null ? fmtTime(r['in_at']) : '-'}'
-                            ])),
-                    work(Icons.route_rounded, const Color(0xFF2563EB), '${((d['distance_km'] as num?) ?? 0).toStringAsFixed(0)} km',
-                        'Distance',
-                        () => _list('Distance', [for (final r in days) '${r['date']}  ·  ${r['km']} km'])),
-                    work(Icons.timer_rounded, const Color(0xFF7C3AED), _hours((d['hours'] as num?) ?? 0), 'Hours',
-                        () => _list('Hours', [
-                              for (final r in days) '${r['date']}  ·  ${_hours((r['hours'] as num?) ?? 0)}'
-                            ])),
+                    work(
+                      icon: Icons.calendar_today_outlined,
+                      iconColor: const Color(0xFF16A34A),
+                      bg: const Color(0xFFE8F7EE),
+                      border: const Color(0xFFA8E6CF),
+                      value: '${d['days_worked'] ?? 0}',
+                      label: 'Days worked',
+                      onTap: () => _list('Days worked', [
+                        for (final r in days)
+                          '${r['date']}  ·  In ${r['in_at'] != null ? fmtTime(r['in_at']) : '-'}'
+                              '  Out ${r['out_at'] != null ? fmtTime(r['out_at']) : '-'}  ·  ${_hours((r['hours'] as num?) ?? 0)}'
+                      ]),
+                    ),
+                    work(
+                      icon: Icons.schedule_rounded,
+                      iconColor: const Color(0xFFEA580C),
+                      bg: const Color(0xFFFFF2E8),
+                      border: const Color(0xFFFFD5B8),
+                      value: '${d['late_days'] ?? 0}',
+                      label: 'Late days',
+                      onTap: () => _list('Late days', [
+                        for (final r in late) '${r['date']}  ·  In ${r['in_at'] != null ? fmtTime(r['in_at']) : '-'}'
+                      ]),
+                    ),
+                    work(
+                      icon: Icons.near_me_outlined,
+                      iconColor: const Color(0xFF2563EB),
+                      bg: const Color(0xFFEBF3FF),
+                      border: const Color(0xFFBCD8FF),
+                      value: '${((d['distance_km'] as num?) ?? 0).toStringAsFixed(0)} km',
+                      label: 'Distance',
+                      onTap: () => _list('Distance', [for (final r in days) '${r['date']}  ·  ${r['km']} km']),
+                    ),
+                    work(
+                      icon: Icons.timer_outlined,
+                      iconColor: const Color(0xFF059669),
+                      bg: const Color(0xFFEAF8F2),
+                      border: const Color(0xFFBCEAD5),
+                      value: _hours((d['hours'] as num?) ?? 0),
+                      label: 'Hours',
+                      onTap: () => _list('Hours', [
+                        for (final r in days) '${r['date']}  ·  ${_hours((r['hours'] as num?) ?? 0)}'
+                      ]),
+                    ),
                   ]),
                   const SizedBox(height: 12),
+
+                  // 4. Metric Boxes (2-column Grid)
                   GridView.count(
                     crossAxisCount: 2,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     mainAxisSpacing: 10,
                     crossAxisSpacing: 10,
-                    childAspectRatio: 2.3,
+                    childAspectRatio: 2.2,
                     children: [
-                      box(Icons.place_rounded, const Color(0xFF2563EB), 'Visits', '${visits['done']} / ${visits['planned']}',
+                      box(Icons.place_outlined, const Color(0xFF2563EB), 'Visits',
+                          '${visits['done'] ?? 0} / ${visits['planned'] ?? 0} ›',
                           onTap: () => _list('Visits', [
                                 for (final v in _rows(details['visits']))
                                   '${v['date']}  ·  ${(v['outlet'] as Map)['name']}  ·  ${v['done'] == true ? 'Visited' : 'Not visited'}'
                               ])),
-                      box(Icons.check_circle_rounded, const Color(0xFF16A34A), 'Tasks', '${tasks['done']} / ${tasks['total']}',
+                      box(Icons.check_circle_outline, const Color(0xFF16A34A), 'Tasks',
+                          '${tasks['done'] ?? 0} / ${tasks['total'] ?? 0} ›',
                           onTap: () => _list('Tasks', [
                                 for (final t in _rows(details['tasks']))
                                   '${t['name']}  ·  ${t['state']}${t['due'] != null ? '  ·  due ${t['due']}' : ''}'
                               ])),
-                      box(Icons.local_drink_rounded, const Color(0xFF2563EB), 'Bottles sold', '${d['bottles']}'),
-                      box(Icons.storefront_rounded, const Color(0xFF16A34A), 'Onboarded outlets', '${d['outlets']}'),
-                      box(Icons.local_shipping_rounded, const Color(0xFFD97706), 'POs to distributor',
-                          '${d['pos_to_distributor']}'),
-                      box(Icons.person_add_alt_1_rounded, const Color(0xFF2563EB), 'New leads', '${d['new_leads']}'),
-                      box(Icons.receipt_long_rounded, const Color(0xFFDC2626), 'Expenses',
+                      box(Icons.bar_chart_rounded, const Color(0xFF2563EB), 'Bottles sold', '${d['bottles'] ?? 0}'),
+                      box(Icons.storefront_outlined, const Color(0xFF0EA5E9), 'Onboarded outlets', '${d['outlets'] ?? 0}'),
+                      box(Icons.shopping_cart_outlined, const Color(0xFF2563EB), 'POs to distributor',
+                          '${d['pos_to_distributor'] ?? 0}'),
+                      box(Icons.person_add_alt_1_outlined, const Color(0xFF2563EB), 'New leads', '${d['new_leads'] ?? 0}'),
+                      box(Icons.receipt_long_outlined, const Color(0xFFF59E0B), 'Expenses',
                           fmtMoney(d['expenses'] as num?, d['currency'] as String?)),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  GradientButton(
-                    label: 'Download report (Excel)',
-                    icon: Icons.download_rounded,
-                    busy: _exporting,
-                    onPressed: _exporting ? null : _download,
+                  const SizedBox(height: 18),
+
+                  // 5. Download Report Button
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1E5BE3), Color(0xFF00C4B4)],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: _exporting ? null : _download,
+                        child: Container(
+                          height: 50,
+                          alignment: Alignment.center,
+                          child: _exporting
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                                )
+                              : const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.file_download_outlined, color: Colors.white, size: 20),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Download report (Excel / PDF)',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ),
                   ),
                 ]),
     );

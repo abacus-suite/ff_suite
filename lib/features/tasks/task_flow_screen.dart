@@ -245,9 +245,21 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     }
   }
 
-  /// The 200 m rule, for every task: each step, and the submit, must be done within 200 m of the
-  /// customer, or of the place the task was started when there is none.
+  int? get _geofenceM {
+    for (final t in ((widget.config['tasks'] as List?) ?? [])) {
+      if (t is Map && t['code'] == widget.code) {
+        return (t['geofence_m'] as num?)?.toInt();
+      }
+    }
+    return null;
+  }
+
+  /// Geofence check: enforced only when enabled in Odoo (geofence_required / geofence_m).
+  /// When enabled, each step and submit must be done within the configured distance of the customer
+  /// (or of where the task was started if there is no customer location).
   Future<bool> _withinRange() async {
+    final limit = _geofenceM;
+    if (limit == null) return true;
     double? lat;
     double? lng;
     final c = _client;
@@ -266,10 +278,10 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       return true;
     }
     final away = Geolocator.distanceBetween(here.latitude, here.longitude, lat, lng);
-    if (away <= 200) return true;
+    if (away <= limit) return true;
     if (mounted) {
       await showProblem(context,
-          'You are ${away.round()} m away. Be within 200 m of ${c != null ? 'the customer' : 'where you started'} to continue.');
+          'You are ${away.round()} m away. Be within $limit m of ${c != null ? 'the customer' : 'where you started'} to continue.');
     }
     return false;
   }

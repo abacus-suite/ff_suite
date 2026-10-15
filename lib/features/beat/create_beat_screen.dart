@@ -3,14 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
-import '../../widgets/common.dart';
 
-/// Draw a route in the field.
-///
-/// The office draws most routes, but the field is the side that finds out a
-/// patch of town has been missed or that one route has grown too big for a
-/// day. The city it covers is the one thing it must have: a route without one
-/// cannot be found again by anybody who did not draw it.
+/// Screen to create a new Beat matching client design specifications.
 class CreateBeatScreen extends StatefulWidget {
   const CreateBeatScreen({super.key});
 
@@ -21,32 +15,30 @@ class CreateBeatScreen extends StatefulWidget {
 class _CreateBeatScreenState extends State<CreateBeatScreen> {
   final _name = TextEditingController();
   final _code = TextEditingController();
-  Map<String, dynamic>? _city;
-  Map<String, dynamic>? _type;
-  List<Map<String, dynamic>> _types = [];
   List<Map<String, dynamic>> _territories = [];
   Map<String, dynamic>? _territory;
   final Set<int> _outlets = {};
-  String _schedule = 'one_time';
+  String _schedule = 'recurrent';
   DateTime _date = DateTime.now();
-  final Set<int> _days = {};
+  final Set<int> _days = {0, 3}; // Monday and Thursday default, as in mockup
   bool _busy = false;
-
-  String get _routeLabel => Services.auth.profile!.routeLabel;
 
   @override
   void initState() {
     super.initState();
-    // No route types: everything is simply a Beat.
     _loadTerritories();
   }
 
   Future<void> _loadTerritories() async {
     try {
       final list = await Services.api.get('/api/v1/territories') as List;
-      if (mounted) setState(() => _territories = list.cast<Map<String, dynamic>>());
+      if (mounted) {
+        setState(() {
+          _territories = list.cast<Map<String, dynamic>>();
+        });
+      }
     } catch (_) {
-      // Older server: the city alone still works.
+      // Offline or network error
     }
   }
 
@@ -57,59 +49,242 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
     super.dispose();
   }
 
-  Future<void> _loadTypes() async {
-    try {
-      final list = await Services.api.get('/api/v1/route-types') as List;
-      if (mounted) setState(() => _types = list.cast<Map<String, dynamic>>());
-    } catch (_) {
-      // Optional: a route can be drawn without one.
+  String _formatDay(DateTime d) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${d.day.toString().padLeft(2, '0')}-${months[d.month - 1]}-${d.year}';
+  }
+
+  Widget _label(String text, {bool required = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: RichText(
+        text: TextSpan(
+          text: text,
+          style: const TextStyle(
+            color: Color(0xFF0F1B3D),
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+          children: [
+            if (required)
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _fieldDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFF1E5BE3), width: 1.5),
+      ),
+    );
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null && mounted) {
+      setState(() => _date = picked);
     }
   }
 
-  Future<void> _pickCity() async {
-    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+  Future<void> _pickOutlets() async {
+    if (_territory == null) {
+      showProblem(context, 'Please choose a territory first.');
+      return;
+    }
+    final allOutlets = ((_territory!['outlets'] as List?) ?? []).cast<Map<String, dynamic>>();
+    if (allOutlets.isEmpty) {
+      showProblem(context, 'No outlets found for this territory.');
+      return;
+    }
+
+    final tempSelected = Set<int>.from(_outlets);
+
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (sheet) => const _CityPicker(),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        String query = '';
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final q = query.trim().toLowerCase();
+            final filtered = q.isEmpty
+                ? allOutlets
+                : allOutlets.where((o) => '${o['name']} ${o['city'] ?? ''}'.toLowerCase().contains(q)).toList();
+
+            return SafeArea(
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.75,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Select Outlets (${tempSelected.length}/${allOutlets.length})',
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setSheetState(() {
+                                if (tempSelected.length == allOutlets.length) {
+                                  tempSelected.clear();
+                                } else {
+                                  tempSelected.addAll(allOutlets.map((o) => o['id'] as int));
+                                }
+                              });
+                            },
+                            child: Text(tempSelected.length == allOutlets.length ? 'Clear' : 'Select all'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: TextField(
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                          hintText: 'Search outlet or city...',
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                        onChanged: (val) => setSheetState(() => query = val),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(child: Text('No matching outlets', style: TextStyle(color: AppColors.muted)))
+                          : ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (_, index) {
+                                final outlet = filtered[index];
+                                final id = outlet['id'] as int;
+                                final isChecked = tempSelected.contains(id);
+                                return CheckboxListTile(
+                                  value: isChecked,
+                                  controlAffinity: ListTileControlAffinity.leading,
+                                  title: Text(
+                                    '${outlet['name']}',
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                  ),
+                                  subtitle: outlet['city'] != null ? Text('${outlet['city']}', style: const TextStyle(fontSize: 12)) : null,
+                                  onChanged: (val) {
+                                    setSheetState(() {
+                                      if (val == true) {
+                                        tempSelected.add(id);
+                                      } else {
+                                        tempSelected.remove(id);
+                                      }
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 46,
+                        child: FilledButton(
+                          onPressed: () => Navigator.pop(sheetContext),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF1E5BE3),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
-    if (picked != null && mounted) setState(() => _city = picked);
+
+    if (mounted) {
+      setState(() {
+        _outlets
+          ..clear()
+          ..addAll(tempSelected);
+      });
+    }
   }
 
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
-      showProblem(context, 'Give the $_routeLabel a name.');
+      showProblem(context, 'Please enter Beat name.');
       return;
     }
-    if (_territories.isNotEmpty && _territory == null) {
-      showProblem(context, 'Choose the territory.');
+    final code = _code.text.trim();
+    if (code.isEmpty) {
+      showProblem(context, 'Please enter Beat code.');
       return;
     }
-    if (_city == null && _territory?['district_id'] == null) {
-      showProblem(context, 'Choose the city this $_routeLabel covers.');
+    if (_territory == null) {
+      showProblem(context, 'Please select a Territory.');
       return;
     }
-    if (_outlets.isEmpty && _territories.isNotEmpty) {
-      showProblem(context, 'Choose at least one outlet.');
+    if (_outlets.isEmpty) {
+      showProblem(context, 'Please select at least one outlet.');
       return;
     }
     if (_schedule == 'recurrent' && _days.isEmpty) {
-      showProblem(context, 'Choose the weekdays it repeats on.');
+      showProblem(context, 'Please choose at least one day for repeat.');
       return;
     }
+
     setState(() => _busy = true);
     try {
       final beat = await Services.api.post('/api/v1/beats', {
         'name': name,
-        'code': _code.text.trim(),
-        'district_id': _city?['id'] ?? _territory?['district_id'],
-        if (_territory != null) 'territory_id': _territory!['id'],
-        if (_outlets.isNotEmpty) 'partner_ids': _outlets.toList(),
+        'code': code,
+        'territory_id': _territory!['id'],
+        if (_territory!['district_id'] != null) 'district_id': _territory!['district_id'],
+        'partner_ids': _outlets.toList(),
         'schedule': _schedule,
-        if (_schedule == 'one_time') 'date': fmtDate(_date),
+        'date': fmtDate(_date),
         if (_schedule == 'recurrent') 'weekdays': _days.toList()..sort(),
-        if (_type != null) 'route_type_id': _type!['id'],
       }) as Map<String, dynamic>;
       if (!mounted) return;
       Navigator.of(context).pop(beat);
@@ -122,351 +297,282 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final label = _routeLabel;
-    final title = '${label[0].toUpperCase()}${label.substring(1)}';
+    const dayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text('New $title')),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF8FAFC),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F1B3D)),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'Create Beat',
+          style: TextStyle(
+            color: Color(0xFF0F1B3D),
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        centerTitle: false,
+      ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-          child: GradientButton(
-            label: 'Create $title',
-            icon: Icons.route_rounded,
-            busy: _busy,
-            onPressed: _busy ? null : _save,
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: SizedBox(
+            height: 50,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1E5BE3), Color(0xFF00C4B4)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: _busy ? null : _save,
+                  child: Center(
+                    child: _busy
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                          )
+                        : const Text(
+                            'Save Beat',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         children: [
-          _card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('What is it called?',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                const SizedBox(height: 9),
-                TextField(
-                  controller: _name,
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: _box('e.g. Cherthala - Muhamma'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _code,
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: _box('Short code (optional), e.g. CHM-01'),
-                ),
-              ],
-            ),
-          ),
-          if (_territories.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _territoryCard(),
-            const SizedBox(height: 12),
-            _scheduleCard(),
-          ],
-          if (_territory?['district_id'] == null) ...[
-          const SizedBox(height: 12),
-          _card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Text('Which city does it cover?',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                    const SizedBox(width: 6),
-                    Text('required',
-                        style: TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.danger)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                const Text('Chosen from the cities the office keeps, so two people never spell one two ways.',
-                    style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
-                const SizedBox(height: 9),
-                Material(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(14),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                    onTap: _pickCity,
-                    child: Padding(
-                      padding: const EdgeInsets.all(13),
-                      child: Row(
-                        children: [
-                          Icon(Icons.location_city_rounded,
-                              size: 19, color: _city == null ? AppColors.muted : AppColors.primary),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _city == null
-                                  ? 'Choose a city'
-                                  : '${_city!['name']}'
-                                      '${(_city!['state'] as Map?)?['name'] != null ? ', ${(_city!['state'] as Map)['name']}' : ''}',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                  color: _city == null ? AppColors.muted : AppColors.text),
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-                        ],
+          // Day
+          _label('Day'),
+          InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: _pickDate,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _formatDay(_date),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF0F1B3D),
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          ],
-          if (_types.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _card(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('What kind of route?',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                  const SizedBox(height: 9),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final type in _types)
-                        ChoiceChip(
-                          label: Text('${type['name']}'),
-                          selected: _type?['id'] == type['id'],
-                          onSelected: (on) => setState(() => _type = on ? type : null),
-                        ),
-                    ],
-                  ),
+                  const Icon(Icons.calendar_today_outlined, size: 20, color: Color(0xFF64748B)),
                 ],
               ),
             ),
-          ],
-          const SizedBox(height: 14),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              'It goes to your manager for approval before it can be planned from.',
-              style: TextStyle(fontSize: 12, color: AppColors.muted),
+          ),
+          const SizedBox(height: 16),
+
+          // Beat name *
+          _label('Beat name', required: true),
+          TextField(
+            controller: _name,
+            textCapitalization: TextCapitalization.words,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF0F1B3D)),
+            decoration: _fieldDecoration('Beat 10 – Palarivattom'),
+          ),
+          const SizedBox(height: 16),
+
+          // Beat code *
+          _label('Beat code', required: true),
+          TextField(
+            controller: _code,
+            textCapitalization: TextCapitalization.characters,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF0F1B3D)),
+            decoration: _fieldDecoration('KOC-B10'),
+          ),
+          const SizedBox(height: 16),
+
+          // Territory *
+          _label('Territory', required: true),
+          DropdownButtonFormField<int>(
+            initialValue: _territory?['id'] as int?,
+            isExpanded: true,
+            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B)),
+            decoration: _fieldDecoration('Choose a territory'),
+            items: [
+              for (final t in _territories)
+                DropdownMenuItem(
+                  value: t['id'] as int,
+                  child: Text(
+                    '${t['name']}',
+                    style: const TextStyle(fontSize: 14, color: Color(0xFF0F1B3D)),
+                  ),
+                ),
+            ],
+            onChanged: (v) {
+              if (v == null) return;
+              setState(() {
+                _territory = _territories.firstWhere((t) => t['id'] == v);
+                final outletsList = ((_territory!['outlets'] as List?) ?? []).cast<Map<String, dynamic>>();
+                _outlets
+                  ..clear()
+                  ..addAll(outletsList.map((o) => o['id'] as int));
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+
+          // Outlets (filtered by territory) *
+          _label('Outlets (filtered by territory)', required: true),
+          InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: _pickOutlets,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _territory == null
+                          ? 'Select territory first'
+                          : '${_outlets.length} outlets selected',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: _territory == null ? const Color(0xFF94A3B8) : const Color(0xFF0F1B3D),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B)),
+                ],
+              ),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // Toggle: One time / Recurrent
+          Row(
+            children: [
+              _buildPill(
+                label: 'One time',
+                isSelected: _schedule == 'one_time',
+                onTap: () => setState(() => _schedule = 'one_time'),
+              ),
+              const SizedBox(width: 10),
+              _buildPill(
+                label: 'Recurrent',
+                isSelected: _schedule == 'recurrent',
+                onTap: () => setState(() => _schedule = 'recurrent'),
+              ),
+            ],
+          ),
+
+          // Repeat on
+          if (_schedule == 'recurrent') ...[
+            const SizedBox(height: 16),
+            _label('Repeat on'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                for (int i = 0; i < 7; i++)
+                  _buildDayCircle(
+                    letter: dayLetters[i],
+                    isSelected: _days.contains(i),
+                    onTap: () {
+                      setState(() {
+                        if (_days.contains(i)) {
+                          _days.remove(i);
+                        } else {
+                          _days.add(i);
+                        }
+                      });
+                    },
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 24),
         ],
       ),
     );
   }
 
-  Widget _territoryCard() {
-    final outlets = ((_territory?['outlets'] as List?) ?? []).cast<Map<String, dynamic>>();
-    return _card(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Territory *', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-        const SizedBox(height: 9),
-        DropdownButtonFormField<int>(
-          initialValue: _territory?['id'] as int?,
-          isExpanded: true,
-          decoration: _box('Choose a territory'),
-          items: [
-            for (final t in _territories) DropdownMenuItem(value: t['id'] as int, child: Text('${t['name']}')),
-          ],
-          onChanged: (v) => setState(() {
-            _territory = _territories.firstWhere((t) => t['id'] == v);
-            // Everything mapped to the territory starts selected; the person can untick what is not needed.
-            _outlets
-              ..clear()
-              ..addAll(((_territory!['outlets'] as List?) ?? []).map((o) => (o as Map)['id'] as int));
-          }),
-        ),
-        if (_territory != null) ...[
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(
-                child: Text('${_outlets.length} of ${outlets.length} selected',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
-            TextButton(
-              onPressed: () => setState(() {
-                if (_outlets.length == outlets.length) {
-                  _outlets.clear();
-                } else {
-                  _outlets.addAll(outlets.map((o) => o['id'] as int));
-                }
-              }),
-              child: Text(_outlets.length == outlets.length ? 'Clear' : 'Select all'),
+  Widget _buildPill({required String label, required bool isSelected, required VoidCallback onTap}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF1E5BE3) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: isSelected ? null : Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : const Color(0xFF334155),
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+              fontSize: 13,
             ),
-          ]),
-          if (outlets.isEmpty)
-            const Text('No distributors or outlets are mapped to this territory yet.',
-                style: TextStyle(color: AppColors.muted)),
-          for (final group in const [('distributor', 'Distributors'), ('outlet', 'Outlets'), ('lead', 'Leads')])
-            ..._group(group.$2, outlets.where((o) => '${o['kind']}' == group.$1 ||
-                (group.$1 == 'outlet' && !{'distributor', 'lead'}.contains('${o['kind']}'))).toList()),
-        ],
-      ]),
-    );
-  }
-
-  List<Widget> _group(String title, List<Map<String, dynamic>> rows) {
-    if (rows.isEmpty) return const [];
-    return [
-      Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 2),
-        child: Text('$title (${rows.length})', style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.muted)),
+          ),
+        ),
       ),
-      for (final o in rows)
-        CheckboxListTile(
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
-          value: _outlets.contains(o['id']),
-          title: Text('${o['name']}'),
-          subtitle: o['city'] == null ? null : Text('${o['city']}'),
-          onChanged: (v) => setState(() => v == true ? _outlets.add(o['id'] as int) : _outlets.remove(o['id'])),
-        ),
-    ];
-  }
-
-  Widget _scheduleCard() {
-    const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return _card(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Schedule', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-        const SizedBox(height: 9),
-        SegmentedButton<String>(
-          showSelectedIcon: false,
-          segments: const [
-            ButtonSegment(value: 'one_time', label: Text('One time')),
-            ButtonSegment(value: 'recurrent', label: Text('Recurrent')),
-          ],
-          selected: {_schedule},
-          onSelectionChanged: (v) => setState(() => _schedule = v.first),
-        ),
-        const SizedBox(height: 10),
-        if (_schedule == 'one_time')
-          OutlinedButton.icon(
-            onPressed: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: _date,
-                firstDate: DateTime.now(),
-                lastDate: DateTime.now().add(const Duration(days: 365)),
-              );
-              if (picked != null) setState(() => _date = picked);
-            },
-            icon: const Icon(Icons.event_rounded),
-            label: Text(fmtDate(_date)),
-          )
-        else
-          Wrap(spacing: 8, children: [
-            for (var i = 0; i < 7; i++)
-              FilterChip(
-                label: Text(names[i]),
-                selected: _days.contains(i),
-                onSelected: (v) => setState(() => v ? _days.add(i) : _days.remove(i)),
-              ),
-          ]),
-      ]),
     );
   }
 
-  Widget _card({required Widget child}) => Container(
-        padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-        child: child,
-      );
-
-  InputDecoration _box(String hint) => InputDecoration(
-        hintText: hint,
-        isDense: true,
-        filled: true,
-        fillColor: AppColors.background,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-      );
-}
-
-/// The cities the office keeps, searchable.
-class _CityPicker extends StatefulWidget {
-  const _CityPicker();
-
-  @override
-  State<_CityPicker> createState() => _CityPickerState();
-}
-
-class _CityPickerState extends State<_CityPicker> {
-  List<Map<String, dynamic>> _cities = [];
-  String _query = '';
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final list = await Services.api.get('/api/v1/districts') as List;
-      if (mounted) setState(() => _cities = list.cast<Map<String, dynamic>>());
-    } catch (e) {
-      if (mounted) showProblem(context, e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final q = _query.trim().toLowerCase();
-    final shown = q.isEmpty
-        ? _cities
-        : _cities
-            .where((c) => '${c['name']} ${(c['state'] as Map?)?['name'] ?? ''}'.toLowerCase().contains(q))
-            .toList();
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.8,
-      child: Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: TextField(
-                autofocus: true,
-                onChanged: (value) => setState(() => _query = value),
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search_rounded),
-                  hintText: 'Search city or state',
-                  isDense: true,
-                ),
-              ),
+  Widget _buildDayCircle({required String letter, required bool isSelected, required VoidCallback onTap}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF1E5BE3) : Colors.white,
+            shape: BoxShape.circle,
+            border: isSelected ? null : Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            letter,
+            style: TextStyle(
+              color: isSelected ? Colors.white : const Color(0xFF334155),
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
             ),
-            if (_loading) const LinearProgressIndicator(),
-            Expanded(
-              child: shown.isEmpty && !_loading
-                  ? const EmptyView(icon: Icons.location_off_rounded, text: 'No city matches')
-                  : ListView.builder(
-                      itemCount: shown.length,
-                      itemBuilder: (_, i) {
-                        final city = shown[i];
-                        return ListTile(
-                          leading: const CircleAvatar(
-                            backgroundColor: Color(0xFFE8EFFF),
-                            child: Icon(Icons.location_city_rounded, color: AppColors.primary),
-                          ),
-                          title: Text('${city['name']}',
-                              style: const TextStyle(fontWeight: FontWeight.w700)),
-                          subtitle: Text('${(city['state'] as Map?)?['name'] ?? ''}'),
-                          onTap: () => Navigator.pop(context, city),
-                        );
-                      },
-                    ),
-            ),
-          ],
+          ),
         ),
       ),
     );
