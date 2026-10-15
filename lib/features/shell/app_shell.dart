@@ -1,0 +1,359 @@
+import '../beat/create_beat_screen.dart';
+import 'package:flutter/material.dart';
+
+import '../../core/services.dart';
+import '../../core/theme.dart';
+import '../../core/format.dart';
+import '../../core/security_guard.dart';
+import '../../widgets/sync_status.dart';
+import '../collections/collect_payment_screen.dart';
+import '../leaves/leaves_screen.dart';
+import '../orders/catalog_screen.dart';
+import '../chat/chat_screen.dart';
+import '../tasks/tasks_screen.dart';
+import '../beat/plan_beat_screen.dart';
+import '../tasks/task_start.dart';
+import '../visits/visit_gate.dart';
+import '../clients/clients_screen.dart';
+import '../expenses/new_expense_screen.dart';
+import '../home/home_screen.dart';
+import '../more/more_screen.dart';
+import '../reports/reports_screen.dart';
+import '../team/my_team_screen.dart';
+import '../orders/orders_screen.dart';
+
+class _ShellTab {
+  const _ShellTab(
+      this.key, this.icon, this.activeIcon, this.label, this.screen);
+
+  final String key;
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final Widget screen;
+}
+
+/// Bottom navigation: Home · Customers · Orders · Reports · More.
+class AppShell extends StatefulWidget {
+  const AppShell({super.key});
+
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
+  String _current = 'home';
+
+  @override
+  void initState() {
+    super.initState();
+    ChatBadge.start();
+    Services.goHome.addListener(_goHome);
+    Services.managerMode.addListener(_modeChanged);
+    WidgetsBinding.instance.addObserver(this);
+    // Opening the app while checked in goes straight back to the visit.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) resumeOpenTask(context);
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    ChatBadge.stop();
+    Services.goHome.removeListener(_goHome);
+    Services.managerMode.removeListener(_modeChanged);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) resumeOpenTask(context);
+  }
+
+  void _modeChanged() {
+    if (mounted) setState(() => _current = 'home');
+  }
+
+  void _goHome() {
+    if (mounted) _open('home');
+  }
+
+  void _open(String key) {
+    setState(() => _current = key);
+    Services.refresh.value++;
+  }
+
+  List<_ShellTab> _tabs() {
+    final profile = Services.auth.profile!;
+    if (profile.isManager && Services.managerMode.value) {
+      return [
+        _ShellTab('home', Icons.home_outlined, Icons.home_rounded, 'Home', HomeScreen(onOpenTab: _open)),
+        const _ShellTab('team', Icons.groups_2_outlined, Icons.groups_2_rounded, 'My Team', MyTeamScreen()),
+        const _ShellTab('tasks', Icons.assignment_outlined, Icons.assignment_rounded, 'Tasks', TasksScreen()),
+        const _ShellTab('reports', Icons.bar_chart_outlined, Icons.bar_chart_rounded, 'Reports', ReportsScreen()),
+      ];
+    }
+    return [
+      _ShellTab('home', Icons.home_outlined, Icons.home_rounded, 'Home',
+          HomeScreen(onOpenTab: _open)),
+      if (profile.feature('visits'))
+        _ShellTab(
+            'customers',
+            Icons.groups_2_outlined,
+            Icons.groups_2_rounded,
+            '${profile.label('client', 'Customer')}s',
+            const ClientsScreen(embedded: true)),
+      if (profile.feature('orders'))
+        _ShellTab(
+            'orders',
+            Icons.receipt_long_outlined,
+            Icons.receipt_long_rounded,
+            '${profile.label('order', 'Order')}s',
+            const OrdersScreen(embedded: true)),
+      const _ShellTab('more', Icons.more_horiz_rounded,
+          Icons.more_horiz_rounded, 'More', MoreScreen()),
+    ];
+  }
+
+  /// The "+" in the middle: the two things people start from nothing.
+  Future<void> _quickCreate(BuildContext context) async {
+    final profile = Services.auth.profile!;
+    final customer = profile.label('client', 'customer').toLowerCase();
+    Widget option(String key, IconData icon, Color colour, String title, String subtitle, BuildContext sheet) =>
+        ListTile(
+          leading: CircleAvatar(
+            backgroundColor: colour.withValues(alpha: 0.12),
+            child: Icon(icon, color: colour),
+          ),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Text(subtitle),
+          onTap: () => Navigator.pop(sheet, key),
+        );
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheet) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // The order the client asked for: New Task, Create Beat Plan, Leave Request, New Expense,
+              // New PO, Collect Payment.
+              if (profile.feature('visits'))
+                option('field_task', Icons.assignment_turned_in_rounded, AppColors.success, 'New Task',
+                    'Client visit, new lead, samples, events', sheet),
+              if (profile.feature('routes'))
+                option('beat', Icons.edit_calendar_rounded, AppColors.sky, 'Create Beat',
+                    'Draw a new beat for approval', sheet),
+              option('leave', Icons.beach_access_rounded, AppColors.sky, 'Leave Request',
+                  'Ask for leave', sheet),
+              option('expense', Icons.receipt_long_rounded, AppColors.warning, 'New Expense',
+                  'Claim or record an expense', sheet),
+              if (profile.feature('orders'))
+                option('order', Icons.add_shopping_cart_rounded, AppColors.primary, 'New PO',
+                    'Pick the client, check in, add products', sheet),
+              if (profile.paymentCollection)
+                option('payment', Icons.payments_rounded, AppColors.teal, 'Collect Payment',
+                    'Pick the client, check in, record amount', sheet),
+              if (profile.isManager)
+                option('task', Icons.add_task_rounded, AppColors.purple, 'Give a task',
+                    'Send a task to someone in your team', sheet),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (choice == null || !context.mounted) return;
+    final navigator = Navigator.of(context);
+    Future<void> open(Widget screen) => navigator.push(MaterialPageRoute(builder: (_) => screen));
+
+    switch (choice) {
+      case 'order' || 'payment':
+        final client = await navigator.push<Map<String, dynamic>>(
+            MaterialPageRoute(builder: (_) => const ClientsScreen(pickMode: true)));
+        if (client == null || !context.mounted) break;
+        // Was this person already at the customer? Then the visit is theirs to close, not ours.
+        Map<String, dynamic>? already;
+        try {
+          already = await Services.api.get('/api/v1/visits/current') as Map<String, dynamic>?;
+        } catch (_) {}
+        if (!context.mounted) break;
+        final visit = await ensureCheckedIn(context, client);
+        if (visit == null || !context.mounted) break;
+        if (choice == 'order') {
+          await navigator.push<bool>(MaterialPageRoute(builder: (_) => CatalogScreen(client: client)));
+          // A demand or order was placed, or the person backed out: either way the visit this "+"
+          // opened ends here, so nobody is left checked in at a customer they are no longer at.
+          if (already == null) {
+            final closed = await autoCheckOut(visit);
+            if (!closed && context.mounted) {
+              showSnack(context, 'Could not check you out automatically. Check out from the customer screen.');
+            }
+          }
+        } else {
+          await open(CollectPaymentScreen(client: client, visitId: visit['id'] as int?));
+        }
+      case 'beat':
+        await open(const CreateBeatScreen());
+      case 'field_task':
+        await openTasks(context);
+      case 'task':
+        await open(const NewTaskScreen());
+      case 'leave':
+        await _requestLeave(context);
+      default:
+        await open(const NewExpenseScreen());
+    }
+    Services.refresh.value++;
+  }
+
+  Future<void> _requestLeave(BuildContext context) async {
+    try {
+      final data = await Services.api.get('/api/v1/leaves') as Map<String, dynamic>;
+      final types = ((data['types'] as List?) ?? []).cast<Map<String, dynamic>>();
+      if (!context.mounted) return;
+      if (types.isEmpty) {
+        showSnack(context, 'No leave types are set up yet.');
+        return;
+      }
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => LeaveRequestScreen(types: types)));
+    } catch (e) {
+      if (context.mounted) showProblem(context, e.toString());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tabs = _tabs();
+    var index = tabs.indexWhere((t) => t.key == _current);
+    if (index < 0) index = 0;
+    // The "+" sits in the middle of the bar, so the tabs are split around it.
+    final half = tabs.length ~/ 2;
+    return Scaffold(
+      extendBody: true,
+      body: ListenableBuilder(
+        listenable: Listenable.merge([
+          Services.api.online,
+          Services.outbox.failed,
+          SecurityGuard.instance.gpsOn,
+          Services.tracker.active,
+        ]),
+        builder: (context, child) {
+          final banner = !Services.api.online.value ||
+              Services.outbox.failed.value > 0 ||
+              (!SecurityGuard.instance.gpsOn.value && Services.tracker.active.value);
+          return Column(
+            children: [
+              const GpsOffBanner(),
+              const OfflineBanner(),
+              // The banner already sits under the status bar; the screens below should not pad for it again.
+              Expanded(child: MediaQuery.removePadding(context: context, removeTop: banner, child: child!)),
+            ],
+          );
+        },
+        child: Stack(
+          children: [
+            IndexedStack(index: index, children: [for (final tab in tabs) tab.screen]),
+            // Pull-up chat, tucked against the bottom bar so it never covers content.
+            Positioned(
+              right: 14,
+              bottom: MediaQuery.of(context).padding.bottom + 66,
+              child: const ChatDock(),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: (Services.auth.profile!.isManager && Services.managerMode.value)
+          ? null
+          : Container(
+        width: 58,
+        height: 58,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: AppColors.brandGradient,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.38),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () => _quickCreate(context),
+            child: const Icon(Icons.add_rounded, color: Colors.white, size: 30),
+          ),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8,
+        color: Colors.white,
+        elevation: 10,
+        padding: EdgeInsets.zero,
+        height: 66,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            // Each side gets half the bar, so the "+" sits dead centre
+            // however many tabs fall on either side of it.
+            Expanded(
+              child: Row(children: [
+                for (var i = 0; i < half; i++)
+                  Expanded(child: _tabButton(tabs[i], i == index)),
+              ]),
+            ),
+            const SizedBox(width: 72),
+            Expanded(
+              child: Row(children: [
+                for (var i = half; i < tabs.length; i++)
+                  Expanded(child: _tabButton(tabs[i], i == index)),
+              ]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tabButton(_ShellTab tab, bool active) {
+    final colour = active ? AppColors.primary : AppColors.muted;
+    return InkWell(
+      onTap: () => _open(tab.key),
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: BoxDecoration(
+                color: active ? const Color(0xFFE8EFFF) : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(active ? tab.activeIcon : tab.icon,
+                  color: colour, size: 22),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              tab.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: 10.5, fontWeight: FontWeight.w700, color: colour),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

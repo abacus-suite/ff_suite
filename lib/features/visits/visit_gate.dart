@@ -1,0 +1,259 @@
+import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../core/api_client.dart';
+import '../../core/geo.dart';
+import '../../core/services.dart';
+import '../../core/theme.dart';
+import '../../widgets/busy.dart';
+import 'package:geolocator/geolocator.dart';
+
+import '../../core/format.dart';
+import '../../core/local_state.dart';
+import '../clients/client_extras.dart';
+
+/// Demands, orders and payments are taken at a customer, so they start with a
+/// check-in there. Returns the open visit, or null when the person backed out.
+///
+/// The server decides onsite or offsite: a customer without coordinates takes
+/// them from this check-in; one too far away comes back as `offsite_confirm`,
+/// and only an explicit "yes, offsite" checks in anyway.
+Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, dynamic> client,
+    {String? task, int? geofenceM}) async {
+  final clientId = client['id'] as int;
+  try {
+    // What the server says about today, asked together and with a spinner if it
+    // is slow: the answer can be a refusal, and silence meanwhile looks like a
+    // button that did nothing.
+    final checks = await withBusy(context, 'Checking…', () async {
+      final open = await Services.api.get('/api/v1/visits/current') as Map<String, dynamic>?;
+      Map<String, dynamic>? day;
+      if (open == null && Services.auth.profile!.feature('attendance')) {
+        day = await Services.api.get('/api/v1/attendance/status') as Map<String, dynamic>;
+      }
+      return (open, day);
+    });
+    final current = checks.$1;
+    if (current != null) {
+      final at = current['client'] as Map;
+      if (at['id'] == clientId) return current;
+      if (context.mounted) showSnack(context, 'Check out from ${at['name']} first.');
+      return null;
+    }
+    if (Services.auth.profile!.feature('attendance')) {
+      final status = checks.$2 ?? const <String, dynamic>{};
+      if (status['punched_in'] != true) {
+        if (context.mounted) {
+          await showDialog<void>(
+            context: context,
+            builder: (dialog) => AlertDialog(
+              icon: const Icon(Icons.fingerprint_rounded, color: AppColors.warning, size: 36),
+              title: const Text('Start your day first'),
+              content: const Text(
+                  'Check in for attendance on the Home screen before visiting customers, taking demands or collecting payments.'),
+              actions: [FilledButton(onPressed: () => Navigator.pop(dialog), child: const Text('OK'))],
+            ),
+          );
+          // The Check In button is on Home, so that is where they are taken.
+          if (context.mounted) goToHome();
+        }
+        return null;
+      }
+    }
+    if (!context.mounted) return null;
+    // Which task this visit is for was chosen before getting here, and travels
+    // with the check-in so the visit knows what it was opened for.
+
+    final pos = await withBusy(context, 'Finding your location…', currentPosition);
+    // A task is started at the customer: within 200 m, and there is no offsite for it. Offsite is only
+    // for a PO or a collection, which come here without a task.
+    // geofenceM is set by the task's own setting in Odoo; without it the task may start from anywhere
+    // (the offsite question is asked as for a PO or a collection).
+    if (task != null && geofenceM != null) {
+      final lat = (client['lat'] as num?)?.toDouble();
+      final lng = (client['lng'] as num?)?.toDouble();
+      if (lat != null && lng != null && !(lat == 0 && lng == 0)) {
+        final away = Geolocator.distanceBetween(pos.latitude, pos.longitude, lat, lng);
+        if (away > geofenceM) {
+          if (context.mounted) {
+            await showDialog<void>(
+              context: context,
+              builder: (dialog) => AlertDialog(
+                icon: const Icon(Icons.wrong_location_rounded, color: AppColors.danger, size: 36),
+                title: const Text('Too far from the customer'),
+                content: Text('You are ${fmtDistance(away)} from ${client['name']}. '
+                    'This task can only be started within $geofenceM m of the customer. '
+                    'Move closer and try again.'),
+                actions: [FilledButton(onPressed: () => Navigator.pop(dialog), child: const Text('OK'))],
+              ),
+            );
+          }
+          return null;
+        }
+      }
+    }
+    final payload = {
+      'partner_id': clientId,
+      'lat': pos.latitude,
+      'lng': pos.longitude,
+      'accuracy': pos.accuracy,
+      'mock': pos.isMocked,
+      'uuid': const Uuid().v4(),
+      if (task != null) 'task': task,
+      'device_time': DateTime.now().toUtc().toIso8601String(),
+    };
+    try {
+      return await withBusy(context, 'Checking you in…', () => _checkIn(context, payload, client));
+    } on ApiException catch (e) {
+      if (e.code == 'details_missing' && context.mounted) {
+        // An onboarded outlet or distributor with required details missing: fill them in, then carry on.
+        final fill = await showDialog<bool>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+            icon: const Icon(Icons.assignment_late_rounded, color: AppColors.warning, size: 36),
+            title: const Text('Complete the details'),
+            content: Text(e.message),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Not now')),
+              FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Fill details')),
+            ],
+          ),
+        );
+        if (fill != true || !context.mounted) return null;
+        try {
+          final full = await withBusy(context, 'Opening the contact\u2026',
+              () async => await Services.api.get('/api/v1/clients/$clientId') as Map<String, dynamic>);
+          if (!context.mounted) return null;
+          final saved = await Navigator.of(context)
+              .push<bool>(MaterialPageRoute(builder: (_) => EditClientScreen(client: full)));
+          if (saved != true || !context.mounted) return null;
+          return await ensureCheckedIn(context, full, task: task, geofenceM: geofenceM);
+        } catch (err) {
+          if (context.mounted) showProblem(context, err.toString());
+          return null;
+        }
+      }
+      if (e.code != 'offsite_confirm' || !context.mounted) rethrow;
+      final reason = TextEditingController();
+      final offsite = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          icon: const Icon(Icons.wrong_location_rounded, color: AppColors.warning, size: 36),
+          title: const Text('Offsite visit?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(e.message),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reason,
+                decoration: const InputDecoration(labelText: 'Reason (optional)', hintText: 'e.g. met at the market'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Check in offsite')),
+          ],
+        ),
+      );
+      if (offsite != true || !context.mounted) return null;
+      return await withBusy(context, 'Checking you in…',
+          () => _checkIn(context, {...payload, 'offsite': true, 'offsite_reason': reason.text.trim()}, client));
+    }
+  } catch (e) {
+    if (context.mounted) showProblem(context, e.toString());
+    return null;
+  }
+}
+
+/// Checks in at a customer the person has just walked up to, without asking.
+///
+/// Only called from inside the geofence, so there is no offsite question to
+/// put and nothing to confirm: they are at the shop, and the visit starts.
+/// Anything in the way - no attendance, no GPS, somebody else's visit still
+/// open - simply leaves the visit unstarted, to be tapped by hand as before.
+Future<Map<String, dynamic>?> autoCheckIn(Map<String, dynamic> client) async {
+  try {
+    final current = await Services.api.get('/api/v1/visits/current') as Map<String, dynamic>?;
+    if (current != null) return null;
+    if (Services.auth.profile!.feature('attendance')) {
+      final status = await Services.api.get('/api/v1/attendance/status') as Map<String, dynamic>;
+      if (status['punched_in'] != true) return null;
+    }
+    final pos = await currentPosition(recentOk: true);
+    final result = await Services.api.post('/api/v1/visits/check-in', {
+      'partner_id': client['id'],
+      'lat': pos.latitude,
+      'lng': pos.longitude,
+      'accuracy': pos.accuracy,
+      'mock': pos.isMocked,
+      'auto': true,
+      'uuid': const Uuid().v4(),
+      'device_time': DateTime.now().toUtc().toIso8601String(),
+    }) as Map<String, dynamic>;
+    settleAndRefresh();
+    return result;
+  } catch (_) {
+    // Arrival check-in is a convenience: when it cannot happen, the button still can.
+    return null;
+  }
+}
+
+/// Closes a visit the app started on arrival, once the person has left.
+Future<bool> autoCheckOut(Map<String, dynamic> visit) async {
+  try {
+    final pos = await lastKnownPosition();
+    await Services.api.post('/api/v1/visits/check-out', {
+      'auto': true,
+      if (visit['id'] != null) 'visit_id': visit['id'],
+      if (visit['uuid'] != null) 'visit_uuid': visit['uuid'],
+      if (pos != null) 'lat': pos.latitude,
+      if (pos != null) 'lng': pos.longitude,
+      'device_time': DateTime.now().toUtc().toIso8601String(),
+    });
+    settleAndRefresh();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+Future<Map<String, dynamic>> _checkIn(
+    BuildContext context, Map<String, dynamic> payload, Map<String, dynamic> client) async {
+  final result = await Services.outbox.submit('/api/v1/visits/check-in', payload, label: 'Check in · ${client['name']}');
+  if (result.queued) {
+    // Nobody to ask "offsite?" - judge it from the customer's saved location.
+    final lat = (client['lat'] as num?)?.toDouble();
+    final lng = (client['lng'] as num?)?.toDouble();
+    final radius = (client['geofence_radius'] as num?)?.toDouble() ?? 150;
+    final away = lat == null || lng == null
+        ? null
+        : Geolocator.distanceBetween(payload['lat'] as double, payload['lng'] as double, lat, lng);
+    final offsite = away != null && away > radius;
+    final visit = await LocalState.visitOpened(client, payload['uuid'] as String, visitType: offsite ? 'offsite' : 'onsite');
+    if (context.mounted) {
+      showSnack(
+          context,
+          offsite
+              ? 'Checked in offline · ${fmtDistance(away)} away, it will be saved as an offsite visit'
+              : 'Checked in offline · it will sync when you are back online');
+    }
+    settleAndRefresh();
+    return visit;
+  }
+  final visit = result.map;
+  if (context.mounted) {
+    showSnack(
+      context,
+      visit['location_captured'] == true
+          ? 'Checked in · customer location saved'
+          : visit['visit_type'] == 'offsite'
+              ? 'Checked in as offsite visit'
+              : 'Checked in',
+    );
+  }
+  settleAndRefresh();
+  return visit;
+}

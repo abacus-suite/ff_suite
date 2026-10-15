@@ -1,0 +1,929 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../../core/format.dart';
+import '../../core/services.dart';
+import '../../core/theme.dart';
+import '../../widgets/common.dart';
+import '../../widgets/group_kit.dart';
+import '../../widgets/member_picker.dart';
+import 'demand_detail_screen.dart';
+import 'demand_send.dart';
+import '../../widgets/skeleton.dart';
+
+class OrdersScreen extends StatefulWidget {
+  const OrdersScreen({super.key, this.embedded = false});
+
+  final bool embedded;
+
+  @override
+  State<OrdersScreen> createState() => _OrdersScreenState();
+}
+
+class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver {
+  List<Map<String, dynamic>> _orders = [];
+  Map<String, dynamic>? _summary;
+  bool _loading = true;
+  String? _error;
+  String _member = 'me';
+  String _period = 'today';
+  DateTimeRange _range = Periods.range('today');
+  String _groupBy = 'none';
+  String _status = 'all';
+
+  /// Demands by whether a distributor is linked to them: all, linked, unlinked.
+  String _mapping = 'all';
+
+  /// Both kinds are listed on the demand flow: outlet demands, and orders taken for distributors.
+  String _kind = 'all';
+
+  /// The top box that was tapped: only its states are listed. Tapping it again clears it.
+  List<String>? _boxStates;
+  final _search = TextEditingController();
+  Timer? _debounce;
+  final Set<String> _collapsed = {};
+  String _sort = 'latest';
+
+  /// Demands ticked to be sent on to a distributor. Empty means nothing is
+  /// being picked, and the list behaves as it always did.
+  final Set<int> _picked = {};
+  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Coming to this tab, an order answered by a distributor, or a minute going by: the list is brought up to date.
+    Services.refresh.addListener(_quiet);
+    _poll = Timer.periodic(const Duration(seconds: 45), (_) => _quiet());
+    _load();
+  }
+
+  Timer? _poll;
+
+  /// A refresh that does not blank the list: used when something may have changed behind it.
+  void _quiet() {
+    if (mounted && !_loading) _load(silent: true);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _quiet();
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    Services.refresh.removeListener(_quiet);
+    WidgetsBinding.instance.removeObserver(this);
+    _debounce?.cancel();
+    _search.dispose();
+    super.dispose();
+  }
+
+  bool get _demandFlow => Services.auth.profile?.isDemandFlow ?? false;
+
+  /// Sending demand on is a commercial act, so not everybody has it.
+  bool get _canSend => _demandFlow && (Services.auth.profile?.demandSubmit ?? false);
+
+  /// A demand already sent on, or cancelled, cannot be sent again.
+  bool _sendable(Map<String, dynamic> o) => o['kind'] != 'order' && demandSendable(o);
+
+  Future<void> _sendPicked() async {
+    final demands = _orders.where((o) => _picked.contains(o['id'])).toList();
+    if (demands.isEmpty) return;
+    setState(() => _sending = true);
+    try {
+      final sent = await sendDemands(context, demands);
+      if (sent && mounted) {
+        setState(_picked.clear);
+        await _load();
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Map<String, dynamic> get _query => {
+        'member': _member,
+        'start': fmtDate(_range.start),
+        'end': fmtDate(_range.end),
+        if (_search.text.trim().isNotEmpty) 'q': _search.text.trim(),
+      };
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) setState(() => _loading = true);
+    if (_orders.isEmpty && _summary == null) {
+      // The last copy of this view first; the fresh one replaces it.
+      final saved = await Future.wait([
+        Services.api.peek(_demandFlow ? '/api/v1/demands' : '/api/v1/orders', query: {..._query, 'limit': 1000}),
+        Services.api.peek('/api/v1/orders/summary', query: _query),
+        if (_demandFlow) Services.api.peek('/api/v1/orders', query: {..._query, 'limit': 1000}),
+      ]);
+      if (mounted && saved[0] is List && saved[1] is Map && _orders.isEmpty) {
+        setState(() {
+          _orders = [
+            ...(saved[0] as List).cast<Map<String, dynamic>>(),
+            if (_demandFlow && saved.length > 2 && saved[2] is List) ..._distributorOrders(saved[2] as List),
+          ];
+          _summary = (saved[1] as Map).cast<String, dynamic>();
+        });
+      }
+    }
+    try {
+      final results = await Future.wait([
+        Services.api.get(_demandFlow ? '/api/v1/demands' : '/api/v1/orders', query: {..._query, 'limit': 1000}),
+        Services.api.get('/api/v1/orders/summary', query: _query),
+        if (_demandFlow) Services.api.get('/api/v1/orders', query: {..._query, 'limit': 1000}),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _orders = [
+          ...(results[0] as List).cast<Map<String, dynamic>>(),
+          if (_demandFlow && results.length > 2) ..._distributorOrders(results[2] as List),
+        ];
+        _summary = results[1] as Map<String, dynamic>;
+        _error = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted && !silent) setState(() => _loading = false);
+    }
+  }
+
+  /// Orders taken for distributors. Those that only exist because a demand was sent on are left out:
+  /// the demand already shows them.
+  List<Map<String, dynamic>> _distributorOrders(List rows) => [
+        for (final r in rows.cast<Map<String, dynamic>>())
+          if (r['for_demand'] != true) {...r, 'kind': 'order'},
+      ];
+
+  Future<void> _showOrder(int id, {bool isOrder = false}) async {
+    if (_demandFlow && !isOrder) {
+      final changed = await Navigator.of(context)
+          .push<bool>(MaterialPageRoute(builder: (_) => DemandDetailScreen(id: id, canSend: _canSend)));
+      if (changed == true) _load();
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _OrderDetail(orderId: id, demandFlow: false),
+    );
+  }
+
+  List<GroupOption> get _groupOptions => [
+        ...dateGroups,
+        if (_member != 'me') const GroupOption('employee', 'Employee', Icons.person_rounded),
+        const GroupOption('customer', 'Customer', Icons.storefront_rounded),
+        if (_demandFlow) const GroupOption('route', 'Beat', Icons.route_rounded),
+        if (_demandFlow) const GroupOption('product', 'Product', Icons.inventory_2_rounded),
+      ];
+
+  List<Map<String, dynamic>> get _visible => _orders.where((o) {
+        if (_status != 'all' && o['state'] != _status) return false;
+        if (_boxStates != null && !_inBox(o, _boxStates!)) return false;
+        if (_demandFlow && _kind != 'all' && (o['kind'] == 'order') != (_kind == 'order')) return false;
+        if (_demandFlow && _mapping != 'all') {
+          final linked = o['distributor'] != null;
+          if ((_mapping == 'linked') != linked) return false;
+        }
+        return true;
+      }).toList();
+
+  /// (sortable key, title, rows, value) per group; one untitled section when not grouped.
+  List<(String, String, List<Map<String, dynamic>>, double)> _sections() {
+    final rows = _visible;
+    if (_groupBy == 'none') return [('', '', rows, 0)];
+    final titles = <String, String>{};
+    final members = <String, List<Map<String, dynamic>>>{};
+    final values = <String, double>{};
+    void add(String key, String title, Map<String, dynamic> row, double value) {
+      titles[key] = title;
+      members.putIfAbsent(key, () => []).add(row);
+      values[key] = (values[key] ?? 0) + value;
+    }
+
+    for (final o in rows) {
+      final amount = (o['amount_total'] as num? ?? 0).toDouble();
+      switch (_groupBy) {
+        case 'employee':
+          final e = o['employee'] as Map?;
+          add('${e?['id']}', '${e?['name'] ?? '—'}', o, amount);
+        case 'customer':
+          final c = o['client'] as Map?;
+          add('${c?['name']}', '${c?['name'] ?? '—'}', o, amount);
+        case 'route':
+          final r = o['route'] as Map?;
+          add('${r?['name'] ?? '~'}', '${r?['name'] ?? 'No beat'}', o, amount);
+        case 'product':
+          for (final p in ((o['products'] as List?) ?? []).cast<Map<String, dynamic>>()) {
+            add('${p['name']}', '${p['name']}', o, (p['subtotal'] as num? ?? 0).toDouble());
+          }
+        default:
+          final date = parseServerTime(o['date']);
+          if (date == null) continue;
+          final bucket = dateBucket(date.toLocal(), _groupBy);
+          add(bucket.$1, bucket.$2, o, amount);
+      }
+    }
+    final keys = titles.keys.toList();
+    if (dateGroups.any((g) => g.key == _groupBy)) {
+      keys.sort((a, b) => b.compareTo(a));
+    } else {
+      keys.sort((a, b) => values[b]!.compareTo(values[a]!));
+    }
+    return [for (final k in keys) (k, titles[k]!, members[k]!, values[k]!)];
+  }
+
+  /// Newest first, biggest first, or by customer.
+  List<Map<String, dynamic>> _sorted(List<Map<String, dynamic>> rows) {
+    final out = [...rows];
+    switch (_sort) {
+      case 'amount':
+        out.sort((a, b) =>
+            ((b['amount_total'] as num?) ?? 0).compareTo((a['amount_total'] as num?) ?? 0));
+      case 'customer':
+        out.sort((a, b) => '${(a['client'] as Map?)?['name']}'
+            .toLowerCase()
+            .compareTo('${(b['client'] as Map?)?['name']}'.toLowerCase()));
+      default:
+        out.sort((a, b) => '${b['date']}'.compareTo('${a['date']}'));
+    }
+    return out;
+  }
+
+  /// Whether a record belongs to a box. "Out for Delivery" is a distributor order that is confirmed
+  /// and not yet fully delivered.
+  bool _inBox(Map<String, dynamic> o, List<String> states) {
+    if (states.length == 1 && states.first == '__out') {
+      final delivered = '${o['delivery_status']}'.toLowerCase();
+      return o['kind'] == 'order' &&
+          const ['sale', 'done'].contains('${o['state']}') &&
+          delivered != 'full' &&
+          delivered != 'delivered';
+    }
+    return states.contains('${o['state']}');
+  }
+
+  int _countOf(List<String> states) => _orders.where((o) => _inBox(o, states)).length;
+
+  /// The boxes across the top, named after the states this flow really uses.
+  List<(IconData, List<String>, String, Color)> get _statBoxes => _demandFlow
+      ? const [
+          (Icons.description_rounded, ['draft', 'submitted'], 'To Submit', AppColors.primary),
+          (Icons.local_shipping_rounded, ['waiting', 'quoted', 'partial'], 'With distributor', AppColors.warning),
+          (Icons.thumb_up_alt_rounded, ['approved'], 'Approved', AppColors.primary),
+          (Icons.inventory_rounded, ['supplied'], 'Delivered', AppColors.success),
+          (Icons.delivery_dining_rounded, ['__out'], 'Out for Delivery', AppColors.teal),
+          (Icons.cancel_rounded, ['cancelled', 'cancel'], 'Cancelled', AppColors.danger),
+        ]
+      : const [
+          (Icons.description_rounded, ['draft', 'sent'], 'To Submit', AppColors.primary),
+          (Icons.check_circle_rounded, ['sale', 'done'], 'Confirmed', AppColors.success),
+          (Icons.cancel_rounded, ['cancel'], 'Cancelled', AppColors.danger),
+        ];
+
+  /// The card for one order or demand.
+  Widget _row(Map<String, dynamic> o) {
+    final products = ((o['products'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final count = products.isNotEmpty ? products.length : ((o['line_count'] as num?) ?? 0).toInt();
+    final units = (o['quantity_total'] as num?) ??
+        products.fold<num>(0, (sum, p) => sum + ((p['qty'] as num?) ?? 0));
+    final date = parseServerTime(o['date']);
+    final route = asText((o['route'] as Map?)?['name']);
+    final state = '${o['state']}';
+    final tone = switch (state) {
+      'supplied' || 'approved' || 'sale' || 'done' => AppColors.success,
+      'cancelled' || 'cancel' || 'rejected' => AppColors.danger,
+      'quoted' || 'partial' || 'waiting' => AppColors.warning,
+      _ => AppColors.primary,
+    };
+    final id = o['id'] as int;
+    final picking = _picked.isNotEmpty;
+    final pickable = _canSend && _sendable(o);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        // While demands are being picked, a tap ticks instead of opening.
+        onTap: picking && pickable
+            ? () => setState(() => _picked.contains(id) ? _picked.remove(id) : _picked.add(id))
+            : () => _showOrder(id, isOrder: o['kind'] == 'order'),
+        onLongPress: pickable && !picking ? () => setState(() => _picked.add(id)) : null,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (picking && pickable)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 2),
+                      child: Icon(
+                          _picked.contains(id)
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked_rounded,
+                          size: 26,
+                          color: _picked.contains(id) ? AppColors.primary : AppColors.border),
+                    )
+                  else
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                          color: tone.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(13)),
+                      child: Icon(_demandFlow ? Icons.assignment_rounded : Icons.receipt_long_rounded,
+                          size: 20, color: tone),
+                    ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${o['name']}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                        Text('${(o['client'] as Map?)?['name'] ?? ''}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                            color: tone.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                                state == 'supplied' || state == 'sale' || state == 'done'
+                                    ? Icons.check_circle_rounded
+                                    : (state == 'cancelled' || state == 'cancel' || state == 'rejected'
+                                        ? Icons.cancel_rounded
+                                        : (state == 'quoted' || state == 'partial'
+                                            ? Icons.local_shipping_rounded
+                                            : Icons.schedule_rounded)),
+                                size: 13,
+                                color: tone),
+                            const SizedBox(width: 4),
+                            Text('${o['delivery_status'] ?? o['state_label'] ?? state}',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: tone)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Text(fmtMoney(o['amount_total'] as num?, o['currency'] as String?),
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                          const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Container(height: 1, color: AppColors.border),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  if (date != null)
+                    _meta(Icons.calendar_today_rounded, prettyDay(date.toLocal()), fmtTime(o['date'])),
+                  if (count > 0) ...[
+                    _divider(),
+                    _meta(Icons.inventory_2_rounded, '$count product${count == 1 ? '' : 's'}',
+                        units > 0 ? '${fmtQty(units)} unit${units == 1 ? '' : 's'}' : ''),
+                  ],
+                  if (route != null) ...[
+                    _divider(),
+                    _meta(Icons.place_rounded, route, ''),
+                  ],
+                  if (_member != 'me' && asText((o['employee'] as Map?)?['name']) != null) ...[
+                    _divider(),
+                    _meta(Icons.person_rounded, '${(o['employee'] as Map)['name']}', ''),
+                  ],
+                  if (o['visit_type'] == 'onsite' || o['visit_type'] == 'offsite') ...[
+                    _divider(),
+                    _meta(o['visit_type'] == 'offsite' ? Icons.wrong_location_rounded : Icons.storefront_rounded,
+                        o['visit_type'] == 'offsite' ? 'Offsite' : 'Onsite', ''),
+                  ],
+                ],
+              ),
+              // An order taken for a distributor has no distributor to link: the customer is the distributor.
+              if (_demandFlow && o['kind'] != 'order') ...[
+                const SizedBox(height: 10),
+                _distributorChip(o),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Which distributor this demand is linked to, or that none is yet.
+  Widget _distributorChip(Map<String, dynamic> o) {
+    final dist = (o['distributor'] as Map?)?['name'];
+    final linked = dist != null;
+    final tint = linked ? AppColors.success : AppColors.warning;
+    final free = o['foc_status'];
+    return Row(children: [
+      Flexible(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(color: tint.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(linked ? Icons.local_shipping_rounded : Icons.link_off_rounded, size: 14, color: tint),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(linked ? '$dist' : 'No distributor linked',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: tint)),
+            ),
+          ]),
+        ),
+      ),
+      if (free == 'pending' || free == 'requested') ...[
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(color: AppColors.purple.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.redeem_rounded, size: 13, color: AppColors.purple),
+            const SizedBox(width: 4),
+            Text(free == 'pending' ? 'Free goods' : 'Free goods on order',
+                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.purple)),
+          ]),
+        ),
+      ],
+    ]);
+  }
+
+  Widget _divider() => Container(
+        width: 1,
+        height: 24,
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        color: AppColors.border,
+      );
+
+  Widget _meta(IconData icon, String value, String hint) => Flexible(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(9)),
+              child: Icon(icon, size: 14, color: AppColors.primary),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  if (hint.isNotEmpty)
+                    Text(hint, style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _statBox(IconData icon, String value, String label, Color tint, List<String> states) {
+    final on = _boxStates != null && _boxStates!.join(',') == states.join(',');
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _boxStates = on ? null : states),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          decoration: BoxDecoration(
+              color: tint.withValues(alpha: on ? 0.2 : 0.08),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: on ? tint : Colors.transparent, width: 1.6)),
+          child: Column(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
+                child: Icon(icon, size: 17, color: Colors.white),
+              ),
+              const SizedBox(height: 6),
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              Text(label,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11.5, height: 1.15, color: AppColors.muted)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sortPill() => Container(
+        padding: const EdgeInsets.only(left: 10, right: 2),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: _sort,
+            isDense: true,
+            borderRadius: BorderRadius.circular(14),
+            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.muted),
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.text),
+            items: const [
+              DropdownMenuItem(value: 'latest', child: Text('Latest')),
+              DropdownMenuItem(value: 'amount', child: Text('Biggest')),
+              DropdownMenuItem(value: 'customer', child: Text('Customer')),
+            ],
+            onChanged: (value) => value == null ? null : setState(() => _sort = value),
+          ),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = _summary;
+    final word = _demandFlow ? 'demands' : 'orders';
+    final one = _demandFlow ? 'demand' : 'order';
+    final statuses = <String, String>{
+      for (final o in _orders) '${o['state']}': '${o['state_label'] ?? o['state']}',
+    };
+    final sections = _sections();
+    final periodLabel = Periods.choices.firstWhere((p) => p.$1 == _period).$2;
+    final sendable = _visible.where(_sendable).toList();
+    return Scaffold(
+      bottomNavigationBar: _picked.isEmpty
+          ? null
+          : SafeArea(
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: AppColors.border)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('${_picked.length} of ${sendable.length} chosen',
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                          GestureDetector(
+                            onTap: () => setState(() {
+                              if (_picked.length == sendable.length) {
+                                _picked.clear();
+                              } else {
+                                _picked
+                                  ..clear()
+                                  ..addAll(sendable.map((o) => o['id'] as int));
+                              }
+                            }),
+                            child: Text(
+                                _picked.length == sendable.length ? 'Clear all' : 'Select all',
+                                style: const TextStyle(
+                                    fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    FilledButton.icon(
+                      onPressed: _sending ? null : _sendPicked,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      icon: _sending
+                          ? const SizedBox(
+                              width: 16, height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.local_shipping_rounded, size: 18),
+                      label: const Text('Send to distributor'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 12, 6),
+              child: Row(
+                children: [
+                  if (!widget.embedded && Navigator.of(context).canPop())
+                    IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.arrow_back_rounded)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('My Orders',
+                            style: const TextStyle(
+                                fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.text)),
+                        const Text('Track your orders',
+                            style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    tooltip: 'Period',
+                    onSelected: (v) async {
+                      if (v == 'custom') {
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now().add(const Duration(days: 1)),
+                          initialDateRange: _range,
+                        );
+                        if (picked == null) return;
+                        setState(() {
+                          _period = 'custom';
+                          _range = picked;
+                        });
+                      } else {
+                        setState(() {
+                          _period = v;
+                          _range = Periods.range(v);
+                        });
+                      }
+                      _load();
+                    },
+                    itemBuilder: (_) => [
+                      for (final c in Periods.choices) PopupMenuItem(value: c.$1, child: Text(c.$2)),
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(Periods.choices.firstWhere((p) => p.$1 == _period, orElse: () => Periods.choices.first).$2,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                        const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                      ]),
+                    ),
+                  ),
+                  if (_picked.isNotEmpty)
+                    IconButton(
+                      tooltip: 'Stop choosing',
+                      onPressed: () => setState(_picked.clear),
+                      icon: const Icon(Icons.close_rounded),
+                    )
+                  else if (_canSend) ...[
+                    IconButton(
+                      tooltip: 'Choose demands to send',
+                      onPressed: _visible.where(_sendable).isEmpty
+                          ? null
+                          : () => setState(() => _picked.add(_visible.firstWhere(_sendable)['id'] as int)),
+                      icon: const Icon(Icons.checklist_rounded),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+              child: Card(
+                margin: const EdgeInsets.only(bottom: 14),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    children: [
+                      for (var start = 0; start < _statBoxes.length; start += 3)
+                        Padding(
+                          padding: EdgeInsets.only(top: start == 0 ? 0 : 6),
+                          child: Row(
+                            children: [
+                              for (final box in _statBoxes.skip(start).take(3))
+                                _statBox(box.$1, '${_countOf(box.$2)}', box.$3, box.$4, box.$2),
+                              // A short last row keeps the boxes the same width as the rest.
+                              for (var pad = _statBoxes.skip(start).take(3).length; pad < 3 && _statBoxes.length > 3; pad++)
+                                const Expanded(child: SizedBox()),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(children: [
+                  Expanded(
+                    child: TextField(
+                  controller: _search,
+                  onChanged: (_) {
+                    _debounce?.cancel();
+                    _debounce = Timer(const Duration(milliseconds: 450), _load);
+                  },
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search_rounded, color: AppColors.muted),
+                    hintText: 'Search number, customer...',
+                    border: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+                  ),
+                  if (_demandFlow)
+                    PopupMenuButton<String>(
+                      tooltip: 'Show',
+                      icon: Icon(Icons.filter_list_rounded,
+                          color: _kind == 'all' ? AppColors.muted : AppColors.primary),
+                      onSelected: (v) => setState(() => _kind = v),
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'all', child: Text('All')),
+                        PopupMenuItem(value: 'demand', child: Text('Outlets')),
+                        PopupMenuItem(value: 'order', child: Text('Distributors')),
+                      ],
+                    ),
+                ]),
+              ),
+            ),
+            if (_loading) const LinearProgressIndicator(minHeight: 2),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                  children: [
+                    if (_error != null) Text(_error!),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Text(periodLabel,
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                          const Spacer(),
+                          if (summary != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                  '${summary['count']} ${summary['count'] == 1 ? one : word}  ·  '
+                                  '${fmtMoney(summary['amount_total'] as num?, summary['currency'] as String?)}',
+                                  style: const TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.primary)),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (_visible.isEmpty && !_loading)
+                      Padding(
+                        padding: const EdgeInsets.all(28),
+                        child: EmptyView(
+                            icon: Icons.receipt_long_rounded, text: 'No $word in this period'),
+                      ),
+                    for (final section in sections) ...[
+                      if (_groupBy != 'none')
+                        GroupHeader(
+                          title: section.$2,
+                          count: section.$3.length,
+                          totals: [fmtMoney(section.$4, summary?['currency'] as String?)],
+                          expanded: !_collapsed.contains(section.$1),
+                          onTap: () => setState(() {
+                            if (!_collapsed.remove(section.$1)) _collapsed.add(section.$1);
+                          }),
+                        ),
+                      if (_groupBy == 'none' || !_collapsed.contains(section.$1))
+                        for (final o in _sorted(section.$3)) _row(o),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderDetail extends StatelessWidget {
+  const _OrderDetail({required this.orderId, required this.demandFlow});
+
+  final int orderId;
+  final bool demandFlow;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<dynamic>(
+      future: Services.api.get(demandFlow ? '/api/v1/demands/$orderId' : '/api/v1/orders/$orderId'),
+      builder: (context, snap) {
+        if (snap.hasError) return Padding(padding: const EdgeInsets.all(24), child: Text('${snap.error}'));
+        if (!snap.hasData) return const Padding(padding: EdgeInsets.all(48), child: const LoadingView());
+        final o = snap.data as Map<String, dynamic>;
+        final lines = ((o['lines'] as List?) ?? []).cast<Map<String, dynamic>>();
+        final currency = o['currency'] as String?;
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.6,
+          builder: (context, controller) => ListView(
+            controller: controller,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            children: [
+              Text('${o['name']} · ${o['state_label']}', style: Theme.of(context).textTheme.titleLarge),
+              Text('${(o['client'] as Map?)?['name'] ?? ''}'),
+              const Divider(),
+              for (final l in lines)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('${(l['product'] as Map)['name']}'),
+                  subtitle: Text('${fmtQty(l['qty'] as num)} × ${fmtMoney(l['price_unit'] as num?, currency)}'
+                      '${(l['tax_percent'] as num? ?? 0) > 0 ? ' · +${fmtQty(l['tax_percent'] as num)}% tax' : ''}'
+                      '${(l['discount'] as num? ?? 0) > 0 ? ' · ${l['discount']}% off' : ''}'
+                      '${(l['quoted_qty'] as num? ?? 0) > 0 ? ' · ${fmtQty(l['quoted_qty'] as num)} quoted' : ''}'),
+                  trailing: Text(fmtMoney(l['subtotal'] as num?, currency)),
+                ),
+              const Divider(),
+              if (o['amount_untaxed'] != null) ...[
+                ListTile(contentPadding: EdgeInsets.zero, title: const Text('Untaxed'),
+                    trailing: Text(fmtMoney(o['amount_untaxed'] as num?, currency))),
+                ListTile(contentPadding: EdgeInsets.zero, title: const Text('Tax'),
+                    trailing: Text(fmtMoney(o['amount_tax'] as num?, currency))),
+              ],
+              ListTile(contentPadding: EdgeInsets.zero, title: const Text('Total'),
+                  trailing: Text(fmtMoney(o['amount_total'] as num?, currency),
+                      style: const TextStyle(fontWeight: FontWeight.bold))),
+              if (o['foc_status'] != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  switch ('${o['foc_status']}') {
+                    'pending' => 'Free goods: go on the distributor order when sent',
+                    'requested' => 'Free goods: on the distributor order, waiting for delivery',
+                    _ => 'Free goods: delivered',
+                  },
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                if (o['foc_status'] == 'requested')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.check_rounded),
+                      label: const Text('Free goods delivered'),
+                      onPressed: () async {
+                        try {
+                          await Services.api.post('/api/v1/demands/${o['id']}/foc-delivered', {});
+                          if (context.mounted) Navigator.of(context).pop();
+                        } catch (e) {
+                          if (context.mounted) showProblem(context, e.toString());
+                        }
+                      },
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}

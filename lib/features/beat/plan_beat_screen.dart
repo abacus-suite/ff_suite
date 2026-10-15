@@ -1,0 +1,1450 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
+
+import 'create_beat_screen.dart';
+import 'planned_day_screen.dart';
+
+import '../../core/format.dart';
+import '../../core/services.dart';
+import '../../core/theme.dart';
+import '../../widgets/common.dart';
+import '../../widgets/skeleton.dart';
+
+/// Create a beat plan: for me or someone in my team, one day, one or several routes,
+/// with the customers of each route ticked. Saving opens the planned days.
+class PlanBeatScreen extends StatefulWidget {
+  const PlanBeatScreen({super.key, this.date, this.member, this.memberName, this.startOnCustomers = false});
+
+  /// The day to plan. Given when this is opened to add to a day already made.
+  final DateTime? date;
+  final String? member;
+  final String? memberName;
+  final bool startOnCustomers;
+
+  @override
+  State<PlanBeatScreen> createState() => _PlanBeatScreenState();
+}
+
+class _PlanBeatScreenState extends State<PlanBeatScreen> {
+  late DateTime _date = DateUtils.dateOnly(widget.date ?? DateTime.now());
+  List<Map<String, dynamic>> _members = [];
+  Map<String, dynamic>? _member; // null = me
+  List<Map<String, dynamic>> _routes = [];
+  final List<Map<String, dynamic>> _chosen = [];
+  final Map<int, List<Map<String, dynamic>>> _customers = {};
+
+  /// Who else has this beat, or one of its customers, planned for the same day.
+  final Map<int, Map<String, dynamic>> _alsoPlanned = {};
+  final Map<int, Set<int>> _selected = {};
+  final Set<int> _loadingRoutes = {};
+  bool _loading = true;
+  bool _busy = false;
+  String? _error;
+
+  /// 'beat' picks a route and works through its customers; 'customer' picks the
+  /// customers themselves. A lead has no beat, so it can only be planned the
+  /// second way - and sometimes a day is simply a handful of shops.
+  String _mode = 'beat';
+
+  /// How many more weeks to repeat this plan, on the same weekday. Zero is just this day.
+  int _repeatWeeks = 0;
+
+  /// Every contact this person may plan, in one list.
+  List<Map<String, dynamic>> _contacts = [];
+
+  /// Narrows the list to one kind of contact, or to the ones nobody has been to.
+  String _filter = 'all';
+  final Set<int> _picked = {};
+  final Set<int> _visited = {};
+  bool _loadingContacts = false;
+  String _search = '';
+  Timer? _searchDebounce;
+
+  String get _memberParam => _member == null ? 'me' : '${_member!['id']}';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.startOnCustomers) _mode = 'customer';
+    _start();
+  }
+
+  Future<void> _start() async {
+    try {
+      final team = await Services.api.get('/api/v1/team/members') as Map<String, dynamic>;
+      _members = ((team['members'] as List?) ?? []).cast<Map<String, dynamic>>();
+      // Opened to add to somebody else's day: stay on that somebody.
+      if (widget.member != null && widget.member != 'me') {
+        _member = _members.firstWhere((m) => '${m['id']}' == widget.member,
+            orElse: () => {'id': widget.member, 'name': widget.memberName ?? 'Team member'});
+      }
+    } catch (_) {
+      _members = [];
+    }
+    await _loadRoutes();
+    if (_mode == 'customer' && mounted) await _loadContacts();
+  }
+
+  Future<void> _loadRoutes() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _chosen.clear();
+      _customers.clear();
+      _selected.clear();
+    });
+    try {
+      final list = (await Services.api.get('/api/v1/route-plan/routes', query: {'member': _memberParam}) as List)
+          .cast<Map<String, dynamic>>();
+      if (mounted) setState(() => _routes = list);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadCustomers(Map<String, dynamic> route) async {
+    final id = route['id'] as int;
+    setState(() => _loadingRoutes.add(id));
+    try {
+      final data = await Services.api.get('/api/v1/route-plan/customers',
+          query: {'beat_id': id, 'date': fmtDate(_date), 'member': _memberParam}) as Map<String, dynamic>;
+      final customers = ((data['customers'] as List?) ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      setState(() {
+        _customers[id] = customers;
+        _alsoPlanned[id] = (data['already_planned'] as Map?)?.cast<String, dynamic>() ?? const {};
+        _selected[id] = customers.where((c) => c['selected'] == true).map((c) => c['id'] as int).toSet();
+      });
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _loadingRoutes.remove(id));
+    }
+  }
+
+  /// Everything this person may plan, in one list, with today's ticks kept.
+  Future<void> _loadContacts() async {
+    setState(() => _loadingContacts = true);
+    try {
+      final data = await Services.api.get('/api/v1/route-plan/contacts', query: {
+        'date': fmtDate(_date),
+        'member': _memberParam,
+        if (_search.trim().isNotEmpty) 'q': _search.trim(),
+      }) as Map<String, dynamic>;
+      final contacts = ((data['contacts'] as List?) ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      setState(() {
+        _contacts = contacts;
+        // Ticks already saved for that day come back ticked, and what was
+        // chosen before a search must survive the search.
+        for (final c in contacts) {
+          final id = c['id'] as int;
+          if (c['selected'] == true) _picked.add(id);
+          if (c['visited'] == true) _visited.add(id);
+          _known[id] = c;
+        }
+      });
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _loadingContacts = false);
+    }
+  }
+
+  /// Everything seen so far, so a chosen contact can still be named and
+  /// unticked after a search has scrolled it out of the list.
+  final Map<int, Map<String, dynamic>> _known = {};
+
+  /// What the list shows now: the filter, applied to what the server sent.
+  List<Map<String, dynamic>> get _shown {
+    if (_filter == 'all') return _contacts;
+    if (_filter == 'new') return _contacts.where((c) => c['last_visit_at'] == null).toList();
+    return _contacts.where((c) => c['category_type'] == _filter).toList();
+  }
+
+  void _onSearch(String value) {
+    _search = value;
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), _loadContacts);
+  }
+
+  /// Draw a route here and now, then put customers on it.
+  ///
+  /// The two belong together: an empty route is no use to anybody, and the
+  /// person who knew it was missing is the person who knows what is on it.
+  Future<void> _newBeat() async {
+    final beat = await Navigator.of(context)
+        .push<Map<String, dynamic>>(MaterialPageRoute(builder: (_) => const CreateBeatScreen()));
+    if (beat == null || !mounted) return;
+    await _loadRoutes();
+    if (!mounted) return;
+    final waiting = beat['approval_state'] == 'pending';
+    showSnack(
+        context,
+        waiting
+            ? '${beat['name']} created · waiting for the office'
+            : '${beat['name']} created');
+    await _addToBeat(beat);
+  }
+
+  /// Puts customers on a route just drawn.
+  Future<void> _addToBeat(Map<String, dynamic> beat) async {
+    if (_contacts.isEmpty) await _loadContacts();
+    if (!mounted) return;
+    final chosen = await showModalBottomSheet<Set<int>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheet) => _BeatCustomerPicker(
+        beatName: '${beat['name']}',
+        contacts: _contacts,
+      ),
+    );
+    if (chosen == null || chosen.isEmpty || !mounted) return;
+    try {
+      final result = await Services.api.post('/api/v1/beats/${beat['id']}/customers', {
+        'partner_ids': chosen.toList(),
+      }) as Map<String, dynamic>;
+      if (!mounted) return;
+      showSnack(context, '${result['added']} added to ${beat['name']}');
+      await _loadRoutes();
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    }
+  }
+
+  Future<void> _pickMember() async {
+    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheet) => SizedBox(
+        height: MediaQuery.of(sheet).size.height * 0.7,
+        child: ListView(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person_rounded, color: AppColors.primary),
+              title: const Text('Myself', style: TextStyle(fontWeight: FontWeight.w700)),
+              trailing: _member == null ? const Icon(Icons.check_rounded, color: AppColors.primary) : null,
+              onTap: () => Navigator.pop(sheet, <String, dynamic>{}),
+            ),
+            const Divider(),
+            for (final m in _members)
+              ListTile(
+                leading: const Icon(Icons.person_outline_rounded),
+                title: Text('${m['name']}'),
+                subtitle: Text([if (m['code'] != null) m['code'], if (m['team'] is Map) (m['team'] as Map)['name']]
+                    .join(' · ')),
+                trailing: _member?['id'] == m['id'] ? const Icon(Icons.check_rounded, color: AppColors.primary) : null,
+                onTap: () => Navigator.pop(sheet, m),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    setState(() => _member = picked.isEmpty ? null : picked);
+    await _loadRoutes();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateUtils.dateOnly(DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 120)),
+    );
+    if (picked == null) return;
+    setState(() => _date = picked);
+    if (_mode == 'customer') {
+      _picked.clear();
+      _visited.clear();
+      _known.clear();
+      await _loadContacts();
+      return;
+    }
+    for (final route in List.of(_chosen)) {
+      await _loadCustomers(route);
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _pickRoutes(String routeLabel) async {
+    final chosenIds = _chosen.map((r) => r['id'] as int).toSet();
+    final result = await showModalBottomSheet<Set<int>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheet) {
+        var query = '';
+        final picked = {...chosenIds};
+        return StatefulBuilder(builder: (context, setSheet) {
+          final q = query.trim().toLowerCase();
+          final shown = q.isEmpty
+              ? _routes
+              : _routes.where((r) => '${r['name']} ${r['city'] ?? ''}'.toLowerCase().contains(q)).toList();
+          return SizedBox(
+            height: MediaQuery.of(context).size.height * 0.8,
+            child: Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: TextField(
+                      onChanged: (v) => setSheet(() => query = v),
+                      decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.search_rounded), hintText: 'Search $routeLabel', isDense: true),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: shown.length,
+                      itemBuilder: (context, i) {
+                        final r = shown[i];
+                        final id = r['id'] as int;
+                        return CheckboxListTile(
+                          value: picked.contains(id),
+                          onChanged: (on) => setSheet(() => on == true ? picked.add(id) : picked.remove(id)),
+                          title: Row(
+                            children: [
+                              Flexible(
+                                child: Text('${r['name']}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                              ),
+                              if (r['approval_state'] == 'pending') ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.warning.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Text('Waiting',
+                                      style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.warning)),
+                                ),
+                              ],
+                            ],
+                          ),
+                          subtitle: Text([
+                            if (r['city'] != null) r['city'],
+                            '${r['customer_count']} customers',
+                            if ((r['planned_km'] as num? ?? 0) > 0) '${r['planned_km']} km',
+                          ].join(' · ')),
+                        );
+                      },
+                    ),
+                  ),
+                  SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          // The one that is missing is drawn from here.
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(sheet, <int>{});
+                              _newBeat();
+                            },
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: Text('New $routeLabel'),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () => Navigator.pop(sheet, picked),
+                              child: Text(
+                                  'Use ${picked.length} ${picked.length == 1 ? routeLabel : '${routeLabel}s'}'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
+      },
+    );
+    if (result == null) return;
+    final next = _routes.where((r) => result.contains(r['id'])).toList();
+    setState(() {
+      _chosen
+        ..clear()
+        ..addAll(next);
+      _customers.removeWhere((id, _) => !result.contains(id));
+      _selected.removeWhere((id, _) => !result.contains(id));
+    });
+    for (final route in next) {
+      if (!_customers.containsKey(route['id'])) await _loadCustomers(route);
+    }
+  }
+
+  Future<void> _save() async {
+    if (_mode == 'customer') return _saveCustomers();
+    final routes = [
+      for (final r in _chosen)
+        if ((_selected[r['id']] ?? {}).isNotEmpty) {'beat_id': r['id'], 'partner_ids': _selected[r['id']]!.toList()},
+    ];
+    if (routes.isEmpty) {
+      showProblem(context, 'Choose at least one route with customers.');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final result = await Services.outbox.submit('/api/v1/route-plan/days', {
+        'uuid': const Uuid().v4(),
+        'date': fmtDate(_date),
+        'member': _memberParam,
+        'routes': routes,
+        if (_repeatWeeks > 0) 'repeat_weeks': _repeatWeeks,
+      });
+      settleAndRefresh();
+      if (!mounted) return;
+      if (result.queued) {
+        showSnack(context, 'Saved on the phone; it will be planned when you are online.');
+      } else {
+        _sayRepeats(result.map);
+      }
+      Navigator.of(context).pushReplacement(MaterialPageRoute(
+        builder: (_) => PlannedDaysScreen(
+          member: _memberParam,
+          memberName: _member == null ? null : '${_member!['name']}',
+          start: _date,
+        ),
+      ));
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// The day is the customers themselves: one plan, whatever beats they sit on.
+  Future<void> _saveCustomers() async {
+    if (_picked.isEmpty) {
+      showProblem(context, 'Choose at least one customer.');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final result = await Services.outbox.submit('/api/v1/route-plan/days', {
+        'uuid': const Uuid().v4(),
+        'date': fmtDate(_date),
+        'member': _memberParam,
+        'partner_ids': _picked.toList(),
+        if (_repeatWeeks > 0) 'repeat_weeks': _repeatWeeks,
+      });
+      settleAndRefresh();
+      if (!mounted) return;
+      if (result.queued) {
+        showSnack(context, 'Saved on the phone; it will be planned when you are online.');
+      } else {
+        _sayRepeats(result.map);
+      }
+      Navigator.of(context).pushReplacement(MaterialPageRoute(
+        builder: (_) => PlannedDaysScreen(
+          member: _memberParam,
+          memberName: _member == null ? null : '${_member!['name']}',
+          start: _date,
+        ),
+      ));
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final routeLabel = Services.auth.profile!.routeLabel;
+    final total = _mode == 'customer'
+        ? _picked.length
+        : _selected.values.fold<int>(0, (s, v) => s + v.length);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Create Beat Plan')),
+      body: _loading && _routes.isEmpty
+          ? const LoadingView()
+          : _error != null
+              ? ErrorView(message: _error!, onRetry: _loadRoutes)
+              : Column(
+                  children: [
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          if (_members.isNotEmpty)
+                            Card(
+                              child: ListTile(
+                                leading: const Icon(Icons.people_alt_rounded, color: AppColors.primary),
+                                title: const Text('Plan for'),
+                                subtitle: Text(_member == null ? 'Myself' : '${_member!['name']}',
+                                    style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.text)),
+                                trailing: const Icon(Icons.chevron_right_rounded),
+                                onTap: _pickMember,
+                              ),
+                            ),
+                          Card(
+                            child: ListTile(
+                              leading: const Icon(Icons.calendar_month_rounded, color: AppColors.primary),
+                              title: const Text('Day'),
+                              trailing: Text(fmtDate(_date), style: const TextStyle(fontWeight: FontWeight.w700)),
+                              onTap: _pickDate,
+                            ),
+                          ),
+                          _repeatCard(),
+                          _modeToggle(routeLabel),
+                          if (_mode == 'customer') ...[
+                            const SizedBox(height: 6),
+                            ..._contactPicker(),
+                          ] else
+                          Card(
+                            child: ListTile(
+                              leading: const Icon(Icons.route_rounded, color: AppColors.primary),
+                              title: Text(_chosen.isEmpty
+                                  ? 'Choose ${routeLabel}s'
+                                  : '${_chosen.length} ${_chosen.length == 1 ? routeLabel : '${routeLabel}s'} chosen'),
+                              subtitle: Text(_routes.isEmpty
+                                  ? 'No $routeLabel yet - tap to draw one'
+                                  : _chosen.isEmpty
+                                      ? 'You can pick several at once'
+                                      : _chosen.map((r) => r['name']).join(', '),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis),
+                              trailing: _routes.isEmpty
+                                  ? const Icon(Icons.add_rounded)
+                                  : const Icon(Icons.playlist_add_check_rounded),
+                              onTap: _routes.isEmpty ? _newBeat : () => _pickRoutes(routeLabel),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          if (_mode == 'beat')
+                            for (final route in _chosen) _routeSection(route),
+                        ],
+                      ),
+                    ),
+                    SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: GradientButton(
+                          label: total == 0 ? 'Save Plan' : 'Save Plan · $total customers',
+                          icon: Icons.event_available_rounded,
+                          busy: _busy,
+                          onPressed: _busy || total == 0 ? null : _save,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+    );
+  }
+
+  /// A plan repeated for weeks ahead: how many took, and which could not and why.
+  void _sayRepeats(Map<String, dynamic> result) {
+    if (_repeatWeeks == 0) return;
+    final done = (result['repeated'] as num?)?.toInt() ?? 0;
+    final skipped = ((result['skipped'] as List?) ?? []).cast<Map>();
+    showSnack(
+        context,
+        skipped.isEmpty
+            ? 'Planned, and repeated for $done more ${done == 1 ? 'week' : 'weeks'}'
+            : 'Repeated for $done ${done == 1 ? 'week' : 'weeks'}; ${skipped.length} left out '
+                '(${skipped.first['reason']})');
+  }
+
+  /// Repeat this plan every week, like an alarm: the same plan on the same weekday.
+  Widget _repeatCard() => Card(
+        margin: const EdgeInsets.only(bottom: 4),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _repeatWeeks > 0,
+                onChanged: (on) => setState(() => _repeatWeeks = on ? 4 : 0),
+                title: const Text('Repeat every week', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(
+                    _repeatWeeks == 0
+                        ? 'Plan this day once'
+                        : 'On the same weekday, for $_repeatWeeks more ${_repeatWeeks == 1 ? 'week' : 'weeks'}',
+                    style: const TextStyle(fontSize: 12)),
+              ),
+              if (_repeatWeeks > 0) ...[
+                Row(
+                  children: [
+                    IconButton.filledTonal(
+                      onPressed: _repeatWeeks > 1 ? () => setState(() => _repeatWeeks--) : null,
+                      icon: const Icon(Icons.remove_rounded),
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: Text('$_repeatWeeks ${_repeatWeeks == 1 ? 'week' : 'weeks'}',
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                      ),
+                    ),
+                    IconButton.filledTonal(
+                      onPressed: _repeatWeeks < 12 ? () => setState(() => _repeatWeeks++) : null,
+                      icon: const Icon(Icons.add_rounded),
+                    ),
+                  ],
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(
+                      'A week with a holiday, or that already has the most beats allowed, is left out and said so.',
+                      style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+
+  /// Which way the day is planned. Beat wise is the old flow untouched.
+  Widget _modeToggle(String routeLabel) => Card(
+        margin: const EdgeInsets.only(bottom: 4),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Plan by', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<String>(
+                  segments: [
+                    ButtonSegment(
+                      value: 'beat',
+                      label: Text('${routeLabel[0].toUpperCase()}${routeLabel.substring(1)} wise'),
+                      icon: const Icon(Icons.route_rounded, size: 17),
+                    ),
+                    const ButtonSegment(
+                      value: 'customer',
+                      label: Text('Customer wise'),
+                      icon: Icon(Icons.storefront_rounded, size: 17),
+                    ),
+                  ],
+                  showSelectedIcon: false,
+                  selected: {_mode},
+                  onSelectionChanged: (choice) async {
+                    setState(() => _mode = choice.first);
+                    if (_mode == 'customer' && _contacts.isEmpty) await _loadContacts();
+                  },
+                ),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                _mode == 'customer'
+                    ? 'Pick the customers themselves, from one list. Search by name or city; '
+                        'a lead with no $routeLabel is in there too.'
+                    : 'Pick a $routeLabel and work through its customers.',
+                style: const TextStyle(fontSize: 12, color: AppColors.muted),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  /// The customer picker: a search box and one section per beat.
+  /// The customer picker: search, a few filters, then one list.
+  ///
+  /// One list, not a heap of beats. Somebody looking for a shop by name should
+  /// not have to remember which beat it sits on first, and a lead has no beat
+  /// to be filed under at all. Each row says where it belongs instead.
+  List<Widget> _contactPicker() {
+    final shown = _shown;
+    final pickable = shown.where((c) => !_visited.contains(c['id'])).toList();
+    final allPicked = pickable.isNotEmpty && pickable.every((c) => _picked.contains(c['id']));
+    return [
+      // Search
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        child: Row(
+          children: [
+            const Icon(Icons.search_rounded, size: 20, color: AppColors.muted),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                onChanged: _onSearch,
+                textInputAction: TextInputAction.search,
+                decoration: const InputDecoration(
+                  hintText: 'Search by name or city',
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+              ),
+            ),
+            if (_loadingContacts)
+              const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+          ],
+        ),
+      ),
+      const SizedBox(height: 10),
+
+      // Filters
+      SizedBox(
+        height: 34,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            _filterChip('all', 'All', _contacts.length),
+            _filterChip('outlet', 'Outlets',
+                _contacts.where((c) => c['category_type'] == 'outlet').length),
+            _filterChip('lead', 'Leads', _contacts.where((c) => c['category_type'] == 'lead').length),
+            _filterChip('distributor', 'Distributors',
+                _contacts.where((c) => c['category_type'] == 'distributor').length),
+            _filterChip('new', 'Never visited',
+                _contacts.where((c) => c['last_visit_at'] == null).length),
+          ],
+        ),
+      ),
+      const SizedBox(height: 10),
+
+      // What is chosen, and a way back out of it
+      if (_picked.isNotEmpty) _chosenBar(),
+
+      // The list
+      Row(
+        children: [
+          Expanded(
+            child: Text('${shown.length} ${shown.length == 1 ? 'contact' : 'contacts'}',
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.muted)),
+          ),
+          if (pickable.isNotEmpty)
+            TextButton(
+              onPressed: () => setState(() {
+                final ids = pickable.map((c) => c['id'] as int);
+                if (allPicked) {
+                  _picked.removeAll(ids);
+                } else {
+                  _picked.addAll(ids);
+                }
+              }),
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              child: Text(allPicked ? 'Clear these' : 'Select all'),
+            ),
+        ],
+      ),
+      if (!_loadingContacts && shown.isEmpty)
+        const Padding(
+          padding: EdgeInsets.only(top: 30),
+          child: EmptyView(icon: Icons.person_search_rounded, text: 'Nothing matches'),
+        ),
+      for (final contact in shown) _contactRow(contact),
+      const SizedBox(height: 4),
+    ];
+  }
+
+  Widget _filterChip(String key, String label, int count) {
+    final on = _filter == key;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: on ? AppColors.primary : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => setState(() => _filter = key),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: on ? Colors.white : AppColors.text)),
+                if (count > 0) ...[
+                  const SizedBox(width: 6),
+                  Text('$count',
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: on ? Colors.white70 : AppColors.muted)),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The chosen ones, named, so a search never hides what is already in the day.
+  Widget _chosenBar() => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, size: 17, color: AppColors.primary),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text('${_picked.length} chosen for ${fmtDate(_date)}',
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                ),
+                GestureDetector(
+                  onTap: () => setState(_picked.clear),
+                  child: const Text('Clear',
+                      style: TextStyle(
+                          fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.danger)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final id in _picked.take(12))
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(9, 4, 4, 4),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 130),
+                          child: Text('${_known[id]?['name'] ?? 'Customer'}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        ),
+                        InkWell(
+                          onTap: () => setState(() => _picked.remove(id)),
+                          child: const Padding(
+                            padding: EdgeInsets.all(3),
+                            child: Icon(Icons.close_rounded, size: 13, color: AppColors.muted),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_picked.length > 12)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: Text('and ${_picked.length - 12} more',
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+  Widget _contactRow(Map<String, dynamic> c) {
+    final id = c['id'] as int;
+    final visited = _visited.contains(id);
+    final on = _picked.contains(id);
+    final name = '${c['name']}';
+    final beat = asText((c['beat'] as Map?)?['name']);
+    final others = ((c['also_planned_by'] as List?) ?? []).cast<String>();
+    final tint = switch (c['category_type']) {
+      'lead' => AppColors.purple,
+      'distributor' => AppColors.warning,
+      _ => AppColors.primary,
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: on ? AppColors.primary.withValues(alpha: 0.06) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: visited
+              ? null
+              : () => setState(() => on ? _picked.remove(id) : _picked.add(id)),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(11, 10, 11, 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: on ? AppColors.primary : Colors.transparent, width: 1.3),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: tint.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(name.isEmpty ? '?' : name[0].toUpperCase(),
+                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: tint)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+                      const SizedBox(height: 2),
+                      Text(
+                        [
+                          if (visited) 'Visited on this day' else lastVisitLabel(c),
+                          if (c['city'] != null) '${c['city']}',
+                        ].join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                      ),
+                      if (beat != null || others.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Wrap(
+                          spacing: 5,
+                          runSpacing: 4,
+                          children: [
+                            if (beat != null) _tag(Icons.route_rounded, beat, AppColors.primary),
+                            if (others.isNotEmpty)
+                              _tag(Icons.people_alt_rounded,
+                                  others.length == 1 ? others.first : '${others.length} others',
+                                  AppColors.warning),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                    visited
+                        ? Icons.lock_rounded
+                        : on
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                    size: 23,
+                    color: visited
+                        ? AppColors.border
+                        : on
+                            ? AppColors.primary
+                            : AppColors.border),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tag(IconData icon, String text, Color tint) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: tint.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 11, color: tint),
+            const SizedBox(width: 4),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 150),
+              child: Text(text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: tint)),
+            ),
+          ],
+        ),
+      );
+
+  /// A quiet note when somebody else is going there too. Never a block: two
+  /// people calling on the same shop on the same day is normal work.
+  Widget _alsoPlannedNote(int routeId) {
+    final planned = _alsoPlanned[routeId] ?? const {};
+    final onBeat = ((planned['beat'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final onCustomers = ((planned['customers'] as List?) ?? []).cast<Map<String, dynamic>>();
+    if (onBeat.isEmpty && onCustomers.isEmpty) return const SizedBox.shrink();
+    final lines = <String>[
+      if (onBeat.isNotEmpty)
+        '${onBeat.map((e) => '${e['name']}').join(', ')} already planned this beat today.',
+      for (final row in onCustomers.take(4))
+        '${row['name']}: also planned by ${((row['people'] as List?) ?? []).join(', ')}.',
+      if (onCustomers.length > 4) 'and ${onCustomers.length - 4} more customers.',
+    ];
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline_rounded, size: 17, color: AppColors.warning),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final line in lines)
+                  Text(line, style: const TextStyle(fontSize: 12, color: AppColors.text)),
+                const SizedBox(height: 2),
+                const Text('You can still plan it; two people may visit the same day.',
+                    style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _routeSection(Map<String, dynamic> route) {
+    final id = route['id'] as int;
+    final customers = _customers[id] ?? [];
+    final selected = _selected[id] ?? <int>{};
+    return Card(
+      child: ExpansionTile(
+        initiallyExpanded: _chosen.length == 1,
+        leading: const Icon(Icons.route_rounded, color: AppColors.primary),
+        title: Text('${route['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(_loadingRoutes.contains(id) ? 'Loading customers…' : '${selected.length} of ${customers.length} customers'),
+        children: [
+          _alsoPlannedNote(id),
+          if (customers.isNotEmpty)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => setState(() {
+                  if (selected.length == customers.length) {
+                    _selected[id] = customers.where((c) => c['visited'] == true).map((c) => c['id'] as int).toSet();
+                  } else {
+                    _selected[id] = customers.map((c) => c['id'] as int).toSet();
+                  }
+                }),
+                child: Text(selected.length == customers.length ? 'Clear all' : 'Select all'),
+              ),
+            ),
+          for (final c in customers)
+            CheckboxListTile(
+              dense: true,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: selected.contains(c['id']),
+              onChanged: c['visited'] == true
+                  ? null
+                  : (on) => setState(() {
+                        final set = _selected.putIfAbsent(id, () => <int>{});
+                        on == true ? set.add(c['id'] as int) : set.remove(c['id']);
+                      }),
+              title: Text('${c['name']}'),
+              subtitle: Text(c['visited'] == true ? 'Visited on this day' : lastVisitLabel(c)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The days ahead, one card each, with what is planned on them.
+///
+/// The old screen listed a row per route per day, which meant reading the same
+/// date three times over and still not knowing how the day was going. A day is
+/// what somebody plans and works, so a day is what this shows: the date, how
+/// many customers are on it, and how far through it they are. What is actually
+/// on the day is one tap away.
+class PlannedDaysScreen extends StatefulWidget {
+  const PlannedDaysScreen({super.key, this.member = 'me', this.memberName, required this.start});
+
+  final String member;
+  final String? memberName;
+  final DateTime start;
+
+  @override
+  State<PlannedDaysScreen> createState() => _PlannedDaysScreenState();
+}
+
+class _PlannedDaysScreenState extends State<PlannedDaysScreen> {
+  List<Map<String, dynamic>> _days = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final list = (await Services.api.get('/api/v1/route-plan/days', query: {
+        'member': widget.member,
+        'start': fmtDate(widget.start),
+        'end': fmtDate(widget.start.add(const Duration(days: 27))),
+      }) as List)
+          .cast<Map<String, dynamic>>();
+      if (mounted) setState(() => _days = list);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// One entry per date, with the day's routes added up behind it.
+  List<_PlannedDay> get _byDate {
+    final days = <String, _PlannedDay>{};
+    for (final row in _days) {
+      final key = '${row['date']}';
+      final day = days.putIfAbsent(key, () => _PlannedDay(key));
+      day.plans.add(row);
+      day.planned += (row['planned_count'] as num? ?? 0).toInt();
+      day.visited += (row['completed_count'] as num? ?? 0).toInt();
+      day.missed += (row['missed_count'] as num? ?? 0).toInt();
+      day.adhoc += (row['adhoc_count'] as num? ?? 0).toInt();
+      final beat = (row['beat'] as Map?)?['name'];
+      if (beat != null) day.beats.add('$beat');
+    }
+    final list = days.values.toList()..sort((a, b) => a.date.compareTo(b.date));
+    return list;
+  }
+
+  Future<void> _openDay(_PlannedDay day) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => PlannedDayScreen(
+        date: day.day ?? DateTime.now(),
+        member: widget.member,
+        memberName: widget.memberName,
+      ),
+    ));
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final days = _byDate;
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: Text(widget.memberName == null ? 'Planned Days' : 'Plan · ${widget.memberName}')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.of(context)
+            .push(MaterialPageRoute(
+                builder: (_) => PlanBeatScreen(member: widget.member, memberName: widget.memberName)))
+            .then((_) => _load()),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Plan a day'),
+      ),
+      body: _loading && _days.isEmpty
+          ? const LoadingView()
+          : _error != null
+              ? ErrorView(message: _error!, onRetry: _load)
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 96),
+                    children: [
+                      if (days.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 60),
+                          child: EmptyView(
+                              icon: Icons.event_busy_rounded, text: 'Nothing planned in the next four weeks'),
+                        ),
+                      for (final day in days) _dayCard(day),
+                    ],
+                  ),
+                ),
+    );
+  }
+
+  Widget _dayCard(_PlannedDay day) {
+    final date = day.day;
+    final today = DateUtils.dateOnly(DateTime.now());
+    final isToday = date != null && DateUtils.isSameDay(date, today);
+    final past = date != null && date.isBefore(today);
+    final done = day.planned == 0 ? 0.0 : day.visited / day.planned;
+    final tint = past && day.visited < day.planned
+        ? AppColors.danger
+        : done >= 1
+            ? AppColors.success
+            : isToday
+                ? AppColors.primary
+                : AppColors.sky;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => _openDay(day),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: isToday ? AppColors.primary : Colors.transparent, width: 1.4),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    // The date, read at a glance.
+                    Container(
+                      width: 52,
+                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      decoration: BoxDecoration(
+                        color: tint.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(date == null ? '' : _weekday(date),
+                              style: TextStyle(
+                                  fontSize: 11, fontWeight: FontWeight.w800, color: tint)),
+                          Text(date == null ? day.date : '${date.day}',
+                              style: TextStyle(
+                                  fontSize: 20, fontWeight: FontWeight.w900, color: tint, height: 1.1)),
+                          Text(date == null ? '' : _month(date),
+                              style: TextStyle(
+                                  fontSize: 10.5, fontWeight: FontWeight.w700, color: tint)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Text('${day.planned} ${day.planned == 1 ? 'customer' : 'customers'}',
+                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                              if (isToday) ...[
+                                const SizedBox(width: 7),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                      color: AppColors.primary, borderRadius: BorderRadius.circular(20)),
+                                  child: const Text('Today',
+                                      style: TextStyle(
+                                          fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white)),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            day.beats.isEmpty
+                                ? 'Chosen customers'
+                                : day.beats.length == 1
+                                    ? day.beats.first
+                                    : '${day.beats.length} ${Services.auth.profile!.routeLabel}s',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                  ],
+                ),
+                if (day.planned > 0) ...[
+                  const SizedBox(height: 11),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: LinearProgressIndicator(
+                      value: done.clamp(0.0, 1.0),
+                      minHeight: 5,
+                      backgroundColor: AppColors.background,
+                      valueColor: AlwaysStoppedAnimation(tint),
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                  Row(
+                    children: [
+                      _stat('${day.visited}', 'visited', AppColors.success),
+                      _stat('${day.planned - day.visited}', 'left', AppColors.primary),
+                      if (day.missed > 0) _stat('${day.missed}', 'missed', AppColors.danger),
+                      if (day.adhoc > 0) _stat('${day.adhoc}', 'unplanned', AppColors.warning),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _stat(String value, String label, Color tint) => Padding(
+        padding: const EdgeInsets.only(right: 14),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 7, height: 7, decoration: BoxDecoration(color: tint, shape: BoxShape.circle)),
+            const SizedBox(width: 5),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5)),
+            const SizedBox(width: 3),
+            Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+          ],
+        ),
+      );
+}
+
+String _weekday(DateTime date) =>
+    const ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'][date.weekday - 1];
+
+String _month(DateTime date) =>
+    const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        [date.month - 1];
+
+/// One date, with every route planned on it added together.
+class _PlannedDay {
+  _PlannedDay(this.date);
+
+  final String date;
+  final List<Map<String, dynamic>> plans = [];
+  final Set<String> beats = {};
+  int planned = 0;
+  int visited = 0;
+  int missed = 0;
+  int adhoc = 0;
+
+  DateTime? get day => DateTime.tryParse(date);
+}
+
+/// Choosing which customers go on a route that has just been drawn.
+///
+/// The same list as the planner's, because the question is the same one: which
+/// of these shops does this cover? Only the answer is kept somewhere else.
+class _BeatCustomerPicker extends StatefulWidget {
+  const _BeatCustomerPicker({required this.beatName, required this.contacts});
+
+  final String beatName;
+  final List<Map<String, dynamic>> contacts;
+
+  @override
+  State<_BeatCustomerPicker> createState() => _BeatCustomerPickerState();
+}
+
+class _BeatCustomerPickerState extends State<_BeatCustomerPicker> {
+  final Set<int> _picked = {};
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _query.trim().toLowerCase();
+    final shown = q.isEmpty
+        ? widget.contacts
+        : widget.contacts
+            .where((c) => '${c['name']} ${c['city'] ?? ''}'.toLowerCase().contains(q))
+            .toList();
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.85,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Customers on ${widget.beatName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+                  const Text('They can be added to or taken off later.',
+                      style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                  const SizedBox(height: 10),
+                  TextField(
+                    onChanged: (value) => setState(() => _query = value),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search_rounded),
+                      hintText: 'Search by name or city',
+                      isDense: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: shown.isEmpty
+                  ? const EmptyView(icon: Icons.person_search_rounded, text: 'Nothing matches')
+                  : ListView.builder(
+                      itemCount: shown.length,
+                      itemBuilder: (_, i) {
+                        final c = shown[i];
+                        final id = c['id'] as int;
+                        final beat = asText((c['beat'] as Map?)?['name']);
+                        return CheckboxListTile(
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          value: _picked.contains(id),
+                          onChanged: (on) => setState(() => on == true ? _picked.add(id) : _picked.remove(id)),
+                          title: Text('${c['name']}',
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(
+                            [if (c['city'] != null) '${c['city']}', if (beat != null) 'on $beat']
+                                .join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _picked.isEmpty ? null : () => Navigator.pop(context, _picked),
+                    child: Text(_picked.isEmpty
+                        ? 'Choose customers'
+                        : 'Add ${_picked.length} ${_picked.length == 1 ? 'customer' : 'customers'}'),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

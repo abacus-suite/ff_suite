@@ -1,0 +1,844 @@
+import 'package:flutter/material.dart';
+
+import '../../core/format.dart';
+import '../../core/geo.dart';
+import '../../core/services.dart';
+import '../beat/create_beat_screen.dart';
+import '../tasks/task_widgets.dart';
+import '../../core/theme.dart';
+import '../../widgets/common.dart';
+import '../../widgets/dashboard.dart';
+import '../../widgets/skeleton.dart';
+
+Color _stateColour(String? state) => switch (state) {
+      'sale' || 'done' || 'received' || 'supplied' || 'quoted' => AppColors.success,
+      'cancel' || 'cancelled' || 'rejected' => AppColors.danger,
+      'draft' || 'sent' || 'collected' || 'submitted' || 'partial' => AppColors.warning,
+      _ => AppColors.muted,
+    };
+
+Widget _pill(String? text, String? state) {
+  final colour = _stateColour(state);
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(color: colour.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+    child: Text(text ?? state ?? '', style: TextStyle(color: colour, fontSize: 11.5, fontWeight: FontWeight.w700)),
+  );
+}
+
+/// What the customer owes, on the customer screen. Hidden when nothing is owed.
+class ClientBalanceCard extends StatefulWidget {
+  const ClientBalanceCard({super.key, required this.clientId});
+
+  final int clientId;
+
+  @override
+  State<ClientBalanceCard> createState() => _ClientBalanceCardState();
+}
+
+class _ClientBalanceCardState extends State<ClientBalanceCard> {
+  Map<String, dynamic>? _data;
+  bool _open = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Services.api.get('/api/v1/clients/${widget.clientId}/balance').then((data) {
+      if (mounted) setState(() => _data = data as Map<String, dynamic>);
+    }).catchError((_) {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _data;
+    if (data == null) return const SizedBox.shrink();
+    final currency = data['currency'] as String?;
+    final due = (data['due'] as num?) ?? 0;
+    final overdue = (data['overdue'] as num?) ?? 0;
+    final held = (data['collected_not_deposited'] as num?) ?? 0;
+    final invoices = ((data['invoices'] as List?) ?? []).cast<Map<String, dynamic>>();
+    if (due == 0 && held == 0) {
+      return const Card(
+        child: ListTile(
+          leading: Icon(Icons.verified_rounded, color: AppColors.success),
+          title: Text('Nothing outstanding', style: TextStyle(fontWeight: FontWeight.w700)),
+        ),
+      );
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const CardHeader(icon: Icons.account_balance_wallet_rounded, title: 'Balance'),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _figure('Outstanding', fmtMoney(due, currency), AppColors.primary)),
+                Expanded(
+                    child: _figure('Overdue', fmtMoney(overdue, currency),
+                        overdue > 0 ? AppColors.danger : AppColors.muted)),
+                if (held > 0) Expanded(child: _figure('With staff', fmtMoney(held, currency), AppColors.warning)),
+              ],
+            ),
+            if (invoices.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              TextButton.icon(
+                onPressed: () => setState(() => _open = !_open),
+                icon: Icon(_open ? Icons.expand_less_rounded : Icons.expand_more_rounded),
+                label: Text('${invoices.length} open invoice${invoices.length == 1 ? '' : 's'}'),
+              ),
+              if (_open)
+                for (final inv in invoices)
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('${inv['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text(inv['due_date'] == null
+                        ? 'No due date'
+                        : inv['overdue'] == true
+                            ? 'Due ${inv['due_date']} · ${inv['days_overdue']} days late'
+                            : 'Due ${inv['due_date']}'),
+                    trailing: Text(fmtMoney(inv['residual'] as num?, currency),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: inv['overdue'] == true ? AppColors.danger : AppColors.text)),
+                  ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _figure(String label, String value, Color colour) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+          const SizedBox(height: 2),
+          Text(value, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: colour)),
+        ],
+      );
+}
+
+/// Everything that happened at a customer: visits, orders or demands, payments.
+class ClientHistoryScreen extends StatefulWidget {
+  const ClientHistoryScreen({super.key, required this.clientId, required this.name});
+
+  final int clientId;
+  final String name;
+
+  @override
+  State<ClientHistoryScreen> createState() => _ClientHistoryScreenState();
+}
+
+class _ClientHistoryScreenState extends State<ClientHistoryScreen> {
+  Map<String, dynamic>? _data;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await Services.api.get('/api/v1/clients/${widget.clientId}/history', query: {'limit': 50});
+      if (mounted) setState(() => (_data = data as Map<String, dynamic>, _error = null));
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = Services.auth.profile!;
+    final data = _data;
+    List<Map<String, dynamic>> rows(String key) => ((data?[key] as List?) ?? []).cast<Map<String, dynamic>>();
+    final sales = profile.isDemandFlow ? rows('demands') : rows('orders');
+    final tabs = [
+      ('Visits', rows('visits')),
+      ('${profile.orderWord}s', sales),
+      if (profile.paymentCollection) ('Payments', rows('collections')),
+    ];
+    return DefaultTabController(
+      length: tabs.length,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('History · ${widget.name}'),
+          bottom: TabBar(tabs: [for (final t in tabs) Tab(text: '${t.$1} (${t.$2.length})')]),
+        ),
+        body: _error != null
+            ? ErrorView(message: _error!, onRetry: _load)
+            : data == null
+                ? const LoadingView()
+                : TabBarView(
+                    children: [
+                      _list(tabs[0].$2, _visitTile, 'No visits yet'),
+                      _list(tabs[1].$2, _saleTile, 'Nothing ordered yet'),
+                      if (profile.paymentCollection) _list(tabs[2].$2, _paymentTile, 'No payments yet'),
+                    ],
+                  ),
+      ),
+    );
+  }
+
+  Widget _list(List<Map<String, dynamic>> items, Widget Function(Map<String, dynamic>) tile, String empty) {
+    if (items.isEmpty) {
+      return Center(child: Text(empty, style: const TextStyle(color: AppColors.muted)));
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(12),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 6),
+        itemBuilder: (_, i) => Card(child: tile(items[i])),
+      ),
+    );
+  }
+
+  Widget _visitTile(Map<String, dynamic> v) => ListTile(
+        leading: Icon(v['visit_type'] == 'offsite' ? Icons.wrong_location_rounded : Icons.storefront_rounded,
+            color: v['visit_type'] == 'offsite' ? AppColors.danger : AppColors.primary),
+        title: Text('${fmtTime(v['check_in_at'])}${v['check_out_at'] != null ? ' – ${fmtTime(v['check_out_at'])}' : ''}',
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text([
+          if (v['duration_min'] != null && v['duration_min'] != 0) '${v['duration_min']} min',
+          if ((v['outcome_type'] as Map?)?['name'] != null) (v['outcome_type'] as Map)['name'],
+          if (v['note'] != null) v['note'],
+        ].join(' · ')),
+        trailing: _pill(v['visit_type'] == 'offsite' ? 'Offsite' : 'Onsite', v['visit_type'] == 'offsite' ? 'cancel' : 'done'),
+      );
+
+  Widget _saleTile(Map<String, dynamic> o) => ListTile(
+        leading: const Icon(Icons.receipt_long_rounded, color: AppColors.primary),
+        title: Text('${o['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text([
+          fmtTime(o['date']),
+          if ((o['employee'] as Map?)?['name'] != null) (o['employee'] as Map)['name'],
+          if ((o['distributor'] as Map?)?['name'] != null) 'via ${(o['distributor'] as Map)['name']}',
+        ].join(' · ')),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(fmtMoney(o['amount'] as num?, o['currency'] as String?), style: const TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 3),
+            _pill(o['state_label'] as String?, o['state'] as String?),
+          ],
+        ),
+      );
+
+  Widget _paymentTile(Map<String, dynamic> c) => ListTile(
+        leading: const Icon(Icons.payments_rounded, color: AppColors.teal),
+        title: Text('${c['mode']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text([fmtTime(c['date']), if (c['reference'] != null) c['reference']].join(' · ')),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(fmtMoney(c['amount'] as num?, c['currency'] as String?), style: const TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 3),
+            _pill(c['state_label'] as String?, c['state'] as String?),
+          ],
+        ),
+      );
+}
+
+/// Fix a customer's phone, address, or put its pin where you stand.
+class EditClientScreen extends StatefulWidget {
+  const EditClientScreen({super.key, required this.client});
+
+  final Map<String, dynamic> client;
+
+  @override
+  State<EditClientScreen> createState() => _EditClientScreenState();
+}
+
+class _EditClientScreenState extends State<EditClientScreen> with SingleTickerProviderStateMixin {
+  late final _name = TextEditingController(text: '${widget.client['name'] ?? ''}');
+  late final _phone = TextEditingController(text: '${widget.client['phone'] ?? ''}');
+  late final _email = TextEditingController(text: '${widget.client['email'] ?? ''}');
+  late final _gst = TextEditingController(text: '${widget.client['gst'] ?? ''}');
+  late final _street = TextEditingController(text: '${widget.client['street'] ?? ''}');
+  late final _city = TextEditingController(text: '${widget.client['city'] ?? ''}');
+  late final _zip = TextEditingController(text: '${widget.client['zip'] ?? ''}');
+  late int? _categoryId = (widget.client['category'] as Map?)?['id'] as int?;
+  late int? _routeId = ((widget.client['routes'] as List?) ?? []).isEmpty
+      ? null
+      : ((widget.client['routes'] as List).first as Map)['id'] as int?;
+  List<Map<String, dynamic>> _categories = [];
+  List<Map<String, dynamic>> _routes = [];
+  Map<String, dynamic> _options = const {};
+  bool _moveLocation = false;
+  bool _busy = false;
+
+  // What was taken at onboarding: present only for outlets and distributors.
+  late final Map<String, dynamic>? _ob = widget.client['onboarding'] as Map<String, dynamic>?;
+  final _d = <String, TextEditingController>{};
+  String? _outletCategory;
+  String? _mrp;
+  String? _scheme;
+  String? _chillerModel;
+  bool? _swiggy;
+  bool? _chiller;
+  Map<String, dynamic>? _distributor;
+  late final TabController _tabs = TabController(length: _tabTitles.length, vsync: this);
+
+  bool get _hasDetails => _ob != null;
+  bool get _isDistributor => widget.client['category_type'] == 'distributor';
+
+  List<(String, IconData)> get _tabTitles => [
+        ('Basic', Icons.badge_rounded),
+        if (_ob != null) ('Contacts', Icons.contacts_rounded),
+        if (_ob != null && !_isDistributor) ('Outlet', Icons.storefront_rounded),
+        if (_ob != null) ('Commercial', Icons.payments_rounded),
+      ];
+
+  TextEditingController _t(String key) => _d.putIfAbsent(key, () {
+        final v = _ob?[key];
+        return TextEditingController(text: v == null ? '' : '$v');
+      });
+
+  @override
+  void initState() {
+    super.initState();
+    final ob = _ob;
+    if (ob != null) {
+      _outletCategory = (ob['outlet_category'] as Map?)?['code'] as String?;
+      _mrp = (ob['mrp'] as Map?)?['code'] as String?;
+      _scheme = (ob['scheme'] as Map?)?['code'] as String?;
+      _chillerModel = (ob['chiller_model'] as Map?)?['code'] as String?;
+      _swiggy = ob['swiggy_zomato'] as bool?;
+      _chiller = ob['has_chiller'] as bool?;
+      _distributor = (ob['distributor'] as Map?)?.cast<String, dynamic>();
+      for (final k in const [
+        'gst_name', 'billing_address', 'poc_name', 'poc_phone', 'poc_email', 'accounts_poc_name',
+        'accounts_poc_phone', 'accounts_poc_email', 'outlet_category_note', 'swiggy_zomato_id',
+        'chiller_serial', 'credit_days', 'margin',
+      ]) {
+        _t(k);
+      }
+      // A margin of 0 is "not set": show it empty rather than as 0.
+      if (_t('margin').text == '0.0') _t('margin').text = '';
+      if (_t('credit_days').text == '0') _t('credit_days').text = '';
+      Services.api.get('/api/v1/onboarding/options').then((d) {
+        if (mounted) setState(() => _options = d as Map<String, dynamic>);
+      }).catchError((_) {});
+    }
+    _loadChoices();
+  }
+
+  List<Map<String, dynamic>> _list(String key) => ((_options[key] as List?) ?? const []).cast<Map<String, dynamic>>();
+
+  /// The kinds of contact and the routes this person may pick from.
+  Future<void> _loadChoices() async {
+    try {
+      final categories = await Services.api.get('/api/v1/contact-categories') as List;
+      if (mounted) setState(() => _categories = categories.cast<Map<String, dynamic>>());
+    } catch (_) {
+      // The chooser simply stays on what the contact already has.
+    }
+    await _loadRoutes();
+  }
+
+  Future<void> _loadRoutes() async {
+    try {
+      final routes = await Services.api.get('/api/v1/my-routes') as List;
+      if (mounted) setState(() => _routes = routes.cast<Map<String, dynamic>>());
+    } catch (_) {}
+  }
+
+  /// Draws the beat that is missing, from here, and puts the contact on it.
+  ///
+  /// Correcting a contact is often exactly when somebody notices no beat
+  /// covers where it is, so the form asks rather than sending them away to
+  /// make one and come back.
+  Future<void> _newRoute() async {
+    final beat = await Navigator.of(context)
+        .push<Map<String, dynamic>>(MaterialPageRoute(builder: (_) => const CreateBeatScreen()));
+    if (beat == null || !mounted) return;
+    await _loadRoutes();
+    if (!mounted) return;
+    setState(() => _routeId = beat['id'] as int?);
+    // The address city stays the shop's own. A route covers a city but is
+    // named for a stretch of it, and writing that into the address turns a
+    // real address into a route name.
+    showSnack(
+        context,
+        beat['approval_state'] == 'pending'
+            ? '${beat['name']} created · waiting for the office'
+            : '${beat['name']} created');
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_name, _phone, _email, _gst, _street, _city, _zip, ..._d.values]) {
+      c.dispose();
+    }
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  String _v(String key) => (_d[key]?.text ?? '').trim();
+
+  Map<String, dynamic> _details() => {
+        'gst_name': _v('gst_name'),
+        'billing_address': _v('billing_address'),
+        'poc_name': _v('poc_name'),
+        'poc_phone': _v('poc_phone'),
+        'poc_email': _v('poc_email'),
+        if (_isDistributor) ...{
+          'accounts_poc_name': _v('accounts_poc_name'),
+          'accounts_poc_phone': _v('accounts_poc_phone'),
+          'accounts_poc_email': _v('accounts_poc_email'),
+        } else ...{
+          if (_outletCategory != null) 'outlet_category': _outletCategory,
+          'outlet_category_note': _v('outlet_category_note'),
+          if (_distributor != null) 'distributor_id': _distributor!['id'],
+          'has_chiller': _chiller == true,
+          'chiller_serial': _v('chiller_serial'),
+          if (_chillerModel != null) 'chiller_model': _chillerModel,
+        },
+        'swiggy_zomato': _swiggy == true,
+        'swiggy_zomato_id': _v('swiggy_zomato_id'),
+        if (_mrp != null) 'mrp': _mrp,
+        if (_scheme != null) 'scheme': _scheme,
+        if (_v('credit_days').isNotEmpty) 'credit_days': _v('credit_days'),
+        if (_v('margin').isNotEmpty) 'margin': _v('margin'),
+      };
+
+  Future<void> _save() async {
+    setState(() => _busy = true);
+    try {
+      final body = <String, dynamic>{
+        'name': _name.text.trim(),
+        'phone': _phone.text.trim(),
+        'email': _email.text.trim(),
+        'gst': _gst.text.trim(),
+        'street': _street.text.trim(),
+        'city': _city.text.trim(),
+        'zip': _zip.text.trim(),
+        if (_categoryId != null) 'category_id': _categoryId,
+        if (_routeId != null) 'route_id': _routeId,
+        if (_hasDetails) 'details': _details(),
+      };
+      if (_moveLocation) {
+        final pos = await currentPosition();
+        body.addAll({'set_location': true, 'lat': pos.latitude, 'lng': pos.longitude, 'mock': pos.isMocked});
+      }
+      final result = await Services.outbox.submit('/api/v1/clients/${widget.client['id']}/update', body,
+          label: 'Edit customer · ${_name.text.trim()}');
+      if (!mounted) return;
+      if (!result.queued) showSnack(context, _moveLocation ? 'Saved · location updated' : 'Saved');
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _field(TextEditingController c, String label, IconData icon,
+          {TextInputType? type, String? hint, bool caps = false, int? maxLength, int lines = 1}) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: TextField(
+          controller: c,
+          keyboardType: type,
+          maxLength: maxLength,
+          maxLines: lines,
+          textCapitalization: caps ? TextCapitalization.characters : TextCapitalization.sentences,
+          decoration: InputDecoration(
+            labelText: label,
+            hintText: hint,
+            counterText: '',
+            prefixIcon: Icon(icon, size: 19, color: AppColors.primary),
+            filled: true,
+            fillColor: Colors.white,
+          ),
+        ),
+      );
+
+  Widget _d_(String key, String label, IconData icon,
+          {TextInputType? type, String? hint, int? maxLength, int lines = 1}) =>
+      _field(_t(key), label, icon, type: type, hint: hint, maxLength: maxLength, lines: lines);
+
+  Widget _card({required String title, required IconData icon, Widget? action, required List<Widget> children}) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(icon, size: 18, color: AppColors.primary),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                ),
+                if (action != null) action,
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(text, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.muted)),
+      );
+
+  Widget _header() {
+    final name = '${widget.client['name'] ?? ''}';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primary.withValues(alpha: 0.12), AppColors.sky.withValues(alpha: 0.04)],
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+            child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
+                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 22)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    if (asText((widget.client['category'] as Map?)?['name']) != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+                        child: Text('${(widget.client['category'] as Map)['name']}',
+                            style: const TextStyle(
+                                fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                      ),
+                    if (asText(widget.client['city']) != null)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.location_on_outlined, size: 13, color: AppColors.muted),
+                          Text('${widget.client['city']}',
+                              style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                        ],
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------------ tabs
+  Widget _basicTab() => ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _header(),
+          _card(
+            title: 'Contact',
+            icon: Icons.badge_rounded,
+            children: [
+              _field(_name, 'Name', Icons.person_rounded),
+              _field(_phone, 'Phone', Icons.call_rounded, type: TextInputType.phone),
+              _field(_email, 'Email', Icons.mail_rounded, type: TextInputType.emailAddress),
+              _field(_gst, 'GST number', Icons.receipt_long_rounded, hint: '22AAAAA0000A1Z5', caps: true, maxLength: 15),
+            ],
+          ),
+          _card(
+            title: 'Type & route',
+            icon: Icons.category_rounded,
+            children: [
+              if (_categories.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: DropdownButtonFormField<int>(
+                    initialValue: _categories.any((c) => c['id'] == _categoryId) ? _categoryId : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Contact type',
+                      prefixIcon: Icon(Icons.storefront_rounded, size: 19, color: AppColors.primary),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    items: [
+                      for (final category in _categories)
+                        DropdownMenuItem(value: category['id'] as int, child: Text('${category['name']}')),
+                    ],
+                    onChanged: (value) => setState(() => _categoryId = value),
+                  ),
+                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      initialValue: _routes.any((r) => r['id'] == _routeId) ? _routeId : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Beat / route',
+                        prefixIcon: Icon(Icons.route_rounded, size: 19, color: AppColors.primary),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      isExpanded: true,
+                      items: [
+                        for (final route in _routes)
+                          DropdownMenuItem(
+                            value: route['id'] as int,
+                            child: Text('${route['name']}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      // The address city is left alone: it is the shop's, not the route's.
+                      onChanged: (value) => setState(() => _routeId = value),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(tooltip: 'New beat', onPressed: _newRoute, icon: const Icon(Icons.add_rounded)),
+                ],
+              ),
+            ],
+          ),
+          _card(
+            title: 'Address',
+            icon: Icons.location_on_rounded,
+            children: [
+              _field(_street, 'Street / area', Icons.apartment_rounded),
+              _field(_city, 'City', Icons.location_city_rounded),
+              _field(_zip, 'PIN code', Icons.markunread_mailbox_rounded, type: TextInputType.number, maxLength: 6),
+            ],
+          ),
+          Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: SwitchListTile(
+              value: _moveLocation,
+              onChanged: (v) => setState(() => _moveLocation = v),
+              secondary: const Icon(Icons.my_location_rounded, color: AppColors.primary),
+              title: const Text('Put the pin where I am standing',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              subtitle: Text(
+                  widget.client['lat'] == null
+                      ? 'This customer has no location yet'
+                      : 'Only when you are at the shop · the office sees the change',
+                  style: const TextStyle(fontSize: 12)),
+            ),
+          ),
+        ],
+      );
+
+  Widget _contactsTab() => ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _card(
+            title: 'GST & billing',
+            icon: Icons.receipt_long_rounded,
+            children: [
+              _d_('gst_name', 'Name as per GST', Icons.business_rounded),
+              _d_('billing_address', 'Billing address', Icons.home_work_rounded, lines: 2),
+            ],
+          ),
+          _card(
+            title: _isDistributor ? 'Sales contact' : 'Point of contact',
+            icon: Icons.person_pin_rounded,
+            children: [
+              _d_('poc_name', 'Name', Icons.person_rounded),
+              _d_('poc_phone', 'Contact number', Icons.call_rounded, type: TextInputType.phone, maxLength: 10),
+              _d_('poc_email', 'Email', Icons.mail_rounded, type: TextInputType.emailAddress),
+            ],
+          ),
+          if (_isDistributor)
+            _card(
+              title: 'Accounts contact',
+              icon: Icons.account_balance_rounded,
+              children: [
+                _d_('accounts_poc_name', 'Name', Icons.person_rounded),
+                _d_('accounts_poc_phone', 'Contact number', Icons.call_rounded, type: TextInputType.phone, maxLength: 10),
+                _d_('accounts_poc_email', 'Email', Icons.mail_rounded, type: TextInputType.emailAddress),
+              ],
+            ),
+        ],
+      );
+
+  bool get _categoryNeedsNote =>
+      _list('outlet_categories').any((o) => o['code'] == _outletCategory && o['needs_note'] == true);
+
+  Widget _outletTab() => ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _card(
+            title: 'Distributor',
+            icon: Icons.local_shipping_rounded,
+            children: [
+              _label('Who supplies this outlet'),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50), alignment: Alignment.centerLeft),
+                  icon: const Icon(Icons.local_shipping_rounded),
+                  label: Text(_distributor == null ? 'Choose the distributor' : '${_distributor!['name']}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  onPressed: () async {
+                    final d = await pickFromList(context,
+                        title: 'Distributor',
+                        load: () async =>
+                            (await Services.api.get('/api/v1/distributors') as List).cast<Map<String, dynamic>>(),
+                        subtitle: (r) => '${r['city'] ?? ''}');
+                    if (d != null) setState(() => _distributor = {'id': d['id'], 'name': d['name']});
+                  },
+                ),
+              ),
+            ],
+          ),
+          _card(
+            title: 'Outlet category',
+            icon: Icons.category_rounded,
+            children: [
+              Choice(
+                  options: _list('outlet_categories'),
+                  value: _outletCategory,
+                  onChanged: (v) => setState(() => _outletCategory = v)),
+              if (_categoryNeedsNote) ...[
+                const SizedBox(height: 10),
+                _d_('outlet_category_note', 'Describe', Icons.edit_note_rounded),
+              ],
+              const SizedBox(height: 8),
+            ],
+          ),
+          _card(
+            title: 'Swiggy / Zomato',
+            icon: Icons.delivery_dining_rounded,
+            children: [
+              YesNo(value: _swiggy, onChanged: (v) => setState(() => _swiggy = v)),
+              if (_swiggy == true) ...[
+                const SizedBox(height: 10),
+                _d_('swiggy_zomato_id', 'Swiggy ID / Zomato ID', Icons.tag_rounded),
+              ],
+              const SizedBox(height: 6),
+            ],
+          ),
+          _card(
+            title: 'Chiller from Kumbayah',
+            icon: Icons.ac_unit_rounded,
+            children: [
+              YesNo(value: _chiller, onChanged: (v) => setState(() => _chiller = v)),
+              if (_chiller == true) ...[
+                const SizedBox(height: 10),
+                _d_('chiller_serial', 'Chiller serial number', Icons.confirmation_number_rounded),
+                _label('Model'),
+                Choice(
+                    options: _list('chiller_models'),
+                    value: _chillerModel,
+                    onChanged: (v) => setState(() => _chillerModel = v)),
+              ],
+              const SizedBox(height: 8),
+            ],
+          ),
+        ],
+      );
+
+  Widget _commercialTab() => ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _card(
+            title: 'Pricing',
+            icon: Icons.sell_rounded,
+            children: [
+              _label('MRP'),
+              Choice(options: _list('mrp'), value: _mrp, onChanged: (v) => setState(() => _mrp = v)),
+              const SizedBox(height: 14),
+              _label('Scheme'),
+              Choice(options: _list('schemes'), value: _scheme, onChanged: (v) => setState(() => _scheme = v)),
+              const SizedBox(height: 14),
+            ],
+          ),
+          _card(
+            title: 'Terms',
+            icon: Icons.handshake_rounded,
+            children: [
+              _d_('credit_days', 'Credit days', Icons.event_available_rounded, type: TextInputType.number),
+              _d_('margin', 'Margin %', Icons.percent_rounded, type: const TextInputType.numberWithOptions(decimal: true)),
+            ],
+          ),
+          if (_ob?['onboarded_date'] != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text('Onboarded on ${_ob!['onboarded_date']}',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
+            ),
+        ],
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final titles = _tabTitles;
+    final pages = <Widget>[
+      _basicTab(),
+      if (_ob != null) _contactsTab(),
+      if (_ob != null && !_isDistributor) _outletTab(),
+      if (_ob != null) _commercialTab(),
+    ];
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Edit Customer'),
+        bottom: titles.length < 2
+            ? null
+            : TabBar(
+                controller: _tabs,
+                isScrollable: false,
+                dividerColor: Colors.transparent,
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicator: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                labelColor: AppColors.primary,
+                unselectedLabelColor: AppColors.muted,
+                labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                tabs: [for (final (title, icon) in titles) Tab(icon: Icon(icon, size: 19), text: title, height: 52)],
+              ),
+      ),
+      body: titles.length < 2 ? pages.first : TabBarView(controller: _tabs, children: pages),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+          child: GradientButton(label: 'Save changes', icon: Icons.check_rounded, busy: _busy, onPressed: _save),
+        ),
+      ),
+    );
+  }
+}
