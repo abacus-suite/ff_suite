@@ -16,6 +16,83 @@ import '../../widgets/sdk_map.dart';
 import '../../widgets/sync_status.dart';
 import '../auth/login_screen.dart';
 
+/// Role-based gradient colours as requested by client:
+/// 1. Stock & Despatch Coordinator [Nesto], Sales Representative & Merchandiser,
+///    Sales Representative, Sales Officer, Brand Promoter, Brand Activation & Collaboration Executive:
+///    #38D9C0 -> #0B5FA5
+/// 2. Senior Sales Officer, Sales Team Lead:
+///    #7ED957 -> #00796B
+/// 3. Sales Operations Manager, Asst Manager – Sales & Marketing:
+///    #F44336 -> #7F0000
+/// 4. Manager – Central Kerala:
+///    #B794F4 -> #44208F
+/// 5. Growth Officer, Growth Manager – Bangalore, Growth Manager:
+///    #FFC000 -> #E65100
+/// 6. HR Officer:
+///    #FF8AF0 -> #A0148C
+(Color, Color) designationGradient(String? designation) {
+  if (designation == null || designation.trim().isEmpty) {
+    return (const Color(0xFF38D9C0), const Color(0xFF0B5FA5));
+  }
+  final raw = designation.toLowerCase().trim();
+  final norm = raw
+      .replaceAll('–', '-')
+      .replaceAll('—', '-')
+      .replaceAll(RegExp(r'\[.*?\]|\(.*?\)' ), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  // Group 6: HR Officer (#FF8AF0 -> #A0148C)
+  if (norm.contains('hr officer') || norm == 'hr' || norm.contains('human resources')) {
+    return (const Color(0xFFFF8AF0), const Color(0xFFA0148C));
+  }
+
+  // Group 5: Growth Officer, Growth Manager – Bangalore, Growth Manager (#FFC000 -> #E65100)
+  if (norm.contains('growth')) {
+    return (const Color(0xFFFFC000), const Color(0xFFE65100));
+  }
+
+  // Group 4: Manager – Central Kerala (#B794F4 -> #44208F)
+  if (norm.contains('central kerala')) {
+    return (const Color(0xFFB794F4), const Color(0xFF44208F));
+  }
+
+  // Group 3: Sales Operations Manager, Asst Manager – Sales & Marketing (#F44336 -> #7F0000)
+  if (norm.contains('sales operations') ||
+      norm.contains('operations manager') ||
+      norm.contains('asst manager') ||
+      norm.contains('assistant manager') ||
+      norm.contains('sales & marketing') ||
+      norm.contains('sales and marketing')) {
+    return (const Color(0xFFF44336), const Color(0xFF7F0000));
+  }
+
+  // Group 2: Senior Sales Officer, Sales Team Lead (#7ED957 -> #00796B)
+  if (norm.contains('senior sales officer') ||
+      norm.contains('sales team lead') ||
+      norm.contains('team lead')) {
+    return (const Color(0xFF7ED957), const Color(0xFF00796B));
+  }
+
+  // Group 1: Stock & Despatch Coordinator [Nesto], Sales Representative & Merchandiser,
+  // Sales Representative, Sales Officer, Brand Promoter, Brand Activation & Collaboration Executive (#38D9C0 -> #0B5FA5)
+  if (norm.contains('stock') ||
+      norm.contains('despatch') ||
+      norm.contains('dispatch') ||
+      norm.contains('merchandiser') ||
+      norm.contains('sales representative') ||
+      norm.contains('sales officer') ||
+      norm.contains('brand promoter') ||
+      norm.contains('promoter') ||
+      norm.contains('activation') ||
+      norm.contains('coordinator') ||
+      norm.contains('executive')) {
+    return (const Color(0xFF38D9C0), const Color(0xFF0B5FA5));
+  }
+
+  return (const Color(0xFF38D9C0), const Color(0xFF0B5FA5));
+}
+
 const _scopeLabels = {
   'own': 'Own records',
   'hierarchy': 'Team reporting to me',
@@ -141,16 +218,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _hero(Profile profile) {
+  (Color, Color) _heroGradient(Profile profile) {
+    final des = _info?['designation'] ?? profile.designation;
     final colour = _map('colour');
-    final start = _hex(colour['start'] as String?, AppColors.primary);
-    final end = _hex(colour['end'] as String?, const Color(0xFF6D5DF6));
+    final sStr = colour['start'] as String?;
+    final eStr = colour['end'] as String?;
+    if (sStr != null && eStr != null && sStr.isNotEmpty && eStr.isNotEmpty) {
+      final s = _hex(sStr, Colors.transparent);
+      final e = _hex(eStr, Colors.transparent);
+      if (s != Colors.transparent && e != Colors.transparent) {
+        return (s, e);
+      }
+    }
+    return designationGradient(des);
+  }
+
+  Widget _hero(Profile profile) {
+    final (start, end) = _heroGradient(profile);
     final active = '${_info?['status'] ?? 'Active'}' == 'Active';
+    final designation = _info?['designation'] ?? profile.designation;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(16, 16, 14, 16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [start, end]),
-        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [start, end]),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -165,22 +256,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(profile.name,
+                      child: Text(profile.name.toUpperCase(),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900)),
+                          style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900)),
                     ),
                     const SizedBox(width: 8),
-                    _badge(Icons.circle, active ? 'Active' : 'Inactive',
-                        tint: active ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5)),
+                    _badge(active),
                   ],
                 ),
-                const SizedBox(height: 2),
-                if ((_info?['designation'] ?? profile.designation) != null)
-                  Text('${_info?['designation'] ?? profile.designation}',
+                if (designation != null && '$designation'.trim().isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text('$designation',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Color(0xE6FFFFFF), fontSize: 14)),
+                      style: const TextStyle(color: Color(0xF2FFFFFF), fontSize: 13, fontWeight: FontWeight.w500)),
+                ],
               ],
             ),
           ),
@@ -189,19 +280,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _badge(IconData icon, String text, {Color? tint}) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+  Widget _badge(bool active) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.22),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: tint ?? Colors.white),
+            Icon(Icons.circle, size: 7, color: active ? const Color(0xFF16A34A) : const Color(0xFFDC2626)),
             const SizedBox(width: 5),
-            Text(text,
-                style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700)),
+            Text(active ? 'Active' : 'Inactive',
+                style: TextStyle(
+                    color: active ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700)),
           ],
         ),
       );
@@ -466,40 +560,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _tile(IconData icon, String label, String value, String hint, Color tint) => Container(
-        padding: const EdgeInsets.all(11),
-        decoration:
-            BoxDecoration(color: tint.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(15)),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
-              child: Icon(icon, size: 19, color: Colors.white),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
-                  Text(value,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-                  if (hint.isNotEmpty)
-                    Text(hint,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
 
   /// The way to the maps and app details, kept out of the profile itself.
   Widget _settingsEntry(Profile profile) => Card(

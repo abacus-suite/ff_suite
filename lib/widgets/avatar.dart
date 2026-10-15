@@ -16,16 +16,20 @@ class MyAvatar extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [Color(0xFF4C7BF4), Color(0xFF7C5CFC)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: border ? Colors.white.withValues(alpha: 0.22) : null,
+        border: border ? Border.all(color: Colors.white, width: 2.2) : null,
+        gradient: border
+            ? null
+            : const LinearGradient(
+                colors: [Color(0xFF4C7BF4), Color(0xFF7C5CFC)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
       ),
       child: Text(profile.name.isNotEmpty ? profile.name[0].toUpperCase() : '?',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: size * 0.4)),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: size * 0.44)),
     );
     final version = profile.photoVersion;
     Widget child = initial;
@@ -48,9 +52,9 @@ class MyAvatar extends StatelessWidget {
         },
       );
     }
-    if (!border) return child;
+    if (!border || version == null) return child;
     return Container(
-      padding: const EdgeInsets.all(3),
+      padding: const EdgeInsets.all(2.5),
       decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
       child: child,
     );
