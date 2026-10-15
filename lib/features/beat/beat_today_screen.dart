@@ -98,8 +98,40 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !widget.embedded,
-        title: Text(fmtDate(_day) == fmtDate(DateTime.now()) ? "Today's Beat Plan" : 'Beat Plan'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(fmtDate(_day) == fmtDate(DateTime.now()) ? "Today's Beat Plan" : 'Beat Plan',
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            Text('${_weekdayNames[_day.weekday - 1].substring(0, 3)}, ${_day.day.toString().padLeft(2, '0')} ${monthNames[_day.month - 1].substring(0, 3)} ${_day.year}',
+                style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
+          ],
+        ),
         actions: [
+          // Which of the day's customers to list: All, Visited, Pending or Cancelled.
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _filter == 'planned' ? 'pending' : _filter,
+                isDense: true,
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.primary),
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('All')),
+                  DropdownMenuItem(value: 'visited', child: Text('Visited')),
+                  DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                  DropdownMenuItem(value: 'cancelled', child: Text('Cancelled')),
+                ],
+                onChanged: (v) => setState(() => _filter = v ?? 'all'),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Plan a day',
             onPressed: () async {
@@ -123,20 +155,6 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
           children: [
             _dateBar(),
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: DropdownButtonFormField<String>(
-                initialValue: _filter == 'planned' ? 'pending' : _filter,
-                decoration: const InputDecoration(labelText: 'Status', isDense: true),
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('All')),
-                  DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                  DropdownMenuItem(value: 'visited', child: Text('Visited')),
-                  DropdownMenuItem(value: 'cancelled', child: Text('Cancelled')),
-                ],
-                onChanged: (v) => setState(() => _filter = v ?? 'all'),
-              ),
-            ),
             if (_loading) const LinearProgressIndicator(),
             if (_error != null && _data == null) ErrorView(message: _error!, onRetry: _load),
             if (_data != null) ..._content(_data!, label),

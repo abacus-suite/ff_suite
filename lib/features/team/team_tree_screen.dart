@@ -26,10 +26,12 @@ class _TeamTreeScreenState extends State<TeamTreeScreen> {
   bool _expandAll = false;
   String? _error;
   String _period = 'month';
+  DateTimeRange? _custom;
   String _find = '';
 
   DateTimeRange get _range {
     final today = DateUtils.dateOnly(DateTime.now());
+    if (_period == 'custom' && _custom != null) return _custom!;
     return switch (_period) {
       'today' => DateTimeRange(start: today, end: today),
       'week' => DateTimeRange(start: today.subtract(Duration(days: today.weekday - 1)), end: today),
@@ -64,6 +66,22 @@ class _TeamTreeScreenState extends State<TeamTreeScreen> {
   }
 
   String get _currency => '${_data?['currency'] ?? 'INR'}';
+
+  Future<void> _pickDates() async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: today.subtract(const Duration(days: 730)),
+      lastDate: today,
+      initialDateRange: _range,
+    );
+    if (picked == null) return;
+    setState(() {
+      _period = 'custom';
+      _custom = picked;
+    });
+    _load();
+  }
 
   void _drill(Map<String, dynamic> person) {
     Navigator.of(context).push(MaterialPageRoute(
@@ -105,7 +123,7 @@ class _TeamTreeScreenState extends State<TeamTreeScreen> {
     }
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text(widget.rootName ?? 'Team')),
+      appBar: AppBar(title: Text(widget.rootName ?? 'My Team', style: const TextStyle(fontWeight: FontWeight.w900))),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
@@ -130,19 +148,30 @@ class _TeamTreeScreenState extends State<TeamTreeScreen> {
                   ],
                 ),
               ),
-            Wrap(
-              spacing: 6,
-              children: [
-                for (final (key, label) in [('today', 'Today'), ('week', 'This week'), ('month', 'This month')])
-                  ChoiceChip(
-                    label: Text(label),
-                    selected: _period == key,
-                    onSelected: (_) {
-                      setState(() => _period = key);
-                      _load();
-                    },
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  IconButton.outlined(
+                    onPressed: _pickDates,
+                    isSelected: _period == 'custom',
+                    icon: const Icon(Icons.calendar_month_rounded, size: 20),
                   ),
-              ],
+                  const SizedBox(width: 6),
+                  for (final (key, label) in [('today', 'Today'), ('week', 'This week'), ('month', 'This month')])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: ChoiceChip(
+                        label: Text(label),
+                        selected: _period == key,
+                        onSelected: (_) {
+                          setState(() => _period = key);
+                          _load();
+                        },
+                      ),
+                    ),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
             if (_loading && root == null)
@@ -220,8 +249,7 @@ class _TeamTreeScreenState extends State<TeamTreeScreen> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${p['name']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 19)),
-                Text([if (p['job'] != null) p['job'], if (p['code'] != null) p['code']].join(' · '),
-                    style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+                Text('${p['job'] ?? ''}'.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 11.5)),
               ]),
             ),
           ]),
@@ -233,33 +261,20 @@ class _TeamTreeScreenState extends State<TeamTreeScreen> {
           ]),
           const SizedBox(height: 8),
           Row(children: [
-            tile(fmtMoney((p['team_sales'] as num?) ?? 0, _currency), 'Team sales', Icons.shopping_bag_rounded),
-            tile(fmtMoney((p['team_collections'] as num?) ?? 0, _currency), 'Collected', Icons.payments_rounded),
+            tile('${fmtQty((p['team_bottles'] as num?) ?? 0)}', 'No. of bottles sold', Icons.local_drink_rounded),
+            tile(fmtMoney((p['team_overdue'] as num?) ?? 0, _currency), 'Overdue', Icons.receipt_long_rounded),
           ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: () => _reports(p),
-                style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.primary),
-                icon: const Icon(Icons.bar_chart_rounded),
-                label: const Text('Reports'),
-              ),
+          if (widget.rootId != null) ...[
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => PlannedDaysScreen(member: '${p['id']}', memberName: '${p['name']}', start: DateUtils.dateOnly(DateTime.now())),
+              )),
+              style: FilledButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.2), foregroundColor: Colors.white),
+              icon: const Icon(Icons.event_note_rounded),
+              label: const Text('Beat plan'),
             ),
-            if (widget.rootId != null) ...[
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => PlannedDaysScreen(member: '${p['id']}', memberName: '${p['name']}', start: DateUtils.dateOnly(DateTime.now())),
-                  )),
-                  style: FilledButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.2), foregroundColor: Colors.white),
-                  icon: const Icon(Icons.event_note_rounded),
-                  label: const Text('Beat plan'),
-                ),
-              ),
-            ],
-          ]),
+          ],
         ],
       ),
     );
@@ -267,7 +282,7 @@ class _TeamTreeScreenState extends State<TeamTreeScreen> {
 
   Widget _personCard(Map<String, dynamic> p, int depth) {
     final hasTeam = (p['direct_count'] as num? ?? 0) > 0;
-    final sales = ((hasTeam ? p['team_sales'] : p['sales']) as num?) ?? 0;
+    final bottles = ((hasTeam ? p['team_bottles'] : p['bottles']) as num?) ?? 0;
     final visits = (hasTeam ? p['team_visits'] : p['visits']) ?? 0;
     Widget pill(IconData icon, String text, Color c) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -302,7 +317,7 @@ class _TeamTreeScreenState extends State<TeamTreeScreen> {
                   const SizedBox(height: 7),
                   Wrap(spacing: 6, runSpacing: 4, children: [
                     pill(Icons.storefront_rounded, '$visits visits', AppColors.purple),
-                    pill(Icons.shopping_bag_rounded, fmtMoney(sales, _currency), AppColors.primary),
+                    pill(Icons.local_drink_rounded, '${fmtQty(bottles)} bottles', AppColors.primary),
                     if (hasTeam) pill(Icons.groups_rounded, '${p['direct_count']} direct', AppColors.success),
                   ]),
                 ]),

@@ -358,7 +358,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
         ]),
       );
     }
-    // A page with a back arrow: the title gets a row of its own so it never wraps letter by letter.
+    // A page with a back arrow: back, title, then the list or map switch on the right.
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 6, 12, 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -368,15 +368,14 @@ class _ClientsScreenState extends State<ClientsScreen> {
           else
             const SizedBox(width: 8),
           Expanded(child: title),
+          const SizedBox(width: 6),
+          toggle,
         ]),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.only(left: 8),
-          child: Row(children: [
-            toggle,
-            if (picker != null) ...[const Spacer(), picker],
-          ]),
-        ),
+        if (picker != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 8, top: 8),
+            child: Align(alignment: Alignment.centerLeft, child: picker),
+          ),
       ]),
     );
   }
@@ -418,20 +417,57 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 color: (_territoryId == null && _beatId == null && _group == 'none') ? AppColors.muted : AppColors.primary),
             onPressed: _openFilterSheet,
           ),
-          PopupMenuButton<String>(
-            tooltip: 'Show',
-            icon: Icon(Icons.filter_list_rounded,
-                color: (_categoryId == null && !_neverVisited) ? AppColors.muted : AppColors.primary),
-            onSelected: _applyKind,
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'all', child: Text('All')),
-              PopupMenuItem(value: 'outlet', child: Text('Outlets')),
-              PopupMenuItem(value: 'distributor', child: Text('Distributors')),
-              PopupMenuItem(value: 'lead', child: Text('Leads')),
-              PopupMenuItem(value: 'never', child: Text('Never Visited')),
-            ],
-          ),
+          _kindDropdown(),
         ]),
+      ),
+    );
+  }
+
+  static const _kindLabels = {
+    'all': 'All',
+    'outlet': 'Outlets',
+    'distributor': 'Distributors',
+    'lead': 'Leads',
+    'never': 'Never Visited',
+  };
+
+  /// Which choice of [_kindLabels] is on now.
+  String get _kindNow {
+    if (_neverVisited) return 'never';
+    if (_categoryId == null) return 'all';
+    final match = _categories.where((c) => c['id'] == _categoryId).firstOrNull;
+    final type = '${match?['type'] ?? ''}';
+    return _kindLabels.containsKey(type) ? type : 'all';
+  }
+
+  /// The filter on the right of the search bar: All, Outlets, Distributors, Leads, Never Visited.
+  Widget _kindDropdown() {
+    return Container(
+      height: 36,
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      constraints: const BoxConstraints(maxWidth: 124),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _kindNow,
+          isDense: true,
+          isExpanded: true,
+          borderRadius: BorderRadius.circular(14),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.primary),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary),
+          selectedItemBuilder: (_) => [
+            for (final e in _kindLabels.entries) Align(alignment: Alignment.centerLeft, child: Text(e.value, maxLines: 1, overflow: TextOverflow.ellipsis)),
+          ],
+          items: [for (final e in _kindLabels.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+          onChanged: (v) {
+            if (v != null) _applyKind(v);
+          },
+        ),
       ),
     );
   }

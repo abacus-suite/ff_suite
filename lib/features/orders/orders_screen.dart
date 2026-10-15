@@ -186,7 +186,15 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
   List<Map<String, dynamic>> get _visible => _orders.where((o) {
         if (_status != 'all' && o['state'] != _status) return false;
         if (_boxStates != null && !_inBox(o, _boxStates!)) return false;
-        if (_demandFlow && _kind != 'all' && (o['kind'] == 'order') != (_kind == 'order')) return false;
+        if (_kind != 'all') {
+          if (_demandFlow) {
+            if ((o['kind'] == 'order') != (_kind == 'order')) return false;
+          } else {
+            // Without a demand step: Outlets or Distributors by the type of the customer, when the server says it.
+            final type = '${o['partner_type'] ?? (o['customer'] as Map?)?['type'] ?? ''}'.toLowerCase();
+            if (type.isNotEmpty && type.startsWith('distributor') != (_kind == 'order')) return false;
+          }
+        }
         if (_demandFlow && _mapping != 'all') {
           final linked = o['distributor'] != null;
           if ((_mapping == 'linked') != linked) return false;
@@ -272,20 +280,15 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
   int _countOf(List<String> states) => _orders.where((o) => _inBox(o, states)).length;
 
   /// The boxes across the top, named after the states this flow really uses.
-  List<(IconData, List<String>, String, Color)> get _statBoxes => _demandFlow
-      ? const [
-          (Icons.description_rounded, ['draft', 'submitted'], 'To Submit', AppColors.primary),
-          (Icons.local_shipping_rounded, ['waiting', 'quoted', 'partial'], 'With distributor', AppColors.warning),
-          (Icons.thumb_up_alt_rounded, ['approved'], 'Approved', AppColors.primary),
-          (Icons.inventory_rounded, ['supplied'], 'Delivered', AppColors.success),
-          (Icons.delivery_dining_rounded, ['__out'], 'Out for Delivery', AppColors.teal),
-          (Icons.cancel_rounded, ['cancelled', 'cancel'], 'Cancelled', AppColors.danger),
-        ]
-      : const [
-          (Icons.description_rounded, ['draft', 'sent'], 'To Submit', AppColors.primary),
-          (Icons.check_circle_rounded, ['sale', 'done'], 'Confirmed', AppColors.success),
-          (Icons.cancel_rounded, ['cancel'], 'Cancelled', AppColors.danger),
-        ];
+  List<(IconData, List<String>, String, Color)> get _statBoxes => [
+        (Icons.description_rounded, const ['draft', 'submitted', 'sent'], 'To Submit', AppColors.primary),
+        (Icons.local_shipping_rounded, const ['waiting', 'quoted', 'partial'], 'With distributor', AppColors.warning),
+        // With no demand step, a confirmed order counts as approved.
+        (Icons.thumb_up_alt_rounded, _demandFlow ? const ['approved'] : const ['approved', 'sale', 'done'], 'Approved', AppColors.primary),
+        (Icons.inventory_rounded, const ['supplied'], 'Delivered', AppColors.success),
+        (Icons.delivery_dining_rounded, const ['__out'], 'Out for Delivery', AppColors.teal),
+        (Icons.cancel_rounded, const ['cancelled', 'cancel'], 'Cancelled', AppColors.danger),
+      ];
 
   /// The card for one order or demand.
   Widget _row(Map<String, dynamic> o) {
@@ -768,18 +771,33 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                   ),
                 ),
                   ),
-                  if (_demandFlow)
-                    PopupMenuButton<String>(
-                      tooltip: 'Show',
-                      icon: Icon(Icons.filter_list_rounded,
-                          color: _kind == 'all' ? AppColors.muted : AppColors.primary),
-                      onSelected: (v) => setState(() => _kind = v),
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(value: 'all', child: Text('All')),
-                        PopupMenuItem(value: 'demand', child: Text('Outlets')),
-                        PopupMenuItem(value: 'order', child: Text('Distributors')),
-                      ],
+                  Container(
+                    height: 36,
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    constraints: const BoxConstraints(maxWidth: 124),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
                     ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _kind,
+                        isDense: true,
+                        isExpanded: true,
+                        borderRadius: BorderRadius.circular(14),
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.primary),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary),
+                        items: const [
+                          DropdownMenuItem(value: 'all', child: Text('All')),
+                          DropdownMenuItem(value: 'demand', child: Text('Outlets')),
+                          DropdownMenuItem(value: 'order', child: Text('Distributors')),
+                        ],
+                        onChanged: (v) => setState(() => _kind = v ?? 'all'),
+                      ),
+                    ),
+                  ),
                 ]),
               ),
             ),

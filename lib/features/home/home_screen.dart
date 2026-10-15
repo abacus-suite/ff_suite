@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'manager_home.dart';
+import '../../core/manager_ui.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../core/photos.dart';
@@ -389,7 +390,13 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_visit != null) _ongoingVisitCard(_visit!),
       _todaySummary(),
       if (_day?['punched_in'] == true && profile.feature('visits'))
-        RecommendationsCard(done: _doneVisits, target: _plannedVisits),
+        RecommendationsCard(
+          done: _doneVisits,
+          target: _plannedVisits,
+          fallbackClients: _plannedClients
+              .where((c) => c['visit_status'] != 'done' && c['plan_status'] != 'visited')
+              .toList(),
+        ),
     ];
     return [for (final card in cards) if (card is! SizedBox) card];
   }
@@ -438,7 +445,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 14),
               if (profile.isManager && Services.managerMode.value)
-                ManagerHome(pending: _pending, onApprovalsClosed: _loadPending)
+                (kUseLeadManagerUi
+                    ? ManagerHome(pending: _pending, onApprovalsClosed: _loadPending)
+                    : TeamDashboard(approvals: _approvalsButton()))
               else if (_loading && _status == null)
                 const Padding(
                     padding: EdgeInsets.all(40),

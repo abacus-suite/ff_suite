@@ -9,11 +9,15 @@ import '../clients/client_detail_screen.dart';
 /// and customers close by that are due a visit. Shown only when the office
 /// turned Visit Recommendations on and the person is punched in.
 class RecommendationsCard extends StatefulWidget {
-  const RecommendationsCard({super.key, this.done = 0, this.target = 0});
+  const RecommendationsCard({super.key, this.done = 0, this.target = 0, this.fallbackClients = const []});
 
   /// Today's planned visits that are done, and how many are planned: shown beside the title.
   final int done;
   final int target;
+
+  /// Today's planned customers still to visit. Used for "Next Visit" when the office has Visit
+  /// Recommendations off, or the server sends nothing, so the card is always there on a planned day.
+  final List<Map<String, dynamic>> fallbackClients;
 
   @override
   State<RecommendationsCard> createState() => _RecommendationsCardState();
@@ -64,11 +68,12 @@ class _RecommendationsCardState extends State<RecommendationsCard> {
 
   @override
   Widget build(BuildContext context) {
-    if (!(Services.auth.profile?.visitRecommendations ?? false)) return const SizedBox.shrink();
     final data = _data;
-    if (data != null && data['enabled'] == false) return const SizedBox.shrink();
-    final planned = ((data?['planned'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final nearby = ((data?['nearby'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final enabled = (Services.auth.profile?.visitRecommendations ?? false) && !(data != null && data['enabled'] == false);
+    var planned = enabled ? ((data?['planned'] as List?) ?? []).cast<Map<String, dynamic>>() : <Map<String, dynamic>>[];
+    if (planned.isEmpty) planned = widget.fallbackClients;
+    final nearby = enabled ? ((data?['nearby'] as List?) ?? []).cast<Map<String, dynamic>>() : <Map<String, dynamic>>[];
+    if (!enabled && planned.isEmpty) return const SizedBox.shrink();
     final rest = planned.skip(1).toList();
     final shownRest = _showAll ? rest : rest.take(3).toList();
     return Card(

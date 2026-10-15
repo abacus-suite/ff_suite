@@ -1,10 +1,18 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
-import '../team/my_team_screen.dart';
+import '../../core/manager_ui.dart';
+import '../../widgets/skeleton.dart';
+import '../team/my_team_screen.dart' show ManagerEmployeeReportScreen;
+import 'employee_report_pages.dart';
 
 /// Look of one figure: icon and colour by what it counts.
 (IconData, Color) metricLook(String key) => switch (key) {
@@ -384,7 +392,7 @@ class EmployeeSummaryCard extends StatelessWidget {
 // ======================================================================
 // Employee report: overview, daily breakdown, visits, demands
 // ======================================================================
-class EmployeeReportScreen extends StatelessWidget {
+class EmployeeReportScreen extends StatefulWidget {
   const EmployeeReportScreen({
     super.key,
     required this.memberId,
@@ -399,12 +407,448 @@ class EmployeeReportScreen extends StatelessWidget {
   final DateTime end;
 
   @override
+  State<EmployeeReportScreen> createState() => _EmployeeReportScreenState();
+}
+
+class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
+  late DateTime _start = widget.start;
+  late DateTime _end = widget.end;
+  String _period = 'custom';
+  Map<String, dynamic>? _overall;
+  List<Map<String, dynamic>> _days = [];
+  List<Map<String, dynamic>> _visits = [];
+  List<Map<String, dynamic>> _orders = [];
+  String? _currency;
+  String? _error;
+  bool _loading = true;
+  bool _downloading = false;
+
+  bool get _demandFlow => Services.auth.profile?.isDemandFlow ?? false;
+
+  Map<String, dynamic> _query([Map<String, dynamic> extra = const {}]) => {
+        'start': fmtDate(_start),
+        'end': fmtDate(_end),
+        'member': widget.memberId,
+        ...extra,
+      };
+
+  @override
+  void initState() {
+    super.initState();
+    for (final p in ['today', 'week', 'month']) {
+      final r = _rangeOf(p);
+      if (DateUtils.isSameDay(r.start, _start) && DateUtils.isSameDay(r.end, _end)) _period = p;
+    }
+    _load();
+  }
+
+  DateTimeRange _rangeOf(String period) {
+    final today = DateUtils.dateOnly(DateTime.now());
+    return switch (period) {
+      'today' => DateTimeRange(start: today, end: today),
+      'week' => DateTimeRange(start: today.subtract(Duration(days: today.weekday - 1)), end: today),
+      _ => DateTimeRange(start: DateTime(today.year, today.month, 1), end: today),
+    };
+  }
+
+  void _choosePeriod(String period) {
+    final r = _rangeOf(period);
+    setState(() {
+      _period = period;
+      _start = r.start;
+      _end = r.end;
+    });
+    _load();
+  }
+
+  Future<void> _pickDates() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime.now().subtract(const Duration(days: 730)),
+      lastDate: DateTime.now(),
+      initialDateRange: DateTimeRange(start: _start, end: _end),
+    );
+    if (picked == null) return;
+    setState(() {
+      _period = 'custom';
+      _start = picked.start;
+      _end = picked.end;
+    });
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final api = Services.api;
+      final results = await Future.wait([
+        api.get('/api/v1/reports/summary', query: _query({'by': 'overall'})),
+        api.get('/api/v1/reports/summary', query: _query({'by': 'day'})),
+        api.get('/api/v1/reports/visits', query: _query()),
+        api.get('/api/v1/reports/${_demandFlow ? 'demands' : 'orders'}', query: _query()),
+      ]);
+      List<Map<String, dynamic>> rows(Object? r) => (((r as Map)['rows'] as List?) ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      setState(() {
+        final overall = rows(results[0]);
+        _overall = overall.isEmpty ? {} : overall.first;
+        _days = rows(results[1]);
+        _visits = rows(results[2]);
+        _orders = rows(results[3]);
+        _currency = (results[0] as Map)['currency'] as String?;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // ---------------------------------------------------------------- territory and route
+  static String? _nameOf(Object? v) {
+    if (v is Map) return v['name'] == null ? null : '${v['name']}';
+    if (v is String && v.trim().isNotEmpty) return v.trim();
+    return null;
+  }
+
+  /// Territory or route name -> the dates it was worked (and, for a route, its territory).
+  Map<String, ({Set<String> dates, String? territory})> _groups(String key) {
+    final out = <String, ({Set<String> dates, String? territory})>{};
+    for (final row in [..._days, ..._visits]) {
+      final name = _nameOf(row[key]);
+      final date = row['date'] == null ? null : '${row['date']}';
+      if (name == null) continue;
+      final cur = out[name] ?? (dates: <String>{}, territory: _nameOf(row['territory']));
+      if (date != null) cur.dates.add(date);
+      out[name] = cur;
+    }
+    return out;
+  }
+
+  String _dates(Set<String> iso) {
+    final days = iso.map(DateTime.tryParse).whereType<DateTime>().toList()..sort();
+    if (days.isEmpty) return '';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${days.map((d) => d.day.toString().padLeft(2, '0')).join(', ')} ${months[days.last.month - 1]}';
+  }
+
+  String get _rangeText => '${_day(fmtDate(_start))} to ${_day(fmtDate(_end))}';
+
+  void _groupSheet(String title, Map<String, ({Set<String> dates, String? territory})> groups, {required bool route}) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('$title – $_rangeText', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                Text('${groups.length} ${route ? 'routes' : 'territories'} in the selected dates',
+                    style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+              ]),
+            ),
+            Flexible(
+              child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(12, 0, 12, 16), children: [
+                for (final e in groups.entries)
+                  ListTile(
+                    leading: CircleAvatar(
+                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                        child: const Icon(Icons.event_note_rounded, color: AppColors.primary, size: 20)),
+                    title: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w800)),
+                    subtitle: Text([_dates(e.value.dates), if (route && e.value.territory != null) 'Territory ${e.value.territory}'].where((s) => s.isNotEmpty).join(' · '),
+                        style: const TextStyle(fontSize: 12)),
+                  ),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _placeCell(String label, String key, {required bool route}) {
+    final groups = _groups(key);
+    if (groups.isEmpty) return const SizedBox.shrink();
+    final extra = groups.length - 1;
+    return Expanded(
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
+            Text(groups.keys.first, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+          ]),
+        ),
+        if (extra > 0)
+          InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => _groupSheet(route ? 'Route' : 'Territory', groups, route: route),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.warning)),
+              child: Text('+$extra', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.primary)),
+            ),
+          ),
+        const SizedBox(width: 8),
+      ]),
+    );
+  }
+
+  // ---------------------------------------------------------------- work buttons and boxes
+  num _n(Object? v) => (v as num?) ?? 0;
+
+  String get _rangeLabel => '${_day(fmtDate(_start))} – ${_day(fmtDate(_end))}';
+
+  void _push(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+
+  Widget _workButton(IconData icon, Color c, String value, String label, VoidCallback onTap) => Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+            decoration: BoxDecoration(color: c.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: c.withValues(alpha: 0.5))),
+            child: Column(children: [
+              Icon(icon, color: c, size: 20),
+              const SizedBox(height: 6),
+              FittedBox(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15))),
+              Text('$label ›', maxLines: 1, style: const TextStyle(fontSize: 10, color: AppColors.muted)),
+            ]),
+          ),
+        ),
+      );
+
+  Widget _box(IconData icon, Color c, String label, String value, {VoidCallback? onTap}) => InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: c.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16)),
+          child: Row(children: [
+            CircleAvatar(radius: 17, backgroundColor: Colors.white, child: Icon(icon, color: c, size: 18)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
+                Text('$value${onTap == null ? '' : ' ›'}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5)),
+              ]),
+            ),
+          ]),
+        ),
+      );
+
+  Widget _grid(List<Widget> tiles) => Column(children: [
+        for (var i = 0; i < tiles.length; i += 2)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(children: [
+              Expanded(child: tiles[i]),
+              const SizedBox(width: 8),
+              Expanded(child: i + 1 < tiles.length ? tiles[i + 1] : const SizedBox()),
+            ]),
+          ),
+      ]);
+
+  void _visitsPage() => _push(EmployeeVisitsScreen(name: widget.name, rangeText: _rangeLabel, visits: _visits, orders: _orders));
+
+  void _tasksPage() {
+    final o = _overall ?? const {};
+    _push(EmployeeTasksScreen(
+      memberId: widget.memberId,
+      name: widget.name,
+      rangeText: _rangeLabel,
+      start: _start,
+      end: _end,
+      visitsDone: _n(o['visits']),
+      visitsTotal: _n(o['planned'] ?? o['visits']),
+    ));
+  }
+
+  // ---------------------------------------------------------------- download
+  Future<String?> _chooseSheet(String title, String subtitle, List<(IconData, Color, String, String, String)> options) {
+    return showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+                Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+              ]),
+            ),
+            for (final (icon, colour, key, label, sub) in options)
+              ListTile(
+                leading: CircleAvatar(backgroundColor: colour.withValues(alpha: 0.12), child: Icon(icon, color: colour)),
+                title: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(sub, style: const TextStyle(fontSize: 12)),
+                onTap: () => Navigator.pop(ctx, key),
+              ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _download() async {
+    final format = await _chooseSheet('Download report', '${widget.name.toUpperCase()} · $_rangeLabel', [
+      (Icons.grid_on_rounded, AppColors.success, 'xlsx', 'Excel', 'All boxes and details'),
+      (Icons.picture_as_pdf_rounded, AppColors.danger, 'pdf', 'PDF', 'Same report as a PDF'),
+    ]);
+    if (format == null || !mounted) return;
+    setState(() => _downloading = true);
+    File? file;
+    try {
+      final base = await Services.api.url('/api/v1/reports/employee.$format');
+      final url = Uri.parse(base).replace(queryParameters: {
+        'member': widget.memberId,
+        'start': fmtDate(_start),
+        'end': fmtDate(_end),
+      });
+      final response = await http.get(url, headers: await Services.api.authHeaders());
+      if (response.statusCode != 200) throw Exception('The report could not be prepared (${response.statusCode}).');
+      final dir = await getTemporaryDirectory();
+      final safe = widget.name.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+      file = File('${dir.path}/Employee_Report_$safe.$format');
+      await file.writeAsBytes(response.bodyBytes);
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
+    if (file == null || !mounted) return;
+    final mime = format == 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    final sendTo = await _chooseSheet('Send to', 'Choose a contact', [
+      (Icons.send_rounded, AppColors.success, 'share', 'WhatsApp', 'Share the file'),
+      (Icons.download_rounded, AppColors.primary, 'save', 'Save to phone', 'Downloads folder'),
+    ]);
+    if (sendTo == null || !mounted) return;
+    try {
+      if (sendTo == 'save' && Platform.isAndroid) {
+        final target = File('/storage/emulated/0/Download/${file.uri.pathSegments.last}');
+        await file.copy(target.path);
+        if (mounted) showSnack(context, 'Saved to Downloads');
+        return;
+      }
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path, mimeType: mime)],
+        subject: 'Employee report ${widget.name}',
+      ));
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    }
+  }
+
+  // ---------------------------------------------------------------- build
+  @override
   Widget build(BuildContext context) {
-    return ManagerEmployeeReportScreen(
-      memberId: int.tryParse(memberId) ?? 0,
-      name: name,
-      start: start,
-      end: end,
+    if (kUseLeadManagerUi) {
+      return ManagerEmployeeReportScreen(
+        memberId: int.tryParse(widget.memberId) ?? 0,
+        name: widget.name,
+        start: widget.start,
+        end: widget.end,
+      );
+    }
+    final name = widget.name;
+    final initials = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).take(2).map((p) => p[0]).join().toUpperCase();
+    final o = _overall ?? const {};
+    final hasPlaces = _groups('territory').isNotEmpty || _groups('route').isNotEmpty;
+    final planned = o['planned'];
+    return Scaffold(
+      appBar: AppBar(title: const Text('Employee report', style: TextStyle(fontWeight: FontWeight.w900))),
+      body: _error != null
+          ? ErrorView(message: _error!, onRetry: _load)
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                children: [
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(children: [
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                          child: Text(initials, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 15)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(name.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                            Text('${_day(fmtDate(_start))} – ${_day(fmtDate(_end))}', style: const TextStyle(color: AppColors.muted, fontSize: 11.5)),
+                          ]),
+                        ),
+                        IconButton(onPressed: _pickDates, icon: const Icon(Icons.calendar_month_rounded, color: AppColors.primary)),
+                        DropdownButton<String>(
+                          value: _period,
+                          underline: const SizedBox.shrink(),
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.primary),
+                          items: const [
+                            DropdownMenuItem(value: 'today', child: Text('Today')),
+                            DropdownMenuItem(value: 'week', child: Text('This week')),
+                            DropdownMenuItem(value: 'month', child: Text('This month')),
+                            DropdownMenuItem(value: 'custom', child: Text('Custom')),
+                          ],
+                          onChanged: (v) {
+                            if (v == null) return;
+                            v == 'custom' ? _pickDates() : _choosePeriod(v);
+                          },
+                        ),
+                      ]),
+                    ),
+                  ),
+                  if (hasPlaces)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+                        child: Row(children: [
+                          _placeCell('Territory', 'territory', route: false),
+                          _placeCell('Route', 'route', route: true),
+                        ]),
+                      ),
+                    ),
+                  const SizedBox(height: 4),
+                  if (_loading && _overall == null)
+                    const Padding(padding: EdgeInsets.all(40), child: LoadingView())
+                  else ...[
+                    Row(children: [
+                      _workButton(Icons.event_available_rounded, AppColors.success, '${_n(o['days'])}', 'Days worked',
+                          () => _push(DaysTableScreen(title: 'Days worked', name: widget.name, rangeText: _rangeLabel, days: _days.where((d) => _n(d['days']) > 0 || _n(d['visits']) > 0).toList()))),
+                      _workButton(Icons.schedule_rounded, AppColors.danger, '${_n(o['late'])}', 'Late days',
+                          () => _push(LateDaysScreen(name: widget.name, rangeText: _rangeLabel, days: _days))),
+                      _workButton(Icons.add_road_rounded, AppColors.primary, '${_n(o['km']).toStringAsFixed(0)} km', 'Distance',
+                          () => _push(DaysTableScreen(title: 'Distance', name: widget.name, rangeText: _rangeLabel, days: _days.where((d) => _n(d['km']) > 0).toList(), sortBy: 'km'))),
+                      _workButton(Icons.timer_rounded, AppColors.purple, fmtHours(o['hours'] as num?), 'Hours',
+                          () => _push(DaysTableScreen(title: 'Hours', name: widget.name, rangeText: _rangeLabel, days: _days.where((d) => _n(d['hours']) > 0).toList(), sortBy: 'hours'))),
+                    ]),
+                    const SizedBox(height: 12),
+                    _grid([
+                      _box(Icons.location_on_rounded, AppColors.primary, 'Visits', planned == null ? '${_n(o['visits'])}' : '${_n(o['visits'])} / ${_n(planned)}', onTap: _visitsPage),
+                      _box(Icons.task_alt_rounded, AppColors.success, 'Tasks', '${_n(o['tasks_done'])} / ${_n(o['tasks'])}', onTap: _tasksPage),
+                      _box(Icons.local_drink_rounded, AppColors.primary, 'Bottles sold', '${_n(o['bottles'])}'),
+                      _box(Icons.storefront_rounded, AppColors.success, 'Onboarded outlets', '${_n(o['outlets_onboarded'] ?? o['customers'])}'),
+                      _box(Icons.shopping_cart_rounded, AppColors.warning, 'POs to distributor', '${_n(o['pos'] ?? o['orders'])}'),
+                      _box(Icons.person_add_alt_1_rounded, AppColors.sky, 'New leads', '${_n(o['leads'])}'),
+                      _box(Icons.receipt_long_rounded, AppColors.danger, 'Expenses', _money(o['expenses'] as num?, _currency)),
+                    ]),
+                    const SizedBox(height: 8),
+                    GradientButton(label: 'Download report (Excel / PDF)', icon: Icons.download_rounded, busy: _downloading, onPressed: _download),
+                  ],
+                ],
+              ),
+            ),
     );
   }
 }

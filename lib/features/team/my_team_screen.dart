@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/format.dart';
@@ -7,6 +8,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/skeleton.dart';
 import '../home/manager_home.dart' show initials;
+import 'employee_report_pages.dart';
 
 const _bg = Color(0xFFEEF3FB);
 const _blue = Color(0xFF1D4ED8);
@@ -411,8 +413,46 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
         'format': format,
       }) as Map<String, dynamic>;
       final url = Uri.parse(await Services.api.url('${r['path']}'));
-      final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
-      if (!opened && mounted) showSnack(context, 'Could not open the download.');
+      if (!mounted) return;
+      final sendTo = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 6),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Send to', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+                  Text('Choose a contact', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                ]),
+              ),
+              ListTile(
+                leading: const CircleAvatar(backgroundColor: Color(0xFFE8F7EE), child: Icon(Icons.send_rounded, color: AppColors.success)),
+                title: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: const Text('Share the file'),
+                onTap: () => Navigator.pop(sheet, 'share'),
+              ),
+              ListTile(
+                leading: const CircleAvatar(backgroundColor: Color(0xFFEFF6FF), child: Icon(Icons.download_rounded, color: AppColors.primary)),
+                title: const Text('Save to phone', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: const Text('Downloads folder'),
+                onTap: () => Navigator.pop(sheet, 'save'),
+              ),
+            ]),
+          ),
+        ),
+      );
+      if (sendTo == 'share') {
+        await SharePlus.instance.share(ShareParams(
+          text: 'Employee report ${widget.name} (${prettyShort(_start)} – ${prettyShort(_end)}): $url',
+          subject: 'Employee report ${widget.name}',
+        ));
+      } else if (sendTo == 'save') {
+        final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
+        if (!opened && mounted) showSnack(context, 'Could not open the download.');
+      }
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
     } finally {
@@ -449,6 +489,10 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
       ),
     );
   }
+
+  String get _rangeText => '${prettyShort(_start)} – ${prettyShort(_end)}';
+
+  void _push(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
   String _hours(num h) {
     final minutes = (h * 60).round();
@@ -696,11 +740,7 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
                       border: const Color(0xFFA8E6CF),
                       value: '${d['days_worked'] ?? 0}',
                       label: 'Days worked',
-                      onTap: () => _list('Days worked', [
-                        for (final r in days)
-                          '${r['date']}  ·  In ${r['in_at'] != null ? fmtTime(r['in_at']) : '-'}'
-                              '  Out ${r['out_at'] != null ? fmtTime(r['out_at']) : '-'}  ·  ${_hours((r['hours'] as num?) ?? 0)}'
-                      ]),
+                      onTap: () => _push(DaysTableScreen(title: 'Days worked', name: widget.name, rangeText: _rangeText, days: days)),
                     ),
                     work(
                       icon: Icons.schedule_rounded,
@@ -709,9 +749,7 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
                       border: const Color(0xFFFFD5B8),
                       value: '${d['late_days'] ?? 0}',
                       label: 'Late days',
-                      onTap: () => _list('Late days', [
-                        for (final r in late) '${r['date']}  ·  In ${r['in_at'] != null ? fmtTime(r['in_at']) : '-'}'
-                      ]),
+                      onTap: () => _push(LateDaysScreen(name: widget.name, rangeText: _rangeText, days: late)),
                     ),
                     work(
                       icon: Icons.near_me_outlined,
@@ -720,7 +758,7 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
                       border: const Color(0xFFBCD8FF),
                       value: '${((d['distance_km'] as num?) ?? 0).toStringAsFixed(0)} km',
                       label: 'Distance',
-                      onTap: () => _list('Distance', [for (final r in days) '${r['date']}  ·  ${r['km']} km']),
+                      onTap: () => _push(DaysTableScreen(title: 'Distance', name: widget.name, rangeText: _rangeText, days: days, sortBy: 'km')),
                     ),
                     work(
                       icon: Icons.timer_outlined,
@@ -729,9 +767,7 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
                       border: const Color(0xFFBCEAD5),
                       value: _hours((d['hours'] as num?) ?? 0),
                       label: 'Hours',
-                      onTap: () => _list('Hours', [
-                        for (final r in days) '${r['date']}  ·  ${_hours((r['hours'] as num?) ?? 0)}'
-                      ]),
+                      onTap: () => _push(DaysTableScreen(title: 'Hours', name: widget.name, rangeText: _rangeText, days: days, sortBy: 'hours')),
                     ),
                   ]),
                   const SizedBox(height: 12),
@@ -747,16 +783,15 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
                     children: [
                       box(Icons.place_outlined, const Color(0xFF2563EB), 'Visits',
                           '${visits['done'] ?? 0} / ${visits['planned'] ?? 0} ›',
-                          onTap: () => _list('Visits', [
-                                for (final v in _rows(details['visits']))
-                                  '${v['date']}  ·  ${(v['outlet'] as Map)['name']}  ·  ${v['done'] == true ? 'Visited' : 'Not visited'}'
-                              ])),
+                          onTap: () => _push(EmployeeVisitsScreen(name: widget.name, rangeText: _rangeText, visits: _rows(details['visits'])))),
                       box(Icons.check_circle_outline, const Color(0xFF16A34A), 'Tasks',
                           '${tasks['done'] ?? 0} / ${tasks['total'] ?? 0} ›',
-                          onTap: () => _list('Tasks', [
-                                for (final t in _rows(details['tasks']))
-                                  '${t['name']}  ·  ${t['state']}${t['due'] != null ? '  ·  due ${t['due']}' : ''}'
-                              ])),
+                          onTap: () => _push(EmployeeTasksScreen(
+                              name: widget.name,
+                              rangeText: _rangeText,
+                              tasks: _rows(details['tasks']),
+                              visitsDone: (visits['done'] as num?) ?? 0,
+                              visitsTotal: (visits['planned'] as num?) ?? 0))),
                       box(Icons.bar_chart_rounded, const Color(0xFF2563EB), 'Bottles sold', '${d['bottles'] ?? 0}'),
                       box(Icons.storefront_outlined, const Color(0xFF0EA5E9), 'Onboarded outlets', '${d['outlets'] ?? 0}'),
                       box(Icons.shopping_cart_outlined, const Color(0xFF2563EB), 'POs to distributor',
