@@ -263,7 +263,7 @@ Future<String?> _pickSampleSource(BuildContext context, {required bool companyAl
           const SizedBox(height: 14),
           if (companyAllowed)
             option(sheet, 'company', Icons.business_rounded, AppColors.sky, 'Company',
-                'From the company stock. No customer, no check-in'),
+                'From company warehouse stock. No customer, no check-in'),
           option(sheet, 'distributor', Icons.local_shipping_rounded, AppColors.purple, 'Distributor',
               'Choose the distributor and check in there'),
           option(sheet, 'outlet', Icons.storefront_rounded, AppColors.teal, 'Outlet',
@@ -303,8 +303,27 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
     if (from == 'distributor') {
       final picked = await pickFromList(context,
           title: 'Distributor',
-          load: () async => (await Services.api.get('/api/v1/distributors') as List).cast<Map<String, dynamic>>(),
-          subtitle: (r) => '${r['city'] ?? ''}');
+          load: () async {
+            final res = await Services.api.get('/api/v1/distributors');
+            final list = res is Map ? ((res['distributors'] as List?) ?? []) : (res as List);
+            return list.cast<Map<String, dynamic>>();
+          },
+          subtitle: (r) {
+            final cities = [
+              if (r['city'] != null && '${r['city']}'.isNotEmpty) '${r['city']}',
+              for (final d in (r['secondary_districts'] as List? ?? []))
+                if (d is Map && d['name'] != null && '${d['name']}' != r['city']) '${d['name']}',
+            ];
+            final terrs = [
+              if (r['territory'] is Map && r['territory']['name'] != null) '${r['territory']['name']}',
+              for (final t in (r['secondary_territories'] as List? ?? []))
+                if (t is Map && t['name'] != null && t['name'] != r['territory']?['name']) '${t['name']}',
+            ];
+            return [
+              if (cities.isNotEmpty) cities.join(', '),
+              if (terrs.isNotEmpty) terrs.join(', '),
+            ].join(' · ');
+          });
       if (picked == null || !context.mounted) return;
       try {
         final full = await Services.api.get('/api/v1/clients/${picked['id']}') as Map<String, dynamic>;
