@@ -1026,7 +1026,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
             child: Choice(
               options: [
                 {'code': contactIs, 'name': 'This $contactIs: ${widget.client!['name']}'},
-                {'code': 'company', 'name': 'Company'},
+                if (widget.config['company_samples'] == true) {'code': 'company', 'name': 'Company'},
               ],
               value: source,
               onChanged: (v) => setState(() => _a['source'] = v),
@@ -1086,7 +1086,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
         if (source == 'company')
           const StepCard(
             tint: AppColors.sky,
-            child: Text('Issued from Kumbayah\'s own stock. No debit note and no demand is created.',
+            child: Text('Issued from company warehouse stock (moved to your custody). No debit note and no demand is created.',
                 style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
           ),
         if (source != null) ...[

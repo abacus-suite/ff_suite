@@ -263,7 +263,7 @@ Future<String?> _pickSampleSource(BuildContext context, {required bool companyAl
           const SizedBox(height: 14),
           if (companyAllowed)
             option(sheet, 'company', Icons.business_rounded, AppColors.sky, 'Company',
-                'From the company stock. No customer, no check-in'),
+                'From company warehouse stock. No customer, no check-in'),
           option(sheet, 'distributor', Icons.local_shipping_rounded, AppColors.purple, 'Distributor',
               'Choose the distributor and check in there'),
           option(sheet, 'outlet', Icons.storefront_rounded, AppColors.teal, 'Outlet',
