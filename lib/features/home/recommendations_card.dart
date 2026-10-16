@@ -25,7 +25,6 @@ class RecommendationsCard extends StatefulWidget {
 
 class _RecommendationsCardState extends State<RecommendationsCard> {
   Map<String, dynamic>? _data;
-  bool _loading = false;
   String? _error;
   bool _showAll = false;
 
@@ -44,10 +43,7 @@ class _RecommendationsCardState extends State<RecommendationsCard> {
 
   Future<void> _load() async {
     if (!(Services.auth.profile?.visitRecommendations ?? false) || !mounted) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() => _error = null);
     try {
       final pos = await currentPosition(recentOk: true).timeout(const Duration(seconds: 12));
       final data = await Services.api.get('/api/v1/recommendations',
@@ -55,8 +51,6 @@ class _RecommendationsCardState extends State<RecommendationsCard> {
       if (mounted) setState(() => _data = data);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -137,10 +131,48 @@ class _RecommendationsCardState extends State<RecommendationsCard> {
   static const _capsStyle =
       TextStyle(fontSize: 10.5, letterSpacing: 1.1, fontWeight: FontWeight.w800, color: AppColors.muted);
 
+  /// The day's progress: a ring with the percentage in it, and "done / planned" with "Daily Target" under it.
+  Widget _dailyTarget() {
+    final share = widget.target <= 0 ? 0.0 : (widget.done / widget.target).clamp(0.0, 1.0).toDouble();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 6, 14, 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        SizedBox(
+          width: 44,
+          height: 44,
+          child: Stack(alignment: Alignment.center, children: [
+            SizedBox(
+              width: 44,
+              height: 44,
+              child: CircularProgressIndicator(
+                value: share,
+                strokeWidth: 4.5,
+                backgroundColor: AppColors.border,
+                color: share >= 1 ? AppColors.success : AppColors.primary,
+              ),
+            ),
+            Text('${(share * 100).round()}%', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: AppColors.text)),
+          ]),
+        ),
+        const SizedBox(width: 10),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          Text('${widget.done} / ${widget.target}',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.text, height: 1.1)),
+          const Text('Daily Target', style: TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
+        ]),
+      ]),
+    );
+  }
+
   /// The title strip, with what is left of the day beside it.
   Widget _header(Map<String, dynamic>? data, List<Map<String, dynamic>> planned) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -161,49 +193,16 @@ class _RecommendationsCardState extends State<RecommendationsCard> {
             child: const Icon(Icons.alt_route_rounded, color: Colors.white, size: 21),
           ),
           const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Next Visit', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                if (widget.target > 0) ...[
-                  const SizedBox(height: 3),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      _chip('${(widget.done / widget.target * 100).round()}%', Icons.donut_large_rounded, AppColors.success),
-                      _chip('${widget.done} / ${widget.target}  Daily Target', Icons.flag_rounded, AppColors.primary),
-                    ],
-                  ),
-                ],
-              ],
-            ),
+          const SizedBox(width: 2),
+          const Expanded(
+            child: Text('Next Visit', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: AppColors.text)),
           ),
-          IconButton(
-            tooltip: 'Use my position again',
-            onPressed: _loading ? null : _load,
-            icon: _loading
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.my_location_rounded),
-          ),
+          if (widget.target > 0) _dailyTarget(),
+          const SizedBox(width: 6),
         ],
       ),
     );
   }
-
-  Widget _chip(String text, IconData icon, Color colour) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 12, color: colour),
-            const SizedBox(width: 4),
-            Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: colour)),
-          ],
-        ),
-      );
 
   /// The one to go to now, given room of its own.
   Widget _nextStop(Map<String, dynamic> c) {

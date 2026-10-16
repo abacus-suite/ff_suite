@@ -337,93 +337,115 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Row(
       children: [
         cell(Icons.groups_2_rounded, 'Team', count(teams.length, 'team', 'teams'), AppColors.primary,
-            () => _openList('My Teams', Icons.groups_2_rounded, [
-                  for (final t in teams)
-                    (t['name'] as String, 'Lead: ${t['lead'] ?? '-'} \u00B7 ${t['members']} members', null),
+            () => _openList('My Teams', 'Opened by tapping “Team”', Icons.groups_2_rounded, [
+                  (null, [
+                    for (final t in teams)
+                      ('${t['name']}', 'Lead: ${t['lead'] ?? '-'} · ${t['members']} members', null),
+                  ]),
                 ])),
         const SizedBox(width: 10),
         cell(Icons.place_rounded, 'Territory',
             count(primary.length + secondary.length + outside.length, 'territory', 'territories'), AppColors.success,
-            () => _openList('My Territories', Icons.place_rounded, [
-                  for (final t in primary) (t['name'] as String, '${t['region'] ?? ''}', 'Primary'),
-                  for (final t in secondary) (t['name'] as String, '${t['region'] ?? ''}', 'Secondary'),
-                  for (final t in outside) (t['name'] as String, '${t['region'] ?? ''}', 'Outside'),
+            () => _openList('My Territories', 'Opened by tapping “Territory”', null, [
+                  if (primary.isNotEmpty)
+                    ('Primary territory', [for (final t in primary) ('${t['name']}', '${t['region'] ?? ''}', 'Primary')]),
+                  if (secondary.isNotEmpty)
+                    ('Secondary territory', [for (final t in secondary) ('${t['name']}', '${t['region'] ?? ''}', 'Secondary')]),
+                  if (outside.isNotEmpty)
+                    ('Outside territory', [for (final t in outside) ('${t['name']}', '${t['region'] ?? ''}', 'Outside')]),
                 ])),
         const SizedBox(width: 10),
         cell(Icons.route_rounded, profile.routeLabel == 'Beat' ? 'Beats' : '${profile.routeLabel}s',
             count(beats.length, 'beat', 'beats'), AppColors.warning,
-            () => _openList('My Beats', Icons.route_rounded, [
-                  for (final b in beats)
-                    (
-                      b['name'] as String,
-                      '${b['outlets']} outlets${b['city'] != null ? ' \u00B7 ${b['city']}' : ''}',
-                      b['state'] == 'pending' ? 'Pending approval' : 'Approved',
-                    ),
+            () => _openList('My Beats', 'Opened by tapping “Beats”', Icons.calendar_month_rounded, [
+                  (null, [
+                    for (final b in beats)
+                      (
+                        '${b['name']}',
+                        '${b['outlets']} outlets${b['city'] != null ? ' · ${b['city']}' : ''}',
+                        b['state'] == 'pending' ? 'Pending approval' : 'Approved',
+                      ),
+                  ]),
                 ])),
       ],
     );
   }
 
-  /// A simple list page: a title, then rows with a name, a line under it and a small status.
-  void _openList(String title, IconData icon, List<(String, String, String?)> rows) {
+  /// A list page: a title with a line under it, then groups (each with an optional heading) of rows: a name,
+  /// a line under it and a small status pill on the right.
+  void _openList(String title, String subtitle, IconData? icon, List<(String?, List<(String, String, String?)>)> groups) {
+    const blue = Color(0xFF1A56DB);
+    Color badge(String status) => switch (status) {
+          'Primary' => blue,
+          'Secondary' => AppColors.purple,
+          'Outside' || 'Pending approval' => AppColors.warning,
+          _ => AppColors.success,
+        };
+    final empty = groups.every((g) => g.$2.isEmpty);
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => Scaffold(
-        appBar: AppBar(title: Text(title)),
-        body: rows.isEmpty
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
+            Text(subtitle, style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
+          ]),
+        ),
+        body: empty
             ? const Center(child: Text('Nothing here yet.', style: TextStyle(color: AppColors.muted)))
             : ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
-                  for (final row in rows)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border),
+                  for (final group in groups) ...[
+                    if (group.$1 != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(2, 8, 2, 8),
+                        child: Text(group.$1!, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: blue)),
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                            child: Icon(icon, color: AppColors.primary, size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(row.$1, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                                if (row.$2.isNotEmpty)
-                                  Text(row.$2, style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
-                              ],
-                            ),
-                          ),
-                          if (row.$3 != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: (row.$3 == 'Pending approval' || row.$3 == 'Outside'
-                                        ? AppColors.warning
-                                        : AppColors.success)
-                                    .withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(20),
+                    for (final row in group.$2)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          children: [
+                            if (icon != null) ...[
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(color: blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                                child: Icon(icon, color: blue, size: 21),
                               ),
-                              child: Text(row.$3!,
-                                  style: TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: row.$3 == 'Pending approval' || row.$3 == 'Outside'
-                                          ? AppColors.warning
-                                          : AppColors.success)),
+                              const SizedBox(width: 12),
+                            ],
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(row.$1, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+                                  if (row.$2.isNotEmpty)
+                                    Text(row.$2, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                                ],
+                              ),
                             ),
-                        ],
+                            if (row.$3 != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: badge(row.$3!).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(row.$3!,
+                                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: badge(row.$3!))),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
+                  ],
                 ],
               ),
       ),

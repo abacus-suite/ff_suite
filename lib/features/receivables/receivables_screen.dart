@@ -6,6 +6,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../orders/demand_send.dart';
 
 const _bucketColours = {
   'not_due': AppColors.success,
@@ -78,6 +79,72 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
     }
   }
 
+  bool _sendingLedger = false;
+
+  Future<void> _sendLedgerOnWhatsApp() async {
+    if (widget.partnerId == null) return;
+    setState(() => _sendingLedger = true);
+    try {
+      Map<String, dynamic>? client;
+      try {
+        client = await Services.api.get('/api/v1/clients/${widget.partnerId}') as Map<String, dynamic>?;
+      } catch (_) {}
+
+      final clientName = widget.partnerName ?? client?['name'] ?? 'Customer';
+      final pocPhone = (client?['accounts_poc_phone'] as String?)?.trim().isNotEmpty == true
+          ? (client!['accounts_poc_phone'] as String).trim()
+          : (client?['phone'] as String?)?.trim().isNotEmpty == true
+              ? (client!['phone'] as String).trim()
+              : (client?['poc_phone'] as String?)?.trim().isNotEmpty == true
+                  ? (client!['poc_phone'] as String).trim()
+                  : null;
+      final pocName = (client?['accounts_poc_name'] as String?)?.trim().isNotEmpty == true
+          ? (client!['accounts_poc_name'] as String).trim()
+          : (client?['poc_name'] as String?)?.trim().isNotEmpty == true
+              ? (client!['poc_name'] as String).trim()
+              : null;
+
+      final currency = _data?['currency'] as String?;
+      final totalFmt = fmtMoney(_data?['total'] as num?, currency);
+      final overdueFmt = fmtMoney(_data?['overdue'] as num?, currency);
+      final count = _data?['count'] ?? 0;
+      final invoices = ((_data?['invoices'] as List?) ?? []).cast<Map<String, dynamic>>();
+
+      final buffer = StringBuffer();
+      if (pocName != null && pocName.isNotEmpty) {
+        buffer.writeln('Hello $pocName,');
+      } else {
+        buffer.writeln('Hello,');
+      }
+      buffer.writeln('Here is the outstanding statement for $clientName:');
+      buffer.writeln('• Total Outstanding: $totalFmt');
+      buffer.writeln('• Overdue: $overdueFmt');
+      buffer.writeln('• Invoices: $count');
+      if (invoices.isNotEmpty) {
+        buffer.writeln('\nInvoices:');
+        for (final inv in invoices.take(6)) {
+          final invNum = inv['number'];
+          final res = fmtMoney(inv['residual'] as num?, currency);
+          final due = _prettyDate(inv['due_date'] as String?);
+          buffer.writeln('• $invNum: $res (Due $due)');
+        }
+        if (invoices.length > 6) {
+          buffer.writeln('... and ${invoices.length - 6} more invoice(s)');
+        }
+      }
+      buffer.writeln('\nPlease arrange payment at your earliest convenience. Thank you!');
+
+      final launched = await openWhatsApp(pocPhone, buffer.toString());
+      if (!launched && mounted) {
+        showSnack(context, 'Could not open WhatsApp');
+      }
+    } catch (e) {
+      if (mounted) showSnack(context, 'Error: $e');
+    } finally {
+      if (mounted) setState(() => _sendingLedger = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = _data;
@@ -125,12 +192,16 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
             child: Column(
               children: [
                 if (widget.partnerId == null)
-                  Row(
-                    children: [
-                      Expanded(child: _kindButton('Outlet', 'outlet', Icons.storefront_rounded)),
-                      const SizedBox(width: 10),
-                      Expanded(child: _kindButton('Distributors', 'distributor', Icons.local_shipping_rounded)),
-                    ],
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      children: [
+                        _kindButton('Outlet', 'outlet', Icons.storefront_rounded),
+                        _kindButton('Distributors', 'distributor', Icons.local_shipping_rounded),
+                      ],
+                    ),
                   ),
                 const SizedBox(height: 8),
                 SegmentedButton<String>(
@@ -172,26 +243,26 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 14,
-                        runSpacing: 4,
-                        children: [
-                          for (final a in ageing)
-                            if ((a['amount'] as num? ?? 0) != 0)
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                      width: 9,
-                                      height: 9,
-                                      decoration: BoxDecoration(color: _bucketColours[a['key']], shape: BoxShape.circle)),
-                                  const SizedBox(width: 5),
-                                  Text('${a['label']}  ${fmtMoney(a['amount'] as num?, currency)}',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                ],
-                              ),
-                        ],
-                      ),
+                      for (final a in ageing)
+                        if ((a['amount'] as num? ?? 0) != 0)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            child: Row(
+                              children: [
+                                Container(
+                                    width: 9,
+                                    height: 9,
+                                    decoration: BoxDecoration(color: _bucketColours[a['key']], shape: BoxShape.circle)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text('${a['label']}',
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                                ),
+                                Text(fmtMoney(a['amount'] as num?, currency),
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                              ],
+                            ),
+                          ),
                     ],
                   ),
                 ),
@@ -297,23 +368,61 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: widget.partnerId == null
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                      elevation: 0,
+                    ),
+                    onPressed: _sendingLedger ? null : _sendLedgerOnWhatsApp,
+                    child: _sendingLedger
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text(
+                            'Send Ledger on WhatsApp',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ),
     );
   }
 
+  /// Outlet / Distributors: a pill, filled blue while chosen.
   Widget _kindButton(String label, String kind, IconData icon) {
     final on = _kind == kind;
-    return OutlinedButton.icon(
-      onPressed: () {
+    return InkWell(
+      borderRadius: BorderRadius.circular(26),
+      onTap: () {
         setState(() => _kind = on ? null : kind);
         _load();
       },
-      style: OutlinedButton.styleFrom(
-        backgroundColor: on ? AppColors.primary.withValues(alpha: 0.1) : null,
-        side: BorderSide(color: on ? AppColors.primary : AppColors.border),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+        decoration: BoxDecoration(
+          color: on ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: on ? AppColors.primary : AppColors.border),
+        ),
+        child: Text(label,
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5, color: on ? Colors.white : AppColors.text)),
       ),
-      icon: Icon(icon, size: 18, color: on ? AppColors.primary : AppColors.muted),
-      label: Text(label, style: TextStyle(fontWeight: FontWeight.w800, color: on ? AppColors.primary : AppColors.text)),
     );
   }
 

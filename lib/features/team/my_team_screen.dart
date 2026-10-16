@@ -749,7 +749,7 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
                       border: const Color(0xFFFFD5B8),
                       value: '${d['late_days'] ?? 0}',
                       label: 'Late days',
-                      onTap: () => _push(LateDaysScreen(name: widget.name, rangeText: _rangeText, days: late)),
+                      onTap: () => _push(LateDaysScreen(name: widget.name, rangeText: _rangeText, days: late, memberId: '${widget.memberId}')),
                     ),
                     work(
                       icon: Icons.near_me_outlined,

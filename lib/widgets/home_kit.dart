@@ -44,6 +44,7 @@ class HomeHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
+          flex: 3,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -63,7 +64,23 @@ class HomeHeader extends StatelessWidget {
             ],
           ),
         ),
-        if (modeChip != null) modeChip!,
+        // Employees get the tagline in the middle; managers have the mode chip there instead.
+        if (modeChip == null)
+          const Expanded(
+            flex: 2,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6),
+              child: Text(
+                "Let's make today count!",
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: AppColors.muted),
+              ),
+            ),
+          )
+        else
+          modeChip!,
         bell,
         GestureDetector(
           onTap: onAvatar,

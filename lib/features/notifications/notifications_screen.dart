@@ -121,13 +121,33 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (mounted) await _load();
   }
 
-  IconData _icon(String kind) => switch (kind) {
+  /// What a notification is about, from the record it came from: a task, a leave, a distributor, or anything else.
+  String _topic(Map<String, dynamic> row) {
+    final model = '${row['model'] ?? ''}'.toLowerCase();
+    final text = '${row['title'] ?? ''} ${row['body'] ?? ''}'.toLowerCase();
+    if (model.contains('leave') || text.contains('leave')) return 'leave';
+    if (model.contains('distributor') || text.contains('distributor')) return 'distributor';
+    if (model.contains('task') || text.contains('task')) return 'task';
+    return switch ('${row['kind']}') {
+      'approval' => 'approval',
+      'decision' => 'decision',
+      _ => 'info',
+    };
+  }
+
+  IconData _icon(String topic) => switch (topic) {
+        'task' => Icons.task_alt_rounded,
+        'leave' => Icons.beach_access_rounded,
+        'distributor' => Icons.local_shipping_rounded,
         'approval' => Icons.how_to_reg_rounded,
         'decision' => Icons.task_alt_rounded,
         _ => Icons.info_outline_rounded,
       };
 
-  Color _colour(String kind) => switch (kind) {
+  Color _colour(String topic) => switch (topic) {
+        'task' => AppColors.success,
+        'leave' => AppColors.primary,
+        'distributor' => AppColors.warning,
         'approval' => AppColors.warning,
         'decision' => AppColors.success,
         _ => AppColors.primary,
@@ -138,7 +158,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final unread = _rows.where((row) => row['read'] != true).length;
     return Scaffold(
       appBar: AppBar(
-        title: Text(unread == 0 ? 'Notifications' : 'Notifications ($unread)'),
+        title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w900)),
         actions: [
           if (unread > 0)
             TextButton(onPressed: _markAllRead, child: const Text('Mark all read')),
@@ -163,31 +183,48 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Widget _tile(Map<String, dynamic> row) {
     final read = row['read'] == true;
-    final kind = '${row['kind']}';
-    return Card(
-      color: read ? null : const Color(0xFFF2F7FF),
-      child: ListTile(
+    final topic = _topic(row);
+    final colour = _colour(topic);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: read ? Colors.white : const Color(0xFFF2F7FF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
         onTap: () => _open(row),
-        leading: CircleAvatar(
-          backgroundColor: _colour(kind).withValues(alpha: 0.12),
-          child: Icon(_icon(kind), color: _colour(kind), size: 20),
-        ),
-        title: Text('${row['title']}',
-            style: TextStyle(fontWeight: read ? FontWeight.w600 : FontWeight.w800)),
-        subtitle: Text(asText(row['body']) ?? '', maxLines: 3, overflow: TextOverflow.ellipsis),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(fmtTime(row['at']), style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(color: colour.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+              child: Icon(_icon(topic), color: colour, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${row['title']}',
+                    style: TextStyle(fontWeight: read ? FontWeight.w700 : FontWeight.w900, fontSize: 14.5)),
+                if (asText(row['body']) != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(asText(row['body'])!,
+                        maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+                  ),
+              ]),
+            ),
             if (!read)
               Container(
-                margin: const EdgeInsets.only(top: 4),
-                width: 8,
-                height: 8,
+                margin: const EdgeInsets.only(left: 8),
+                width: 9,
+                height: 9,
                 decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
               ),
-          ],
+          ]),
         ),
       ),
     );

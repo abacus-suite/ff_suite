@@ -147,7 +147,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 option('field_task', Icons.assignment_turned_in_rounded, AppColors.success, 'New Task',
                     'Client visit, new lead, samples, events', sheet),
               if (profile.feature('routes'))
-                option('beat', Icons.edit_calendar_rounded, AppColors.sky, 'Create Beat',
+                option('beat', Icons.edit_calendar_rounded, AppColors.sky, 'Create Beat Plan',
                     'Draw a new beat for approval', sheet),
               option('leave', Icons.beach_access_rounded, AppColors.sky, 'Leave Request',
                   'Ask for leave', sheet),
@@ -296,7 +296,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
+        shape: (Services.auth.profile!.isManager && Services.managerMode.value) ? null : const CircularNotchedRectangle(),
         notchMargin: 8,
         color: Colors.white,
         elevation: 10,
@@ -313,7 +313,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                   Expanded(child: _tabButton(tabs[i], i == index)),
               ]),
             ),
-            const SizedBox(width: 72),
+            if (!(Services.auth.profile!.isManager && Services.managerMode.value)) const SizedBox(width: 72),
             Expanded(
               child: Row(children: [
                 for (var i = half; i < tabs.length; i++)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/format.dart';
+import '../../core/services.dart';
 import '../../core/theme.dart';
 
 /// The pages a tap on the Manager's Employee report opens: visits, tasks, and the day-wise lists.
@@ -321,20 +322,59 @@ class DaysTableScreen extends StatelessWidget {
   }
 }
 
-class LateDaysScreen extends StatelessWidget {
-  const LateDaysScreen({super.key, required this.name, required this.rangeText, required this.days});
+/// The late days of one employee. The minutes come with each check-in on that day's timeline; they are looked up
+/// for days where the report did not already say.
+class LateDaysScreen extends StatefulWidget {
+  const LateDaysScreen({super.key, required this.name, required this.rangeText, required this.days, this.memberId});
 
   final String name;
   final String rangeText;
-
-  /// Each: `{date, in_at, late_minutes?, place?}`.
   final List<Map<String, dynamic>> days;
+
+  /// The employee, for looking up how late each day was.
+  final String? memberId;
+
+  @override
+  State<LateDaysScreen> createState() => _LateDaysScreenState();
+}
+
+class _LateDaysScreenState extends State<LateDaysScreen> {
+  /// date -> minutes late
+  final Map<String, num> _minutes = {};
+
+  @override
+  void initState() {
+    super.initState();
+    for (final d in widget.days) {
+      final known = _num(d['late_minutes']);
+      if (known > 0) _minutes['${d['date']}'] = known;
+    }
+    _lookUp();
+  }
+
+  Future<void> _lookUp() async {
+    final id = widget.memberId;
+    if (id == null) return;
+    for (final d in widget.days) {
+      final date = '${d['date']}';
+      if (_minutes.containsKey(date)) continue;
+      try {
+        final data = await Services.api.get('/api/v1/team/$id/timeline', query: {'date': date}) as Map<String, dynamic>;
+        final rows = ((data['attendance'] as List?) ?? []).cast<Map<String, dynamic>>();
+        // The first check-in of the day is the one that is late.
+        final late = rows.isEmpty ? 0 : _num(rows.first['late_minutes']);
+        if (late > 0 && mounted) setState(() => _minutes[date] = late);
+      } catch (_) {
+        // No minutes for that day: the card just shows the day.
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final rows = [...days]..sort((a, b) => '${b['date']}'.compareTo('${a['date']}'));
+    final rows = [...widget.days]..sort((a, b) => '${b['date']}'.compareTo('${a['date']}'));
     return Scaffold(
-      appBar: AppBar(title: _header('Late days', name, '$rangeText · ${rows.length} day${rows.length == 1 ? '' : 's'}')),
+      appBar: AppBar(title: _header('Late days', widget.name, '${widget.rangeText} \u00B7 ${rows.length} day${rows.length == 1 ? '' : 's'}')),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
         if (rows.isEmpty)
           const Padding(padding: EdgeInsets.all(28), child: Center(child: Text('No late days.', style: TextStyle(color: AppColors.muted)))),
@@ -353,19 +393,19 @@ class LateDaysScreen extends StatelessWidget {
                   Text(
                       () {
                         final t = DateTime.tryParse('${d['date']}');
-                        return t == null ? '${d['date']}' : '${_two(t.day)} ${_months[t.month - 1]} ${t.year} · ${_weekdaysLong[t.weekday - 1]}';
+                        return t == null ? '${d['date']}' : '${_two(t.day)} ${_months[t.month - 1]} ${t.year} \u00B7 ${_weekdaysLong[t.weekday - 1]}';
                       }(),
                       style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                   Text(
                     [
                       if (d['in_at'] != null) 'Checked in ${_clock(d['in_at'])}',
                       if (d['place'] != null || d['location'] != null) '${d['place'] ?? d['location']}',
-                    ].join(' · '),
+                    ].join(' \u00B7 '),
                     style: const TextStyle(fontSize: 11, color: AppColors.muted),
                   ),
                 ]),
               ),
-              if (_num(d['late_minutes']) > 0) _pill('${_num(d['late_minutes']).round()} min late', const Color(0xFFC2410C)),
+              if ((_minutes['${d['date']}'] ?? 0) > 0) _pill('${_minutes['${d['date']}']!.round()} min late', const Color(0xFFC2410C)),
             ]),
           ),
       ]),

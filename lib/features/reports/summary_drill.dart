@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -12,6 +13,7 @@ import '../../widgets/common.dart';
 import '../../core/manager_ui.dart';
 import '../../widgets/skeleton.dart';
 import '../team/my_team_screen.dart' show ManagerEmployeeReportScreen;
+import '../team/employee_report_pages.dart' as lead show EmployeeTasksScreen;
 import 'employee_report_pages.dart';
 
 /// Look of one figure: icon and colour by what it counts.
@@ -418,19 +420,14 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
   List<Map<String, dynamic>> _days = [];
   List<Map<String, dynamic>> _visits = [];
   List<Map<String, dynamic>> _orders = [];
+  List<Map<String, dynamic>> _lateRows = [];
+  List<Map<String, dynamic>> _taskRows = [];
+  List<String> _territories = [];
+  List<String> _routes = [];
   String? _currency;
   String? _error;
   bool _loading = true;
   bool _downloading = false;
-
-  bool get _demandFlow => Services.auth.profile?.isDemandFlow ?? false;
-
-  Map<String, dynamic> _query([Map<String, dynamic> extra = const {}]) => {
-        'start': fmtDate(_start),
-        'end': fmtDate(_end),
-        'member': widget.memberId,
-        ...extra,
-      };
 
   @override
   void initState() {
@@ -477,28 +474,65 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
     _load();
   }
 
+  static List<Map<String, dynamic>> _rowsOf(Object? v) => ((v as List?) ?? []).cast<Map<String, dynamic>>();
+
+  static List<String> _namesOf(Object? v) => [
+        for (final e in (v as List?) ?? [])
+          if (e is Map ? e['name'] != null : '$e'.isNotEmpty) e is Map ? '${e['name']}' : '$e',
+      ];
+
+  /// One call gives the whole report: the figures, the lists behind them, and the territories and routes worked.
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final api = Services.api;
-      final results = await Future.wait([
-        api.get('/api/v1/reports/summary', query: _query({'by': 'overall'})),
-        api.get('/api/v1/reports/summary', query: _query({'by': 'day'})),
-        api.get('/api/v1/reports/visits', query: _query()),
-        api.get('/api/v1/reports/${_demandFlow ? 'demands' : 'orders'}', query: _query()),
-      ]);
-      List<Map<String, dynamic>> rows(Object? r) => (((r as Map)['rows'] as List?) ?? []).cast<Map<String, dynamic>>();
+      final r = await Services.api.get('/api/v1/team/employee-report', query: {
+        'member': int.tryParse(widget.memberId) ?? widget.memberId,
+        'start': fmtDate(_start),
+        'end': fmtDate(_end),
+      }) as Map<String, dynamic>;
       if (!mounted) return;
+      final details = (r['details'] as Map?)?.cast<String, dynamic>() ?? const {};
+      final visits = (r['visits'] as Map?)?.cast<String, dynamic>() ?? const {};
+      final tasks = (r['tasks'] as Map?)?.cast<String, dynamic>() ?? const {};
       setState(() {
-        final overall = rows(results[0]);
-        _overall = overall.isEmpty ? {} : overall.first;
-        _days = rows(results[1]);
-        _visits = rows(results[2]);
-        _orders = rows(results[3]);
-        _currency = (results[0] as Map)['currency'] as String?;
+        _overall = {
+          'days': r['days_worked'],
+          'late': r['late_days'],
+          'km': r['distance_km'],
+          'hours': r['hours'],
+          'visits': visits['done'],
+          'planned': visits['planned'],
+          'tasks_done': tasks['done'],
+          'tasks': tasks['total'],
+          'bottles': r['bottles'],
+          'outlets_onboarded': r['outlets'],
+          'pos': r['pos_to_distributor'],
+          'leads': r['new_leads'],
+          'expenses': r['expenses'],
+        };
+        _currency = r['currency'] as String?;
+        _days = [
+          for (final d in _rowsOf(details['days']))
+            {...d, 'days': 1, 'check_in': d['in_at'], 'check_out': d['out_at']},
+        ];
+        _lateRows = [
+          for (final d in _rowsOf(details['late'])) {...d, 'late': 1, 'check_in': d['in_at'] ?? d['check_in']},
+        ];
+        _visits = [
+          for (final v in _rowsOf(details['visits']))
+            {
+              ...v,
+              'customer': (v['outlet'] as Map?)?['name'] ?? v['customer'],
+              'status': v['done'] == true ? 'visited' : 'pending',
+            },
+        ];
+        _taskRows = _rowsOf(details['tasks']);
+        _orders = const [];
+        _territories = _namesOf(r['territories']);
+        _routes = _namesOf(r['routes']);
       });
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -514,16 +548,19 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
     return null;
   }
 
-  /// Territory or route name -> the dates it was worked (and, for a route, its territory).
+  /// Territory or route name -> the dates it was worked (and, for a route, its territory). The names come from the
+  /// server's lists; dates are added where the day rows say which route or territory each day was.
   Map<String, ({Set<String> dates, String? territory})> _groups(String key) {
-    final out = <String, ({Set<String> dates, String? territory})>{};
+    final out = <String, ({Set<String> dates, String? territory})>{
+      for (final n in key == 'route' ? _routes : _territories) n: (dates: <String>{}, territory: null),
+    };
     for (final row in [..._days, ..._visits]) {
       final name = _nameOf(row[key]);
       final date = row['date'] == null ? null : '${row['date']}';
       if (name == null) continue;
       final cur = out[name] ?? (dates: <String>{}, territory: _nameOf(row['territory']));
       if (date != null) cur.dates.add(date);
-      out[name] = cur;
+      out[name] = (dates: cur.dates, territory: cur.territory ?? _nameOf(row['territory']));
     }
     return out;
   }
@@ -660,12 +697,10 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
 
   void _tasksPage() {
     final o = _overall ?? const {};
-    _push(EmployeeTasksScreen(
-      memberId: widget.memberId,
+    _push(lead.EmployeeTasksScreen(
       name: widget.name,
       rangeText: _rangeLabel,
-      start: _start,
-      end: _end,
+      tasks: _taskRows,
       visitsDone: _n(o['visits']),
       visitsTotal: _n(o['planned'] ?? o['visits']),
     ));
@@ -702,24 +737,31 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
 
   Future<void> _download() async {
     final format = await _chooseSheet('Download report', '${widget.name.toUpperCase()} · $_rangeLabel', [
-      (Icons.grid_on_rounded, AppColors.success, 'xlsx', 'Excel', 'All boxes and details'),
+      (Icons.grid_on_rounded, AppColors.success, 'excel', 'Excel', 'All boxes and details'),
       (Icons.picture_as_pdf_rounded, AppColors.danger, 'pdf', 'PDF', 'Same report as a PDF'),
     ]);
     if (format == null || !mounted) return;
     setState(() => _downloading = true);
     File? file;
     try {
-      final base = await Services.api.url('/api/v1/reports/employee.$format');
-      final url = Uri.parse(base).replace(queryParameters: {
-        'member': widget.memberId,
+      // The server prepares the file and answers with where to fetch it.
+      final r = await Services.api.post('/api/v1/team/employee-report/export', {
+        'member': int.tryParse(widget.memberId) ?? widget.memberId,
         'start': fmtDate(_start),
         'end': fmtDate(_end),
-      });
+        'format': format,
+      }) as Map<String, dynamic>;
+      final url = Uri.parse(await Services.api.url('${r['path']}'));
       final response = await http.get(url, headers: await Services.api.authHeaders());
-      if (response.statusCode != 200) throw Exception('The report could not be prepared (${response.statusCode}).');
+      if (response.statusCode != 200) {
+        // Not fetchable from here: let the phone's browser open the link instead.
+        final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
+        if (!opened) throw Exception('The report could not be downloaded (${response.statusCode}).');
+        return;
+      }
       final dir = await getTemporaryDirectory();
       final safe = widget.name.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
-      file = File('${dir.path}/Employee_Report_$safe.$format');
+      file = File('${dir.path}/Employee_Report_$safe.${format == 'excel' ? 'xlsx' : 'pdf'}');
       await file.writeAsBytes(response.bodyBytes);
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
@@ -827,7 +869,7 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
                       _workButton(Icons.event_available_rounded, AppColors.success, '${_n(o['days'])}', 'Days worked',
                           () => _push(DaysTableScreen(title: 'Days worked', name: widget.name, rangeText: _rangeLabel, days: _days.where((d) => _n(d['days']) > 0 || _n(d['visits']) > 0).toList()))),
                       _workButton(Icons.schedule_rounded, AppColors.danger, '${_n(o['late'])}', 'Late days',
-                          () => _push(LateDaysScreen(name: widget.name, rangeText: _rangeLabel, days: _days))),
+                          () => _push(LateDaysScreen(name: widget.name, rangeText: _rangeLabel, days: _lateRows, memberId: widget.memberId))),
                       _workButton(Icons.add_road_rounded, AppColors.primary, '${_n(o['km']).toStringAsFixed(0)} km', 'Distance',
                           () => _push(DaysTableScreen(title: 'Distance', name: widget.name, rangeText: _rangeLabel, days: _days.where((d) => _n(d['km']) > 0).toList(), sortBy: 'km'))),
                       _workButton(Icons.timer_rounded, AppColors.purple, fmtHours(o['hours'] as num?), 'Hours',

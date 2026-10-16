@@ -26,18 +26,53 @@ Widget _shell(String title, IconData icon, Widget child, {Widget? trailing}) => 
       ]),
     );
 
-/// What the team's month looks like against its targets: one bar per target.
+/// Team Target, month to date: bottles and outlets onboarded against the month's target. Tap for the
+/// month / week view by employee and each person's share.
 ///
-/// Reads `target` from the team dashboard: a list of `{label, achieved, target}`. Shows a hint until the server sends it.
+/// Reads `/api/v1/team/target` (`bottles`, `bottle_target`, `outlets`, `outlet_target`).
 class TeamTargetCard extends StatelessWidget {
-  const TeamTargetCard({super.key, required this.targets, required this.monthLabel});
+  const TeamTargetCard({
+    super.key,
+    required this.monthLabel,
+    required this.data,
+    this.onTap,
+  });
 
-  final List<Map<String, dynamic>> targets;
   final String monthLabel;
+
+  /// The server's answer, or null when it could not be loaded.
+  final Map<String, dynamic>? data;
+  final VoidCallback? onTap;
+
+  static String _qty(num v) => v.round().toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
+
+  Widget _bar(String label, int actual, int target, String unit) {
+    final ratio = target == 0 ? 0.0 : (actual / target).clamp(0.0, 1.0);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13))),
+          Text(target == 0 ? 'No target' : '${(ratio * 100).round()}%',
+              style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.warning)),
+        ]),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+              value: ratio, minHeight: 9, color: AppColors.warning, backgroundColor: AppColors.border),
+        ),
+        const SizedBox(height: 3),
+        Text('${_qty(actual)} of ${_qty(target)} $unit', style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+      ]),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (targets.isEmpty) {
+    final t = data;
+    final title = 'Team Target – $monthLabel\n(month to date)';
+    if (t == null) {
       return _shell(
         'Team Target – $monthLabel',
         Icons.track_changes_rounded,
@@ -45,36 +80,32 @@ class TeamTargetCard extends StatelessWidget {
             style: TextStyle(fontSize: 12, color: AppColors.muted)),
       );
     }
-    return _shell(
-      'Team Target – $monthLabel',
-      Icons.track_changes_rounded,
-      Column(children: [
-        for (final t in targets) ...[
-          Builder(builder: (_) {
-            final goal = (t['target'] as num?)?.toDouble() ?? 0;
-            final got = (t['achieved'] as num?)?.toDouble() ?? 0;
-            final pct = goal <= 0 ? 0.0 : got / goal;
-            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(child: Text('${t['label']}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5))),
-                Text('${(pct * 100).round()}%', style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.warning)),
-              ]),
-              const SizedBox(height: 4),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(5),
-                child: LinearProgressIndicator(value: pct.clamp(0.0, 1.0), minHeight: 8, backgroundColor: AppColors.border, color: AppColors.warning),
-              ),
-              const SizedBox(height: 3),
-              Text('${fmtCompact(got)} of ${fmtCompact(goal)}', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-              const SizedBox(height: 10),
-            ]);
-          }),
-        ],
-      ]),
+    int n(String key) => ((t[key] as num?) ?? 0).toInt();
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [BoxShadow(color: const Color(0xFF1B3A7A).withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.track_changes_rounded, size: 20, color: AppColors.danger),
+            const SizedBox(width: 8),
+            Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, height: 1.25))),
+            if (onTap != null) const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+          ]),
+          const SizedBox(height: 12),
+          _bar('No. of bottles', n('bottles'), n('bottle_target'), 'bottles'),
+          _bar('No. of outlets onboarded', n('outlets'), n('outlet_target'), 'outlets'),
+        ]),
+      ),
     );
   }
-
-  static String fmtCompact(double v) => v == v.roundToDouble() ? v.round().toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',') : v.toStringAsFixed(1);
 }
 
 /// Planned / Visited / Pending / Cancelled for the team's beat plans, with a way in to who owes what.
@@ -233,6 +264,16 @@ class _AssignedTasksCardState extends State<AssignedTasksCard> {
     }
   }
 
+  /// The due date as "06 Oct", from whichever field the server uses for it.
+  String? _dueOf(Map<String, dynamic> t) {
+    final raw = t['due'] ?? t['due_date'] ?? t['date_deadline'] ?? t['deadline'];
+    if (raw == null || '$raw'.isEmpty || raw == false) return null;
+    final d = DateTime.tryParse('$raw'.replaceFirst(' ', 'T'));
+    if (d == null) return '$raw';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]}';
+  }
+
   bool _isDone(Map<String, dynamic> t) => t['state'] == 'done';
   bool _isOverdue(Map<String, dynamic> t) => !_isDone(t) && t['is_overdue'] == true;
   bool _isPending(Map<String, dynamic> t) => !_isDone(t) && t['state'] != 'cancelled';
@@ -282,7 +323,11 @@ class _AssignedTasksCardState extends State<AssignedTasksCard> {
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('${t['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
-                    Text('To: ${t['employee'] is Map ? (t['employee'] as Map)['name'] : t['employee'] ?? ''}${t['due'] != null ? ' · due ${t['due']}' : ''}',
+                    Text(
+                        [
+                          'To: ${t['employee'] is Map ? (t['employee'] as Map)['name'] : t['employee'] ?? t['to'] ?? ''}',
+                          if (_dueOf(t) != null) 'due ${_dueOf(t)}',
+                        ].join(' · '),
                         style: const TextStyle(fontSize: 11, color: AppColors.muted)),
                   ]),
                 ),

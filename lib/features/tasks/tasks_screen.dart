@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import '../team/assign_target_screen.dart';
+import 'assign_target_screen.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -90,18 +90,20 @@ class _TasksScreenState extends State<TasksScreen> {
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFDBEAFE), child: Icon(Icons.add_task_rounded, color: AppColors.primary)),
+                  backgroundColor: Color(0xFFDCFCE7), child: Icon(Icons.assignment_turned_in_rounded, color: AppColors.success)),
               title: const Text('Assign Task', style: TextStyle(fontWeight: FontWeight.w800)),
               subtitle: const Text('As in the app'),
               onTap: () => Navigator.pop(sheet, 'task'),
             ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFFFEDD5), child: Icon(Icons.flag_rounded, color: Color(0xFFEA580C))),
-              title: const Text('Assign Target', style: TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: const Text('Bottles and outlets onboarded'),
-              onTap: () => Navigator.pop(sheet, 'target'),
+            Container(
+              decoration: BoxDecoration(color: const Color(0xFFFFF1E6), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFFBD5B0))),
+              child: ListTile(
+                leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFFEE2E2), child: Icon(Icons.track_changes_rounded, color: AppColors.danger)),
+                title: const Text('Assign Target', style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: const Text('Bottles and outlets onboarded'),
+                onTap: () => Navigator.pop(sheet, 'target'),
+              ),
             ),
           ]),
         ),
@@ -110,7 +112,9 @@ class _TasksScreenState extends State<TasksScreen> {
     if (choice == 'task') {
       await _newTask();
     } else if (choice == 'target' && mounted) {
-      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AssignTargetScreen()));
+      final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const AssignTargetScreen()));
+      // The Team Target card on Home reads the new target.
+      if (saved == true) Services.refresh.value++;
     }
   }
 

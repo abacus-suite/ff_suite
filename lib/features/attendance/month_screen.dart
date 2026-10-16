@@ -147,8 +147,9 @@ class _MonthScreenState extends State<MonthScreen> {
               child: OutlinedButton.icon(
                 onPressed: () => Navigator.of(context)
                     .push(MaterialPageRoute(builder: (_) => const RegularisationScreen())),
+                style: OutlinedButton.styleFrom(fixedSize: const Size.fromHeight(52), padding: const EdgeInsets.symmetric(horizontal: 10)),
                 icon: const Icon(Icons.edit_calendar_rounded),
-                label: const Text('Attendance Correction'),
+                label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Attendance Correction', maxLines: 1)),
               ),
             ),
             const SizedBox(width: 10),
@@ -156,8 +157,9 @@ class _MonthScreenState extends State<MonthScreen> {
               child: OutlinedButton.icon(
                 onPressed: () =>
                     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeavesScreen())),
+                style: OutlinedButton.styleFrom(fixedSize: const Size.fromHeight(52), padding: const EdgeInsets.symmetric(horizontal: 10)),
                 icon: const Icon(Icons.beach_access_rounded),
-                label: const Text('My Leaves'),
+                label: const FittedBox(fit: BoxFit.scaleDown, child: Text('My Leaves', maxLines: 1)),
               ),
             ),
           ],

@@ -7,7 +7,8 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/skeleton.dart';
 import '../team/team_live_screen.dart';
-import '../team/timeline_screen.dart';
+import '../team/team_beat_plan_screen.dart';
+import '../team/team_target_screen.dart';
 import 'manager_cards.dart';
 import 'team_attendance_screen.dart';
 
@@ -24,7 +25,14 @@ class TeamDashboard extends StatefulWidget {
 }
 
 class _TeamDashboardState extends State<TeamDashboard> {
+  /// The blue card's numbers, for the period chosen on it.
   Map<String, dynamic>? _data;
+
+  /// The team's month-to-date target and what it has achieved; null when the server has none.
+  Map<String, dynamic>? _target;
+
+  /// Today's figures, for everything outside the blue card: they do not follow the period chips.
+  Map<String, dynamic>? _todayData;
   bool _loading = true;
   String? _error;
   String _period = 'today';
@@ -48,13 +56,30 @@ class _TeamDashboardState extends State<TeamDashboard> {
     if (mounted && !_loading) _load(silent: true);
   }
 
-  Future<void> _load({bool silent = false}) async {
+  Future<void> _load({bool silent = false, bool todayToo = true}) async {
     if (!silent) setState(() => _loading = _data == null);
+    final period = _period;
+    // Other periods also need today's figures for the cards outside the blue one.
+    final needToday = period != 'today' && (todayToo || _todayData == null);
+    // Month to date, whatever period the blue card shows.
     try {
-      final data = await Services.api.get('/api/v1/team/dashboard', query: {'period': _period}) as Map<String, dynamic>;
-      if (mounted) {
+      _target = await Services.api.get('/api/v1/team/target') as Map<String, dynamic>;
+    } catch (_) {
+      // No targets module: the card says so.
+    }
+    try {
+      final results = await Future.wait([
+        Services.api.get('/api/v1/team/dashboard', query: {'period': period}),
+        if (needToday) Services.api.get('/api/v1/team/dashboard', query: {'period': 'today'}),
+      ]);
+      if (mounted && _period == period) {
         setState(() {
-          _data = data;
+          _data = results[0] as Map<String, dynamic>;
+          if (period == 'today') {
+            _todayData = _data;
+          } else if (needToday) {
+            _todayData = results[1] as Map<String, dynamic>;
+          }
           _error = null;
         });
       }
@@ -68,89 +93,6 @@ class _TeamDashboardState extends State<TeamDashboard> {
   Map<String, dynamic> get _people => (_data?['people'] as Map?)?.cast<String, dynamic>() ?? {};
   List<Map<String, dynamic>> get _members => ((_data?['members'] as List?) ?? []).cast<Map<String, dynamic>>();
 
-
-  void _openMember(Map<String, dynamic> m) {
-    final e = (m['employee'] as Map).cast<String, dynamic>();
-    Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => TimelineScreen(employeeId: e['id'] as int, employeeName: '${e['name']}')));
-  }
-
-  /// A list of people for one figure: the drill-down behind every tile.
-  void _sheet(String title, String subtitle, List<(Map<String, dynamic>, String, String?)> rows) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.78),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
-                if (subtitle.isNotEmpty) Text(subtitle, style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
-              ]),
-            ),
-            Flexible(
-              child: rows.isEmpty
-                  ? const Padding(padding: EdgeInsets.all(28), child: Center(child: Text('Nobody here.', style: TextStyle(color: AppColors.muted))))
-                  : ListView(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                      children: [
-                        for (final (m, value, note) in rows)
-                          ListTile(
-                            onTap: () {
-                              Navigator.pop(ctx);
-                              _openMember(m);
-                            },
-                            leading: _avatar(m),
-                            title: Text('${(m['employee'] as Map)['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                            subtitle: note == null ? null : Text(note, style: const TextStyle(fontSize: 12)),
-                            trailing: Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-                          ),
-                      ],
-                    ),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
-
-  Color _stateColour(String s) => switch (s) {
-        'in' => AppColors.success,
-        'out' => AppColors.primary,
-        'leave' => AppColors.warning,
-        _ => AppColors.danger,
-      };
-
-  Widget _avatar(Map<String, dynamic> m, {double size = 40}) {
-    final name = '${(m['employee'] as Map)['name']}';
-    final colour = _stateColour('${m['state']}');
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(clipBehavior: Clip.none, children: [
-        CircleAvatar(
-          radius: size / 2,
-          backgroundColor: colour.withValues(alpha: 0.14),
-          child: Text(name.isEmpty ? '?' : name[0].toUpperCase(),
-              style: TextStyle(fontWeight: FontWeight.w900, color: colour, fontSize: size * 0.42)),
-        ),
-        Positioned(
-          right: -1,
-          bottom: -1,
-          child: Container(
-            width: size * 0.3,
-            height: size * 0.3,
-            decoration: BoxDecoration(color: colour, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-          ),
-        ),
-      ]),
-    );
-  }
 
   // ------------------------------------------------------------------ attendance (period chips + team today)
   Widget _hero() {
@@ -198,7 +140,7 @@ class _TeamDashboardState extends State<TeamDashboard> {
                   visualDensity: VisualDensity.compact,
                   onSelected: (_) {
                     setState(() => _period = key);
-                    _load();
+                    _load(todayToo: false);
                   },
                 ),
               ),
@@ -247,7 +189,7 @@ class _TeamDashboardState extends State<TeamDashboard> {
     );
   }
 
-  List<Map<String, dynamic>> _list(String key) => ((_data?[key] as List?) ?? []).cast<Map<String, dynamic>>();
+  List<Map<String, dynamic>> _list(String key) => (((_todayData ?? _data)?[key] as List?) ?? []).cast<Map<String, dynamic>>();
 
   String _monthLabel() {
     const m = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -255,18 +197,15 @@ class _TeamDashboardState extends State<TeamDashboard> {
   }
 
   Widget _beatSummary() {
-    final t = (_data?['totals'] as Map?)?.cast<String, dynamic>() ?? {};
+    final today = _todayData ?? _data;
+    final t = (today?['totals'] as Map?)?.cast<String, dynamic>() ?? {};
     return BeatPlanSummaryCard(
       planned: (t['planned'] as num?) ?? 0,
       visited: (t['planned_done'] as num?) ?? 0,
       cancelled: (t['cancelled'] as num?) ?? 0,
-      onViewAll: () => _sheet('Beat plan', _periodLabel, [
-        for (final m in _members) (m, '${m['planned_done']}/${m['planned']}', '${m['visits']} visits'),
-      ]),
+      onViewAll: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TeamBeatPlanScreen())),
     );
   }
-
-  String get _periodLabel => _periods.firstWhere((p) => p.$1 == _period, orElse: () => _periods.first).$2;
 
   // ------------------------------------------------------------------ shortcuts
   Widget _shortcuts() {
@@ -305,7 +244,11 @@ class _TeamDashboardState extends State<TeamDashboard> {
         const SizedBox(height: 12),
       ],
       _beatSummary(),
-      TeamTargetCard(targets: _list('target'), monthLabel: _monthLabel()),
+      TeamTargetCard(
+        monthLabel: _monthLabel(),
+        data: _target,
+        onTap: _target == null ? null : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TeamTargetScreen())),
+      ),
       const OverdueCard(),
       const AssignedTasksCard(),
       WorkAlertsCard(alerts: _list('work_alerts')),

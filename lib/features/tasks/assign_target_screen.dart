@@ -104,26 +104,44 @@ class _AssignTargetScreenState extends State<AssignTargetScreen> {
   Future<void> _save() async {
     if (_picked.isEmpty) return showSnack(context, 'Choose who the target is for.');
     num? n(TextEditingController c) => num.tryParse(c.text.trim());
-    final rows = <Map<String, dynamic>>[];
-    for (final id in _picked) {
-      final b = n(_same ? _bottles : (_eachBottles[id] ??= TextEditingController()));
-      final o = n(_same ? _outlets : (_eachOutlets[id] ??= TextEditingController()));
-      if (b == null || o == null) return showSnack(context, 'Fill in both targets${_same ? '' : ' for ${_name(id)}'}.');
-      rows.add({'employee_id': id, 'bottles': b, 'outlets_onboarded': o});
+    // One request per group of people with the same numbers, in the shape the server already takes:
+    // {employee_ids, period: month|week, week?, month: first of the month, bottles, outlets}.
+    final groups = <({List<int> ids, num bottles, num outlets})>[];
+    if (_same) {
+      final b = n(_bottles);
+      final o = n(_outlets);
+      if (b == null || b <= 0 || o == null || o <= 0) return showSnack(context, 'Enter the number of bottles and of outlets.');
+      groups.add((ids: _picked.toList(), bottles: b, outlets: o));
+    } else {
+      for (final id in _picked) {
+        final b = n(_eachBottles[id] ??= TextEditingController());
+        final o = n(_eachOutlets[id] ??= TextEditingController());
+        if (b == null || b <= 0 || o == null || o <= 0) return showSnack(context, 'Fill in both targets for ${_name(id)}.');
+        groups.add((ids: [id], bottles: b, outlets: o));
+      }
     }
     setState(() => _busy = true);
+    var saved = 0;
     try {
-      await Services.api.post('/api/v1/targets/assign', {
-        'period': _weekly ? 'weekly' : 'monthly',
-        'month': '${_month.year}-${_month.month.toString().padLeft(2, '0')}',
-        if (_weekly) 'week': _week,
-        'targets': rows,
-      });
+      for (final g in groups) {
+        await Services.api.post('/api/v1/targets/assign', {
+          'employee_ids': g.ids,
+          'period': _weekly ? 'week' : 'month',
+          if (_weekly) 'week': _week,
+          'month': fmtDate(_month),
+          'bottles': g.bottles,
+          'outlets': g.outlets,
+        });
+        saved += g.ids.length;
+      }
       if (!mounted) return;
       showSnack(context, 'Target assigned');
       Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) showProblem(context, e.toString());
+      if (mounted) {
+        // Some people may already have theirs if the targets were sent one by one.
+        showProblem(context, saved == 0 ? e.toString() : '$saved of ${_picked.length} people got their target before this failed: $e');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -194,7 +212,7 @@ class _AssignTargetScreenState extends State<AssignTargetScreen> {
         if (_weekly) ...[
           const SizedBox(height: 10),
           Wrap(spacing: 8, children: [
-            for (var w = 1; w <= 5; w++) ChoiceChip(label: Text('Week $w'), selected: _week == w, onSelected: (_) => setState(() => _week = w)),
+            for (var w = 1; w <= 4; w++) ChoiceChip(label: Text('Week $w'), selected: _week == w, onSelected: (_) => setState(() => _week = w)),
           ]),
         ],
         if (_same) ...[

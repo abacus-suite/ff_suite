@@ -5,7 +5,6 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
-import '../../widgets/group_kit.dart';
 import 'create_beat_screen.dart';
 
 /// My Beat Plan: the month as a calendar with the beat (or beats) on each day, the day's beats and
@@ -22,7 +21,6 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
   DateTime _day = DateUtils.dateOnly(DateTime.now());
   List<Map<String, dynamic>> _plans = [];
   List<Map<String, dynamic>> _routes = [];
-  Map<String, dynamic>? _dayData;
   bool _loading = true;
   bool _busy = false;
   String? _error;
@@ -34,7 +32,6 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
     super.initState();
     _loadMonth();
     _loadRoutes();
-    _loadDay();
   }
 
   String get _label => Services.auth.profile?.routeLabel ?? 'Beat';
@@ -70,21 +67,6 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
     }
   }
 
-  Future<void> _loadDay() async {
-    try {
-      final data = await Services.api.get('/api/v1/beat/today', query: {'date': fmtDate(_day)}) as Map<String, dynamic>;
-      if (mounted) setState(() => _dayData = data);
-    } catch (_) {
-      if (mounted) setState(() => _dayData = null);
-    }
-  }
-
-  /// The beats planned on a date, in the order they were made.
-  List<String> _beatsOn(DateTime day) => [
-        for (final p in _plans)
-          if ('${p['date']}' == fmtDate(day) && (p['beat'] as Map?)?['name'] != null) '${(p['beat'] as Map)['name']}',
-      ];
-
   /// The beat codes on a date (the name where a beat has no code), for the calendar cells.
   List<String> _codesOn(DateTime day) => [
         for (final p in _plans)
@@ -99,12 +81,17 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
     _loadMonth();
   }
 
+  /// A tap on a day picks it for the two buttons below, and opens that day's plan if it has any beat.
   void _pick(DateTime day) {
-    setState(() {
-      _day = day;
-      _dayData = null;
-    });
-    _loadDay();
+    setState(() => _day = day);
+    final planned = [
+      for (final p in _plans)
+        if ('${p['date']}' == fmtDate(day) && (p['beat'] as Map?)?['id'] != null) (p['beat'] as Map).cast<String, dynamic>(),
+    ];
+    if (planned.isEmpty) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => BeatDayScreen(day: day, label: _label, planned: planned, routes: _routes),
+    ));
   }
 
   /// Add one or more existing beats to the chosen day. A beat still waiting for approval is greyed out.
@@ -196,7 +183,6 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
         if (mounted) showSnack(context, 'Added to ${fmtDate(_day)}');
       }
       await _loadMonth();
-      await _loadDay();
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
     } finally {
@@ -214,26 +200,15 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
     }
   }
 
-  /// A route comes as {id, name} from the server; show the name, never the map.
-  String? _routeName(dynamic route) {
-    if (route is Map) return route['name'] == null ? null : '${route['name']}';
-    return route == null ? null : '$route';
-  }
-
   @override
   Widget build(BuildContext context) {
     final leading = DateTime(_month.year, _month.month, 1).weekday - 1;
     final days = DateUtils.getDaysInMonth(_month.year, _month.month);
-    final beats = _beatsOn(_day);
-    final clients = ((_dayData?['clients'] as List?) ?? []).cast<Map<String, dynamic>>();
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: Text('My $_label Plan')),
       body: RefreshIndicator(
-        onRefresh: () async {
-          await _loadMonth();
-          await _loadDay();
-        },
+        onRefresh: _loadMonth,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
           children: [
@@ -278,79 +253,39 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
             if (_loading) const LinearProgressIndicator(minHeight: 2),
             if (_error != null) ErrorView(message: _error!, onRetry: _loadMonth),
             const SizedBox(height: 10),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(
-                    beats.isEmpty
-                        ? '${prettyDay(_day)} – no $_label planned. Choose an option below.'
-                        : '${prettyDay(_day)} · ${beats.length} ${beats.length == 1 ? _label.toLowerCase() : '${_label.toLowerCase()}s'}',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                  ),
-                  if (beats.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 8, runSpacing: 6, children: [
-                      for (final b in beats)
-                        Chip(
-                          label: Text(b, style: const TextStyle(fontWeight: FontWeight.w700, color: _blue)),
-                          backgroundColor: _blue.withValues(alpha: 0.08),
-                          side: BorderSide.none,
-                        ),
-                    ]),
-                  ],
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _busy ? null : _addExisting,
-                        icon: const Icon(Icons.add_road_rounded, size: 18),
-                        label: Text('Add an Existing $_label'),
-                      ),
-                    ),
-                  ]),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: _busy ? null : _create,
-                        icon: const Icon(Icons.edit_road_rounded, size: 18),
-                        label: Text('Create a $_label (Manager Approval)'),
-                      ),
-                    ),
-                  ]),
-                ]),
-              ),
-            ),
+            _actionCard(Icons.flag_rounded, 'Add an Existing $_label', _busy ? null : _addExisting),
             const SizedBox(height: 10),
-            if (clients.isNotEmpty)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${clients.length} outlet${clients.length == 1 ? '' : 's'}',
-                        style: const TextStyle(fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 6),
-                    for (final c in clients)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 5),
-                        child: Row(children: [
-                          const Icon(Icons.storefront_rounded, size: 18, color: AppColors.primary),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text('${c['name']}${_routeName(c['route']) != null ? '  ·  ${_routeName(c['route'])}' : ''}',
-                                maxLines: 1, overflow: TextOverflow.ellipsis),
-                          ),
-                        ]),
-                      ),
-                  ]),
-                ),
-              ),
+            _actionCard(Icons.edit_calendar_rounded, 'Create a $_label (Manager Approval)', _busy ? null : _create),
           ],
         ),
       ),
     );
   }
+
+  /// One of the two ways to add to the chosen day.
+  Widget _actionCard(IconData icon, String label, VoidCallback? onTap) => InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF7ED),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFFBD5B0)),
+          ),
+          child: Row(children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: _blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 19, color: _blue),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5))),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+          ]),
+        ),
+      );
 
   Widget _cell(DateTime day) {
     final beats = _codesOn(day);
@@ -380,6 +315,180 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+
+/// A day's plan, opened by tapping a day: the beat(s) on it, a tick list of the existing beats, and below it
+/// the outlets of the ticked beats.
+class BeatDayScreen extends StatefulWidget {
+  const BeatDayScreen({super.key, required this.day, required this.label, required this.planned, required this.routes});
+
+  final DateTime day;
+  final String label;
+
+  /// The beats already planned on this day: `{id, name}`.
+  final List<Map<String, dynamic>> planned;
+
+  /// Every existing beat, for the tick list: `{id, name, approval_state, customer_count, ...}`.
+  final List<Map<String, dynamic>> routes;
+
+  @override
+  State<BeatDayScreen> createState() => _BeatDayScreenState();
+}
+
+class _BeatDayScreenState extends State<BeatDayScreen> {
+  static const _blue = Color(0xFF1A56DB);
+
+  late final Set<int> _ticked = {for (final b in widget.planned) b['id'] as int};
+  final Map<int, List<Map<String, dynamic>>> _outlets = {};
+  final Set<int> _loading = {};
+  bool _open = false;
+
+  /// Every beat that can be ticked: the existing ones, plus any on this day the list lacks.
+  late final List<Map<String, dynamic>> _beats = [
+    ...widget.routes,
+    for (final b in widget.planned)
+      if (!widget.routes.any((r) => r['id'] == b['id'])) b,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    for (final id in _ticked) {
+      _fetch(id);
+    }
+  }
+
+  String _name(int id) => '${_beats.firstWhere((b) => b['id'] == id, orElse: () => {'name': '#$id'})['name']}';
+
+  Future<void> _fetch(int id) async {
+    if (_outlets.containsKey(id) || _loading.contains(id)) return;
+    setState(() => _loading.add(id));
+    try {
+      final data = await Services.api.get('/api/v1/route-plan/customers',
+          query: {'beat_id': id, 'date': fmtDate(widget.day), 'member': 'me'}) as Map<String, dynamic>;
+      final rows = ((data['customers'] as List?) ?? []).cast<Map<String, dynamic>>();
+      if (mounted) setState(() => _outlets[id] = rows);
+    } catch (_) {
+      if (mounted) setState(() => _outlets[id] = const []);
+    } finally {
+      if (mounted) setState(() => _loading.remove(id));
+    }
+  }
+
+  void _toggle(int id, bool on) {
+    setState(() => on ? _ticked.add(id) : _ticked.remove(id));
+    if (on) _fetch(id);
+  }
+
+  int get _outletCount => _ticked.fold(0, (sum, id) => sum + (_outlets[id]?.length ?? 0));
+
+  @override
+  Widget build(BuildContext context) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final d = widget.day;
+    final title = '${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}';
+    final ids = _ticked.toList();
+    final first = ids.isEmpty ? null : _name(ids.first);
+    final others = ids.skip(1).map(_name).toList();
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+          const Text('Opened by tapping a day', style: TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
+        ]),
+      ),
+      body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(children: [
+              Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(first ?? 'No ${widget.label.toLowerCase()} ticked',
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: _blue)),
+                    if (first != null)
+                      Text(
+                        '${others.isEmpty ? '' : '+ ${others.join(', ')} · '}$_outletCount outlet${_outletCount == 1 ? '' : 's'}',
+                        style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
+                      ),
+                  ]),
+                ),
+                InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: () => setState(() => _open = !_open),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(color: _blue.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(18)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text('${ids.length} ${ids.length == 1 ? widget.label.toLowerCase() : '${widget.label.toLowerCase()}s'}',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: _blue)),
+                      Icon(_open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded, size: 18, color: _blue),
+                    ]),
+                  ),
+                ),
+              ]),
+              if (_open) ...[
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(children: [
+                    for (final b in _beats)
+                      Builder(builder: (_) {
+                        final id = b['id'] as int;
+                        final pending = '${b['approval_state']}' == 'pending';
+                        return CheckboxListTile(
+                          dense: true,
+                          value: _ticked.contains(id),
+                          onChanged: pending ? null : (v) => _toggle(id, v == true),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text('${b['name']}',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: pending ? AppColors.muted : null)),
+                          secondary: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: (pending ? AppColors.warning : AppColors.success).withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(pending ? 'Pending' : 'Approved',
+                                style: TextStyle(
+                                    fontSize: 10.5, fontWeight: FontWeight.w800, color: pending ? AppColors.warning : AppColors.success)),
+                          ),
+                        );
+                      }),
+                  ]),
+                ),
+              ],
+            ]),
+          ),
+        ),
+        const SizedBox(height: 4),
+        if (_loading.isNotEmpty) const LinearProgressIndicator(minHeight: 2),
+        for (final id in ids)
+          for (final c in _outlets[id] ?? const <Map<String, dynamic>>[])
+            Card(
+              margin: const EdgeInsets.only(top: 8),
+              child: ListTile(
+                dense: true,
+                title: Text('${c['name']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                subtitle: Text(_name(id), style: const TextStyle(fontSize: 11.5)),
+              ),
+            ),
+        if (ids.isNotEmpty)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 12, 4, 0),
+            child: Text('… all outlets of the selected beats',
+                style: TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: AppColors.muted)),
+          ),
+      ]),
     );
   }
 }
