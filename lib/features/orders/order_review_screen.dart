@@ -196,7 +196,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
               ? '${fmtMoney(order['amount_untaxed'] as num?, order['currency'] as String?)} + '
                   '${fmtMoney(order['amount_tax'] as num?, order['currency'] as String?)} tax = '
                   '${fmtMoney(order['amount_total'] as num?, order['currency'] as String?)}. '
-                  'The office will send it to the distributor.'
+                  '${order['request'] != null ? 'Request sent to distributor for approval.' : 'The office will send it to the distributor.'}'
               : 'Total ${fmtMoney(order['amount_total'] as num?, order['currency'] as String?)} incl. tax'),
           actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
         ),
