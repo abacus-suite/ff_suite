@@ -1026,7 +1026,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
             child: Choice(
               options: [
                 {'code': contactIs, 'name': 'This $contactIs: ${widget.client!['name']}'},
-                {'code': 'company', 'name': 'Company'},
+                if (widget.config['company_samples'] == true) {'code': 'company', 'name': 'Company'},
               ],
               value: source,
               onChanged: (v) => setState(() => _a['source'] = v),
@@ -1047,9 +1047,27 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
               () async {
                 final d = await pickFromList(context,
                     title: 'Distributor',
-                    load: () async =>
-                        (await Services.api.get('/api/v1/distributors') as List).cast<Map<String, dynamic>>(),
-                    subtitle: (r) => '${r['city'] ?? ''}');
+                    load: () async {
+                      final res = await Services.api.get('/api/v1/distributors');
+                      final list = res is Map ? ((res['distributors'] as List?) ?? []) : (res as List);
+                      return list.cast<Map<String, dynamic>>();
+                    },
+                    subtitle: (r) {
+                      final cities = [
+                        if (r['city'] != null && '${r['city']}'.isNotEmpty) '${r['city']}',
+                        for (final d in (r['secondary_districts'] as List? ?? []))
+                          if (d is Map && d['name'] != null && '${d['name']}' != r['city']) '${d['name']}',
+                      ];
+                      final terrs = [
+                        if (r['territory'] is Map && r['territory']['name'] != null) '${r['territory']['name']}',
+                        for (final t in (r['secondary_territories'] as List? ?? []))
+                          if (t is Map && t['name'] != null && t['name'] != r['territory']?['name']) '${t['name']}',
+                      ];
+                      return [
+                        if (cities.isNotEmpty) cities.join(', '),
+                        if (terrs.isNotEmpty) terrs.join(', '),
+                      ].join(' · ');
+                    });
                 if (d != null) setState(() => _a['distributor'] = d);
               },
             ),
@@ -1068,7 +1086,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
         if (source == 'company')
           const StepCard(
             tint: AppColors.sky,
-            child: Text('Issued from Kumbayah\'s own stock. No debit note and no demand is created.',
+            child: Text('Issued from company warehouse stock (moved to your custody). No debit note and no demand is created.',
                 style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
           ),
         if (source != null) ...[

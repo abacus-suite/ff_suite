@@ -52,12 +52,16 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
   /// The distributors this outlet can be supplied by, with the usual one first.
   Future<void> _loadDistributors() async {
     try {
-      final data = await Services.api.get('/api/v1/distributors',
-          query: {'partner_id': widget.client['id']}) as Map<String, dynamic>;
+      final res = await Services.api.get('/api/v1/distributors',
+          query: {'partner_id': widget.client['id']});
       if (!mounted) return;
       setState(() {
-        _distributors = ((data['distributors'] as List?) ?? []).cast<Map<String, dynamic>>();
-        _distributorId = data['suggested_id'] as int?;
+        if (res is Map) {
+          _distributors = ((res['distributors'] as List?) ?? []).cast<Map<String, dynamic>>();
+          _distributorId = res['suggested_id'] as int?;
+        } else if (res is List) {
+          _distributors = res.cast<Map<String, dynamic>>();
+        }
       });
     } catch (_) {
       // No distributors set up: the order goes straight to the customer.
@@ -196,7 +200,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
               ? '${fmtMoney(order['amount_untaxed'] as num?, order['currency'] as String?)} + '
                   '${fmtMoney(order['amount_tax'] as num?, order['currency'] as String?)} tax = '
                   '${fmtMoney(order['amount_total'] as num?, order['currency'] as String?)}. '
-                  'The office will send it to the distributor.'
+                  '${order['request'] != null ? 'Request sent to distributor for approval.' : 'The office will send it to the distributor.'}'
               : 'Total ${fmtMoney(order['amount_total'] as num?, order['currency'] as String?)} incl. tax'),
           actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
         ),
@@ -259,7 +263,10 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
                     child: Text(
                       [
                         '${distributor['name']}',
-                        if (asText(distributor['city']) != null) '· ${distributor['city']}',
+                        if (asText(distributor['city']) != null)
+                          '· ${distributor['city']}${distributor['secondary_districts'] != null && (distributor['secondary_districts'] as List).isNotEmpty ? ' (+${(distributor['secondary_districts'] as List).length} cities)' : ''}',
+                        if (distributor['territory'] is Map && distributor['territory']['name'] != null)
+                          '· ${(distributor['territory'] as Map)['name']}${distributor['secondary_territories'] != null && (distributor['secondary_territories'] as List).isNotEmpty ? ' (+${(distributor['secondary_territories'] as List).length} terr.)' : ''}',
                       ].join(' '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

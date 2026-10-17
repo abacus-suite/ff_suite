@@ -49,7 +49,8 @@ class _DistributorSheetState extends State<_DistributorSheet> {
 
   Future<void> _load() async {
     try {
-      final list = (await Services.api.get('/api/v1/distributors') as List).cast<Map<String, dynamic>>();
+      final res = await Services.api.get('/api/v1/distributors');
+      final list = (res is Map ? ((res['distributors'] as List?) ?? []) : (res as List)).cast<Map<String, dynamic>>();
       if (mounted) setState(() => _all = list);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
