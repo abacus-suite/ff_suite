@@ -115,22 +115,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _peekCached();
     _loadInfo();
+  }
+
+  Future<void> _peekCached() async {
+    try {
+      final cached = await Services.api.peek('/api/v1/me/profile-details');
+      if (cached is Map && mounted && _info == null) {
+        setState(() => _info = Map<String, dynamic>.from(cached));
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadInfo() async {
     try {
-      final data = await Services.api.get('/api/v1/me/profile-details') as Map<String, dynamic>;
-      if (mounted) setState(() => _info = data);
+      final data = await Services.api.get('/api/v1/me/profile-details');
+      if (data is Map && mounted) {
+        setState(() => _info = Map<String, dynamic>.from(data));
+      }
     } catch (_) {
       // Without it the page shows what the app already knows.
     }
   }
 
-  List<Map<String, dynamic>> _list(String key) =>
-      ((_info?[key] as List?) ?? []).cast<Map<String, dynamic>>();
+  List<Map<String, dynamic>> _list(String key) {
+    final raw = _info?[key];
+    if (raw is List) {
+      return raw.map((e) => e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{}).toList();
+    }
+    return [];
+  }
 
-  Map<String, dynamic> _map(String key) => (_info?[key] as Map?)?.cast<String, dynamic>() ?? const {};
+  Map<String, dynamic> _map(String key) {
+    final raw = _info?[key];
+    return raw is Map ? Map<String, dynamic>.from(raw) : const {};
+  }
 
   Color _hex(String? value, Color fallback) {
     final v = (value ?? '').replaceAll('#', '');
@@ -302,12 +322,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   /// Team, Territory and Beats: each is a button that opens its full list.
   Widget _listButtons() {
-    final teams = _list('teams');
-    final primary = ((_map('territories')['primary'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final secondary = ((_map('territories')['secondary'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final outside = ((_map('territories')['outside'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final beats = _list('beats');
+    var teams = _list('teams');
+    final territoriesMap = _map('territories');
+    List<Map<String, dynamic>> subList(String k) {
+      final raw = territoriesMap[k];
+      if (raw is List) {
+        return raw.map((e) => e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{}).toList();
+      }
+      return [];
+    }
+    final primary = subList('primary');
+    final secondary = subList('secondary');
+    final outside = subList('outside');
+    var beats = _list('beats');
     final profile = Services.auth.profile!;
+
+    // Fallbacks if server hasn't returned yet or fields were missing
+    if (teams.isEmpty && profile.team != null && profile.team!.trim().isNotEmpty) {
+      teams = [
+        {'name': profile.team!, 'lead': profile.manager ?? '-', 'members': 1},
+      ];
+    }
+    if (beats.isEmpty && profile.routes.isNotEmpty) {
+      beats = [
+        for (final r in profile.routes)
+          {'name': r.name, 'outlets': 0, 'city': null, 'state': 'approved'},
+      ];
+    }
+
     String count(int n, String one, String many) => '$n ${n == 1 ? one : many}';
     Widget cell(IconData icon, String title, String value, Color tint, VoidCallback onTap) => Expanded(
           child: InkWell(
