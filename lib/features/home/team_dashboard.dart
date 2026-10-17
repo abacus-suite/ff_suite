@@ -31,6 +31,9 @@ class _TeamDashboardState extends State<TeamDashboard> {
   /// The team's month-to-date target and what it has achieved; null when the server has none.
   Map<String, dynamic>? _target;
 
+  /// Today's overdue block from the team home call: it does not follow the chips either.
+  Map<String, dynamic>? _overdueHome;
+
   /// The blue card: who was present, late, absent or on leave for the chosen period or day.
   Map<String, dynamic>? _home;
   bool _homeLoading = false;
@@ -70,6 +73,11 @@ class _TeamDashboardState extends State<TeamDashboard> {
       _target = await Services.api.get('/api/v1/team/target') as Map<String, dynamic>;
     } catch (_) {
       // No targets module: the card says so.
+    }
+    try {
+      _overdueHome = await Services.api.get('/api/v1/team/home', query: {'period': 'today'}) as Map<String, dynamic>;
+    } catch (_) {
+      // No overdue block: the card stays away.
     }
     try {
       final data = await Services.api.get('/api/v1/team/dashboard', query: {'period': 'today'}) as Map<String, dynamic>;
@@ -313,7 +321,7 @@ class _TeamDashboardState extends State<TeamDashboard> {
         data: _target,
         onTap: _target == null ? null : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TeamTargetScreen())),
       ),
-      const OverdueCard(),
+      OverdueCard(block: (_overdueHome?['overdue'] as Map?)?.cast<String, dynamic>(), currency: _overdueHome?['currency'] as String?),
       const AssignedTasksCard(),
       WorkAlertsCard(alerts: _list('work_alerts')),
       _shortcuts(),

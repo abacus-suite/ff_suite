@@ -424,6 +424,9 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
   List<Map<String, dynamic>> _taskRows = [];
   List<String> _territories = [];
   List<String> _routes = [];
+
+  /// The employee's planned beat days in the range: `{date, beat: {name}, territory?}`. Gives each route its dates.
+  List<Map<String, dynamic>> _plan = [];
   String? _currency;
   String? _error;
   bool _loading = true;
@@ -534,6 +537,15 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
         _territories = _namesOf(r['territories']);
         _routes = _namesOf(r['routes']);
       });
+      // Which days each route was worked, from the beat plan. Without it the list shows names only.
+      try {
+        final plan = await Services.api.get('/api/v1/route-plan/days', query: {
+          'member': int.tryParse(widget.memberId) ?? widget.memberId,
+          'start': fmtDate(_start),
+          'end': fmtDate(_end),
+        }) as List;
+        if (mounted) setState(() => _plan = plan.cast<Map<String, dynamic>>());
+      } catch (_) {}
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -561,6 +573,23 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
       final cur = out[name] ?? (dates: <String>{}, territory: _nameOf(row['territory']));
       if (date != null) cur.dates.add(date);
       out[name] = (dates: cur.dates, territory: cur.territory ?? _nameOf(row['territory']));
+    }
+    if (key == 'route') {
+      for (final p in _plan) {
+        final beat = p['beat'];
+        final name = _nameOf(beat);
+        if (name == null) continue;
+        final cur = out[name] ?? (dates: <String>{}, territory: null);
+        if (p['date'] != null) cur.dates.add('${p['date']}');
+        final terr = _nameOf(p['territory']) ?? (beat is Map ? _nameOf(beat['territory']) : null);
+        out[name] = (dates: cur.dates, territory: cur.territory ?? terr);
+      }
+      // A single territory for the whole range is the route's territory when nothing more precise is known.
+      if (_territories.length == 1) {
+        for (final e in out.entries.toList()) {
+          if (e.value.territory == null) out[e.key] = (dates: e.value.dates, territory: _territories.first);
+        }
+      }
     }
     return out;
   }

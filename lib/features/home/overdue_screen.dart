@@ -36,7 +36,7 @@ class _OverdueScreenState extends State<OverdueScreen> {
     });
     final type = _type;
     try {
-      final d = await Services.api.get('/api/v1/receivables', query: {'filter': 'overdue', 'partner_type': type}) as Map<String, dynamic>;
+      final d = await Services.api.get('/api/v1/receivables', query: {'filter': 'overdue', 'kind': type}) as Map<String, dynamic>;
       if (mounted) setState(() => _data[type] = d);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());

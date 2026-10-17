@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
-import 'overdue_screen.dart';
+import 'manager_home.dart' show OverdueScreen;
 import '../tasks/tasks_screen.dart';
 
 Widget _shell(String title, IconData icon, Widget child, {Widget? trailing}) => Container(
@@ -155,49 +155,19 @@ class BeatPlanSummaryCard extends StatelessWidget {
   }
 }
 
-/// Money the team's outlets and distributors still owe, past due.
-class OverdueCard extends StatefulWidget {
-  const OverdueCard({super.key});
+/// Money the team's outlets and distributors still owe, past due. The figures are the server's `overdue` block
+/// of `/api/v1/team/home` (`total`, `outlet`, `distributor` and the `items` behind them).
+class OverdueCard extends StatelessWidget {
+  const OverdueCard({super.key, required this.block, required this.currency});
 
-  @override
-  State<OverdueCard> createState() => _OverdueCardState();
-}
-
-class _OverdueCardState extends State<OverdueCard> {
-  num? _outlet;
-  num? _distributor;
-  String? _currency;
-  bool _done = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<num?> _one(String type) async {
-    try {
-      final d = await Services.api.get('/api/v1/receivables', query: {'filter': 'overdue', 'partner_type': type}) as Map<String, dynamic>;
-      _currency ??= d['currency'] as String?;
-      return (d['overdue'] as num?) ?? (d['total'] as num?);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> _load() async {
-    final r = await Future.wait([_one('outlet'), _one('distributor')]);
-    if (!mounted) return;
-    setState(() {
-      _outlet = r[0];
-      _distributor = r[1];
-      _done = true;
-    });
-  }
+  final Map<String, dynamic>? block;
+  final String? currency;
 
   @override
   Widget build(BuildContext context) {
-    if (!_done || (_outlet == null && _distributor == null)) return const SizedBox.shrink();
+    final o = block;
+    if (o == null) return const SizedBox.shrink();
+    final items = ((o['items'] as List?) ?? []).cast<Map<String, dynamic>>();
     Widget part(String label, num? v, Color c, IconData icon) => Expanded(
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -206,21 +176,21 @@ class _OverdueCardState extends State<OverdueCard> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Icon(icon, size: 16, color: c),
               const SizedBox(height: 4),
-              FittedBox(child: Text(fmtMoney(v ?? 0, _currency), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0F172A)))),
+              FittedBox(child: Text(fmtMoney(v ?? 0, currency), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0F172A)))),
               Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF334155))),
             ]),
           ),
         );
     return InkWell(
       borderRadius: BorderRadius.circular(22),
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OverdueScreen())),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OverdueScreen(items: items, currency: currency))),
       child: _shell(
         'Overdue',
         Icons.receipt_long_rounded,
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(
-              child: Text(fmtMoney((_outlet ?? 0) + (_distributor ?? 0), _currency),
+              child: Text(fmtMoney(o['total'] as num?, currency),
                   style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: AppColors.danger)),
             ),
             const Text('By outlet, distributor', style: TextStyle(fontSize: 11, color: Color(0xFF334155))),
@@ -228,8 +198,8 @@ class _OverdueCardState extends State<OverdueCard> {
           ]),
           const SizedBox(height: 10),
           Row(children: [
-            part('Outlet overdue', _outlet, AppColors.primary, Icons.storefront_rounded),
-            part('Distributor overdue', _distributor, AppColors.warning, Icons.local_shipping_rounded),
+            part('Outlet overdue', o['outlet'] as num?, AppColors.primary, Icons.storefront_rounded),
+            part('Distributor overdue', o['distributor'] as num?, AppColors.warning, Icons.local_shipping_rounded),
           ]),
         ]),
       ),
