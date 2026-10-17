@@ -92,7 +92,13 @@ Future<void> resumeTask(BuildContext context, Map<String, dynamic> client, Map<S
   final config = await _config(context);
   final code = '${visit['task'] ?? ''}';
   if (config == null || !context.mounted || code.isEmpty) return;
-  await _run(context, config, code, client, visit);
+  final preset = code == 'sample_collection'
+      ? {
+          'source': client['category_type'] == 'distributor' ? 'distributor' : 'outlet',
+          if (client['category_type'] == 'distributor') 'distributor': client else 'source_outlet': client,
+        }
+      : null;
+  await _run(context, config, code, client, visit, preset: preset);
 }
 
 /// Whether the office offers this task for this kind of contact (mapped on the task type).
@@ -368,7 +374,13 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
     ));
   }
   if (chosen == null || visit == null || !context.mounted) return;
-  await _run(context, config, code, chosen, visit);
+  final preset = code == 'sample_collection'
+      ? {
+          'source': chosen['category_type'] == 'distributor' ? 'distributor' : 'outlet',
+          if (chosen['category_type'] == 'distributor') 'distributor': chosen else 'source_outlet': chosen,
+        }
+      : null;
+  await _run(context, config, code, chosen, visit, preset: preset);
 }
 
 Future<Map<String, dynamic>?> _pickLead(

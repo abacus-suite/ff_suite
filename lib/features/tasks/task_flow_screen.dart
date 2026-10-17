@@ -218,15 +218,24 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     } else {
       unawaited(_restoreFromDisk());
     }
-    if (widget.code == 'sample_collection' && widget.client != null) {
-      // Checked in at a contact, so that contact is where the samples come from:
-      // a distributor if it is one, an outlet if it is not. Nothing to ask.
-      final distributor = widget.client!['category_type'] == 'distributor';
-      _a['source'] = distributor ? 'distributor' : 'outlet';
-      if (distributor) {
-        _a['distributor'] = widget.client;
-      } else {
-        _a['source_outlet'] = widget.client;
+    if (widget.code == 'sample_collection') {
+      if (widget.client != null) {
+        // Checked in at a contact, so that contact is where the samples come from:
+        // a distributor if it is one, an outlet if it is not. Nothing to ask.
+        final distributor = widget.client!['category_type'] == 'distributor';
+        _a['source'] = distributor ? 'distributor' : 'outlet';
+        if (distributor) {
+          _a['distributor'] = widget.client;
+        } else {
+          _a['source_outlet'] = widget.client;
+        }
+      } else if (widget.preset?['source'] != null) {
+        _a['source'] = widget.preset!['source'];
+        if (_a['source'] == 'distributor' && widget.preset?['distributor'] != null) {
+          _a['distributor'] = widget.preset!['distributor'];
+        } else if (_a['source'] == 'outlet' && widget.preset?['source_outlet'] != null) {
+          _a['source_outlet'] = widget.preset!['source_outlet'];
+        }
       }
     }
     if (widget.code == 'client_visit') _loadLedger();
@@ -1006,88 +1015,105 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       {'code': 'outlet', 'name': 'Outlet'},
       if (widget.config['company_samples'] == true) {'code': 'company', 'name': 'Company'},
     ];
-    // Where the person is standing is where the samples come from, unless the team
-    // may also take them from company stock.
-    final fromContact = widget.client != null && source != 'company';
-    final contactIs = widget.client?['category_type'] == 'distributor' ? 'distributor' : 'outlet';
+
+    Widget sourceCard;
+    if (source == 'company') {
+      sourceCard = const StepCard(
+        title: 'Collected from',
+        child: LockedField(
+          value: 'Company',
+          subtitle: 'Company warehouse stock (custody transfer)',
+        ),
+      );
+    } else if (source == 'distributor') {
+      final dist = (widget.client?['category_type'] == 'distributor' ? widget.client : null) ??
+          (_a['distributor'] as Map<String, dynamic>?);
+      if (dist != null) {
+        final city = asText(dist['city']);
+        sourceCard = StepCard(
+          title: 'Collected from',
+          child: LockedField(
+            value: '${dist['name']}',
+            subtitle: 'Collected from this distributor${city != null ? ' · $city' : ''}',
+          ),
+        );
+      } else {
+        sourceCard = StepCard(
+          title: 'Distributor *',
+          note: 'A debit note demand is raised: distributor to Kumbayah.',
+          child: _picker(
+            _a['distributor'] as Map<String, dynamic>?,
+            'Choose the distributor',
+            () async {
+              final d = await pickFromList(context,
+                  title: 'Distributor',
+                  load: () async {
+                    final res = await Services.api.get('/api/v1/distributors');
+                    final list = res is Map ? ((res['distributors'] as List?) ?? []) : (res as List);
+                    return list.cast<Map<String, dynamic>>();
+                  },
+                  subtitle: (r) {
+                    final cities = [
+                      if (r['city'] != null && '${r['city']}'.isNotEmpty) '${r['city']}',
+                      for (final d in (r['secondary_districts'] as List? ?? []))
+                        if (d is Map && d['name'] != null && '${d['name']}' != r['city']) '${d['name']}',
+                    ];
+                    final terrs = [
+                      if (r['territory'] is Map && r['territory']['name'] != null) '${r['territory']['name']}',
+                      for (final t in (r['secondary_territories'] as List? ?? []))
+                        if (t is Map && t['name'] != null && t['name'] != r['territory']?['name']) '${t['name']}',
+                    ];
+                    return [
+                      if (cities.isNotEmpty) cities.join(', '),
+                      if (terrs.isNotEmpty) terrs.join(', '),
+                    ].join(' · ');
+                  });
+              if (d != null) setState(() => _a['distributor'] = d);
+            },
+          ),
+        );
+      }
+    } else if (source == 'outlet') {
+      final outlet = (widget.client?['category_type'] != 'distributor' ? widget.client : null) ??
+          (_a['source_outlet'] as Map<String, dynamic>?);
+      if (outlet != null) {
+        final city = asText(outlet['city']);
+        sourceCard = StepCard(
+          title: 'Collected from',
+          child: LockedField(
+            value: '${outlet['name']}',
+            subtitle: 'Collected from this outlet${city != null ? ' · $city' : ''}',
+          ),
+        );
+      } else {
+        sourceCard = StepCard(
+          title: 'Outlet *',
+          note: 'The outlet is made good with the same pieces free, through its distributor, '
+              'and a debit note is raised against that distributor.',
+          child: _picker(_a['source_outlet'] as Map<String, dynamic>?, 'Choose the outlet', () async {
+            final picked = await Navigator.of(context).push<Map<String, dynamic>>(
+                MaterialPageRoute(builder: (_) => const ClientsScreen(pickMode: true)));
+            if (picked != null && mounted) setState(() => _a['source_outlet'] = picked);
+          }),
+        );
+      }
+    } else {
+      sourceCard = StepCard(
+        title: 'Collected from *',
+        child: Choice(options: options, value: source, onChanged: (v) => setState(() => _a['source'] = v)),
+      );
+    }
+
     return Column(
       children: [
-        if (fromContact && widget.config['company_samples'] != true)
-          StepCard(
-            title: 'Collected from',
-            child: LockedField(
-              value: '${widget.client!['name']}',
-              subtitle: contactIs == 'distributor' ? 'Collected from this distributor' : 'Collected from this outlet',
-            ),
-          )
-        else if (widget.client != null)
-          StepCard(
-            title: 'Collected from *',
-            child: Choice(
-              options: [
-                {'code': contactIs, 'name': 'This $contactIs: ${widget.client!['name']}'},
-                if (widget.config['company_samples'] == true) {'code': 'company', 'name': 'Company'},
-              ],
-              value: source,
-              onChanged: (v) => setState(() => _a['source'] = v),
-            ),
-          )
-        else
-          StepCard(
-            title: 'Collected from *',
-            child: Choice(options: options, value: source, onChanged: (v) => setState(() => _a['source'] = v)),
-          ),
-        if (source == 'distributor' && widget.client == null)
-          StepCard(
-            title: 'Distributor *',
-            note: 'A debit note demand is raised: distributor to Kumbayah.',
-            child: _picker(
-              _a['distributor'] as Map<String, dynamic>?,
-              'Choose the distributor',
-              () async {
-                final d = await pickFromList(context,
-                    title: 'Distributor',
-                    load: () async {
-                      final res = await Services.api.get('/api/v1/distributors');
-                      final list = res is Map ? ((res['distributors'] as List?) ?? []) : (res as List);
-                      return list.cast<Map<String, dynamic>>();
-                    },
-                    subtitle: (r) {
-                      final cities = [
-                        if (r['city'] != null && '${r['city']}'.isNotEmpty) '${r['city']}',
-                        for (final d in (r['secondary_districts'] as List? ?? []))
-                          if (d is Map && d['name'] != null && '${d['name']}' != r['city']) '${d['name']}',
-                      ];
-                      final terrs = [
-                        if (r['territory'] is Map && r['territory']['name'] != null) '${r['territory']['name']}',
-                        for (final t in (r['secondary_territories'] as List? ?? []))
-                          if (t is Map && t['name'] != null && t['name'] != r['territory']?['name']) '${t['name']}',
-                      ];
-                      return [
-                        if (cities.isNotEmpty) cities.join(', '),
-                        if (terrs.isNotEmpty) terrs.join(', '),
-                      ].join(' · ');
-                    });
-                if (d != null) setState(() => _a['distributor'] = d);
-              },
-            ),
-          ),
-        if (source == 'outlet' && widget.client == null)
-          StepCard(
-            title: 'Outlet *',
-            note: 'The outlet is made good with the same pieces free, through its distributor, '
-                'and a debit note is raised against that distributor.',
-            child: _picker(_a['source_outlet'] as Map<String, dynamic>?, 'Choose the outlet', () async {
-              final picked = await Navigator.of(context).push<Map<String, dynamic>>(
-                  MaterialPageRoute(builder: (_) => const ClientsScreen(pickMode: true)));
-              if (picked != null && mounted) setState(() => _a['source_outlet'] = picked);
-            }),
-          ),
+        sourceCard,
         if (source == 'company')
           const StepCard(
             tint: AppColors.sky,
-            child: Text('Issued from company warehouse stock (moved to your custody). No debit note and no demand is created.',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+            child: Text(
+              'Issued from company warehouse stock (moved to your custody). No debit note and no demand is created.',
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+            ),
           ),
         if (source != null) ...[
           StepCard(
@@ -1106,10 +1132,10 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
   String? _checkSample() {
     final source = _a['source'] as String?;
     if (source == null) return 'Say where the samples were collected from.';
-    if (source == 'distributor' && _a['distributor'] == null) return 'Choose the distributor.';
-    if (source == 'outlet' && _a['source_outlet'] == null) return 'Choose the outlet the samples come from.';
+    if (source == 'distributor' && _a['distributor'] == null && widget.client == null) return 'Choose the distributor.';
+    if (source == 'outlet' && _a['source_outlet'] == null && widget.client == null) return 'Choose the outlet the samples come from.';
     if (!_q('sample').values.any((v) => v > 0)) return 'Enter the quantity of each flavour.';
-    return _s('reason').isEmpty ? 'Give the reason.' : null;
+    return _s('reason').isEmpty ? (source == 'outlet' ? 'Give the description.' : 'Give the reason.') : null;
   }
 
   /// Where the person is checked in is fixed; only a task with no contact picks one.
@@ -1269,12 +1295,16 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       case 'adhoc':
         return {...base, 'description': _s('description')};
       case 'sample_collection':
+        final distId = (_a['distributor'] as Map?)?['id'] ??
+            (widget.client != null && widget.client!['category_type'] == 'distributor' ? widget.client!['id'] : null);
+        final outletId = (_a['source_outlet'] as Map?)?['id'] ??
+            (widget.client != null && widget.client!['category_type'] != 'distributor' ? widget.client!['id'] : null);
         return {
           ...base,
           'source': _a['source'],
-          'distributor_id': (_a['distributor'] as Map?)?['id'],
+          'distributor_id': distId,
           // The outlet the samples came from; the contact above is where the person stands.
-          'source_partner_id': (_a['source_outlet'] as Map?)?['id'],
+          'source_partner_id': outletId,
           'lines': _rows('sample'),
           'reason': _s('reason'),
         };
