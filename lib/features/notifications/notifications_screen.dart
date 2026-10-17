@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/format.dart';
@@ -82,6 +84,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _rows = rows;
         _loading = false;
       });
+      // Seeing the list is reading it: the bell's count goes back to zero.
+      if (rows.any((r) => r['read'] != true)) unawaited(Services.notifications.markRead());
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -90,11 +94,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         });
       }
     }
-  }
-
-  Future<void> _markAllRead() async {
-    await Services.notifications.markRead();
-    await _load();
   }
 
   /// Open whatever the notification is about.
@@ -136,33 +135,43 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   IconData _icon(String topic) => switch (topic) {
-        'task' => Icons.task_alt_rounded,
+        'task' => Icons.assignment_turned_in_rounded,
         'leave' => Icons.beach_access_rounded,
         'distributor' => Icons.local_shipping_rounded,
         'approval' => Icons.how_to_reg_rounded,
         'decision' => Icons.task_alt_rounded,
-        _ => Icons.info_outline_rounded,
+        _ => Icons.notifications_rounded,
       };
 
   Color _colour(String topic) => switch (topic) {
-        'task' => AppColors.success,
-        'leave' => AppColors.primary,
-        'distributor' => AppColors.warning,
+        'task' => const Color(0xFF16A34A),
+        'leave' => const Color(0xFF2563EB),
+        'distributor' => const Color(0xFFEA8A00),
         'approval' => AppColors.warning,
         'decision' => AppColors.success,
         _ => AppColors.primary,
       };
 
+  /// The round icon of a notification: white on solid green for a task, a coloured icon on a pale disc for the rest.
+  Widget _badge(String topic) {
+    final colour = _colour(topic);
+    final solid = topic == 'task';
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: solid ? colour : colour.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(solid ? 12 : 22),
+      ),
+      child: Icon(_icon(topic), color: solid ? Colors.white : colour, size: 23),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final unread = _rows.where((row) => row['read'] != true).length;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w900)),
-        actions: [
-          if (unread > 0)
-            TextButton(onPressed: _markAllRead, child: const Text('Mark all read')),
-        ],
       ),
       body: _loading
           ? const LoadingView()
@@ -182,13 +191,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Widget _tile(Map<String, dynamic> row) {
-    final read = row['read'] == true;
     final topic = _topic(row);
-    final colour = _colour(topic);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: read ? Colors.white : const Color(0xFFF2F7FF),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
@@ -198,17 +205,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           child: Row(children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(color: colour.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
-              child: Icon(_icon(topic), color: colour, size: 22),
-            ),
+            _badge(topic),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${row['title']}',
-                    style: TextStyle(fontWeight: read ? FontWeight.w700 : FontWeight.w900, fontSize: 14.5)),
+                Text('${row['title']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
                 if (asText(row['body']) != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
@@ -217,13 +218,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
               ]),
             ),
-            if (!read)
-              Container(
-                margin: const EdgeInsets.only(left: 8),
-                width: 9,
-                height: 9,
-                decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-              ),
           ]),
         ),
       ),

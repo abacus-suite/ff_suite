@@ -16,12 +16,19 @@ class TeamTargetScreen extends StatefulWidget {
 }
 
 class _TeamTargetScreenState extends State<TeamTargetScreen> {
+  static const _blue = Color(0xFF1D4ED8);
+
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
-  String _view = 'month';
+
+  /// 'month' (the month's target) or 'week' (one of Week 1 to 4).
+  String _kind = 'month';
+  int _week = 1;
   String _metric = 'bottles';
   Map<String, dynamic>? _data;
   bool _loading = true;
   String? _error;
+
+  String get _view => _kind == 'month' ? 'month' : '$_week';
 
   @override
   void initState() {
@@ -61,18 +68,60 @@ class _TeamTargetScreenState extends State<TeamTargetScreen> {
     }
   }
 
+  /// Green from 90%, orange from 50%, red below.
+  Color _tone(num percent) => percent >= 90 ? const Color(0xFF16A34A) : (percent >= 50 ? const Color(0xFFF59E0B) : const Color(0xFFDC2626));
+
+  Widget _bar(num fraction, Color colour, {double height = 7}) => ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: LinearProgressIndicator(
+          value: fraction.clamp(0, 1).toDouble(),
+          minHeight: height,
+          color: colour,
+          backgroundColor: const Color(0xFFE5EAF3),
+        ),
+      );
+
+  Widget _card(Widget child) => Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: child,
+      );
+
   @override
   Widget build(BuildContext context) {
     final data = _data;
     final rows = ((data?['rows'] as List?) ?? []).cast<Map<String, dynamic>>();
     final bottles = _metric == 'bottles';
+    final unit = bottles ? 'btl' : 'outlets';
     final teamTarget = ((data?[bottles ? 'bottle_target' : 'outlet_target'] as num?) ?? 0).toInt();
     final teamActual = ((data?[bottles ? 'bottles' : 'outlets'] as num?) ?? 0).toInt();
+    final teamPercent = teamTarget == 0 ? 0 : teamActual * 100 / teamTarget;
+    final span = _kind == 'month' ? 'Month' : 'Week $_week';
+
+    num actualOf(Map<String, dynamic> r) => _n(r[bottles ? 'bottles' : 'outlets']);
+    num targetOf(Map<String, dynamic> r) => _n(r[bottles ? 'bottle_target' : 'outlet_target']);
+    num shareOf(Map<String, dynamic> r) => teamTarget == 0 ? 0 : actualOf(r) * 100 / teamTarget;
+
+    final top = rows.take(5).toList();
+    final others = rows.skip(5).toList();
+    final othersShare = others.fold<num>(0, (a, r) => a + shareOf(r));
+    final othersActual = others.fold<num>(0, (a, r) => a + actualOf(r));
+    final peakShare = [for (final r in rows) shareOf(r), othersShare].fold<num>(0, (a, b) => b > a ? b : a);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Team Target'),
-        actions: [IconButton(onPressed: _pickMonth, icon: const Icon(Icons.calendar_month_rounded))],
+        titleSpacing: 0,
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Team Target', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
+          Text('By employee', style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
+        ]),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -80,103 +129,164 @@ class _TeamTargetScreenState extends State<TeamTargetScreen> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
           children: [
             Row(children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: _view,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Achieved out of', isDense: true),
-                  items: const [
-                    DropdownMenuItem(value: 'month', child: Text('Month target')),
-                    DropdownMenuItem(value: '1', child: Text('Week 1')),
-                    DropdownMenuItem(value: '2', child: Text('Week 2')),
-                    DropdownMenuItem(value: '3', child: Text('Week 3')),
-                    DropdownMenuItem(value: '4', child: Text('Week 4')),
-                  ],
-                  onChanged: (v) {
-                    if (v == null) return;
-                    setState(() => _view = v);
-                    _load();
-                  },
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _pickMonth,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+                  child: const Icon(Icons.calendar_month_rounded, color: AppColors.muted),
                 ),
               ),
               const SizedBox(width: 10),
-              SegmentedButton<String>(
-                showSelectedIcon: false,
+              Expanded(
+                child: Container(
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _kind,
+                      isExpanded: true,
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _blue),
+                      selectedItemBuilder: (_) => [
+                        for (final label in const ['Month target', 'Week target'])
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('Achieved out of: $label',
+                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: _blue)),
+                          ),
+                      ],
+                      items: const [
+                        DropdownMenuItem(value: 'month', child: Text('Month target')),
+                        DropdownMenuItem(value: 'week', child: Text('Week target')),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _kind = v);
+                        _load();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+            if (_kind == 'week') ...[
+              const SizedBox(height: 10),
+              Wrap(spacing: 8, children: [
+                for (var w = 1; w <= 4; w++)
+                  ChoiceChip(
+                    label: Text('Week $w', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    selected: _week == w,
+                    onSelected: (_) {
+                      setState(() => _week = w);
+                      _load();
+                    },
+                  ),
+              ]),
+            ],
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<String>(
+                showSelectedIcon: true,
                 segments: const [
-                  ButtonSegment(value: 'bottles', label: Text('Bottles')),
-                  ButtonSegment(value: 'outlets', label: Text('Outlets')),
+                  ButtonSegment(value: 'bottles', label: Text('No. of bottles')),
+                  ButtonSegment(value: 'outlets', label: Text('Outlets onboarded')),
                 ],
                 selected: {_metric},
                 onSelectionChanged: (v) => setState(() => _metric = v.first),
               ),
-            ]),
+            ),
             if (_loading) const Padding(padding: EdgeInsets.only(top: 8), child: LinearProgressIndicator(minHeight: 2)),
             if (_error != null) ErrorView(message: _error!, onRetry: _load),
             const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(children: [
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('${monthNames[_month.month - 1]} ${_month.year}',
-                          style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
-                      Text('$teamActual of $teamTarget ${bottles ? 'bottles' : 'outlets'}',
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            _card(Column(children: [
+              if (rows.isEmpty && !_loading && _error == null)
+                const Padding(padding: EdgeInsets.all(18), child: Text('No targets set for this period.', style: TextStyle(color: AppColors.muted))),
+              for (final (i, r) in rows.indexed)
+                Builder(builder: (_) {
+                  final percent = targetOf(r) == 0 ? 0 : actualOf(r) * 100 / targetOf(r);
+                  final colour = _tone(percent);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Column(children: [
+                      Row(children: [
+                        Expanded(
+                          flex: 5,
+                          child: Text('${i + 1}. ${(r['employee'] as Map)['name']}',
+                              maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Text('${percent.round()}%', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5, color: colour)),
+                        ),
+                        Text('${actualOf(r).round()} / ${targetOf(r).round()}',
+                            style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
+                      ]),
+                      const SizedBox(height: 4),
+                      _bar(percent / 100, colour),
+                    ]),
+                  );
+                }),
+            ])),
+            if (rows.isNotEmpty && teamTarget > 0) ...[
+              _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Contribution to team target – $span', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, bottom: 10),
+                  child: Text(
+                      'Team ${_kind == 'month' ? 'month' : 'week'} target $teamTarget ${bottles ? 'bottles' : 'outlets'} · team achieved ${teamPercent.round()}%',
+                      style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                ),
+                for (final (i, r) in top.indexed)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Column(children: [
+                      Row(children: [
+                        Expanded(
+                          flex: 5,
+                          child: Text('${i + 1}. ${(r['employee'] as Map)['name']}',
+                              maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Text('${shareOf(r).toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5, color: _blue)),
+                        ),
+                        Text('${actualOf(r).round()} $unit', style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
+                      ]),
+                      const SizedBox(height: 4),
+                      _bar(peakShare == 0 ? 0 : shareOf(r) / peakShare, _blue, height: 6),
                     ]),
                   ),
-                  Text(teamTarget == 0 ? '-' : '${(teamActual * 100 / teamTarget).round()}%',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: AppColors.primary)),
-                ]),
+                if (others.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Column(children: [
+                      Row(children: [
+                        Expanded(
+                          flex: 5,
+                          child: Text('6. Others (${others.length})',
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Text('${othersShare.toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5, color: _blue)),
+                        ),
+                        Text('${othersActual.round()} $unit', style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
+                      ]),
+                      const SizedBox(height: 4),
+                      _bar(peakShare == 0 ? 0 : othersShare / peakShare, const Color(0xFF94A3B8), height: 6),
+                    ]),
+                  ),
+              ])),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                    'Each % = employee\'s ${bottles ? 'bottles' : 'outlets'} ÷ team target. Together = ${teamPercent.round()}%.',
+                    style: const TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: AppColors.muted)),
               ),
-            ),
-            const SizedBox(height: 6),
-            const Text('Ranking', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-            const SizedBox(height: 6),
-            for (final (i, r) in rows.indexed)
-              Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                    child: Text('${i + 1}', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary)),
-                  ),
-                  title: Text('${(r['employee'] as Map)['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Text(
-                      '${r[bottles ? 'bottles' : 'outlets']} / ${r[bottles ? 'bottle_target' : 'outlet_target']}'),
-                  trailing: Text('${r[bottles ? 'bottle_percent' : 'outlet_percent']}%',
-                      style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary)),
-                ),
-              ),
-            if (bottles && teamTarget > 0) ...[
-              const SizedBox(height: 12),
-              const Text('Contribution to the team target',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-              const SizedBox(height: 4),
-              Text('Each % is the person\'s bottles divided by the team target.',
-                  style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-              const SizedBox(height: 6),
-              for (final (i, r) in rows.take(5).indexed)
-                Card(
-                  child: ListTile(
-                    dense: true,
-                    leading: Text('${i + 1}.', style: const TextStyle(fontWeight: FontWeight.w800)),
-                    title: Text('${(r['employee'] as Map)['name']}'),
-                    trailing: Text('${r['share']}%  ·  ${r['bottles']} btl',
-                        style: const TextStyle(fontWeight: FontWeight.w800)),
-                  ),
-                ),
-              if (rows.length > 5)
-                Card(
-                  child: ListTile(
-                    dense: true,
-                    leading: const Text('6.', style: TextStyle(fontWeight: FontWeight.w800)),
-                    title: Text('Others (${rows.length - 5})'),
-                    trailing: Text(
-                        '${rows.skip(5).fold<num>(0, (a, r) => a + _n(r['share'])).toStringAsFixed(1)}%  ·  '
-                        '${rows.skip(5).fold<num>(0, (a, r) => a + _n(r['bottles']))} btl',
-                        style: const TextStyle(fontWeight: FontWeight.w800)),
-                  ),
-                ),
             ],
           ],
         ),

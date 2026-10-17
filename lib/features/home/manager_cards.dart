@@ -326,7 +326,7 @@ class _AssignedTasksCardState extends State<AssignedTasksCard> {
                     Text(
                         [
                           'To: ${t['employee'] is Map ? (t['employee'] as Map)['name'] : t['employee'] ?? t['to'] ?? ''}',
-                          if (_dueOf(t) != null) 'due ${_dueOf(t)}',
+                          _dueOf(t) != null ? 'due ${_dueOf(t)}' : 'no due date',
                         ].join(' · '),
                         style: const TextStyle(fontSize: 11, color: AppColors.muted)),
                   ]),

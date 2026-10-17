@@ -127,7 +127,8 @@ class _TeamTreeScreenState extends State<TeamTreeScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+          // Room for the bottom bar that sits over the page, and the chat button above it.
+          padding: EdgeInsets.fromLTRB(16, 4, 16, MediaQuery.paddingOf(context).bottom + 80),
           children: [
             if (path.length > 1)
               SizedBox(

@@ -378,7 +378,6 @@ class _HomeScreenState extends State<HomeScreen> {
   /// gap between what is left stays the same everywhere.
   List<Widget> _cards(Profile profile) {
     final cards = <Widget>[
-      const ActiveEventCard(),
       if (profile.feature('attendance'))
         _hero(profile)
       else
@@ -387,6 +386,8 @@ class _HomeScreenState extends State<HomeScreen> {
           onExplore: () =>
               _push(profile.feature('routes') ? const BeatTodayScreen() : const ClientsScreen()),
         ),
+      // A running event sits right under the check-in card (Select your Beat Plan, My Day).
+      const ActiveEventCard(),
       if (_visit != null) _ongoingVisitCard(_visit!),
       _todaySummary(),
       if (_day?['punched_in'] == true && profile.feature('visits'))

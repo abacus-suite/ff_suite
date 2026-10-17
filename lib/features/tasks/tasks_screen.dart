@@ -132,11 +132,16 @@ class _TasksScreenState extends State<TasksScreen> {
     final summary = (_data?['summary'] as Map?)?.cast<String, dynamic>() ?? const {};
     return Scaffold(
       appBar: AppBar(title: const Text('Tasks')),
+      // Lifted above the bottom bar (the app's bar sits over the page) and centred, clear of the chat bar on the right.
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: _isManager
-          ? FloatingActionButton.extended(
-              onPressed: _assign,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Assign'),
+          ? Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+              child: FloatingActionButton.extended(
+                onPressed: _assign,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Assign'),
+              ),
             )
           : null,
       body: Column(

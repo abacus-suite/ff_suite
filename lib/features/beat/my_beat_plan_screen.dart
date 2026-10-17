@@ -96,68 +96,8 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
 
   /// Add one or more existing beats to the chosen day. A beat still waiting for approval is greyed out.
   Future<void> _addExisting() async {
-    final chosen = <int>{};
-    final picked = await showModalBottomSheet<List<int>>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheet) => StatefulBuilder(
-        builder: (sheet, setSheet) => SafeArea(
-          child: SizedBox(
-            height: MediaQuery.of(sheet).size.height * 0.7,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                  child: Text('Add an Existing $_label\nFor ${fmtDate(_day)} · select one or more',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, height: 1.3)),
-                ),
-                Expanded(
-                  child: ListView(
-                    children: [
-                      for (final r in _routes)
-                        Builder(builder: (_) {
-                          final pending = '${r['approval_state']}' == 'pending';
-                          return CheckboxListTile(
-                            value: chosen.contains(r['id']),
-                            onChanged: pending
-                                ? null
-                                : (v) => setSheet(() => v == true ? chosen.add(r['id'] as int) : chosen.remove(r['id'])),
-                            title: Text('${r['name']}',
-                                style: TextStyle(fontWeight: FontWeight.w700, color: pending ? AppColors.muted : null)),
-                            subtitle: Text(
-                                pending
-                                    ? 'Cannot be selected until approved'
-                                    : [
-                                        if (r['customer_count'] != null) '${r['customer_count']} outlets',
-                                        if (asText(r['city']) != null) '${r['city']}',
-                                      ].join(' · '),
-                                style: const TextStyle(fontSize: 12.5)),
-                            secondary: pending
-                                ? const Text('Pending approval',
-                                    style: TextStyle(color: AppColors.warning, fontWeight: FontWeight.w700, fontSize: 12))
-                                : null,
-                          );
-                        }),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: chosen.isEmpty ? null : () => Navigator.pop(sheet, chosen.toList()),
-                      child: Text('Add selected beats (${chosen.length})'),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    final picked = await Navigator.of(context).push<List<int>>(
+      MaterialPageRoute(builder: (_) => AddExistingBeatScreen(day: _day, label: _label, routes: _routes)),
     );
     if (picked == null || picked.isEmpty || !mounted) return;
     setState(() => _busy = true);
@@ -488,6 +428,133 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
             child: Text('… all outlets of the selected beats',
                 style: TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: AppColors.muted)),
           ),
+      ]),
+    );
+  }
+}
+
+
+/// "Add an Existing Beat" as a full page: every beat with a checkbox, more than one can be picked for the day.
+/// A beat still waiting for approval is greyed out and cannot be ticked.
+class AddExistingBeatScreen extends StatefulWidget {
+  const AddExistingBeatScreen({super.key, required this.day, required this.label, required this.routes});
+
+  final DateTime day;
+  final String label;
+  final List<Map<String, dynamic>> routes;
+
+  @override
+  State<AddExistingBeatScreen> createState() => _AddExistingBeatScreenState();
+}
+
+class _AddExistingBeatScreenState extends State<AddExistingBeatScreen> {
+  final Set<int> _chosen = {};
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  @override
+  Widget build(BuildContext context) {
+    final d = widget.day;
+    final date = '${d.day.toString().padLeft(2, '0')} ${_months[d.month - 1]} ${d.year}';
+    final needle = _search.text.trim().toLowerCase();
+    final beats = [
+      for (final r in widget.routes)
+        if (needle.isEmpty || '${r['name']} ${r['city'] ?? ''}'.toLowerCase().contains(needle)) r,
+    ];
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Add an Existing ${widget.label}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
+          Text('For $date · select one or more',
+              style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w500)),
+        ]),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: GradientButton(
+            label: 'Add selected beats (${_chosen.length})',
+            icon: Icons.check_rounded,
+            onPressed: _chosen.isEmpty ? null : () => Navigator.pop(context, _chosen.toList()),
+          ),
+        ),
+      ),
+      body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
+        TextField(
+          controller: _search,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.search_rounded, color: AppColors.muted),
+            hintText: 'Search beat',
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (beats.isEmpty)
+          const Padding(padding: EdgeInsets.all(32), child: Center(child: Text('No beats found.', style: TextStyle(color: AppColors.muted)))),
+        for (final r in beats)
+          Builder(builder: (_) {
+            final id = r['id'] as int;
+            final pending = '${r['approval_state']}' == 'pending';
+            final ticked = _chosen.contains(id);
+            final line = pending
+                ? 'Cannot be selected until approved'
+                : [
+                    if (r['customer_count'] != null) '${r['customer_count']} outlets',
+                    if (asText(r['city']) != null) '${r['city']}',
+                  ].join(' · ');
+            return Opacity(
+              opacity: pending ? 0.6 : 1,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: pending ? AppColors.background : Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: ticked ? AppColors.primary : AppColors.border),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: pending ? null : () => setState(() => ticked ? _chosen.remove(id) : _chosen.add(id)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                    child: Row(children: [
+                      Checkbox(
+                        value: ticked,
+                        onChanged: pending ? null : (v) => setState(() => v == true ? _chosen.add(id) : _chosen.remove(id)),
+                      ),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('${r['name']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+                          if (line.isNotEmpty) Text(line, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                        ]),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: (pending ? AppColors.warning : AppColors.success).withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(pending ? 'Pending approval' : 'Approved',
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: pending ? AppColors.warning : AppColors.success)),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+            );
+          }),
       ]),
     );
   }

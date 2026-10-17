@@ -226,8 +226,20 @@ class _EventCompletedScreenState extends State<EventCompletedScreen> {
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text('${(r['distributor'] as Map)['name']}',
                                   style: const TextStyle(fontWeight: FontWeight.w800)),
-                              const Text('Opening + Added − Returned',
-                                  style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                              // The figures from the server's totals: open, add and ret (net is the number on the right).
+                              Builder(builder: (_) {
+                                final t = (r['totals'] as Map).cast<String, dynamic>();
+                                const label = TextStyle(fontSize: 11.5, color: AppColors.muted);
+                                const value = TextStyle(fontSize: 12.5, color: AppColors.text, fontWeight: FontWeight.w800);
+                                return Text.rich(TextSpan(style: label, children: [
+                                  const TextSpan(text: 'Opening '),
+                                  TextSpan(text: _q(_n(t['open'])), style: value),
+                                  const TextSpan(text: '  +  Added '),
+                                  TextSpan(text: _q(_n(t['add'])), style: value),
+                                  const TextSpan(text: '  −  Returned '),
+                                  TextSpan(text: _q(_n(t['ret'])), style: value),
+                                ]));
+                              }),
                             ]),
                           ),
                           Text('${_q(_n((r['totals'] as Map)['net']))} btl',
@@ -492,13 +504,28 @@ class _FinalReportScreenState extends State<FinalReportScreen> {
                       line('Less: Cash received ${_day == null ? 'all days' : 'this day'}',
                           '− ${fmtMoney(d['cash'] as num?, 'INR')}'),
                       const Divider(),
-                      line('UPI received', fmtMoney(d['upi'] as num?, 'INR'), bold: true),
+                      // UPI received sits in a light green box, like the bank-check note under it.
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE6F7EC),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF86D9A3)),
+                        ),
+                        child: line('UPI received', fmtMoney(d['upi'] as num?, 'INR'), bold: true),
+                      ),
                     ]),
                   ),
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(2, 8, 2, 8),
-                    child: Text('Match UPI received with the bank credit for the same day(s).',
-                        style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE6F7EC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFBFE8CC)),
+                    ),
+                    child: const Text('Match UPI received with the bank credit for the same day(s).',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF166534), fontWeight: FontWeight.w600)),
                   ),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
