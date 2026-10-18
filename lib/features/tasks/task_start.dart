@@ -312,7 +312,11 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
           load: () async {
             final res = await Services.api.get('/api/v1/distributors');
             final list = res is Map ? ((res['distributors'] as List?) ?? []) : (res as List);
-            return list.cast<Map<String, dynamic>>();
+            return list.cast<Map<String, dynamic>>().where((r) {
+              final cat = '${r['category_type'] ?? ''}'.toLowerCase();
+              if (cat.isNotEmpty && cat != 'distributor') return false;
+              return true;
+            }).toList();
           },
           subtitle: (r) {
             final cities = [
@@ -332,7 +336,16 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
           });
       if (picked == null || !context.mounted) return;
       try {
-        final full = await Services.api.get('/api/v1/clients/${picked['id']}') as Map<String, dynamic>;
+        Map<String, dynamic> full;
+        try {
+          full = await Services.api.get('/api/v1/clients/${picked['id']}') as Map<String, dynamic>;
+        } catch (_) {
+          full = {
+            ...picked,
+            'category_type': 'distributor',
+            'is_distributor': true,
+          };
+        }
         if (!context.mounted) return;
         final visit = await ensureCheckedIn(context, full, task: code, geofenceM: _geofenceFor(config, code));
         if (visit == null || !context.mounted) return;

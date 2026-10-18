@@ -221,8 +221,9 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     if (widget.code == 'sample_collection') {
       if (widget.client != null) {
         // Checked in at a contact, so that contact is where the samples come from:
-        // a distributor if it is one, an outlet if it is not. Nothing to ask.
-        final distributor = widget.client!['category_type'] == 'distributor';
+        final distributor = widget.client!['category_type'] == 'distributor' ||
+            widget.client!['is_distributor'] == true ||
+            widget.preset?['source'] == 'distributor';
         _a['source'] = distributor ? 'distributor' : 'outlet';
         if (distributor) {
           _a['distributor'] = widget.client;
@@ -1026,7 +1027,9 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
         ),
       );
     } else if (source == 'distributor') {
-      final dist = (widget.client?['category_type'] == 'distributor' ? widget.client : null) ??
+      final dist = (widget.client?['category_type'] == 'distributor' || widget.client?['is_distributor'] == true
+              ? widget.client
+              : null) ??
           (_a['distributor'] as Map<String, dynamic>?);
       if (dist != null) {
         final city = asText(dist['city']);
@@ -1050,7 +1053,11 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
                   load: () async {
                     final res = await Services.api.get('/api/v1/distributors');
                     final list = res is Map ? ((res['distributors'] as List?) ?? []) : (res as List);
-                    return list.cast<Map<String, dynamic>>();
+                    return list.cast<Map<String, dynamic>>().where((r) {
+                      final cat = '${r['category_type'] ?? ''}'.toLowerCase();
+                      if (cat.isNotEmpty && cat != 'distributor') return false;
+                      return true;
+                    }).toList();
                   },
                   subtitle: (r) {
                     final cities = [
@@ -1295,10 +1302,11 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       case 'adhoc':
         return {...base, 'description': _s('description')};
       case 'sample_collection':
-        final distId = (_a['distributor'] as Map?)?['id'] ??
-            (widget.client != null && widget.client!['category_type'] == 'distributor' ? widget.client!['id'] : null);
+        final isDist = widget.client != null &&
+            (widget.client!['category_type'] == 'distributor' || widget.client!['is_distributor'] == true);
+        final distId = (_a['distributor'] as Map?)?['id'] ?? (isDist ? widget.client!['id'] : null);
         final outletId = (_a['source_outlet'] as Map?)?['id'] ??
-            (widget.client != null && widget.client!['category_type'] != 'distributor' ? widget.client!['id'] : null);
+            (widget.client != null && !isDist ? widget.client!['id'] : null);
         return {
           ...base,
           'source': _a['source'],
