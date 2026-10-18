@@ -270,10 +270,39 @@ class _TaskTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(color: colour.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-                child: Text(taskStateWord(task), style: TextStyle(color: colour, fontSize: 12, fontWeight: FontWeight.w700)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(color: colour.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+                    child: Text(taskStateWord(task), style: TextStyle(color: colour, fontSize: 12, fontWeight: FontWeight.w700)),
+                  ),
+                  if (task['visit_type'] != null) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: ('${task['visit_type']}'.toLowerCase() == 'onsite'
+                                ? AppColors.success
+                                : AppColors.muted)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${task['visit_type']}'.toLowerCase() == 'onsite' ? 'Onsite' : 'Offsite',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: '${task['visit_type']}'.toLowerCase() == 'onsite'
+                              ? AppColors.success
+                              : AppColors.muted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
@@ -357,9 +386,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final task = _task;
     final colour = taskStateColour(task);
     final open = task['state'] == 'todo' || task['state'] == 'in_progress';
+    final visitTypeStr = task['visit_type'] != null
+        ? ('${task['visit_type']}'.toLowerCase() == 'onsite' ? 'Onsite' : 'Offsite')
+        : null;
     final details = <(IconData, String, String?)>[
       (Icons.person_rounded, 'Assigned to', (task['employee'] as Map?)?['name'] as String?),
       (Icons.storefront_rounded, 'Customer', (task['customer'] as Map?)?['name'] as String?),
+      if (visitTypeStr != null)
+        (
+          visitTypeStr == 'Onsite' ? Icons.storefront_rounded : Icons.wrong_location_rounded,
+          'Visit Type',
+          visitTypeStr,
+        ),
       (Icons.event_rounded, 'Due', task['due'] as String?),
       (Icons.flag_rounded, 'Priority', _priorityWords[task['priority']]),
       (Icons.supervisor_account_rounded, 'Given by', task['assigned_by'] as String?),
@@ -387,12 +425,35 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         Expanded(
                           child: Text('${task['name']}', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration:
-                              BoxDecoration(color: colour.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-                          child: Text(taskStateWord(task),
-                              style: TextStyle(color: colour, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration:
+                                  BoxDecoration(color: colour.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+                              child: Text(taskStateWord(task),
+                                  style: TextStyle(color: colour, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                            ),
+                            if (visitTypeStr != null) ...[
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: (visitTypeStr == 'Onsite' ? AppColors.success : AppColors.muted).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  visitTypeStr,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: visitTypeStr == 'Onsite' ? AppColors.success : AppColors.muted,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),

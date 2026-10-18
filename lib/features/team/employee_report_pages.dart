@@ -165,7 +165,43 @@ class _EmployeeVisitsScreenState extends State<EmployeeVisitsScreen> {
                 ].join(' · '),
                 style: const TextStyle(fontSize: 11.5),
               ),
-              trailing: _pill(_visited(v) ? 'Visited' : 'Pending', _visited(v) ? AppColors.success : AppColors.warning),
+              trailing: !_visited(v)
+                  ? _pill('Pending', AppColors.warning)
+                  : Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: ('${v['visit_type'] ?? v['type']}'.toLowerCase() == 'offsite'
+                                ? AppColors.warning
+                                : AppColors.success)
+                            .withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            '${v['visit_type'] ?? v['type']}'.toLowerCase() == 'offsite'
+                                ? Icons.wrong_location_rounded
+                                : Icons.storefront_rounded,
+                            size: 13,
+                            color: '${v['visit_type'] ?? v['type']}'.toLowerCase() == 'offsite'
+                                ? AppColors.warning
+                                : AppColors.success,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${v['visit_type'] ?? v['type']}'.toLowerCase() == 'offsite' ? 'Offsite' : 'Onsite',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: '${v['visit_type'] ?? v['type']}'.toLowerCase() == 'offsite'
+                                  ? AppColors.warning
+                                  : AppColors.success,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
           ),
       ]),
@@ -239,7 +275,36 @@ class EmployeeTasksScreen extends StatelessWidget {
                   Text(t['due'] != null ? 'Due ${_short(t['due'])}' : '', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
                 ]),
               ),
-              _pill(_done(t) ? 'Done' : 'Pending', _done(t) ? AppColors.success : AppColors.warning),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _pill(_done(t) ? 'Done' : 'Pending', _done(t) ? AppColors.success : AppColors.warning),
+                  if (t['visit_type'] != null || t['type'] != null) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: ('${t['visit_type'] ?? t['type']}'.toLowerCase() == 'onsite'
+                                ? AppColors.success
+                                : AppColors.muted)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${t['visit_type'] ?? t['type']}'.toLowerCase() == 'onsite' ? 'Onsite' : 'Offsite',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: '${t['visit_type'] ?? t['type']}'.toLowerCase() == 'onsite'
+                              ? AppColors.success
+                              : AppColors.muted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ]),
           ),
       ]),

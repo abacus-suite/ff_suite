@@ -230,6 +230,7 @@ class EmployeeSummaryCard extends StatelessWidget {
     this.valueCaption = 'Total value',
     this.status,
     this.statusColour,
+    this.visitType,
     this.plain = false,
   });
 
@@ -239,6 +240,9 @@ class EmployeeSummaryCard extends StatelessWidget {
   /// A small coloured pill under the headline value (e.g. Approved, On duty).
   final String? status;
   final Color? statusColour;
+
+  /// Optional visit type: Onsite / Offsite
+  final String? visitType;
 
   /// (metric, value, caption) shown under the header, three to a row.
   /// Default: visits, offsite, demand, collected, expenses, new customers.
@@ -340,6 +344,29 @@ class EmployeeSummaryCard extends StatelessWidget {
                                   color: statusColour ?? AppColors.primary,
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w700)),
+                        ),
+                      if (visitType != null && visitType!.isNotEmpty && visitType != status)
+                        Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: (visitType!.toLowerCase().contains('off') ? AppColors.danger : AppColors.success).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(visitType!.toLowerCase().contains('off') ? Icons.wrong_location_rounded : Icons.storefront_rounded,
+                                  size: 11,
+                                  color: visitType!.toLowerCase().contains('off') ? AppColors.danger : AppColors.success),
+                              const SizedBox(width: 3),
+                              Text(visitType!,
+                                  style: TextStyle(
+                                      color: visitType!.toLowerCase().contains('off') ? AppColors.danger : AppColors.success,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700)),
+                            ],
+                          ),
                         ),
                     ],
                   ),
@@ -530,9 +557,16 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
               ...v,
               'customer': (v['outlet'] as Map?)?['name'] ?? v['customer'],
               'status': v['done'] == true ? 'visited' : 'pending',
+              'visit_type': v['type'] ?? v['visit_type'],
             },
         ];
-        _taskRows = _rowsOf(details['tasks']);
+        _taskRows = [
+          for (final t in _rowsOf(details['tasks']))
+            {
+              ...t,
+              'visit_type': t['type'] ?? t['visit_type'],
+            },
+        ];
         _orders = const [];
         _territories = _namesOf(r['territories']);
         _routes = _namesOf(r['routes']);
@@ -990,7 +1024,7 @@ class VisitCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                         decoration:
                             BoxDecoration(color: colour.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-                        child: Text(offsite ? 'Offsite' : 'Visited',
+                        child: Text(offsite ? 'Offsite' : 'Onsite',
                             style: TextStyle(color: colour, fontSize: 12, fontWeight: FontWeight.w700)),
                       ),
                     ],

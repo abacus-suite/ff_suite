@@ -150,6 +150,7 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
             if (parseServerTime(d['date']) != null) prettyDay(parseServerTime(d['date'])!),
             if ((d['employee'] as Map?)?['name'] != null) '${(d['employee'] as Map)['name']}',
             if ((d['route'] as Map?)?['name'] != null) '${(d['route'] as Map)['name']}',
+            if (d['visit_type'] != null) ('${d['visit_type']}'.toLowerCase() == 'onsite' ? 'Onsite' : 'Offsite'),
           ].join('  ·  '),
           style: const TextStyle(color: Colors.white70, fontSize: 12.5),
         ),

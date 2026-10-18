@@ -877,7 +877,7 @@ class _OrderDetail extends StatelessWidget {
       future: Services.api.get(demandFlow ? '/api/v1/demands/$orderId' : '/api/v1/orders/$orderId'),
       builder: (context, snap) {
         if (snap.hasError) return Padding(padding: const EdgeInsets.all(24), child: Text('${snap.error}'));
-        if (!snap.hasData) return const Padding(padding: EdgeInsets.all(48), child: const LoadingView());
+        if (!snap.hasData) return const Padding(padding: EdgeInsets.all(48), child: LoadingView());
         final o = snap.data as Map<String, dynamic>;
         final lines = ((o['lines'] as List?) ?? []).cast<Map<String, dynamic>>();
         final currency = o['currency'] as String?;
@@ -888,7 +888,30 @@ class _OrderDetail extends StatelessWidget {
             controller: controller,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             children: [
-              Text('${o['name']} · ${o['state_label']}', style: Theme.of(context).textTheme.titleLarge),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text('${o['name']} · ${o['state_label']}', style: Theme.of(context).textTheme.titleLarge),
+                  ),
+                  if (o['visit_type'] != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: ('${o['visit_type']}'.toLowerCase() == 'onsite' ? AppColors.success : AppColors.muted)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${o['visit_type']}'.toLowerCase() == 'onsite' ? 'Onsite' : 'Offsite',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: '${o['visit_type']}'.toLowerCase() == 'onsite' ? AppColors.success : AppColors.muted,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
               Text('${(o['client'] as Map?)?['name'] ?? ''}'),
               const Divider(),
               for (final l in lines)

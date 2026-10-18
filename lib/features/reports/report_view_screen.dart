@@ -195,8 +195,9 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
       final url = Uri.parse(await Services.api.url('${result['path']}'));
       // The phone's browser saves the .xlsx to Downloads and offers to open it.
       final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
-      if (!opened && mounted)
+      if (!opened && mounted) {
         showSnack(context, 'Could not open the download.');
+      }
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
     } finally {
@@ -828,9 +829,9 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
   }
 
   Widget _list(List<Map<String, dynamic>> columns, List<Map<String, dynamic>> rows, {bool nested = false}) {
-    // Every report as the summary's cards: a headline, one value on the right,
-    // a status pill, and the other columns as figures three to a row.
-    final status = columns.where((c) => c['type'] == 'status').firstOrNull;
+    final status = columns.where((c) => c['type'] == 'status' && c['key'] != 'visit_type').firstOrNull ??
+        columns.where((c) => c['type'] == 'status').firstOrNull;
+    final visitTypeCol = columns.where((c) => c['key'] == 'visit_type' || c['key'] == 'type').firstOrNull;
     final money = columns.where((c) => c['type'] == 'money' && c['total'] == true).firstOrNull ??
         columns.where((c) => c['type'] == 'money').firstOrNull;
     final headline = columns.firstWhere((c) => c['key'] == 'customer',
@@ -852,6 +853,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
       itemBuilder: (context, i) {
         final row = rows[i];
         final statusText = status == null ? null : '${row[status['key']] ?? ''}';
+        final visitTypeText = visitTypeCol == null ? null : '${row[visitTypeCol['key']] ?? ''}';
         final shown = [
           for (final c in figures)
             if (row[c['key']] != null && row[c['key']] != '')
@@ -866,6 +868,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
           valueCaption: money == null ? '' : '${money['label']}',
           status: statusText,
           statusColour: statusText == null ? null : _statusColour(statusText),
+          visitType: visitTypeText,
           figures: shown,
           plain: true,
         );
