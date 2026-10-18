@@ -8,9 +8,13 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../allowance/allowance_screen.dart';
 import '../approvals/approvals_screen.dart';
+import '../attendance/regularisation_screen.dart';
+import '../beat/plan_beat_screen.dart';
+import '../clients/clients_screen.dart';
 import '../expenses/expenses_screen.dart';
 import '../leaves/leaves_screen.dart';
 import '../orders/orders_screen.dart';
+import '../tasks/tasks_screen.dart';
 import '../../widgets/skeleton.dart';
 
 /// The bell, with however many are unread.
@@ -99,21 +103,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   /// Open whatever the notification is about.
   Future<void> _open(Map<String, dynamic> row) async {
-    if (row['read'] != true) {
+    if (row['read'] != true && row['id'] != null) {
       await Services.notifications.markRead(ids: [row['id'] as int]);
     }
     if (!mounted) return;
-    final model = asText(row['model']);
-    final approval = row['kind'] == 'approval';
-    final screen = approval
-        ? const ApprovalsScreen()
-        : switch (model) {
-            'ff.expense.claim' => const ExpensesScreen(),
-            'ff.allowance.claim' || 'ff.da.claim' => const AllowanceScreen(),
-            'hr.leave' => const LeavesScreen(),
-            'ff.demand' || 'sale.order' => const OrdersScreen(),
-            _ => null,
-          };
+    final screen = resolveNotificationScreen(row);
     if (screen == null) {
       await _load();
       return;
@@ -231,4 +225,71 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
     );
   }
+}
+
+/// Route to the appropriate screen for a notification or push payload.
+Widget? resolveNotificationScreen(Map<String, dynamic> row) {
+  final model = asText(row['model']);
+  final kind = asText(row['kind']);
+  final approval = kind == 'approval';
+  final text = '${row['title'] ?? ''} ${row['body'] ?? ''}'.toLowerCase();
+
+  if (approval) {
+    final startTab = switch (model) {
+      'ff.expense.claim' => 'expenses',
+      'hr.leave' => 'leaves',
+      'ff.allowance.claim' => 'allowances',
+      'ff.da.claim' || 'ff.da' => 'da',
+      'ff.regularisation' => 'regularisation',
+      'ff.beat.app' || 'ff.beat' => 'beats',
+      'res.partner' => 'contacts',
+      'ff.cash.handover' => 'handovers',
+      'ff.office.deposit' => 'deposits',
+      'ff.distributor.note' => 'notes',
+      'stock.picking' || 'ff.return' => 'returns',
+      'ff.partner.access' => 'access',
+      _ => null,
+    };
+    if (startTab != null) {
+      return ApprovalsScreen(start: startTab);
+    }
+    if (text.contains('expense')) return const ApprovalsScreen(start: 'expenses');
+    if (text.contains('leave')) return const ApprovalsScreen(start: 'leaves');
+    if (text.contains('allowance') || text.contains(' ta')) return const ApprovalsScreen(start: 'allowances');
+    if (text.contains(' da') || text.contains('daily')) return const ApprovalsScreen(start: 'da');
+    if (text.contains('regularis') || text.contains('punch') || text.contains('attendance')) {
+      return const ApprovalsScreen(start: 'regularisation');
+    }
+    if (text.contains('beat')) return const ApprovalsScreen(start: 'beats');
+    if (text.contains('outlet') || text.contains('client') || text.contains('contact')) {
+      return const ApprovalsScreen(start: 'contacts');
+    }
+    if (text.contains('return')) return const ApprovalsScreen(start: 'returns');
+    if (text.contains('handover')) return const ApprovalsScreen(start: 'handovers');
+    if (text.contains('deposit')) return const ApprovalsScreen(start: 'deposits');
+    if (text.contains('note')) return const ApprovalsScreen(start: 'notes');
+    return const ApprovalsScreen();
+  }
+
+  return switch (model) {
+    'ff.expense.claim' => const ExpensesScreen(),
+    'ff.allowance.claim' || 'ff.da.claim' || 'ff.da' => const AllowanceScreen(),
+    'hr.leave' => const LeavesScreen(),
+    'ff.demand' || 'sale.order' => const OrdersScreen(),
+    'ff.regularisation' => const RegularisationScreen(),
+    'ff.beat.app' || 'ff.beat' => const PlanBeatScreen(),
+    'res.partner' => const ClientsScreen(),
+    'ff.task' => const TasksScreen(),
+    _ => switch (true) {
+        _ when text.contains('expense') => const ExpensesScreen(),
+        _ when text.contains('leave') => const LeavesScreen(),
+        _ when text.contains('allowance') || text.contains(' ta') || text.contains(' da') => const AllowanceScreen(),
+        _ when text.contains('order') || text.contains('demand') => const OrdersScreen(),
+        _ when text.contains('regularis') || text.contains('attendance') => const RegularisationScreen(),
+        _ when text.contains('beat') => const PlanBeatScreen(),
+        _ when text.contains('outlet') || text.contains('client') || text.contains('contact') => const ClientsScreen(),
+        _ when text.contains('task') => const TasksScreen(),
+        _ => null,
+      },
+  };
 }

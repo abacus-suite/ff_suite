@@ -4,6 +4,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import 'manager_home.dart' show OverdueScreen, PeopleScreen;
+import '../approvals/approvals_screen.dart';
 import '../tasks/tasks_screen.dart';
 import '../team/team_beat_plan_screen.dart';
 
@@ -408,6 +409,10 @@ class WorkAlertsCard extends StatelessWidget {
                     } else if (key == 'missed_checkout') {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const PeopleScreen(initial: 'absent', period: 'today')),
+                      );
+                    } else if (key == 'expenses_not_sent') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ApprovalsScreen(start: 'expenses')),
                       );
                     }
                   },

@@ -56,6 +56,14 @@ class NotificationsService {
       await _localNotifications.initialize(
         settings: initSettings,
         onDidReceiveNotificationResponse: (response) {
+          final payload = response.payload;
+          if (payload != null && payload.isNotEmpty) {
+            try {
+              final data = jsonDecode(payload) as Map<String, dynamic>;
+              _routeNotification(data);
+              return;
+            } catch (_) {}
+          }
           _openNotificationsScreen();
         },
       );
@@ -87,14 +95,14 @@ class NotificationsService {
       // Handle message tap when app was in background
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         refresh();
-        _openNotificationsScreen();
+        _routeNotification(message.data);
       });
 
       // Handle message tap when app was terminated
       messaging.getInitialMessage().then((message) {
         if (message != null) {
           refresh();
-          _openNotificationsScreen();
+          _routeNotification(message.data);
         }
       });
 
@@ -104,6 +112,21 @@ class NotificationsService {
       });
     } catch (_) {
       // Firebase messaging unavailable on this device (e.g. without Play Services)
+    }
+  }
+
+  void _routeNotification(Map<String, dynamic> data) {
+    if (data.isEmpty) {
+      _openNotificationsScreen();
+      return;
+    }
+    final screen = resolveNotificationScreen(data);
+    final nav = Services.navigatorKey.currentState;
+    if (nav == null) return;
+    if (screen != null) {
+      nav.push(MaterialPageRoute(builder: (_) => screen));
+    } else {
+      _openNotificationsScreen();
     }
   }
 
