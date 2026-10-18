@@ -405,14 +405,14 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           for (final r in rows)
             _card(
               kind: 'return',
-              detail: _Detail(title: '${(r['employee'] as Map?)?['name'] ?? ''} · ${r['reason_label']}', status: 'Waiting for you', amount: fmtMoney(r['amount'] as num?, r['currency'] as String?), facts: [('Return', '${r['name']}'), ('Customer', '${(r['customer'] as Map?)?['name'] ?? '-'}'), ('Reason', '${r['reason_label']}'), ('Photos', '${r['photos'] ?? 0}')], lineHead: const ['Product', 'Qty'], lines: [for (final l in ((r['lines'] as List?) ?? []).cast<Map<String, dynamic>>()) ['${l['product']}', fmtQty((l['quantity'] as num?) ?? 0)]], note: asText(r['note']), steps: const []),
+              detail: _Detail(title: '${(r['employee'] as Map?)?['name'] ?? ''} · ${r['reason_label']}', status: 'Waiting for you', amount: fmtMoney(r['amount'] as num?, r['currency'] as String?), facts: [('Return', '${r['name']}'), ('Customer', '${(r['customer'] as Map?)?['name'] ?? '-'}'), ('Reason', '${r['reason_label']}'), if (r['visit_type'] != null) ('Visit Type', '${r['visit_type']}'.toLowerCase() == 'onsite' ? 'Onsite' : 'Offsite'), ('Photos', '${r['photos'] ?? 0}')], lineHead: const ['Product', 'Qty'], lines: [for (final l in ((r['lines'] as List?) ?? []).cast<Map<String, dynamic>>()) ['${l['product']}', fmtQty((l['quantity'] as num?) ?? 0)]], note: asText(r['note']), steps: const []),
               id: r['id'] as int,
               icon: Icons.assignment_return_rounded,
               color: color,
               title: '${(r['employee'] as Map?)?['name'] ?? ''} · ${r['reason_label']}',
               amount: fmtMoney(r['amount'] as num?, r['currency'] as String?),
               lines: [
-                '${r['name']} · ${(r['customer'] as Map?)?['name'] ?? ''}',
+                '${r['name']} · ${(r['customer'] as Map?)?['name'] ?? ''}${r['visit_type'] != null ? ' · ${'${r['visit_type']}'.toLowerCase() == 'onsite' ? 'Onsite' : 'Offsite'}' : ''}',
                 for (final line in ((r['lines'] as List?) ?? []).cast<Map<String, dynamic>>().take(4))
                   '• ${line['product']} × ${fmtQty((line['quantity'] as num?) ?? 0)}',
                 if ((r['photos'] as num? ?? 0) > 0) '${r['photos']} photo(s)',

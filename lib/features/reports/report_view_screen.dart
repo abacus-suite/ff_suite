@@ -841,7 +841,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
         .where((c) => c != headline && (c['key'] == 'employee' || c['key'] == 'date'))
         .toList();
     final figures = columns
-        .where((c) => c != status && c != money && c != headline && !second.contains(c))
+        .where((c) => c != status && c != money && c != headline && !second.contains(c) && c != visitTypeCol)
         .toList();
     final saleWord = (Services.auth.profile?.isDemandFlow ?? false) ? 'Demand' : 'Orders';
     final currency = _data?['currency'] as String?;
