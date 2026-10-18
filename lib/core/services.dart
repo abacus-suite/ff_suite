@@ -49,6 +49,7 @@ class Services {
     tracker = LocationTracker(api, queue);
     googleTiles = GoogleTiles(storage);
     notifications = NotificationsService();
+    await notifications.init();
     await auth.restore();
     api.onUnauthorized = _sessionExpired;
     if (auth.profile != null) {

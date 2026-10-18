@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'api_client.dart';
@@ -80,11 +81,16 @@ class AuthRepository {
       final pkg = await PackageInfo.fromPlatform();
       appVersion = '${pkg.version}+${pkg.buildNumber}';
     } catch (_) {}
+    String? fcmToken;
+    try {
+      fcmToken = await FirebaseMessaging.instance.getToken();
+    } catch (_) {}
     return {
       'device_uid': await _storage.deviceUid(),
       'device_name': name,
       'os_version': os,
       'app_version': appVersion,
+      if (fcmToken != null && fcmToken.isNotEmpty) 'fcm_token': fcmToken,
     };
   }
 }

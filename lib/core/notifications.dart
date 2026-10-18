@@ -1,15 +1,20 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../features/notifications/notifications_screen.dart';
 import 'services.dart';
 
 /// The app's own inbox: what the office has told this employee.
 ///
 /// Odoo records a notification the moment something needs them - a claim
-/// waiting for their approval, a decision on their own request. Until push is
-/// wired up, the app asks for the unread count while it is open, which is
-/// enough for somebody who works inside the app all day.
+/// waiting for their approval, a decision on their own request.
+/// Firebase Cloud Messaging delivers push notifications in background or foreground,
+/// and the unread count is synchronized with Odoo.
 class NotificationsService {
   NotificationsService();
 
@@ -19,10 +24,119 @@ class NotificationsService {
   final ValueNotifier<int> unread = ValueNotifier<int>(0);
   Timer? _timer;
 
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
+    'field_force_notifications',
+    'Field Force Notifications',
+    description: 'Notifications for tasks, approvals, and announcements',
+    importance: Importance.high,
+  );
+  bool _initialized = false;
+
+  Future<void> init() async {
+    if (_initialized) return;
+    _initialized = true;
+
+    try {
+      final messaging = FirebaseMessaging.instance;
+      await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      // Create high-importance channel on Android for heads-up notifications
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(_channel);
+
+      const initSettings = InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      );
+      await _localNotifications.initialize(
+        settings: initSettings,
+        onDidReceiveNotificationResponse: (response) {
+          _openNotificationsScreen();
+        },
+      );
+
+      // Handle foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        refresh();
+        final notification = message.notification;
+        if (notification != null) {
+          _localNotifications.show(
+            id: notification.hashCode,
+            title: notification.title ?? 'Field Force',
+            body: notification.body ?? '',
+            notificationDetails: NotificationDetails(
+              android: AndroidNotificationDetails(
+                _channel.id,
+                _channel.name,
+                channelDescription: _channel.description,
+                icon: '@mipmap/ic_launcher',
+                importance: Importance.high,
+                priority: Priority.high,
+              ),
+            ),
+            payload: jsonEncode(message.data),
+          );
+        }
+      });
+
+      // Handle message tap when app was in background
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        refresh();
+        _openNotificationsScreen();
+      });
+
+      // Handle message tap when app was terminated
+      messaging.getInitialMessage().then((message) {
+        if (message != null) {
+          refresh();
+          _openNotificationsScreen();
+        }
+      });
+
+      // Handle token refreshes
+      messaging.onTokenRefresh.listen((token) {
+        _registerToken(token);
+      });
+    } catch (_) {
+      // Firebase messaging unavailable on this device (e.g. without Play Services)
+    }
+  }
+
+  void _openNotificationsScreen() {
+    Services.navigatorKey.currentState?.push(
+      MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+    );
+  }
+
+  Future<void> _registerToken(String token) async {
+    if (Services.auth.profile == null) return;
+    try {
+      await Services.api.post('/api/v1/device/register', {
+        'device_uid': await Services.storage.deviceUid(),
+        'fcm_token': token,
+      });
+    } catch (_) {}
+  }
+
   void start() {
     stop();
     refresh();
+    _syncFcmToken();
     _timer = Timer.periodic(_pollEvery, (_) => refresh());
+  }
+
+  Future<void> _syncFcmToken() async {
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null && token.isNotEmpty) {
+        await _registerToken(token);
+      }
+    } catch (_) {}
   }
 
   void stop() {

@@ -281,25 +281,43 @@ class _TeamDashboardState extends State<TeamDashboard> {
 
   // ------------------------------------------------------------------ shortcuts
   Widget _shortcuts() {
-    Widget tile(IconData icon, String label, Color c, VoidCallback onTap) => Expanded(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: onTap,
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(color: c.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(18)),
-              child: Column(children: [
-                Icon(icon, color: c),
-                const SizedBox(height: 6),
-                Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
-              ]),
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 4, bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE6F4EA),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFCEEAD6)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const TeamLiveScreen()),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.map_rounded, size: 28, color: Color(0xFF1E8E3E)),
+                SizedBox(height: 6),
+                Text(
+                  'Live map',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ],
             ),
           ),
-        );
-    return Row(children: [
-      tile(Icons.map_rounded, 'Live map', AppColors.success, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TeamLiveScreen()))),
-    ]);
+        ),
+      ),
+    );
   }
 
   @override
@@ -323,7 +341,12 @@ class _TeamDashboardState extends State<TeamDashboard> {
       ),
       OverdueCard(block: (_overdueHome?['overdue'] as Map?)?.cast<String, dynamic>(), currency: _overdueHome?['currency'] as String?),
       const AssignedTasksCard(),
-      WorkAlertsCard(alerts: _list('work_alerts')),
+      WorkAlertsCard(
+        alerts: _list('work_alerts').isNotEmpty
+            ? _list('work_alerts')
+            : (((_overdueHome?['alerts'] ?? _overdueHome?['work_alerts'] as List?) ?? [])
+                .cast<Map<String, dynamic>>()),
+      ),
       _shortcuts(),
       // The bar at the bottom floats over the page: leave its height free.
       SizedBox(height: 40 + MediaQuery.of(context).padding.bottom),

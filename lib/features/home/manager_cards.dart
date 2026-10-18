@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
-import 'manager_home.dart' show OverdueScreen;
+import 'manager_home.dart' show OverdueScreen, PeopleScreen;
 import '../tasks/tasks_screen.dart';
+import '../team/team_beat_plan_screen.dart';
 
 Widget _shell(String title, IconData icon, Widget child, {Widget? trailing}) => Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -334,38 +335,127 @@ class WorkAlertsCard extends StatelessWidget {
 
   final List<Map<String, dynamic>> alerts;
 
-  static IconData _icon(String k) => switch (k) {
-        'beat_not_planned' => Icons.event_busy_rounded,
-        'missed_checkout' => Icons.access_time_rounded,
-        'expenses_not_sent' => Icons.receipt_rounded,
-        _ => Icons.notifications_active_rounded,
+  static (IconData, Color, Color) _style(String k) => switch (k) {
+        'beat_not_planned' => (
+            Icons.calendar_month_rounded,
+            const Color(0xFF1D4ED8),
+            const Color(0xFFEFF6FF)
+          ),
+        'missed_checkout' => (
+            Icons.access_time_rounded,
+            const Color(0xFFD97706),
+            const Color(0xFFFFFBEB)
+          ),
+        'expenses_not_sent' => (
+            Icons.receipt_long_rounded,
+            const Color(0xFFEA580C),
+            const Color(0xFFFFF7ED)
+          ),
+        _ => (
+            Icons.notifications_active_rounded,
+            AppColors.primary,
+            AppColors.primary.withValues(alpha: 0.1)
+          ),
       };
 
   @override
   Widget build(BuildContext context) {
     if (alerts.isEmpty) return const SizedBox.shrink();
-    return _shell(
-      'Alerts',
-      Icons.notifications_active_rounded,
-      Column(children: [
-        for (final a in alerts)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(12)),
-            child: Row(children: [
-              CircleAvatar(radius: 17, backgroundColor: AppColors.primary.withValues(alpha: 0.1), child: Icon(_icon('${a['key']}'), size: 17, color: AppColors.primary)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${a['title']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5)),
-                  Text(((a['people'] as List?) ?? []).join(', '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-                ]),
-              ),
-              CircleAvatar(radius: 10, backgroundColor: AppColors.warning, child: Text('${a['count'] ?? ((a['people'] as List?) ?? []).length}', style: const TextStyle(fontSize: 10.5, color: Colors.white, fontWeight: FontWeight.w800))),
-            ]),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 8, top: 4),
+          child: Text(
+            'Alerts',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+              color: Color(0xFF0F172A),
+            ),
           ),
-      ]),
+        ),
+        for (final a in alerts) ...[
+          Builder(builder: (context) {
+            final (icon, color, bg) = _style('${a['key']}');
+            final people = ((a['people'] as List?) ?? (a['names'] as List?) ?? []).cast<dynamic>();
+            final count = (a['count'] as num?)?.toInt() ?? people.length;
+            final key = '${a['key']}';
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF1B3A7A).withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    if (key == 'beat_not_planned') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const TeamBeatPlanScreen()),
+                      );
+                    } else if (key == 'missed_checkout') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const PeopleScreen(initial: 'absent', period: 'today')),
+                      );
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: bg,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(icon, size: 22, color: color),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('${a['title']}',
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                          const SizedBox(height: 2),
+                          Text(people.isEmpty ? 'No members' : people.join(', '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                        ]),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text('$count',
+                            style: const TextStyle(
+                                fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.w900)),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
+      ],
     );
   }
 }

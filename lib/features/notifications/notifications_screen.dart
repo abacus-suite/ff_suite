@@ -10,6 +10,7 @@ import '../allowance/allowance_screen.dart';
 import '../approvals/approvals_screen.dart';
 import '../expenses/expenses_screen.dart';
 import '../leaves/leaves_screen.dart';
+import '../orders/orders_screen.dart';
 import '../../widgets/skeleton.dart';
 
 /// The bell, with however many are unread.
@@ -108,8 +109,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ? const ApprovalsScreen()
         : switch (model) {
             'ff.expense.claim' => const ExpensesScreen(),
-            'ff.allowance.claim' => const AllowanceScreen(),
+            'ff.allowance.claim' || 'ff.da.claim' => const AllowanceScreen(),
             'hr.leave' => const LeavesScreen(),
+            'ff.demand' || 'sale.order' => const OrdersScreen(),
             _ => null,
           };
     if (screen == null) {
@@ -125,7 +127,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final model = '${row['model'] ?? ''}'.toLowerCase();
     final text = '${row['title'] ?? ''} ${row['body'] ?? ''}'.toLowerCase();
     if (model.contains('leave') || text.contains('leave')) return 'leave';
-    if (model.contains('distributor') || text.contains('distributor')) return 'distributor';
+    if (model.contains('demand') || text.contains('demand')) return 'demand';
+    if (model.contains('sale') || text.contains('order')) return 'order';
+    if (model.contains('distributor') || text.contains('distributor') || text.contains('delivery')) return 'distributor';
     if (model.contains('task') || text.contains('task')) return 'task';
     return switch ('${row['kind']}') {
       'approval' => 'approval',
@@ -137,6 +141,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   IconData _icon(String topic) => switch (topic) {
         'task' => Icons.assignment_turned_in_rounded,
         'leave' => Icons.beach_access_rounded,
+        'demand' => Icons.inventory_2_rounded,
+        'order' => Icons.shopping_bag_rounded,
         'distributor' => Icons.local_shipping_rounded,
         'approval' => Icons.how_to_reg_rounded,
         'decision' => Icons.task_alt_rounded,
@@ -146,6 +152,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Color _colour(String topic) => switch (topic) {
         'task' => const Color(0xFF16A34A),
         'leave' => const Color(0xFF2563EB),
+        'demand' => const Color(0xFF0F766E),
+        'order' => const Color(0xFF7C3AED),
         'distributor' => const Color(0xFFEA8A00),
         'approval' => AppColors.warning,
         'decision' => AppColors.success,

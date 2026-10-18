@@ -1,3 +1,5 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -8,8 +10,19 @@ import 'features/auth/login_screen.dart';
 import 'features/intro/intro_screen.dart';
 import 'features/shell/app_shell.dart';
 
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {}
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  } catch (_) {}
   // The phone's own back and home bar hides itself, so the app has the whole
   // screen; a swipe from the edge brings it back when it is needed.
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
