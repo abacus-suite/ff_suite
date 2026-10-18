@@ -422,16 +422,12 @@ class _FinalReportScreenState extends State<FinalReportScreen> {
     final days = ((d?['days'] as List?) ?? []).cast<String>();
     final totals = (d?['totals'] as Map?)?.cast<String, dynamic>() ?? const {};
     final dayTable = _rows(d?['day_table']);
-    Widget cell(String t, {bool head = false, bool bold = false, Color? colour, TextAlign align = TextAlign.right}) =>
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
-          child: Text(t,
-              textAlign: align,
-              style: TextStyle(
-                  fontSize: head ? 10.5 : 12.5,
-                  color: head ? AppColors.muted : colour,
-                  fontWeight: head || bold ? FontWeight.w800 : FontWeight.w500)),
-        );
+    final dayTotalSold = dayTable.fold<num>(0, (s, t) => s + _n(t['sold']));
+    final dayTotalSales = dayTable.fold<num>(0, (s, t) => s + (t['sales'] as num? ?? 0));
+    final dayTotalCoupons = dayTable.fold<num>(0, (s, t) => s + (t['coupons_amount'] as num? ?? 0));
+    final dayTotalNet = dayTable.fold<num>(0, (s, t) => s + (t['net_sales'] as num? ?? 0));
+    final dayTotalCash = dayTable.fold<num>(0, (s, t) => s + (t['cash'] as num? ?? 0));
+    final dayTotalUpi = dayTable.fold<num>(0, (s, t) => s + (t['upi'] as num? ?? 0));
     Widget line(String label, String value, {bool bold = false}) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(children: [
@@ -454,7 +450,10 @@ class _FinalReportScreenState extends State<FinalReportScreen> {
                         label: Text('Day ${i + 1}'),
                         selected: _day == days[i],
                         onSelected: (_) {
-                          setState(() => _day = days[i]);
+                          setState(() {
+                            _day = days[i];
+                            _data = null;
+                          });
                           _load();
                         },
                       ),
@@ -462,36 +461,76 @@ class _FinalReportScreenState extends State<FinalReportScreen> {
                       label: const Text('All days'),
                       selected: _day == null,
                       onSelected: (_) {
-                        setState(() => _day = null);
+                        setState(() {
+                          _day = null;
+                          _data = null;
+                        });
                         _load();
                       },
                     ),
                   ]),
                   const SizedBox(height: 12),
+                  const Text('Flavour-wise sales', style: TextStyle(fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                    child: Table(columnWidths: const {0: FlexColumnWidth(1.2)}, children: [
-                      TableRow(children: [
-                        cell('Flavour', head: true, align: TextAlign.left),
-                        for (final h in ['Sold', 'MRP', 'Sales ₹']) cell(h, head: true),
-                      ]),
-                      for (final r in rows)
-                        TableRow(children: [
-                          cell('${r['code']}', bold: true, align: TextAlign.left),
-                          cell(_q(_n(r['sold'])), colour: _green, bold: true),
-                          cell('₹${_q(_n(r['mrp']))}'),
-                          cell(fmtMoney(r['sales'] as num?, 'INR')),
-                        ]),
-                      TableRow(decoration: const BoxDecoration(color: Color(0xFFEEF3FB)), children: [
-                        cell('Total', bold: true, align: TextAlign.left),
-                        cell(_q(_n(totals['sold'])), bold: true),
-                        cell(''),
-                        cell(fmtMoney(d['sales'] as num?, 'INR'), bold: true),
-                      ]),
-                    ]),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        columnSpacing: 14,
+                        headingRowHeight: 36,
+                        dataRowMinHeight: 34,
+                        dataRowMaxHeight: 40,
+                        columns: const [
+                          DataColumn(label: Text('Flavour')),
+                          DataColumn(label: Text('Opening'), numeric: true),
+                          DataColumn(label: Text('Added'), numeric: true),
+                          DataColumn(label: Text('Samples'), numeric: true),
+                          DataColumn(label: Text('Damage'), numeric: true),
+                          DataColumn(label: Text('Returned'), numeric: true),
+                          DataColumn(label: Text('Sold'), numeric: true),
+                          DataColumn(label: Text('MRP'), numeric: true),
+                          DataColumn(label: Text('Sales ₹'), numeric: true),
+                        ],
+                        rows: [
+                          for (final r in rows)
+                            DataRow(cells: [
+                              DataCell(Text('${r['code']}', style: const TextStyle(fontWeight: FontWeight.w800))),
+                              DataCell(Text(_q(_n(r['opening'])))),
+                              DataCell(Text(_q(_n(r['added'])))),
+                              DataCell(Text(_q(_n(r['samples'])))),
+                              DataCell(Text(_q(_n(r['damage'])))),
+                              DataCell(Text(_q(_n(r['returned'])))),
+                              DataCell(Text(_q(_n(r['sold'])),
+                                  style: const TextStyle(fontWeight: FontWeight.w900, color: _green))),
+                              DataCell(Text('₹${_q(_n(r['mrp']))}')),
+                              DataCell(Text(fmtMoney(r['sales'] as num?, 'INR'))),
+                            ]),
+                          DataRow(
+                            color: WidgetStateProperty.all(const Color(0xFFEEF3FB)),
+                            cells: [
+                              const DataCell(Text('Total', style: TextStyle(fontWeight: FontWeight.w900))),
+                              DataCell(Text(_q(_n(totals['opening'])), style: const TextStyle(fontWeight: FontWeight.w900))),
+                              DataCell(Text(_q(_n(totals['added'])), style: const TextStyle(fontWeight: FontWeight.w900))),
+                              DataCell(Text(_q(_n(totals['samples'])), style: const TextStyle(fontWeight: FontWeight.w900))),
+                              DataCell(Text(_q(_n(totals['damage'])), style: const TextStyle(fontWeight: FontWeight.w900))),
+                              DataCell(Text(_q(_n(totals['returned'])), style: const TextStyle(fontWeight: FontWeight.w900))),
+                              DataCell(Text(_q(_n(totals['sold'])),
+                                  style: const TextStyle(fontWeight: FontWeight.w900, color: _green))),
+                              const DataCell(Text('')),
+                              DataCell(Text(fmtMoney(d['sales'] as num?, 'INR'),
+                                  style: const TextStyle(fontWeight: FontWeight.w900))),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 6),
+                  const Text('Sold = Opening + Added − Samples − Damage − Returned',
+                      style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                  const SizedBox(height: 14),
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
@@ -561,12 +600,32 @@ class _FinalReportScreenState extends State<FinalReportScreen> {
                               DataCell(Text('Day ${i + 1}')),
                               DataCell(Text(_q(_n(t['sold'])))),
                               DataCell(Text(fmtMoney(t['sales'] as num?, 'INR'))),
-                              DataCell(Text('− ${fmtMoney(t['coupons_amount'] as num?, 'INR')}')),
+                              DataCell(Text(t['coupons_amount'] != null && _n(t['coupons_amount']) > 0
+                                  ? '− ${fmtMoney(t['coupons_amount'] as num?, 'INR')}'
+                                  : '₹0')),
                               DataCell(Text(fmtMoney(t['net_sales'] as num?, 'INR'))),
-                              DataCell(Text('− ${fmtMoney(t['cash'] as num?, 'INR')}')),
+                              DataCell(Text(t['cash'] != null && _n(t['cash']) > 0
+                                  ? '− ${fmtMoney(t['cash'] as num?, 'INR')}'
+                                  : '₹0')),
                               DataCell(Text(fmtMoney(t['upi'] as num?, 'INR'),
                                   style: const TextStyle(fontWeight: FontWeight.w900))),
                             ]),
+                          if (dayTable.isNotEmpty)
+                            DataRow(
+                              color: WidgetStateProperty.all(const Color(0xFFEEF3FB)),
+                              cells: [
+                                const DataCell(Text('Total', style: TextStyle(fontWeight: FontWeight.w900))),
+                                DataCell(Text(_q(dayTotalSold), style: const TextStyle(fontWeight: FontWeight.w900))),
+                                DataCell(Text(fmtMoney(dayTotalSales, 'INR'), style: const TextStyle(fontWeight: FontWeight.w900))),
+                                DataCell(Text(dayTotalCoupons > 0 ? '− ${fmtMoney(dayTotalCoupons, 'INR')}' : '₹0',
+                                    style: const TextStyle(fontWeight: FontWeight.w900))),
+                                DataCell(Text(fmtMoney(dayTotalNet, 'INR'), style: const TextStyle(fontWeight: FontWeight.w900))),
+                                DataCell(Text(dayTotalCash > 0 ? '− ${fmtMoney(dayTotalCash, 'INR')}' : '₹0',
+                                    style: const TextStyle(fontWeight: FontWeight.w900))),
+                                DataCell(Text(fmtMoney(dayTotalUpi, 'INR'),
+                                    style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF166534)))),
+                              ],
+                            ),
                         ],
                       ),
                     ),
