@@ -36,10 +36,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   Future<void> _load() async {
+    final key = _monthKey;
     setState(() => _loading = true);
     try {
-      final data = await Services.api.get('/api/v1/expenses', query: {'month': _monthKey}) as Map<String, dynamic>;
-      if (mounted) {
+      final data = await Services.api.get('/api/v1/expenses', query: {'month': key}) as Map<String, dynamic>;
+      if (mounted && key == _monthKey) {
         setState(() {
           _data = data;
           _error = null;
@@ -48,16 +49,20 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted && key == _monthKey) setState(() => _error = e.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && key == _monthKey) setState(() => _loading = false);
     }
   }
 
   List<Map<String, dynamic>> get _claims => ((_data?['claims'] as List?) ?? []).cast<Map<String, dynamic>>();
 
   void _shiftMonth(int months) {
-    setState(() => _month = DateTime(_month.year, _month.month + months));
+    setState(() {
+      _month = DateTime(_month.year, _month.month + months);
+      _data = null;
+      _picked.clear();
+    });
     _load();
   }
 

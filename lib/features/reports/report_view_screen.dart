@@ -100,7 +100,7 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
     try {
       final data = await Services.api.get(path, query: query) as Map<String, dynamic>;
       if (!mounted || query['by'] != _query['by'] || query['start'] != _query['start'] ||
-          query['member'] != _query['member']) {
+          query['end'] != _query['end'] || query['member'] != _query['member']) {
         return; // the reader moved on while this was loading
       }
       if (mounted) setState(() => _data = data);
@@ -123,11 +123,13 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
       setState(() {
         _period = 'custom';
         _range = picked;
+        _data = null;
       });
     } else {
       setState(() {
         _period = key;
         _range = _presetRange(key);
+        _data = null;
       });
     }
     _load();
