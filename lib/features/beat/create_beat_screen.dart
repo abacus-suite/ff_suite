@@ -116,13 +116,28 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
       showProblem(context, 'Please choose a territory first.');
       return;
     }
-    final allOutlets = ((_territory!['outlets'] as List?) ?? []).cast<Map<String, dynamic>>();
+    List<Map<String, dynamic>> allOutlets = ((_territory!['outlets'] as List?) ?? []).cast<Map<String, dynamic>>();
+    if (allOutlets.isEmpty) {
+      try {
+        final list = await Services.api.get('/api/v1/clients') as List;
+        final clients = list.cast<Map<String, dynamic>>();
+        final districtId = _territory!['district_id'];
+        if (districtId != null) {
+          final matched = clients.where((c) => c['district_id'] == districtId || c['city_id'] == districtId).toList();
+          allOutlets = matched.isNotEmpty ? matched : clients;
+        } else {
+          allOutlets = clients;
+        }
+      } catch (_) {}
+    }
+    if (!mounted) return;
     if (allOutlets.isEmpty) {
       showProblem(context, 'No outlets found for this territory.');
       return;
     }
 
     final tempSelected = Set<int>.from(_outlets);
+    if (!mounted) return;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -425,10 +440,70 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
               for (final t in _territories)
                 DropdownMenuItem(
                   value: t['id'] as int,
-                  child: Text(
-                    '${t['name']}',
-                    style: const TextStyle(fontSize: 14, color: Color(0xFF0F1B3D)),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${t['name']}',
+                          style: const TextStyle(fontSize: 14, color: Color(0xFF0F1B3D)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (t['is_secondary'] == true || t['kind'] == 'secondary') ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: const Text(
+                            'Secondary',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF1D4ED8),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
+                ),
+            ],
+            selectedItemBuilder: (context) => [
+              for (final t in _territories)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '${t['name']}',
+                        style: const TextStyle(fontSize: 14, color: Color(0xFF0F1B3D)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (t['is_secondary'] == true || t['kind'] == 'secondary') ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFBFDBFE)),
+                        ),
+                        child: const Text(
+                          'Secondary',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: Color(0xFF1D4ED8),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
             ],
             onChanged: (v) {
