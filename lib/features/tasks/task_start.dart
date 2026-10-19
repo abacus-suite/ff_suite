@@ -318,22 +318,7 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
               return true;
             }).toList();
           },
-          subtitle: (r) {
-            final cities = [
-              if (r['city'] != null && '${r['city']}'.isNotEmpty) '${r['city']}',
-              for (final d in (r['secondary_districts'] as List? ?? []))
-                if (d is Map && d['name'] != null && '${d['name']}' != r['city']) '${d['name']}',
-            ];
-            final terrs = [
-              if (r['territory'] is Map && r['territory']['name'] != null) '${r['territory']['name']}',
-              for (final t in (r['secondary_territories'] as List? ?? []))
-                if (t is Map && t['name'] != null && t['name'] != r['territory']?['name']) '${t['name']}',
-            ];
-            return [
-              if (cities.isNotEmpty) cities.join(', '),
-              if (terrs.isNotEmpty) terrs.join(', '),
-            ].join(' · ');
-          });
+          subtitle: distributorSubtitle);
       if (picked == null || !context.mounted) return;
       try {
         Map<String, dynamic> full;

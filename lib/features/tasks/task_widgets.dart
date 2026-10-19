@@ -532,6 +532,32 @@ class _PhotoSlotState extends State<PhotoSlot> {
       );
 }
 
+/// Formats a clean, readable subtitle for a distributor row (e.g. "Kozhikode · Calicut North").
+String distributorSubtitle(Map<String, dynamic> r) {
+  final city = (r['city'] != null && '${r['city']}'.isNotEmpty)
+      ? '${r['city']}'
+      : ((r['district'] as Map?)?['name'] != null ? '${(r['district'] as Map)['name']}' : null);
+  final terr = (r['territory'] as Map?)?['name'] != null ? '${(r['territory'] as Map)['name']}' : null;
+  if (city != null && terr != null && terr.toLowerCase() != city.toLowerCase()) {
+    return '$city · $terr';
+  }
+  if (city != null) return city;
+  if (terr != null) return terr;
+  final secDists = (r['secondary_districts'] as List? ?? [])
+      .map((d) => d is Map ? '${d['name'] ?? ''}' : '')
+      .where((s) => s.isNotEmpty)
+      .take(2)
+      .join(', ');
+  if (secDists.isNotEmpty) return secDists;
+  final secTerrs = (r['secondary_territories'] as List? ?? [])
+      .map((t) => t is Map ? '${t['name'] ?? ''}' : '')
+      .where((s) => s.isNotEmpty)
+      .take(2)
+      .join(', ');
+  if (secTerrs.isNotEmpty) return secTerrs;
+  return '';
+}
+
 /// Chooses one item from a long list the server holds.
 Future<Map<String, dynamic>?> pickFromList(
   BuildContext context, {
@@ -578,7 +604,13 @@ class _ListPickerState extends State<_ListPicker> {
   @override
   Widget build(BuildContext context) {
     final q = _query.trim().toLowerCase();
-    final shown = q.isEmpty ? _all : _all.where((r) => '${r['name']}'.toLowerCase().contains(q)).toList();
+    final shown = q.isEmpty
+        ? _all
+        : _all.where((r) {
+            final name = '${r['name'] ?? ''}'.toLowerCase();
+            final sub = widget.subtitle != null ? widget.subtitle!(r).toLowerCase() : '';
+            return name.contains(q) || sub.contains(q);
+          }).toList();
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.75,
       child: Padding(
@@ -606,7 +638,14 @@ class _ListPickerState extends State<_ListPicker> {
                 itemCount: shown.length,
                 itemBuilder: (_, i) => ListTile(
                   title: Text('${shown[i]['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: widget.subtitle == null ? null : Text(widget.subtitle!(shown[i])),
+                  subtitle: widget.subtitle == null
+                      ? null
+                      : Text(
+                          widget.subtitle!(shown[i]),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                        ),
                   onTap: () => Navigator.pop(context, shown[i]),
                 ),
               ),
