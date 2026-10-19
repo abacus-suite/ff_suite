@@ -59,6 +59,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   List<Map<String, dynamic>> _categories = [];
   int? _categoryId;
   bool _neverVisited = false;
+  String _kind = 'all';
   int? _territoryId;
   int? _beatId;
   String _group = 'none';
@@ -96,6 +97,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.categoryType != null) {
+      _kind = widget.categoryType!;
+    }
     _loadCategories();
     _loadFilterLists();
     _scroll.addListener(() {
@@ -124,8 +128,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
       if (_categoryId != null) query['category_id'] = _categoryId;
       if (_neverVisited) query['never_visited'] = 1;
       if (_member != 'me') query['member'] = _member;
-      if (widget.categoryType != null) {
-        query['category_type'] = widget.categoryType;
+      final catType = widget.categoryType ?? (_kind != 'all' && _kind != 'never' ? _kind : null);
+      if (catType != null) {
+        query['category_type'] = catType;
       }
       final data = await Services.api.get('/api/v1/clients/map', query: query) as Map<String, dynamic>;
       if (!mounted) return;
@@ -171,8 +176,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
     if (_territoryId != null) query['territory_id'] = _territoryId;
     if (_beatId != null) query['beat_id'] = _beatId;
     if (_member != 'me') query['member'] = _member;
-    if (widget.categoryType != null) {
-      query['category_type'] = widget.categoryType;
+    final catType = widget.categoryType ?? (_kind != 'all' && _kind != 'never' ? _kind : null);
+    if (catType != null) {
+      query['category_type'] = catType;
     }
     if (_nearby) {
       // Never leave the list spinning on a slow GPS fix: fall back to the last known place.
@@ -482,11 +488,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
   /// Which choice of [_activeKindLabels] is on now.
   String get _kindNow {
     if (_neverVisited) return 'never';
-    if (_categoryId == null) return 'all';
-    final match = _categories.where((c) => c['id'] == _categoryId).firstOrNull;
-    final type = '${match?['type'] ?? ''}';
+    if (_isOutletOnly) return 'all';
     final labels = _activeKindLabels;
-    return labels.containsKey(type) ? type : 'all';
+    return labels.containsKey(_kind) ? _kind : 'all';
   }
 
   /// The filter on the right of the search bar: All, Outlets, Distributors, Leads, Never Visited.
@@ -624,13 +628,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
   /// One of the filter choices: a kind of contact, everybody, or those never visited.
   void _applyKind(String kind) {
     setState(() {
+      _kind = kind;
       _neverVisited = kind == 'never';
-      if (kind == 'all' || kind == 'never') {
-        _categoryId = null;
-      } else {
-        final match = _categories.where((c) => c['type'] == kind).firstOrNull;
-        _categoryId = match?['id'] as int?;
-      }
+      _categoryId = null;
     });
     _load();
   }
@@ -780,9 +780,10 @@ class _ClientsScreenState extends State<ClientsScreen> {
     int ofType(String type) =>
         rows.where((r) => r['type'] == type).fold<int>(0, (sum, r) => sum + ((r['count'] as num?) ?? 0).toInt());
     final never = ((_counts['never_visited'] as num?) ?? 0).toInt();
-    final total = _countFor(null);
+    final grandTotal = ((_counts['grand_total'] ?? _counts['total']) as num? ?? _total).toInt();
 
     if (_isOutletOnly) {
+      final outletTotal = ((_counts['total'] as num?) ?? _total).toInt();
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
         child: Card(
@@ -791,8 +792,10 @@ class _ClientsScreenState extends State<ClientsScreen> {
             padding: const EdgeInsets.all(8),
             child: Row(
               children: [
-                _countBox(Icons.storefront_rounded, '$total', 'Total Outlets', AppColors.primary, () => _applyKind('all')),
-                _countBox(Icons.visibility_off_rounded, '$never', 'Never Visited', AppColors.danger, () => _applyKind('never')),
+                _countBox(Icons.storefront_rounded, '$outletTotal', 'Total Outlets', AppColors.primary,
+                    () => _applyKind('all'), selected: _kindNow == 'all'),
+                _countBox(Icons.visibility_off_rounded, '$never', 'Never Visited', AppColors.danger,
+                    () => _applyKind('never'), selected: _kindNow == 'never'),
               ],
             ),
           ),
@@ -808,12 +811,16 @@ class _ClientsScreenState extends State<ClientsScreen> {
           padding: const EdgeInsets.all(8),
           child: Row(
             children: [
-              _countBox(Icons.groups_2_rounded, '$total', 'Total', AppColors.primary, () => _applyKind('all')),
-              _countBox(Icons.storefront_rounded, '${ofType('outlet')}', 'Outlet', AppColors.success, () => _applyKind('outlet')),
+              _countBox(Icons.groups_2_rounded, '$grandTotal', 'Total', AppColors.primary,
+                  () => _applyKind('all'), selected: _kindNow == 'all'),
+              _countBox(Icons.storefront_rounded, '${ofType('outlet')}', 'Outlet', AppColors.success,
+                  () => _applyKind('outlet'), selected: _kindNow == 'outlet'),
               _countBox(Icons.local_shipping_rounded, '${ofType('distributor')}', 'Distributor', AppColors.purple,
-                  () => _applyKind('distributor')),
-              _countBox(Icons.person_add_alt_1_rounded, '${ofType('lead')}', 'Lead', AppColors.warning, () => _applyKind('lead')),
-              _countBox(Icons.visibility_off_rounded, '$never', 'Never Visited', AppColors.danger, () => _applyKind('never')),
+                  () => _applyKind('distributor'), selected: _kindNow == 'distributor'),
+              _countBox(Icons.person_add_alt_1_rounded, '${ofType('lead')}', 'Lead', AppColors.warning,
+                  () => _applyKind('lead'), selected: _kindNow == 'lead'),
+              _countBox(Icons.visibility_off_rounded, '$never', 'Never Visited', AppColors.danger,
+                  () => _applyKind('never'), selected: _kindNow == 'never'),
             ],
           ),
         ),
@@ -821,7 +828,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
-  Widget _countBox(IconData icon, String value, String label, Color tint, VoidCallback onTap) => Expanded(
+  Widget _countBox(IconData icon, String value, String label, Color tint, VoidCallback onTap, {bool selected = false}) => Expanded(
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: onTap,
@@ -829,8 +836,12 @@ class _ClientsScreenState extends State<ClientsScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 2),
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
           decoration: BoxDecoration(
-            color: tint.withValues(alpha: 0.07),
+            color: selected ? tint.withValues(alpha: 0.16) : tint.withValues(alpha: 0.07),
             borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? tint : Colors.transparent,
+              width: selected ? 1.5 : 1,
+            ),
           ),
           child: Column(
             children: [
