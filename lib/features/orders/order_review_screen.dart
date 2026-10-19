@@ -171,7 +171,8 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
         if (_manual.isNotEmpty)
           'foc': [for (final m in _manual) {'product_id': m['product_id'], 'qty': m['qty'], 'reason': m['reason']}],
         'note': _note.text.trim(),
-        if (_distributorId != null) 'distributor_id': _distributorId,
+        if (_distributorId != null && widget.client['is_company_location'] != true) 'distributor_id': _distributorId,
+        'is_company_location': widget.client['is_company_location'] == true,
         'lat': pos?.latitude,
         'lng': pos?.longitude,
         'uuid': _uuid,
@@ -296,7 +297,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
             leading: const Icon(Icons.store),
             title: Text(widget.client['name'] as String, style: theme.textTheme.titleMedium),
           ),
-          if (_distributors.isNotEmpty) _distributorCard(),
+          if (widget.client['is_company_location'] != true && _distributors.isNotEmpty) _distributorCard(),
           const Divider(),
           for (final l in widget.lines)
             ListTile(
