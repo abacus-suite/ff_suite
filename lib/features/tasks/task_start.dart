@@ -355,11 +355,12 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
     // Checking in happens on the list they chose from, before it closes: an
     // offsite question asked afterwards would be asked over whatever page the
     // "+" was pressed on.
+    final isSampleOutlet = code == 'sample_collection';
     chosen = await Navigator.of(context).push<Map<String, dynamic>>(MaterialPageRoute(
       builder: (_) => ClientsScreen(
         pickMode: true,
-        categoryType: 'outlet',
-        title: 'Choose Outlet',
+        categoryType: isSampleOutlet ? 'outlet' : null,
+        title: isSampleOutlet ? 'Choose Outlet' : null,
         onPick: (picker, contact) async {
           final task = ((config['tasks'] as List?) ?? []).cast<Map<String, dynamic>>().firstWhere(
               (t) => t['code'] == code, orElse: () => <String, dynamic>{});

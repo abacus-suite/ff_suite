@@ -1,28 +1,17 @@
 import 'package:flutter/material.dart';
-import '../events/events_screen.dart';
 
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../approvals/approvals_screen.dart';
 import '../attendance/month_screen.dart';
-import '../attendance/regularisation_screen.dart';
-import '../allowance/allowance_screen.dart';
-import '../beat/beat_today_screen.dart';
 import '../beat/my_beat_plan_screen.dart';
+import '../collections/collections_screen.dart';
+import '../events/events_screen.dart';
+import '../expenses/expenses_screen.dart';
+import '../receivables/receivables_screen.dart';
 import 'contact_access_screen.dart';
 import 'my_samples_screen.dart';
-import '../collections/collections_screen.dart';
-import '../collections/deposits_receive_screen.dart';
-import '../expenses/expenses_screen.dart';
-import '../leaves/leaves_screen.dart';
-import '../notifications/notifications_screen.dart';
-import '../reports/reports_screen.dart';
-import '../forms/forms_screen.dart';
-import '../receivables/receivables_screen.dart';
-import '../tasks/tasks_screen.dart';
 import 'profile_screen.dart';
-import '../beat/plan_beat_screen.dart';
-import '../team/team_tree_screen.dart';
 
 /// Every screen that is not a main tab, as a menu. Profile details and
 /// logging out live on the profile screen (the avatar on Home).
@@ -50,8 +39,6 @@ class MoreScreen extends StatelessWidget {
       (Icons.lock_open_rounded, 'Contact Access', AppColors.sky, const ContactAccessScreen()),
       if (profile.isManager) ...[
         (Icons.fact_check_rounded, 'Approvals', AppColors.warning, const ApprovalsScreen()),
-        if (profile.paymentCollection)
-          (Icons.account_balance_rounded, 'Money To Receive', AppColors.success, const DepositsReceiveScreen()),
       ],
     ];
     return Scaffold(

@@ -47,8 +47,7 @@ class ClientsScreen extends StatefulWidget {
 }
 
 class _ClientsScreenState extends State<ClientsScreen> {
-  bool get _isOutletOnly =>
-      widget.categoryType == 'outlet' || (widget.pickMode && widget.categoryType != 'all');
+  bool get _isOutletOnly => widget.categoryType == 'outlet';
   final _search = TextEditingController();
   Timer? _debounce;
   // The full list first: 'Nearby' hides anybody further than 25 km.
@@ -127,8 +126,6 @@ class _ClientsScreenState extends State<ClientsScreen> {
       if (_member != 'me') query['member'] = _member;
       if (widget.categoryType != null) {
         query['category_type'] = widget.categoryType;
-      } else if (widget.pickMode) {
-        query['category_type'] = 'outlet';
       }
       final data = await Services.api.get('/api/v1/clients/map', query: query) as Map<String, dynamic>;
       if (!mounted) return;
@@ -176,8 +173,6 @@ class _ClientsScreenState extends State<ClientsScreen> {
     if (_member != 'me') query['member'] = _member;
     if (widget.categoryType != null) {
       query['category_type'] = widget.categoryType;
-    } else if (widget.pickMode) {
-      query['category_type'] = 'outlet';
     }
     if (_nearby) {
       // Never leave the list spinning on a slow GPS fix: fall back to the last known place.
