@@ -22,22 +22,33 @@ import '../../widgets/skeleton.dart';
 /// Contacts with search, category chips, "nearby" sorting and a map.
 /// In [pickMode] tapping a contact returns it to the caller.
 class ClientsScreen extends StatefulWidget {
-  const ClientsScreen({super.key, this.pickMode = false, this.embedded = false, this.onPick});
+  const ClientsScreen({
+    super.key,
+    this.pickMode = false,
+    this.embedded = false,
+    this.categoryType,
+    this.title,
+    this.onPick,
+  });
 
   final bool pickMode;
+  final bool embedded;
+  final String? categoryType;
+  final String? title;
 
   /// What to do with a contact the moment it is chosen, before this screen closes.
   /// Returns what to hand back, or null to stay and let them choose again. It runs
   /// here so that any question it asks - an offsite check-in, say - is asked over
   /// the list they chose from, not over whatever was underneath.
   final Future<Map<String, dynamic>?> Function(BuildContext context, Map<String, dynamic> client)? onPick;
-  final bool embedded;
 
   @override
   State<ClientsScreen> createState() => _ClientsScreenState();
 }
 
 class _ClientsScreenState extends State<ClientsScreen> {
+  bool get _isOutletOnly =>
+      widget.categoryType == 'outlet' || (widget.pickMode && widget.categoryType != 'all');
   final _search = TextEditingController();
   Timer? _debounce;
   // The full list first: 'Nearby' hides anybody further than 25 km.
@@ -114,6 +125,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
       if (_categoryId != null) query['category_id'] = _categoryId;
       if (_neverVisited) query['never_visited'] = 1;
       if (_member != 'me') query['member'] = _member;
+      if (widget.categoryType != null) {
+        query['category_type'] = widget.categoryType;
+      } else if (widget.pickMode) {
+        query['category_type'] = 'outlet';
+      }
       final data = await Services.api.get('/api/v1/clients/map', query: query) as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {
@@ -130,7 +146,19 @@ class _ClientsScreenState extends State<ClientsScreen> {
   Future<void> _loadCategories() async {
     try {
       final list = await Services.api.get('/api/v1/contact-categories') as List;
-      if (mounted) setState(() => _categories = list.cast<Map<String, dynamic>>());
+      if (mounted) {
+        var casted = list.cast<Map<String, dynamic>>();
+        if (_isOutletOnly) {
+          casted = casted.where((c) {
+            final t = '${c['type'] ?? c['category_type'] ?? ''}'.toLowerCase();
+            final name = '${c['name'] ?? ''}'.toLowerCase();
+            if (t == 'distributor' || t == 'lead') return false;
+            if (name.contains('distributor') || name.contains('lead')) return false;
+            return true;
+          }).toList();
+        }
+        setState(() => _categories = casted);
+      }
     } catch (_) {
       // Chips are optional.
     }
@@ -146,6 +174,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
     if (_territoryId != null) query['territory_id'] = _territoryId;
     if (_beatId != null) query['beat_id'] = _beatId;
     if (_member != 'me') query['member'] = _member;
+    if (widget.categoryType != null) {
+      query['category_type'] = widget.categoryType;
+    } else if (widget.pickMode) {
+      query['category_type'] = 'outlet';
+    }
     if (_nearby) {
       // Never leave the list spinning on a slow GPS fix: fall back to the last known place.
       final pos = await currentPosition(recentOk: true)
@@ -208,6 +241,13 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   /// Hands the chosen contact back, after whatever has to happen to it first.
   Future<void> _choose(Map<String, dynamic> client) async {
+    if (_isOutletOnly) {
+      final cat = '${client['category_type'] ?? ''}'.toLowerCase();
+      if (cat == 'distributor' || cat == 'lead') {
+        showSnack(context, 'Please choose an outlet, not a $cat');
+        return;
+      }
+    }
     final handler = widget.onPick;
     if (handler == null) {
       Navigator.of(context).pop(client);
@@ -333,14 +373,20 @@ class _ClientsScreenState extends State<ClientsScreen> {
             },
           )
         : null;
+    final titleText = widget.title ?? (widget.pickMode
+        ? (_isOutletOnly ? 'Choose Outlet' : 'Choose $_clientLabel')
+        : '${_clientLabel}s');
+    final subtitleText = widget.pickMode
+        ? (_isOutletOnly ? 'Pick the outlet' : 'Pick who this is for')
+        : 'Manage your customers and outlets';
     final title = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(widget.pickMode ? 'Choose $_clientLabel' : '${_clientLabel}s',
+        Text(titleText,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.text)),
-        Text(widget.pickMode ? 'Pick who this is for' : 'Manage your customers and outlets',
+        Text(subtitleText,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
@@ -431,22 +477,31 @@ class _ClientsScreenState extends State<ClientsScreen> {
     'never': 'Never Visited',
   };
 
-  /// Which choice of [_kindLabels] is on now.
+  Map<String, String> get _activeKindLabels => _isOutletOnly
+      ? const {
+          'all': 'All Outlets',
+          'never': 'Never Visited',
+        }
+      : _kindLabels;
+
+  /// Which choice of [_activeKindLabels] is on now.
   String get _kindNow {
     if (_neverVisited) return 'never';
     if (_categoryId == null) return 'all';
     final match = _categories.where((c) => c['id'] == _categoryId).firstOrNull;
     final type = '${match?['type'] ?? ''}';
-    return _kindLabels.containsKey(type) ? type : 'all';
+    final labels = _activeKindLabels;
+    return labels.containsKey(type) ? type : 'all';
   }
 
   /// The filter on the right of the search bar: All, Outlets, Distributors, Leads, Never Visited.
   Widget _kindDropdown() {
+    final labels = _activeKindLabels;
     return Container(
       height: 36,
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10),
-      constraints: const BoxConstraints(maxWidth: 124),
+      constraints: BoxConstraints(maxWidth: _isOutletOnly ? 134 : 124),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -461,9 +516,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
           icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.primary),
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary),
           selectedItemBuilder: (_) => [
-            for (final e in _kindLabels.entries) Align(alignment: Alignment.centerLeft, child: Text(e.value, maxLines: 1, overflow: TextOverflow.ellipsis)),
+            for (final e in labels.entries) Align(alignment: Alignment.centerLeft, child: Text(e.value, maxLines: 1, overflow: TextOverflow.ellipsis)),
           ],
-          items: [for (final e in _kindLabels.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+          items: [for (final e in labels.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
           onChanged: (v) {
             if (v != null) _applyKind(v);
           },
@@ -679,7 +734,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
           const SizedBox(width: 8),
           _chip(
             icon: Icons.format_list_bulleted_rounded,
-            label: 'All ${_clientLabel}s',
+            label: _isOutletOnly ? 'All Outlets' : 'All ${_clientLabel}s',
             count: 0,
             selected: !_nearby,
             onTap: () {
@@ -730,6 +785,26 @@ class _ClientsScreenState extends State<ClientsScreen> {
     int ofType(String type) =>
         rows.where((r) => r['type'] == type).fold<int>(0, (sum, r) => sum + ((r['count'] as num?) ?? 0).toInt());
     final never = ((_counts['never_visited'] as num?) ?? 0).toInt();
+    final total = _countFor(null);
+
+    if (_isOutletOnly) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+        child: Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              children: [
+                _countBox(Icons.storefront_rounded, '$total', 'Total Outlets', AppColors.primary, () => _applyKind('all')),
+                _countBox(Icons.visibility_off_rounded, '$never', 'Never Visited', AppColors.danger, () => _applyKind('never')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
       child: Card(
@@ -738,7 +813,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
           padding: const EdgeInsets.all(8),
           child: Row(
             children: [
-              _countBox(Icons.groups_2_rounded, '${_countFor(null)}', 'Total', AppColors.primary, () => _applyKind('all')),
+              _countBox(Icons.groups_2_rounded, '$total', 'Total', AppColors.primary, () => _applyKind('all')),
               _countBox(Icons.storefront_rounded, '${ofType('outlet')}', 'Outlet', AppColors.success, () => _applyKind('outlet')),
               _countBox(Icons.local_shipping_rounded, '${ofType('distributor')}', 'Distributor', AppColors.purple,
                   () => _applyKind('distributor')),
@@ -783,11 +858,12 @@ class _ClientsScreenState extends State<ClientsScreen> {
       );
 
   Widget _resultRow() {
+    final label = _isOutletOnly ? 'outlet' : _clientLabel.toLowerCase();
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
       child: Row(
         children: [
-          Text('$_total ${_clientLabel.toLowerCase()}${_total == 1 ? '' : 's'} found',
+          Text('$_total $label${_total == 1 ? '' : 's'} found',
               style: const TextStyle(fontSize: 12.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
           const Spacer(),
           Container(

@@ -1084,7 +1084,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
               'and a debit note is raised against that distributor.',
           child: _picker(_a['source_outlet'] as Map<String, dynamic>?, 'Choose the outlet', () async {
             final picked = await Navigator.of(context).push<Map<String, dynamic>>(
-                MaterialPageRoute(builder: (_) => const ClientsScreen(pickMode: true)));
+                MaterialPageRoute(builder: (_) => const ClientsScreen(pickMode: true, categoryType: 'outlet', title: 'Choose Outlet')));
             if (picked != null && mounted) setState(() => _a['source_outlet'] = picked);
           }),
         );
@@ -1184,7 +1184,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
 
   Future<void> _chooseOutlet() async {
     final picked = await Navigator.of(context).push<Map<String, dynamic>>(
-        MaterialPageRoute(builder: (_) => const ClientsScreen(pickMode: true)));
+        MaterialPageRoute(builder: (_) => const ClientsScreen(pickMode: true, categoryType: 'outlet', title: 'Choose Outlet')));
     if (picked != null && mounted) setState(() => _client = picked);
   }
 

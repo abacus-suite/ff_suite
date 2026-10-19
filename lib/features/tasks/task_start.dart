@@ -358,6 +358,8 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
     chosen = await Navigator.of(context).push<Map<String, dynamic>>(MaterialPageRoute(
       builder: (_) => ClientsScreen(
         pickMode: true,
+        categoryType: 'outlet',
+        title: 'Choose Outlet',
         onPick: (picker, contact) async {
           final task = ((config['tasks'] as List?) ?? []).cast<Map<String, dynamic>>().firstWhere(
               (t) => t['code'] == code, orElse: () => <String, dynamic>{});
