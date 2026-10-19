@@ -9,6 +9,8 @@ import '../collections/collections_screen.dart';
 import '../events/events_screen.dart';
 import '../expenses/expenses_screen.dart';
 import '../receivables/receivables_screen.dart';
+import '../reports/reports_screen.dart';
+import '../tasks/tasks_screen.dart';
 import 'contact_access_screen.dart';
 import 'my_samples_screen.dart';
 import 'profile_screen.dart';
