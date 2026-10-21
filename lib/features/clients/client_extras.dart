@@ -845,3 +845,70 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
     );
   }
 }
+
+/// Every detail of an outlet or distributor as the office holds it; nothing here can be edited.
+class ClientInfoScreen extends StatefulWidget {
+  const ClientInfoScreen({super.key, required this.clientId, required this.name});
+
+  final int clientId;
+  final String name;
+
+  @override
+  State<ClientInfoScreen> createState() => _ClientInfoScreenState();
+}
+
+class _ClientInfoScreenState extends State<ClientInfoScreen> {
+  List<Map<String, dynamic>>? _rows;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await Services.api.get('/api/v1/clients/${widget.clientId}/info') as Map<String, dynamic>;
+      if (mounted) {
+        setState(() {
+          _rows = ((data['rows'] as List?) ?? []).cast<Map<String, dynamic>>();
+          _error = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _rows;
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.name)),
+      body: _error != null
+          ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(_error!)))
+          : rows == null
+              ? const Center(child: CircularProgressIndicator())
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: rows.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      SizedBox(
+                        width: 130,
+                        child: Text('${rows[i]['label']}',
+                            style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+                      ),
+                      Expanded(
+                        child: Text('${rows[i]['value']}',
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      ),
+                    ]),
+                  ),
+                ),
+    );
+  }
+}

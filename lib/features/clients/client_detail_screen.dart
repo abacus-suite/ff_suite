@@ -427,6 +427,12 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         actions: [
           if (client != null) ...[
             IconButton(
+              tooltip: 'Info',
+              icon: const Icon(Icons.info_outline_rounded),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => ClientInfoScreen(clientId: widget.clientId, name: '${client['name']}'))),
+            ),
+            IconButton(
               tooltip: 'Statement of account',
               icon: const Icon(Icons.request_quote_rounded),
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(

@@ -172,7 +172,8 @@ class NotificationsService {
   Future<void> refresh() async {
     if (Services.auth.profile == null) return;
     try {
-      final data = await Services.api.get('/api/v1/notifications?unread=1&limit=1') as Map<String, dynamic>;
+      final data = await Services.api.get(
+          '/api/v1/notifications?unread=1&limit=1&mode=${Services.managerMode.value ? 'manager' : 'employee'}') as Map<String, dynamic>;
       unread.value = (data['unread'] as num?)?.toInt() ?? 0;
     } catch (_) {
       // leave the badge as it was
@@ -181,7 +182,8 @@ class NotificationsService {
 
   Future<List<Map<String, dynamic>>> list({bool unreadOnly = false}) async {
     final data = await Services.api
-        .get('/api/v1/notifications${unreadOnly ? '?unread=1' : ''}') as Map<String, dynamic>;
+        .get('/api/v1/notifications?mode=${Services.managerMode.value ? 'manager' : 'employee'}${unreadOnly ? '&unread=1' : ''}')
+        as Map<String, dynamic>;
     unread.value = (data['unread'] as num?)?.toInt() ?? 0;
     return ((data['notifications'] as List?) ?? []).cast<Map<String, dynamic>>();
   }
@@ -194,5 +196,10 @@ class NotificationsService {
     } catch (_) {
       // the next refresh will put the count right
     }
+  }
+
+  /// Remove notices that were seen: the ids given, or every read one.
+  Future<void> remove({List<int>? ids}) async {
+    await Services.api.post('/api/v1/notifications/delete', {if (ids != null) 'ids': ids});
   }
 }

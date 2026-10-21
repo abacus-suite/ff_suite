@@ -174,6 +174,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w900)),
+        actions: [
+          if (_rows.isNotEmpty)
+            TextButton(
+              onPressed: () async {
+                await Services.notifications.remove();
+                await _load();
+              },
+              child: const Text('Clear all'),
+            ),
+        ],
       ),
       body: _loading
           ? const LoadingView()
@@ -194,7 +204,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Widget _tile(Map<String, dynamic> row) {
     final topic = _topic(row);
-    return Container(
+    return Dismissible(
+      key: ValueKey('n${row['id']}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(color: AppColors.danger, borderRadius: BorderRadius.circular(16)),
+        child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+      ),
+      onDismissed: (_) {
+        setState(() => _rows.remove(row));
+        if (row['id'] != null) unawaited(Services.notifications.remove(ids: [row['id'] as int]));
+      },
+      child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -223,6 +247,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ]),
         ),
       ),
+    ),
     );
   }
 }
