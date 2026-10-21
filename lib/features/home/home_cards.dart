@@ -36,6 +36,7 @@ class CheckInHero extends StatefulWidget {
     this.pending = 0,
     this.onPending,
     this.onBeatPlan,
+    this.beatCodes = const [],
   });
 
   final bool punchedIn;
@@ -54,6 +55,9 @@ class CheckInHero extends StatefulWidget {
 
   /// Opens My Beat Plan from the card.
   final VoidCallback? onBeatPlan;
+
+  /// Codes of the beats planned for today; once there are some, the button shows them.
+  final List<String> beatCodes;
 
   /// When the punch that is still open began; null when the day is not running.
   final DateTime? onDutySince;

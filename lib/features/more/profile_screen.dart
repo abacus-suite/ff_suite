@@ -378,8 +378,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
     return Row(
       children: [
-        cell(Icons.groups_2_rounded, 'Team', count(teams.length, 'team', 'teams'), AppColors.primary,
-            () => _openList('My Teams', 'Opened by tapping “Team”', Icons.groups_2_rounded, [
+        cell(Icons.groups_2_rounded, 'Region', count(teams.length, 'region', 'regions'), AppColors.primary,
+            () => _openList('My Region', 'Opened by tapping “Region”', Icons.groups_2_rounded, [
                   (null, [
                     for (final t in teams)
                       ('${t['name']}', 'Lead: ${t['lead'] ?? '-'} · ${t['members']} members', null),

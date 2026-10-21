@@ -147,7 +147,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _adhoc,
         icon: const Icon(Icons.add_location_alt_rounded),
-        label: const Text('Adhoc visit'),
+        label: const Text('Add a Visit'),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -208,7 +208,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     return [
       if (plans.isEmpty)
         EmptyView(icon: Icons.event_busy_rounded,
-            text: 'No $label planned for this day.\nUse "Adhoc visit" to visit anyone.'),
+            text: 'No $label planned for this day.\nUse "Add a Visit" to visit anyone.'),
       if (_filter == 'all') for (final plan in plans) _planCard(plan),
       if (_filter != 'all')
         Padding(
@@ -233,7 +233,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       if (adhoc.isNotEmpty && _filter == 'all') ...[
         const Padding(
           padding: EdgeInsets.fromLTRB(4, 14, 4, 4),
-          child: Text('Adhoc visits', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          child: Text('Added visits', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
         ),
         for (final visit in adhoc)
           Card(
@@ -296,7 +296,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
                 if ((plan['missed_count'] as num? ?? 0) > 0)
                   count(Icons.cancel_rounded, AppColors.danger, '${plan['missed_count']} missed'),
                 if ((plan['adhoc_count'] as num? ?? 0) > 0)
-                  count(Icons.bolt_rounded, AppColors.purple, '${plan['adhoc_count']} adhoc'),
+                  count(Icons.bolt_rounded, AppColors.purple, '${plan['adhoc_count']} added'),
                 count(Icons.route_rounded, AppColors.muted, '${plan['actual_km']} km'),
               ],
             ),

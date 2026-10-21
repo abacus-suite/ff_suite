@@ -324,10 +324,6 @@ class _ClientsScreenState extends State<ClientsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: _add,
-        child: const Icon(Icons.add_rounded, size: 28),
-      ),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -464,7 +460,6 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 color: (_territoryId == null && _beatId == null && _group == 'none') ? AppColors.muted : AppColors.primary),
             onPressed: _openFilterSheet,
           ),
-          _kindDropdown(),
         ]),
       ),
     );

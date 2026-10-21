@@ -591,6 +591,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _loadMyPending();
       },
       onBeatPlan: () => _push(const MyBeatPlanScreen()),
+      beatCodes: [for (final c in ((_today?['beat_codes'] as List?) ?? [])) '$c'],
       onPunch: () => _punch(!punchedIn),
     );
   }
