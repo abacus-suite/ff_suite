@@ -285,8 +285,8 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
         (Icons.local_shipping_rounded, const ['waiting', 'quoted', 'partial'], 'With distributor', AppColors.warning),
         // With no demand step, a confirmed order counts as approved.
         (Icons.thumb_up_alt_rounded, _demandFlow ? const ['approved'] : const ['approved', 'sale', 'done'], 'Approved', AppColors.primary),
-        (Icons.inventory_rounded, const ['supplied'], 'Delivered', AppColors.success),
         (Icons.delivery_dining_rounded, const ['__out'], 'Out for Delivery', AppColors.teal),
+        (Icons.inventory_rounded, const ['supplied'], 'Delivered', AppColors.success),
         (Icons.cancel_rounded, const ['cancelled', 'cancel'], 'Cancelled', AppColors.danger),
       ];
 
