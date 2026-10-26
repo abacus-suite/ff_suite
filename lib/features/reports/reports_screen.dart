@@ -7,6 +7,7 @@ import '../team/team_live_screen.dart';
 import '../team/timeline_screen.dart';
 import '../receivables/receivables_screen.dart';
 import '../targets/targets_screen.dart';
+import 'approval_report_screen.dart';
 import 'report_view_screen.dart';
 import '../../widgets/skeleton.dart';
 
@@ -173,6 +174,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 onTap: () => _open(const TargetsScreen()),
               ),
             ),
+            // Manager Mode: what I approved and rejected, under the targets.
+            if (canTeam)
+              Card(
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE0EAFF),
+                    child: Icon(Icons.fact_check_rounded, color: AppColors.primary),
+                  ),
+                  title: const Text('Approval Report', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: const Text('What you approved and rejected'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _open(const ApprovalReportScreen()),
+                ),
+              ),
             Card(
               child: ListTile(
                 leading: const CircleAvatar(
