@@ -7,7 +7,11 @@ import '../../widgets/common.dart';
 
 /// Screen to create a new Beat matching client design specifications.
 class CreateBeatScreen extends StatefulWidget {
-  const CreateBeatScreen({super.key});
+  const CreateBeatScreen({super.key, this.member, this.memberName});
+
+  /// A manager drawing the beat for somebody in the team: their id and name. The beat is theirs, with no approval.
+  final String? member;
+  final String? memberName;
 
   @override
   State<CreateBeatScreen> createState() => _CreateBeatScreenState();
@@ -35,7 +39,8 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
 
   Future<void> _loadTerritories() async {
     try {
-      final list = await Services.api.get('/api/v1/territories') as List;
+      final list = await Services.api.get('/api/v1/territories',
+          query: {if (widget.member != null) 'member': widget.member}) as List;
       if (mounted) {
         setState(() {
           _territories = list.cast<Map<String, dynamic>>();
@@ -186,6 +191,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
     setState(() => _busy = true);
     try {
       final beat = await Services.api.post('/api/v1/beats', {
+        if (widget.member != null) 'member': widget.member,
         'name': name,
         'code': code,
         'territory_id': _territory!['id'],
@@ -220,9 +226,9 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           icon: const Icon(Icons.arrow_back, color: Color(0xFF0F1B3D)),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
-          'Create Beat',
-          style: TextStyle(
+        title: Text(
+          widget.memberName == null ? 'Create Beat' : 'Create Beat · ${widget.memberName}',
+          style: const TextStyle(
             color: Color(0xFF0F1B3D),
             fontSize: 18,
             fontWeight: FontWeight.w700,

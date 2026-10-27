@@ -1157,7 +1157,22 @@ class _PlannedDaysScreenState extends State<PlannedDaysScreen> {
     final days = _byDate;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text(widget.memberName == null ? 'Planned Days' : 'Plan · ${widget.memberName}')),
+      appBar: AppBar(
+        title: Text(widget.memberName == null ? 'Planned Days' : 'Plan · ${widget.memberName}'),
+        actions: [
+          // A manager draws a new beat for this person: it is theirs at once, with no approval.
+          if (widget.member != 'me' && widget.member.isNotEmpty)
+            IconButton(
+              tooltip: 'Create a beat for ${widget.memberName ?? 'this person'}',
+              icon: const Icon(Icons.add_road_rounded),
+              onPressed: () async {
+                final beat = await Navigator.of(context).push<Map<String, dynamic>>(MaterialPageRoute(
+                    builder: (_) => CreateBeatScreen(member: widget.member, memberName: widget.memberName)));
+                if (beat != null) _load();
+              },
+            ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.of(context)
             .push(MaterialPageRoute(
