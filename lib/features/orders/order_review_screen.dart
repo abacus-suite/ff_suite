@@ -306,7 +306,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(demandFlow ? 'Review Demand' : 'Review Order')),
+      appBar: AppBar(title: const Text('PO Summary')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
