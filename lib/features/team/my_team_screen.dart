@@ -7,6 +7,7 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/skeleton.dart';
+import '../beat/plan_beat_screen.dart' show PlannedDaysScreen;
 import '../home/manager_home.dart' show initials;
 import 'employee_report_pages.dart';
 
@@ -655,6 +656,17 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
         ),
         title: const Text('Employee report', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: Color(0xFF0F1B3D))),
         centerTitle: false,
+        actions: [
+          // The person's beat plan: plan a beat on their days, or draw a new beat for them.
+          IconButton(
+            tooltip: 'Beat plan of ${widget.name}',
+            icon: const Icon(Icons.event_note_rounded, color: Color(0xFF0F1B3D)),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => PlannedDaysScreen(
+                  member: '${widget.memberId}', memberName: widget.name, start: DateUtils.dateOnly(DateTime.now())),
+            )),
+          ),
+        ],
       ),
       body: _error != null
           ? ErrorView(message: _error!, onRetry: _load)

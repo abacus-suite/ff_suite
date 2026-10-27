@@ -12,6 +12,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../core/manager_ui.dart';
 import '../../widgets/skeleton.dart';
+import '../beat/plan_beat_screen.dart' show PlannedDaysScreen;
 import '../team/my_team_screen.dart' show ManagerEmployeeReportScreen;
 import '../team/employee_report_pages.dart' as lead show EmployeeTasksScreen;
 import 'employee_report_pages.dart';
@@ -871,7 +872,20 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
     final hasPlaces = _groups('territory').isNotEmpty || _groups('route').isNotEmpty;
     final planned = o['planned'];
     return Scaffold(
-      appBar: AppBar(title: const Text('Employee report', style: TextStyle(fontWeight: FontWeight.w900))),
+      appBar: AppBar(
+        title: const Text('Employee report', style: TextStyle(fontWeight: FontWeight.w900)),
+        actions: [
+          // The person's beat plan: plan a beat on their days, or draw a new beat for them.
+          IconButton(
+            tooltip: 'Beat plan of ${widget.name}',
+            icon: const Icon(Icons.event_note_rounded),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => PlannedDaysScreen(
+                  member: widget.memberId, memberName: widget.name, start: DateUtils.dateOnly(DateTime.now())),
+            )),
+          ),
+        ],
+      ),
       body: _error != null
           ? ErrorView(message: _error!, onRetry: _load)
           : RefreshIndicator(
