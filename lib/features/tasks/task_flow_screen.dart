@@ -15,6 +15,7 @@ import '../../widgets/common.dart';
 import '../clients/clients_screen.dart';
 import '../collections/collect_payment_screen.dart';
 import '../collections/ledger_share.dart';
+import '../orders/commercials.dart';
 import '../../core/draft_store.dart';
 import 'task_widgets.dart';
 
@@ -469,7 +470,23 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
           StepCard(
             title: 'Order quantity',
             note: 'Raised to the distributor mapped to this outlet.',
-            child: QtyGrid(products: _flavours, values: _q('order'), onChanged: _refresh),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Once a quantity is filled, the small icon shows how the rate is worked out.
+                if (_q('order').values.any((v) => v > 0))
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      tooltip: 'How the rate is worked out',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.calculate_rounded, color: AppColors.primary),
+                      onPressed: _showPricing,
+                    ),
+                  ),
+                QtyGrid(products: _flavours, values: _q('order'), onChanged: _refresh),
+              ],
+            ),
           ),
           StepCard(
             title: 'Free quantity',
@@ -501,6 +518,60 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  /// The pricing behind the order quantities: this outlet's commercials, then for every flavour with a
+  /// quantity the MRP, scheme, margin and the rate, as the server works them out.
+  Future<void> _showPricing() async {
+    final id = (_client?['id'] as num?)?.toInt();
+    if (id == null) return;
+    Map<String, dynamic> data;
+    try {
+      data = await Services.api.get('/api/v1/products', query: {'partner_id': id, 'limit': 200}) as Map<String, dynamic>;
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+      return;
+    }
+    if (!mounted) return;
+    final products = {for (final p in ((data['products'] as List?) ?? []).cast<Map<String, dynamic>>()) p['id'] as int: p};
+    final commercials = Commercials.from(data['commercials']);
+    var total = 0.0;
+    final cards = <Widget>[];
+    for (final f in _flavours) {
+      final pid = (f['id'] as num).toInt();
+      final qty = _q('order')[pid] ?? 0;
+      final p = products[pid];
+      if (qty <= 0 || p == null) continue;
+      final rate = (p['price'] as num?)?.toDouble() ?? 0;
+      final mrp = (p['mrp'] as num?)?.toDouble() ?? rate;
+      total += rate * qty;
+      cards.add(RateBreakdown(
+          title: '${p['name']} × ${fmtQty(qty)}', mrp: mrp, rate: rate, commercials: commercials ?? const Commercials()));
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.background,
+      builder: (sheet) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(sheet).size.height * 0.85),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            shrinkWrap: true,
+            children: [
+          const Text('Pricing of this demand', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+          const SizedBox(height: 10),
+          if (commercials != null) CommercialsCard(commercials: commercials),
+          ...cards,
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text('Total ${fmtMoney(total)}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
