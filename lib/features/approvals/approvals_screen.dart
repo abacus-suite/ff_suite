@@ -624,6 +624,15 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!Services.managerMode.value) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(title: const Text('Approvals')),
+        body: const EmptyView(
+            icon: Icons.admin_panel_settings_rounded,
+            text: 'Approvals are in Manager Mode.\nSwitch to Manager Mode on Home to decide on requests.'),
+      );
+    }
     final kind = widget.start == null ? null : _kinds.firstWhere((k) => k.$1 == widget.start);
     return Scaffold(
       backgroundColor: AppColors.background,

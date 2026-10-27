@@ -21,7 +21,12 @@ class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+        valueListenable: Services.managerMode,
+        builder: (context, managerMode, _) => _page(context, managerMode),
+      );
+
+  Widget _page(BuildContext context, bool managerMode) {
     final profile = Services.auth.profile!;
     void open(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
     // The order and names the client asked for. Planned Days, Forms, Notifications and Chat are gone.
@@ -39,7 +44,7 @@ class MoreScreen extends StatelessWidget {
       if (profile.feature('attendance'))
         (Icons.event_available_rounded, 'My Attendance', AppColors.success, const MonthScreen()),
       (Icons.lock_open_rounded, 'Contact Access', AppColors.sky, const ContactAccessScreen()),
-      if (profile.isManager) ...[
+      if (profile.isManager && managerMode) ...[
         (Icons.fact_check_rounded, 'Approvals', AppColors.warning, const ApprovalsScreen()),
       ],
     ];
