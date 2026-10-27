@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/format.dart';
 import '../../core/photos.dart';
@@ -631,23 +632,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  String _formatGst(String? raw) {
-    if (raw == null || raw.trim().isEmpty) {
-      return '32XXXXXXXXXXXZX';
-    }
-    final clean = raw.trim().toUpperCase().replaceAll(' ', '');
-    if (clean.contains('X') || clean.contains('*')) {
-      return clean.replaceAll('*', 'X');
-    }
-    if (clean.length >= 4) {
-      final prefix = clean.substring(0, 2);
-      final suffix = clean.substring(clean.length - 2);
-      final maskLen = clean.length - 4;
-      return '$prefix${'X' * maskLen}$suffix';
-    }
-    return '32XXXXXXXXXXXZX';
-  }
-
   String _formatWebsite(String? raw) {
     if (raw == null || raw.trim().isEmpty) {
       return 'www.kumbayah.in';
@@ -658,19 +642,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return clean.isEmpty ? 'www.kumbayah.in' : clean;
   }
 
-  String _formatInstagram(String? raw) {
-    if (raw == null || raw.trim().isEmpty) {
-      return '@kumbayah';
-    }
-    var clean = raw.trim();
-    if (clean.contains('instagram.com/')) {
-      clean = clean.split('instagram.com/').last.split('?').first.replaceAll('/', '').trim();
-    }
-    if (clean.startsWith('@')) return clean;
-    return clean.isEmpty ? '@kumbayah' : '@$clean';
-  }
-
-  Widget _infoCard({required String title, required List<(String, String)> rows}) {
+  /// A row whose label is in [links] opens that address when tapped.
+  Widget _infoCard({required String title, required List<(String, String)> rows, Map<String, String> links = const {}}) {
     return Card(
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
@@ -698,17 +671,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(width: 14),
                   Expanded(
-                    child: Text(
-                      rows[i].$2,
-                      textAlign: TextAlign.right,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13.5,
-                        color: Color(0xFF0F1B3D),
-                      ),
-                    ),
+                    child: links.containsKey(rows[i].$1)
+                        ? InkWell(
+                            onTap: () => launchUrl(Uri.parse(links[rows[i].$1]!), mode: LaunchMode.externalApplication),
+                            child: Text(
+                              rows[i].$2,
+                              textAlign: TextAlign.right,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13.5,
+                                color: Color(0xFF1D4ED8),
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          )
+                        : Text(
+                            rows[i].$2,
+                            textAlign: TextAlign.right,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13.5,
+                              color: Color(0xFF0F1B3D),
+                            ),
+                          ),
                   ),
                 ],
               ),
@@ -743,28 +732,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// The company the person works for.
+  /// The company the person works for: the full GSTIN, and a website and Instagram that open when tapped.
   Widget _company() {
     final c = _map('company');
     final name = (c['name'] as String?)?.trim();
-    final companyName = (name != null && name.isNotEmpty) ? name : 'Kumbayah Foods Pvt Ltd';
-    final gstin = _formatGst(c['gstin'] as String?);
-    final website = _formatWebsite(c['website'] as String?);
-    final instagram = _formatInstagram(c['instagram'] as String?);
+    final companyName = (name != null && name.isNotEmpty) ? name : 'Kumbayah Foods Private Limited';
+    final gstin = ((c['gstin'] as String?) ?? '').trim().toUpperCase();
+
+    String withScheme(String raw) => raw.startsWith('http://') || raw.startsWith('https://') ? raw : 'https://$raw';
+    final webRaw = ((c['website'] as String?) ?? '').trim();
+    final instaRaw = ((c['instagram'] as String?) ?? '').trim();
+    final links = <String, String>{};
+    if (webRaw.isNotEmpty) links['Website'] = withScheme(webRaw);
+    String? handle;
+    if (instaRaw.isNotEmpty) {
+      handle = instaRaw.contains('instagram.com/')
+          ? instaRaw.split('instagram.com/').last.split('?').first.replaceAll('/', '').trim()
+          : instaRaw.replaceAll('@', '').replaceAll('/', '').trim();
+      links['Instagram'] = instaRaw.contains('instagram.com/') ? withScheme(instaRaw) : 'https://www.instagram.com/$handle/';
+    }
 
     final rows = <(String, String)>[
       ('Company', companyName),
-      ('GSTIN', gstin),
-      ('Website', website),
-      ('Instagram', instagram),
+      if (gstin.isNotEmpty) ('GSTIN', gstin),
+      if (webRaw.isNotEmpty) ('Website', _formatWebsite(webRaw)),
+      if (handle != null && handle.isNotEmpty) ('Instagram', '@$handle'),
     ];
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: _infoCard(
-        title: 'Company Details',
-        rows: rows,
-      ),
+      child: _infoCard(title: 'Company Details', rows: rows, links: links),
     );
   }
 
