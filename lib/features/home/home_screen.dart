@@ -268,7 +268,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ? null
           : asText((_status?['current'] as Map?)?['vehicle_owner']) ?? await Services.storage.read('vehicle_owner');
       PunchInput? filled = const PunchInput();
-      if (needSelfie || needVehicle || needOdometer || asksEarly || (punchIn && _profile.beatAtCheckin)) {
+      if (needSelfie || needVehicle || needOdometer || asksEarly || (punchIn && _profile.feature('routes'))) {
         if (!mounted) return;
         filled = await Navigator.of(context).push<PunchInput>(MaterialPageRoute(
           builder: (_) => PunchFormScreen(
@@ -282,7 +282,8 @@ class _HomeScreenState extends State<HomeScreen> {
             askEarlyReason: _profile.earlyCheckoutReason,
             odometerIn: ((_status?['current'] as Map?)?['odometer_in'] as num?)?.toDouble(),
             odometerLast: (_status?['odometer_last'] as num?)?.toDouble(),
-            planBeat: punchIn && _profile.beatAtCheckin,
+            // The beat step is always there; it can be skipped only where choosing a beat is not required.
+            planBeat: punchIn && _profile.feature('routes'),
           ),
         ));
         if (filled == null) return; // backed out of the form: nothing is punched

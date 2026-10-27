@@ -330,14 +330,25 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                     ),
                   ],
                 );
+    // Skipping is for people who need not choose a beat at check-in (the setting is off for them).
+    final canSkip = Services.auth.profile?.beatAtCheckin != true;
     if (widget.embedded) {
       return Column(children: [
+        if (canSkip)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(onPressed: () => widget.onDone?.call('skip'), child: const Text('Skip')),
+          ),
         Expanded(child: body),
       ]);
     }
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.atCheckIn ? 'Choose today\'s $routeLabel' : 'Plan a $routeLabel Day'),
+        actions: [
+          if (widget.atCheckIn && canSkip)
+            TextButton(onPressed: () => Navigator.of(context).pop('skip'), child: const Text('Skip')),
+        ],
       ),
       body: body,
     );
