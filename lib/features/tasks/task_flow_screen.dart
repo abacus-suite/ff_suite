@@ -470,23 +470,16 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
           StepCard(
             title: 'Order quantity',
             note: 'Raised to the distributor mapped to this outlet.',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Once a quantity is filled, the small icon shows how the rate is worked out.
-                if (_q('order').values.any((v) => v > 0))
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: IconButton(
-                      tooltip: 'How the rate is worked out',
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.calculate_rounded, color: AppColors.primary),
-                      onPressed: _showPricing,
-                    ),
-                  ),
-                QtyGrid(products: _flavours, values: _q('order'), onChanged: _refresh),
-              ],
-            ),
+            // Once a quantity is filled, the small icon shows how the rate is worked out.
+            trailing: _q('order').values.any((v) => v > 0)
+                ? IconButton(
+                    tooltip: 'How the rate is worked out',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.calculate_rounded, color: AppColors.primary),
+                    onPressed: _showPricing,
+                  )
+                : null,
+            child: QtyGrid(products: _flavours, values: _q('order'), onChanged: _refresh),
           ),
           StepCard(
             title: 'Free quantity',

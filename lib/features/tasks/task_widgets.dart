@@ -33,13 +33,16 @@ IconData _iconFor(String title) {
 
 /// The card a step's content sits on: a tinted icon, the question, and a soft lift.
 class StepCard extends StatelessWidget {
-  const StepCard({super.key, required this.child, this.title, this.note, this.tint, this.icon});
+  const StepCard({super.key, required this.child, this.title, this.note, this.tint, this.icon, this.trailing});
 
   final Widget child;
   final String? title;
   final String? note;
   final Color? tint;
   final IconData? icon;
+
+  /// Shown at the right end of the title row (a small action for the card).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +83,7 @@ class StepCard extends StatelessWidget {
                           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.danger)),
                   ])),
                 ),
+                if (trailing != null) trailing!,
               ],
             ),
           if (note != null) ...[
