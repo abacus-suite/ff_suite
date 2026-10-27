@@ -294,7 +294,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     final added = [
       for (final visit in adhoc)
         if (_filter == 'all' ||
-            (_filter == 'visited' && visit['state'] != 'ongoing') ||
+            (_filter == 'visited' && visit['state'] != 'ongoing' && '${visit['visit_type']}' != 'offsite') ||
             ((_filter == 'pending' || _filter == 'planned') && visit['state'] == 'ongoing'))
           {...(visit['client'] as Map).cast<String, dynamic>(), '_visit': visit},
     ];
@@ -354,8 +354,11 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     final visit = row['_visit'] as Map;
     final state = visit['state'];
     final metres = metresTo(_here, row);
+    // A visit made away from the outlet (offsite) is not a visit to it: it is not shown as Visited.
+    final offsite = state != 'added' && state != 'ongoing' && '${visit['visit_type']}' == 'offsite';
     final details = [
       'Added visit',
+      if (offsite) 'Offsite',
       if (metres != null) fmtDistance(metres),
       if (state != 'added') '${fmtTime(visit['check_in_at'])}–${fmtTime(visit['check_out_at'])}',
     ].join(' · ');
@@ -368,7 +371,9 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
         title: Text('${row['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(details, maxLines: 2, overflow: TextOverflow.ellipsis),
         // Added and waiting, at the client now, or visited.
-        trailing: StatusBadge(switch (state) { 'added' => 'added', 'ongoing' => 'ongoing', _ => 'visited' }),
+        trailing: offsite
+            ? const StatusBadge('cancelled', label: 'Offsite')
+            : StatusBadge(switch (state) { 'added' => 'added', 'ongoing' => 'ongoing', _ => 'visited' }),
         onTap: () => _openClient(row['id'] as int),
       ),
     );
