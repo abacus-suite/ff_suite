@@ -58,7 +58,20 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
   bool get _isToday => fmtDate(_day) == fmtDate(DateTime.now());
 
-  List<Map<String, dynamic>> _list(String key) => ((_data?[key] as List?) ?? []).cast<Map<String, dynamic>>();
+  List<Map<String, dynamic>> _list(String key) {
+    final raw = _data?[key];
+    if (raw is! List) return [];
+    return [for (final e in raw) if (e is Map) e.cast<String, dynamic>()];
+  }
+
+  /// A part of the page that fails to draw (odd data from the server) must not turn the whole screen grey.
+  Widget _safe(Widget Function() part) {
+    try {
+      return part();
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
+  }
 
   IconData _icon(String kind) => switch (kind) {
         'order' || 'demand' => Icons.shopping_bag_rounded,
@@ -212,11 +225,15 @@ class _TimelineScreenState extends State<TimelineScreen> {
   }
 
   (List<LatLng>, List<(Map<String, dynamic>, LatLng)>) _geo() {
-    final points = _list('points').map((p) => LatLng((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble())).toList();
-    final visitPoints = _list('visits')
-        .where((v) => (v['lat'] as num? ?? 0) != 0)
-        .map((v) => (v, LatLng((v['lat'] as num).toDouble(), (v['lng'] as num).toDouble())))
-        .toList();
+    final points = [
+      for (final p in _list('points'))
+        if (p['lat'] is num && p['lng'] is num) LatLng((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble()),
+    ];
+    final visitPoints = [
+      for (final v in _list('visits'))
+        if (v['lat'] is num && v['lng'] is num && (v['lat'] as num) != 0)
+          (v, LatLng((v['lat'] as num).toDouble(), (v['lng'] as num).toDouble())),
+    ];
     return (points, visitPoints);
   }
 
@@ -249,7 +266,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
               height: MapPinWithLabel.size.height,
               alignment: Alignment.topCenter,
               child: MapPinWithLabel(
-                label: '${(visit['client'] as Map)['name']}',
+                label: '${(visit['client'] as Map?)?['name'] ?? ''}',
                 color: visit['inside_geofence'] == false ? AppColors.warning : AppColors.purple,
                 icon: Icons.storefront_rounded,
               ),
@@ -386,11 +403,11 @@ class _TimelineScreenState extends State<TimelineScreen> {
             if (_loading && _data == null) const Padding(padding: EdgeInsets.all(40), child: LoadingView()),
             if (_error != null && _data == null) Padding(padding: const EdgeInsets.all(16), child: Text(_error!)),
             if (_data != null) ...[
-              _hero(),
+              _safe(_hero),
               const SizedBox(height: 12),
-              _actions(),
+              _safe(_actions),
               const SizedBox(height: 12),
-              _mapCard(),
+              _safe(_mapCard),
               const SizedBox(height: 14),
               SegmentedButton<String>(
                 showSelectedIcon: false,
@@ -402,7 +419,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                 onSelectionChanged: (v) => setState(() => _tab = v.first),
               ),
               const SizedBox(height: 12),
-              if (_tab == 'activity') _activityTab() else _punchesTab(),
+              _safe(() => _tab == 'activity' ? _activityTab() : _punchesTab()),
             ],
           ],
         ),
