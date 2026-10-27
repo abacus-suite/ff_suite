@@ -85,6 +85,11 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     if (_picked.isEmpty) return;
     setState(() => _busy = true);
     await AddedVisits.add(_picked.values.toList());
+    // Saved in today's plan too, as planned stops: they then count in the day's summary and the Next Visit
+    // suggestion. Offline or on an older server the list kept on the phone still shows them.
+    try {
+      await Services.api.post('/api/v1/route-plan/add-visit', {'partner_ids': _picked.keys.toList()});
+    } catch (_) {}
     if (!mounted) return;
     showSnack(context, _picked.length == 1 ? 'Added to today\'s beat' : '${_picked.length} added to today\'s beat');
     Navigator.of(context).pop(true);
