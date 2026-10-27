@@ -332,10 +332,11 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                 );
     if (widget.embedded) {
       return Column(children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(onPressed: () => widget.onDone?.call('skip'), child: const Text('Skip')),
-        ),
+        if (Services.auth.profile?.checkinWithoutBeat == true)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(onPressed: () => widget.onDone?.call('skip'), child: const Text('Skip')),
+          ),
         Expanded(child: body),
       ]);
     }
@@ -343,7 +344,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
       appBar: AppBar(
         title: Text(widget.atCheckIn ? 'Choose today\'s $routeLabel' : 'Plan a $routeLabel Day'),
         actions: [
-          if (widget.atCheckIn)
+          if (widget.atCheckIn && Services.auth.profile?.checkinWithoutBeat == true)
             TextButton(onPressed: () => Navigator.of(context).pop('skip'), child: const Text('Skip')),
         ],
       ),
