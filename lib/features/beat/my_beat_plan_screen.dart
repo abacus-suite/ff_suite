@@ -645,24 +645,56 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
                       Builder(builder: (_) {
                         final id = b['id'] as int;
                         final pending = '${b['approval_state']}' == 'pending';
-                        return CheckboxListTile(
-                          dense: true,
-                          value: _ticked.contains(id),
-                          onChanged: pending ? null : (v) => _toggle(id, v == true),
-                          controlAffinity: ListTileControlAffinity.leading,
-                          title: Text('${b['name']}',
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: pending ? AppColors.muted : null)),
-                          secondary: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: (pending ? AppColors.warning : AppColors.success).withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(pending ? 'Pending' : 'Approved',
-                                style: TextStyle(
-                                    fontSize: 10.5, fontWeight: FontWeight.w800, color: pending ? AppColors.warning : AppColors.success)),
+                        final open = _expanded.contains(id);
+                        return Column(children: [
+                          CheckboxListTile(
+                            dense: true,
+                            value: _ticked.contains(id),
+                            onChanged: pending ? null : (v) => _toggle(id, v == true),
+                            controlAffinity: ListTileControlAffinity.leading,
+                            title: Text('${b['name']}',
+                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: pending ? AppColors.muted : null)),
+                            secondary: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: (pending ? AppColors.warning : AppColors.success).withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(pending ? 'Pending' : 'Approved',
+                                    style: TextStyle(
+                                        fontSize: 10.5, fontWeight: FontWeight.w800, color: pending ? AppColors.warning : AppColors.success)),
+                              ),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(16),
+                                onTap: () => _toggleOutlets(id),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Icon(open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                      size: 22, color: AppColors.muted),
+                                ),
+                              ),
+                            ]),
                           ),
-                        );
+                          if (open) ...[
+                            if (_loading.contains(id)) const LinearProgressIndicator(minHeight: 2),
+                            for (final c in _outlets[id] ?? const <Map<String, dynamic>>[])
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(52, 3, 12, 3),
+                                child: Row(children: [
+                                  const Icon(Icons.storefront_rounded, size: 14, color: AppColors.muted),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: Text('${c['name']}', style: const TextStyle(fontSize: 12.5))),
+                                ]),
+                              ),
+                            if (!_loading.contains(id) && (_outlets[id] ?? const []).isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.fromLTRB(52, 3, 12, 6),
+                                child: Text('No outlets in this beat yet.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                              ),
+                            const SizedBox(height: 6),
+                          ],
+                        ]);
                       }),
                   ]),
                 ),
