@@ -7,7 +7,6 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'expense_form_screen.dart';
-import 'new_expense_screen.dart';
 import 'payment_request_screens.dart';
 import '../allowance/allowance_screen.dart';
 
@@ -67,8 +66,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     _load();
   }
 
-  Future<void> _new() async {
-    final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const NewExpenseScreen(openList: false)));
+  /// A new claim, straight to its form: the other kinds have their own rows on this page.
+  Future<void> _new([String kind = 'claim']) async {
+    final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => ExpenseFormScreen(kind: kind)));
     if (saved == true) _load();
   }
 
@@ -283,6 +283,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DailyAllowanceScreen()))),
             _allowanceCard(Icons.timer_rounded, 'OLA', 'Monthly allowance by the hours worked', AppColors.warning,
                 () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OlaScreen()))),
+            _allowanceCard(Icons.account_balance_wallet_rounded, 'Expense Claiming',
+                'I paid from my own money · claim it', AppColors.warning, () => _new('claim')),
+            if (Services.auth.profile?.expenseCard ?? false)
+              _allowanceCard(Icons.credit_card_rounded, 'Expense Submission', 'Paid with a company card · record it',
+                  AppColors.primary, () => _new('card')),
             _allowanceCard(Icons.request_quote_rounded, 'Payment requests', 'Paid directly by accounts · tax invoices',
                 const Color(0xFF7C3AED),
                 () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaymentRequestsScreen()))),
