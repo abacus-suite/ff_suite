@@ -362,19 +362,56 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       if (metres != null) fmtDistance(metres),
       if (state != 'added') '${fmtTime(visit['check_in_at'])}–${fmtTime(visit['check_out_at'])}',
     ].join(' · ');
+    return _tileRow(
+      color: AppColors.purple,
+      number: '$number',
+      name: '${row['name']}',
+      details: details,
+      // Added and waiting, at the client now, or visited.
+      badge: offsite
+          ? const StatusBadge('cancelled', label: 'Offsite')
+          : StatusBadge(switch (state) { 'added' => 'added', 'ongoing' => 'ongoing', _ => 'visited' }),
+      onTap: () => _openClient(row['id'] as int),
+    );
+  }
+
+  /// One customer row. The name takes the room that is left, and the status badge and the menu sit in
+  /// columns of their own, so they line up from one row to the next.
+  Widget _tileRow({
+    required Color color,
+    required String number,
+    required String name,
+    required String details,
+    required Widget badge,
+    required VoidCallback onTap,
+    Widget? menu,
+  }) {
     return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: AppColors.purple.withValues(alpha: 0.14),
-          child: Text('$number', style: const TextStyle(color: AppColors.purple, fontWeight: FontWeight.w800)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            CircleAvatar(
+              backgroundColor: color.withValues(alpha: 0.14),
+              child: Text(number, style: TextStyle(color: color, fontWeight: FontWeight.w800)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text(name, maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                const SizedBox(height: 3),
+                Text(details, maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+              ]),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(width: 84, child: Center(child: badge)),
+            SizedBox(width: 36, child: menu),
+          ]),
         ),
-        title: Text('${row['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(details, maxLines: 2, overflow: TextOverflow.ellipsis),
-        // Added and waiting, at the client now, or visited.
-        trailing: offsite
-            ? const StatusBadge('cancelled', label: 'Offsite')
-            : StatusBadge(switch (state) { 'added' => 'added', 'ongoing' => 'ongoing', _ => 'visited' }),
-        onTap: () => _openClient(row['id'] as int),
       ),
     );
   }
@@ -455,30 +492,27 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       else if (client['distance_m'] != null)
         fmtDistance(client['distance_m'] as num?),
     ].whereType<String>().where((s) => s.isNotEmpty).join(' · ');
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.14),
-          child: Text('${number ?? client['sequence']}', style: TextStyle(color: color, fontWeight: FontWeight.w800)),
-        ),
-        title: Text('${client['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(details.isEmpty ? lastVisitLabel(client) : details, maxLines: 2, overflow: TextOverflow.ellipsis),
-        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          StatusBadge(status),
-          // A planned visit that has not started can be cancelled; a cancelled one planned again.
-          if (_isToday && (status == 'planned' || status == 'cancelled'))
-            PopupMenuButton<String>(
+    return _tileRow(
+      color: color,
+      number: '${number ?? client['sequence']}',
+      name: '${client['name']}',
+      details: details.isEmpty ? lastVisitLabel(client) : details,
+      badge: StatusBadge(status),
+      // A planned visit that has not started can be cancelled; a cancelled one planned again.
+      menu: (_isToday && (status == 'planned' || status == 'cancelled'))
+          ? PopupMenuButton<String>(
               tooltip: 'More',
-              icon: const Icon(Icons.more_vert_rounded, size: 20),
+              padding: EdgeInsets.zero,
+              iconSize: 20,
+              icon: const Icon(Icons.more_vert_rounded),
               onSelected: (v) => _cancelVisit(client, undo: v == 'undo'),
               itemBuilder: (_) => [
                 if (status == 'planned') const PopupMenuItem(value: 'cancel', child: Text('Cancel this visit')),
                 if (status == 'cancelled') const PopupMenuItem(value: 'undo', child: Text('Plan it again')),
               ],
-            ),
-        ]),
-        onTap: () => _openClient(client['id'] as int),
-      ),
+            )
+          : null,
+      onTap: () => _openClient(client['id'] as int),
     );
   }
 }
