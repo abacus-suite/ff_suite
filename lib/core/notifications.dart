@@ -197,4 +197,9 @@ class NotificationsService {
       // the next refresh will put the count right
     }
   }
+
+  /// Remove notices that were seen: the ids given, or every read one.
+  Future<void> remove({List<int>? ids}) async {
+    await Services.api.post('/api/v1/notifications/delete', {if (ids != null) 'ids': ids});
+  }
 }

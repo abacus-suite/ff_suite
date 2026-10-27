@@ -106,6 +106,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     // The newest 500 are plenty: older ones have long left the server's list.
     final keep = _removed.toList()..sort();
     await Services.storage.write(_removedKey, jsonEncode(keep.length > 500 ? keep.sublist(keep.length - 500) : keep));
+    // Removed on the server too, where it can: it is then gone from every phone. Hidden here either way.
+    try {
+      await Services.notifications.remove(ids: [id]);
+    } catch (_) {
+      // An older server has no call for it: the notice stays hidden on this phone.
+    }
     if (mounted) showSnack(context, 'Notification removed.');
   }
 
