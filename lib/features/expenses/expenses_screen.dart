@@ -214,10 +214,6 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('My Expense')),
-      floatingActionButton: _picked.isEmpty
-          ? FloatingActionButton.extended(
-              onPressed: _new, icon: const Icon(Icons.add_rounded), label: const Text('New expense'))
-          : null,
       bottomNavigationBar: _picked.isEmpty
           ? null
           : SafeArea(
