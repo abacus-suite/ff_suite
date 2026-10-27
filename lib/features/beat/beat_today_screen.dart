@@ -10,7 +10,6 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'add_visit_screen.dart';
 import 'added_visits.dart';
-import 'plan_day_screen.dart';
 import '../clients/client_detail_screen.dart';
 import '../clients/clients_screen.dart';
 
@@ -30,7 +29,8 @@ class BeatTodayScreen extends StatefulWidget {
 }
 
 class _BeatTodayScreenState extends State<BeatTodayScreen> {
-  DateTime _day = DateTime.now();
+  // Only today's plan is shown: no other day can be opened from here.
+  final DateTime _day = DateTime.now();
   late String _filter = widget.filter;
   Map<String, dynamic>? _data;
   bool _loading = true;
@@ -91,22 +91,52 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     }
   }
 
-  void _shift(int days) {
-    setState(() => _day = _day.add(Duration(days: days)));
-    _load();
-  }
-
-  Future<void> _pickDay() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _day,
-      firstDate: now.subtract(const Duration(days: 60)),
-      lastDate: now.add(const Duration(days: 60)),
-    );
-    if (picked != null) {
-      setState(() => _day = picked);
-      _load();
+  /// Cancel a planned visit of today, with the reason; a cancelled one can be planned again.
+  Future<void> _cancelVisit(Map<String, dynamic> client, {bool undo = false}) async {
+    String? reason;
+    if (!undo) {
+      final text = TextEditingController();
+      reason = await showDialog<String>(
+        context: context,
+        builder: (dialog) => StatefulBuilder(
+          builder: (context, set) => AlertDialog(
+            title: const Text('Cancel this visit'),
+            content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${client['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 10),
+              TextField(
+                controller: text,
+                autofocus: true,
+                minLines: 2,
+                maxLines: 4,
+                onChanged: (_) => set(() {}),
+                decoration: const InputDecoration(labelText: 'Reason *', border: OutlineInputBorder()),
+              ),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('Back')),
+              FilledButton(
+                onPressed: text.text.trim().isEmpty ? null : () => Navigator.pop(dialog, text.text.trim()),
+                child: const Text('Cancel visit'),
+              ),
+            ],
+          ),
+        ),
+      );
+      text.dispose();
+      if (reason == null) return;
+    }
+    try {
+      await Services.api.post('/api/v1/route-plan/customers/cancel', {
+        'partner_id': client['id'],
+        'date': fmtDate(_day),
+        if (undo) 'undo': true else 'reason': reason,
+      });
+      if (!mounted) return;
+      showSnack(context, undo ? 'Planned again' : 'Visit cancelled');
+      await _load();
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
     }
   }
 
@@ -176,15 +206,6 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
               ),
             ),
           ),
-          IconButton(
-            tooltip: 'Plan a day',
-            onPressed: () async {
-              final saved = await Navigator.of(context)
-                  .push<bool>(MaterialPageRoute(builder: (_) => const PlanDayScreen()));
-              if (saved == true) _load();
-            },
-            icon: const Icon(Icons.edit_calendar_rounded),
-          ),
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ],
       ),
@@ -198,40 +219,11 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
           children: [
-            _dateBar(),
             if (_loading) const LinearProgressIndicator(),
             if (_error != null && _data == null) ErrorView(message: _error!, onRetry: _load),
             if (_data != null) ..._content(_data!, label),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _dateBar() {
-    final isToday = fmtDate(_day) == fmtDate(DateTime.now());
-    return Card(
-      child: Row(
-        children: [
-          IconButton(onPressed: () => _shift(-1), icon: const Icon(Icons.chevron_left_rounded)),
-          Expanded(
-            child: InkWell(
-              onTap: _pickDay,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  children: [
-                    Text(isToday ? 'Today' : _weekdayNames[_day.weekday - 1],
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                    Text('${_day.day} ${monthNames[_day.month - 1]} ${_day.year}',
-                        style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          IconButton(onPressed: () => _shift(1), icon: const Icon(Icons.chevron_right_rounded)),
-        ],
       ),
     );
   }
@@ -466,7 +458,20 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
         ),
         title: Text('${client['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(details.isEmpty ? lastVisitLabel(client) : details, maxLines: 2, overflow: TextOverflow.ellipsis),
-        trailing: StatusBadge(status),
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          StatusBadge(status),
+          // A planned visit that has not started can be cancelled; a cancelled one planned again.
+          if (_isToday && (status == 'planned' || status == 'cancelled'))
+            PopupMenuButton<String>(
+              tooltip: 'More',
+              icon: const Icon(Icons.more_vert_rounded, size: 20),
+              onSelected: (v) => _cancelVisit(client, undo: v == 'undo'),
+              itemBuilder: (_) => [
+                if (status == 'planned') const PopupMenuItem(value: 'cancel', child: Text('Cancel this visit')),
+                if (status == 'cancelled') const PopupMenuItem(value: 'undo', child: Text('Plan it again')),
+              ],
+            ),
+        ]),
         onTap: () => _openClient(client['id'] as int),
       ),
     );
