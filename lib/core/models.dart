@@ -50,7 +50,6 @@ class Profile {
     this.scope = 'own',
     this.routeLabel = 'Beat',
     this.beatAtCheckin = false,
-    this.checkinWithoutBeat = false,
     this.routes = const [],
     this.features = const {},
     this.labels = const {},
@@ -136,9 +135,6 @@ class Profile {
 
   /// Asked which beat they are working when they check in with nothing planned.
   final bool beatAtCheckin;
-
-  /// May check in without choosing a beat (the Skip button at check-in); otherwise a beat is required.
-  final bool checkinWithoutBeat;
   final List<IdName> routes;
   final Map<String, bool> features;
   final Map<String, String> labels;
@@ -202,7 +198,6 @@ class Profile {
       // Everything is a Beat in this app: no Patch, Route or other type names.
       routeLabel: 'Beat',
       beatAtCheckin: employee['beat_at_checkin'] == true,
-      checkinWithoutBeat: employee['checkin_without_beat'] == true,
       routes: ((employee['routes'] as List?) ?? []).map(IdName.from).whereType<IdName>().toList(),
       features: ((app?['features'] as Map?) ?? {}).map((k, v) => MapEntry('$k', v == true)),
       labels: ((app?['labels'] as Map?) ?? {}).map((k, v) => MapEntry('$k', '${v ?? ''}')),
