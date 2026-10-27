@@ -21,6 +21,7 @@ import '../visits/visit_gate.dart';
 import '../tasks/task_start.dart';
 import '../visits/stock_count_screen.dart';
 import '../receivables/receivables_screen.dart';
+import '../beat/added_visits.dart';
 import 'client_extras.dart';
 import 'outlet_details_screen.dart';
 import 'visit_checkout_screen.dart';
@@ -287,8 +288,12 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         ];
       }
       if (!mounted) return;
+      final client = results[0] as Map<String, dynamic>;
+      // A visit added with "Add a Visit" is on today's plan: it starts exactly as a planned visit does.
+      if ((await AddedVisits.today()).any((a) => a['id'] == widget.clientId)) client['planned_today'] = true;
+      if (!mounted) return;
       setState(() {
-        _client = results[0] as Map<String, dynamic>;
+        _client = client;
         _current = current;
         _forms = forms;
         _steps = steps;
