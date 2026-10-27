@@ -97,6 +97,12 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
 
   Future<bool> _decide(String kind, int id, bool approve,
       {Map<String, dynamic> extra = const {}, String? path, Map<String, dynamic>? payload}) async {
+    // Turning a request down always says why; the reason is kept for the Approval Report.
+    String? why;
+    if (!approve && '${extra['reason'] ?? ''}'.trim().isEmpty) {
+      why = await _askRejectReason();
+      if (why == null) return false;
+    }
     final key = '$kind-$id';
     setState(() => _busy.add(key));
     try {
@@ -106,7 +112,11 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             'return' => '/api/v1/returns/$id/$decision',
             _ => '/api/v1/approvals/$kind/$id/$decision',
           };
-      await Services.outbox.submit(target, payload ?? {'uuid': const Uuid().v4(), ...extra});
+      final data = <String, dynamic>{
+        ...(payload ?? {'uuid': const Uuid().v4(), ...extra}),
+        if (why != null) ...{'reason': why, 'note': why},
+      };
+      await Services.outbox.submit(target, data);
       if (mounted) showSnack(context, approve ? 'Approved' : 'Rejected');
       settleAndRefresh();
       await _load();
@@ -117,6 +127,37 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     } finally {
       if (mounted) setState(() => _busy.remove(key));
     }
+  }
+
+  /// The reason for turning a request down; null when the manager backs out.
+  Future<String?> _askRejectReason() async {
+    final reason = TextEditingController();
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => StatefulBuilder(
+        builder: (context, set) => AlertDialog(
+          title: const Text('Reject request'),
+          content: TextField(
+            controller: reason,
+            autofocus: true,
+            minLines: 2,
+            maxLines: 4,
+            onChanged: (_) => set(() {}),
+            decoration: const InputDecoration(labelText: 'Reason for rejecting *', border: OutlineInputBorder()),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: reason.text.trim().isEmpty ? null : () => Navigator.pop(dialog, true),
+              child: const Text('Reject'),
+            ),
+          ],
+        ),
+      ),
+    );
+    final why = reason.text.trim();
+    reason.dispose();
+    return go == true && why.isNotEmpty ? why : null;
   }
 
   /// An expense is approved for what was claimed or for less, and a reason is needed
