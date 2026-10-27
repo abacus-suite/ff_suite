@@ -410,6 +410,14 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
   final Set<int> _removed = {};
   bool _removing = false;
 
+  /// Beats whose outlets are shown open under their card.
+  final Set<int> _expanded = {};
+
+  void _toggleOutlets(int id) {
+    setState(() => _expanded.contains(id) ? _expanded.remove(id) : _expanded.add(id));
+    if (_expanded.contains(id)) _fetch(id);
+  }
+
   Map<String, dynamic> _entry(int id) => widget.entries
       .firstWhere((e) => (e['beat'] as Map?)?['id'] == id, orElse: () => <String, dynamic>{});
 
@@ -480,9 +488,13 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
     final pending = '${beat['approval_state']}' == 'pending';
     final count = (beat['customer_count'] as num?)?.toInt() ?? _outlets[id]?.length;
     final colour = pending ? AppColors.warning : AppColors.success;
+    final open = _expanded.contains(id);
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _toggleOutlets(id),
+        child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 6, 6),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
@@ -503,6 +515,9 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
               child: Text(pending ? 'Pending' : 'Approved',
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: colour)),
             ),
+            Icon(open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                size: 20, color: AppColors.muted),
+            const SizedBox(width: 6),
           ]),
           Row(children: [
             Expanded(
@@ -527,7 +542,29 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
                 ]),
               ),
           ]),
+          if (open) ...[
+            if (_loading.contains(id)) const LinearProgressIndicator(minHeight: 2),
+            for (final c in _outlets[id] ?? const <Map<String, dynamic>>[])
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
+                child: Row(children: [
+                  const Icon(Icons.storefront_rounded, size: 15, color: AppColors.muted),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('${c['name']}',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  ),
+                ]),
+              ),
+            if (!_loading.contains(id) && (_outlets[id] ?? const []).isEmpty)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(4, 4, 8, 8),
+                child: Text('No outlets in this beat yet.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+              ),
+            const SizedBox(height: 6),
+          ],
         ]),
+      ),
       ),
     );
   }
