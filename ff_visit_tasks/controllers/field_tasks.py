@@ -6,7 +6,7 @@ to-do list a manager hands out, which is a different thing entirely.
 from odoo import http
 from odoo.http import request
 
-from odoo.addons.ff_mobile_api.controllers.clients import client_domain, to_int, visible_client
+from odoo.addons.ff_mobile_api.controllers.clients import _location_domain, client_domain, to_int, visible_client
 from odoo.addons.ff_mobile_api.controllers.common import (
     ApiError, api_route, body, ok, ref, require_punched_in, scope_members)
 from odoo.addons.ff_mobile_api.controllers.field_data import client_data
@@ -110,25 +110,30 @@ class FieldForceFieldTasksApi(http.Controller):
                    for row in rows])
 
     @api_route('/api/v1/field-tasks/leads', methods=('GET',))
-    def leads(self, employee, q=None, **kw):
+    def leads(self, employee, q=None, territory_id=None, beat_id=None, **kw):
         """Every lead the person may follow up, in two lists.
 
         Planned: leads with a follow-up date set (overdue, today or coming), nearest date first.
-        Unplanned: every other lead, A to Z.
+        Unplanned: every other lead, A to Z. Both can be narrowed by territory, area and beat, as the clients are.
         """
+        Partner = request.env['res.partner'].sudo()
+        location = _location_domain(Partner, territory_id, beat_id, kw)
         planned_rows = request.env['ff.task.log'].ff_leads_due(employee)
+        if location and planned_rows:
+            allowed = set(Partner.search(location + [('id', 'in', [r['partner'].id for r in planned_rows])]).ids)
+            planned_rows = [r for r in planned_rows if r['partner'].id in allowed]
         needle = (q or '').strip().lower()
         planned = [dict(client_data(row['partner']), follow_up=row['date'].isoformat(),
                         follow_up_status=row['status'], follow_up_days=row['days'])
                    for row in planned_rows
                    if not needle or needle in (row['partner'].name or '').lower()]
         planned_ids = {row['partner'].id for row in planned_rows}
-        domain = client_domain(employee) + [('ff_category_type', '=', 'lead')]
+        domain = client_domain(employee) + [('ff_category_type', '=', 'lead')] + location
         if planned_ids:
             domain.append(('id', 'not in', list(planned_ids)))
         if needle:
             domain.append(('name', 'ilike', needle))
-        others = request.env['res.partner'].sudo().search(domain, order='name', limit=500)
+        others = Partner.search(domain, order='name', limit=500)
         return ok({'planned': planned, 'unplanned': [client_data(p) for p in others]})
 
     @api_route('/api/v1/field-tasks/submit', methods=('POST',))
