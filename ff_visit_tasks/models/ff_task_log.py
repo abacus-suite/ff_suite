@@ -402,7 +402,7 @@ class FfTaskLog(models.Model):
     def _ff_create_lead(self, employee, data):
         contact = data.get('contact') or {}
         name = (contact.get('name') or '').strip()
-        self._ff_require(name, 'Give the outlet a name.')
+        self._ff_require(name, 'Give the lead a name.')
         Partner = self.env['res.partner']
         category = self.env.ref('ff_clients.contact_category_lead')
         district = self.env['ff.district'].sudo().browse(int(contact.get('district_id') or 0)).exists()
@@ -451,9 +451,9 @@ class FfTaskLog(models.Model):
     def _ff_task_new_lead(self, log, employee, partner, visit, data):
         contact = data.get('contact') or {}
         category = contact.get('category')
-        self._ff_require(category in dict(self._ff_outlet_categories()), 'Choose the outlet category.')
+        self._ff_require(category in dict(self._ff_outlet_categories()), 'Choose the lead category.')
         note = (contact.get('category_note') or '').strip()
-        self._ff_require(category not in self._ff_note_categories() or note, 'Describe the outlet category.')
+        self._ff_require(category not in self._ff_note_categories() or note, 'Describe the lead category.')
         self._ff_require(contact.get('beat_id'), 'Choose the beat.')
         self._ff_require(contact.get('territory_id') or contact.get('district_id'), 'Choose the territory.')
         lead = self._ff_create_lead(employee, data)
