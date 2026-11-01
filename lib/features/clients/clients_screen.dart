@@ -31,7 +31,11 @@ class ClientsScreen extends StatefulWidget {
     this.categoryType,
     this.title,
     this.onPick,
+    this.excludeLeads = false,
   });
+
+  /// Outlets and distributors only: a PO or a payment is never for a lead.
+  final bool excludeLeads;
 
   final bool pickMode;
   final bool embedded;
@@ -142,6 +146,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
       if (catType != null) {
         query['category_type'] = catType;
       }
+      if (widget.excludeLeads) query['exclude_leads'] = 1;
       final data = await Services.api.get('/api/v1/clients/map', query: query) as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {
@@ -195,6 +200,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     if (catType != null) {
       query['category_type'] = catType;
     }
+    if (widget.excludeLeads) query['exclude_leads'] = 1;
     if (_nearby) {
       // Never leave the list spinning on a slow GPS fix: fall back to the last known place.
       final pos = await currentPosition(recentOk: true)
@@ -566,7 +572,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
           'all': 'All Outlets',
           'never': 'Never Visited',
         }
-      : _kindLabels;
+      : (widget.excludeLeads ? {for (final e in _kindLabels.entries) if (e.key != 'lead') e.key: e.value} : _kindLabels);
 
   /// Which choice of [_activeKindLabels] is on now.
   String get _kindNow {
@@ -1098,8 +1104,10 @@ class _ClientsScreenState extends State<ClientsScreen> {
                   () => _applyKind('outlet'), selected: _kindNow == 'outlet'),
               _countBox(Icons.local_shipping_rounded, '${ofType('distributor')}', 'Distributor', AppColors.purple,
                   () => _applyKind('distributor'), selected: _kindNow == 'distributor'),
-              _countBox(Icons.person_add_alt_1_rounded, '${ofType('lead')}', 'Lead', AppColors.warning,
-                  () => _applyKind('lead'), selected: _kindNow == 'lead'),
+              // No Lead box when picking for a PO or a payment: a lead is never offered there.
+              if (!widget.excludeLeads)
+                _countBox(Icons.person_add_alt_1_rounded, '${ofType('lead')}', 'Lead', AppColors.warning,
+                    () => _applyKind('lead'), selected: _kindNow == 'lead'),
               _countBox(Icons.visibility_off_rounded, '$never', 'Never Visited', AppColors.danger,
                   () => _applyKind('never'), selected: _kindNow == 'never'),
             ],

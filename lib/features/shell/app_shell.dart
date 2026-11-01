@@ -175,7 +175,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     switch (choice) {
       case 'order' || 'payment':
         final client = await navigator.push<Map<String, dynamic>>(
-            MaterialPageRoute(builder: (_) => const ClientsScreen(pickMode: true)));
+            MaterialPageRoute(builder: (_) => const ClientsScreen(pickMode: true, excludeLeads: true)));
         if (client == null || !context.mounted) break;
         // Was this person already at the customer? Then the visit is theirs to close, not ours.
         Map<String, dynamic>? already;
