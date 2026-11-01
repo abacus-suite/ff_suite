@@ -191,6 +191,8 @@ class FfBeatPlanApp(models.Model):
             raise UserError(self.env._('%s is not one of your routes.', route.display_name))
         if date < employee._ff_today():
             raise UserError(self.env._('A past day cannot be planned.'))
+        if route.ff_approval_state != 'approved':
+            raise UserError(self.env._('%s is waiting for approval; it can be planned once it is approved.', route.display_name))
 
         kept = set(int(pid) for pid in (data.get('partner_ids') or []))
         route_partners = route.line_ids.sorted('sequence')
