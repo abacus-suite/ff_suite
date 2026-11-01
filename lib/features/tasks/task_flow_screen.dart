@@ -1299,11 +1299,12 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
 
     return Column(
       children: [
-        // Always on top, so the source can be changed after choosing it.
-        StepCard(
-          title: 'Collected from *',
-          child: Choice(options: options, value: source, onChanged: (v) => setState(() => _a['source'] = v)),
-        ),
+        // Asked once, when the task starts (company, distributor or outlet, and which one): not asked again here.
+        if (widget.client == null && widget.preset?['source'] == null)
+          StepCard(
+            title: 'Collected from *',
+            child: Choice(options: options, value: source, onChanged: (v) => setState(() => _a['source'] = v)),
+          ),
         if (sourceCard != null) sourceCard,
         if (source == 'company')
           const StepCard(
