@@ -82,6 +82,8 @@ class HrAttendance(models.Model):
         if not shift or not self.employee_id:
             return 0
         local = self.employee_id._ff_to_local(when)
+        if self.check_in and local.date() > self.employee_id._ff_to_local(self.check_in).date():
+            return 0  # a day that ran past midnight (an event closed in the small hours) is not an early check-out
         hours, minutes = divmod(min(int(round(shift.end_time * 60)), 24 * 60 - 1), 60)
         end = local.replace(hour=hours, minute=minutes, second=0, microsecond=0)
         return max(0, int((end - local).total_seconds() // 60))
@@ -165,6 +167,8 @@ class HrAttendance(models.Model):
                 local_in = employee._ff_to_local(attendance.check_in)
                 if local_in.date() >= employee._ff_today():
                     continue  # still today's punch; leave it running
+                if employee._ff_keeps_punch_open():
+                    continue  # an event day is still being worked: the person checks out when it is closed
                 if self._close_attendance_record(attendance, reason='midnight'):
                     closed += 1
             except Exception as e:

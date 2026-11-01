@@ -135,6 +135,21 @@ class FfEventPriceLine(models.Model):
                 line.mrp = (template.ff_mrp if 'ff_mrp' in template._fields else 0.0) or template.list_price
 
 
+class FfEventInvoice(models.Model):
+    """The invoice raised to a distributor that got back more of a flavour than it supplied to the event."""
+    _name = 'ff.event.invoice'
+    _description = 'Event Invoice to a Distributor'
+
+    event_id = fields.Many2one('ff.event', required=True, ondelete='cascade', index=True)
+    distributor_id = fields.Many2one('res.partner', required=True)
+    move_ref = fields.Integer(string='Invoice (id)', help='The draft customer invoice made in Accounting.')
+    move_name = fields.Char(string='Invoice')
+    quantity = fields.Float()
+    amount = fields.Float(digits=(12, 2))
+
+    _uniq = models.Constraint('UNIQUE(event_id, distributor_id)', 'An invoice was already raised.')
+
+
 class FfEventDebit(models.Model):
     """The debit note asked of a distributor for the stock an event took from them."""
     _name = 'ff.event.debit'

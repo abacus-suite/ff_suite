@@ -1,5 +1,7 @@
 import calendar
-from datetime import date
+from datetime import date, datetime, timedelta
+
+import pytz
 
 from odoo import fields, models
 from odoo.exceptions import UserError
@@ -36,13 +38,34 @@ class HrEmployee(models.Model):
                     attendances.write({'ff_shift_id': shift_id})
         return res
 
+    def _ff_keeps_punch_open(self):
+        """An event day is being worked, or was closed only now in the small hours: the open punch is left alone.
+
+        While the day of a running event is not closed the person cannot check out, and neither can the day be closed
+        for them at midnight. Once they close it they check out themselves (even after midnight), and check in again
+        the same morning: that morning's attendance starts at the new check-in.
+        """
+        self.ensure_one()
+        if 'ff.event' not in self.env:
+            return False
+        mine = ['|', ('employee_id', '=', self.id), ('staff_ids', 'in', self.ids)]
+        if self.env['ff.event'].sudo().search_count([('state', '=', 'running')] + mine):
+            return True
+        now = datetime.now(pytz.utc).astimezone(self._ff_tz())
+        if now.hour < 6:
+            yesterday = now.date() - timedelta(days=1)
+            return bool(self.env['ff.event.day'].sudo().search_count([
+                ('date', '=', yesterday), '|', ('event_id.employee_id', '=', self.id),
+                ('event_id.staff_ids', 'in', self.ids)]))
+        return False
+
     def _ff_open_attendance(self):
         self.ensure_one()
         open_att = self.env['hr.attendance'].sudo().search(
             [('employee_id', '=', self.id), ('check_out', '=', False)], order='check_in desc', limit=1)
         if open_att and open_att.check_in:
             local_in = self._ff_to_local(open_att.check_in)
-            if local_in.date() < self._ff_today():
+            if local_in.date() < self._ff_today() and not self._ff_keeps_punch_open():
                 # Past-day punch left open: auto-close it now so today starts clean
                 self.env['hr.attendance']._close_attendance_record(open_att, reason='midnight')
                 return self.env['hr.attendance'].browse()
@@ -175,8 +198,9 @@ class HrEmployee(models.Model):
         elif action == 'out':
             if not attendance:
                 raise UserError(self.env._('You are not punched in.'))
-            if not data.get('auto') and 'ff.event' in self.env:
-                # An event that is running (its day not ended) keeps the person checked in.
+            if 'ff.event' in self.env:
+                # An event that is running (its day not ended) keeps the person checked in - for an automatic
+                # check-out too.
                 running = self.env['ff.event'].sudo().search([
                     ('state', '=', 'running'), '|', ('employee_id', '=', employee.id),
                     ('staff_ids', 'in', employee.ids)], limit=1)

@@ -502,15 +502,17 @@ class FieldForceEventsApi(http.Controller):
         samples = {int(k): _num(v) for k, v in (data.get('samples') or {}).items()}
         damage = {int(k): _num(v) for k, v in (data.get('damage') or {}).items()}
         returns = [r for r in (data.get('returns') or []) if _num(r.get('qty')) > 0]
-        action = 'return' if (final or data.get('action') == 'return') else 'stays'
-        if action == 'stays':
-            returns = []
+        # Stock can go back to its distributors and some of it can stay at the event, on the same day. The last day,
+        # and an older app asking to return, send everything that is left back.
+        everything_goes_back = final or data.get('action') == 'return'
+        known = set(event.stock_ids.mapped('distributor_id').ids)
+        for r in returns:
+            if int(r['distributor_id']) not in known:
+                raise ApiError('Stock can only go back to a distributor this event took stock from.', 400, 'invalid')
         sent_back = {}
         for r in returns:
             pid = int(r['product_id'])
             sent_back[pid] = sent_back.get(pid, 0.0) + _num(r['qty'])
-        if action == 'return' and not returns and any(o + a for o, a in opening.values()):
-            raise ApiError('Choose the distributor the stock goes back to.', 400, 'invalid')
         # What stays at the event is counted by staff (closing). Sales is what the app finds missing:
         # opening + added - samples - damage - returned - closing. When the stock goes back, closing is 0.
         counted = {int(k): _num(v) for k, v in (data.get('closing') or {}).items()}
@@ -518,7 +520,7 @@ class FieldForceEventsApi(http.Controller):
         lines = []
         for pid, (o, a) in opening.items():
             available = o + a
-            closing = 0.0 if action == 'return' else counted.get(pid, 0.0)
+            closing = 0.0 if everything_goes_back else counted.get(pid, 0.0)
             accounted = samples.get(pid, 0.0) + damage.get(pid, 0.0) + sent_back.get(pid, 0.0) + closing
             name = Template.browse(pid).name
             if accounted > available + EPS:
@@ -527,6 +529,8 @@ class FieldForceEventsApi(http.Controller):
             lines.append((0, 0, {
                 'product_id': pid, 'opening': o, 'added': a, 'samples': samples.get(pid, 0.0),
                 'damage': damage.get(pid, 0.0), 'returned': sent_back.get(pid, 0.0), 'closing': closing}))
+        # Some stock stays: the next day carries it. Nothing stays: the next day starts from the stock entered again.
+        action = 'stays' if any(line[2]['closing'] > EPS for line in lines) else 'return'
         coupons = data.get('coupons_used')
         cash = data.get('cash_received')
         if event.has_offer and coupons in (None, ''):

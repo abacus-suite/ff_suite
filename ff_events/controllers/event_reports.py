@@ -68,14 +68,28 @@ def _distributor_ledger(event):
         for line in day.line_ids:
             pid = line.product_id.id
             who = {d for (d, p) in list(start) + list(fresh) + list(returned) if p == pid}
-            pools, opening, added = {}, {}, {}
+            pools, opening, added, raw = {}, {}, {}, {}
             for d in who:
                 key = (d, pid)
                 if previous is None or stock_came_back:
                     opening[d], added[d] = fresh.get(key, 0.0), 0.0
                 else:
                     opening[d], added[d] = start.get(key, 0.0), fresh.get(key, 0.0)
-                pools[d] = max(opening[d] + added[d] - returned.get(key, 0.0), 0.0)
+                raw[d] = opening[d] + added[d] - returned.get(key, 0.0)
+            # A distributor can be sent back more than it supplied (stock of another distributor): its figure is then
+            # below zero. Those who supplied more than they got back cover that, in proportion to what they have, and
+            # the samples, damage and sales are shared over what each still holds.
+            shortfall = -sum(v for v in raw.values() if v < 0)
+            surplus = sum(v for v in raw.values() if v > 0)
+            moved = {}
+            for d in who:
+                if raw[d] > 0 and surplus > EPS:
+                    gave = shortfall * raw[d] / surplus
+                    pools[d] = raw[d] - gave
+                    moved[d] = gave
+                else:
+                    pools[d] = 0.0
+                    moved[d] = raw[d] if raw[d] < 0 else 0.0  # what it was given from others' stock, as a minus
             samples = _share(line.samples, pools)
             damage = _share(line.damage, pools)
             sold = _share(max(line.sold, 0.0), pools)
@@ -84,7 +98,8 @@ def _distributor_ledger(event):
                 closing = max(pools[d] - samples[d] - damage[d] - sold[d], 0.0)
                 closing_today[key] = closing
                 row = ledger.setdefault(d, {}).setdefault(pid, {
-                    'open': 0.0, 'add': 0.0, 'samples': 0.0, 'damage': 0.0, 'ret': 0.0, 'closing': 0.0, 'sold': 0.0})
+                    'open': 0.0, 'add': 0.0, 'samples': 0.0, 'damage': 0.0, 'ret': 0.0, 'closing': 0.0, 'sold': 0.0,
+                    'moved': 0.0})
                 if days[0] == day:
                     row['open'] += opening[d]
                     row['add'] += added[d]
@@ -94,6 +109,7 @@ def _distributor_ledger(event):
                     row['add'] += added[d]
                 row['samples'] += samples[d]
                 row['damage'] += damage[d]
+                row['moved'] += moved[d]
                 row['ret'] += returned.get(key, 0.0)
                 row['closing'] = closing
                 row['sold'] += sold[d]
@@ -138,12 +154,17 @@ def _distributor_rows(event):
             flavours.append({
                 'product': ref(f['template']), 'code': _code(f['template']),
                 'open': f['open'], 'add': f['add'], 'ret': f['ret'], 'net': f['net'],
+                'moved': work.get('moved', 0.0),
                 # What happened to the stock the event took from this distributor.
                 'samples': work.get('samples', 0.0), 'damage': work.get('damage', 0.0),
                 'closing': work.get('closing', 0.0), 'sold': sold,
                 'mrp': mrp, 'sales': round(sold * mrp, 2)})
         totals = {k: sum(x[k] for x in flavours) for k in
-                  ('open', 'add', 'ret', 'net', 'samples', 'damage', 'closing', 'sold', 'sales')}
+                  ('open', 'add', 'ret', 'net', 'samples', 'damage', 'closing', 'sold', 'sales', 'moved')}
+        # Positive net (it supplied more than it got back): a debit note. Negative (it got back more than it supplied):
+        # an invoice for those bottles.
+        totals['debit_qty'] = sum(max(x['net'], 0.0) for x in flavours)
+        totals['invoice_qty'] = sum(max(-x['net'], 0.0) for x in flavours)
         coupons = int(round(coupon_share.get(row['partner'].id, 0.0)))
         totals.update({
             'coupons': coupons, 'coupon_amount': coupons * value,
@@ -249,12 +270,69 @@ class FieldForceEventReportsApi(http.Controller):
         event = _mine(employee, event_id)
         debits = {d.distributor_id.id: d for d in request.env['ff.event.debit'].sudo().search([
             ('event_id', '=', event.id)])}
+        invoices = {i.distributor_id.id: i for i in request.env['ff.event.invoice'].sudo().search([
+            ('event_id', '=', event.id)])}
         rows = _distributor_rows(event)
         for row in rows:
             debit = debits.get(row['distributor']['id'])
             row['debit_requested'] = bool(debit)
             row['debit_note'] = debit.note_id.name if debit and debit.note_id else None
-        return ok({'event': _event_data(event), 'distributors': rows})
+            invoice = invoices.get(row['distributor']['id'])
+            row['invoice_needed'] = row['totals']['invoice_qty'] > EPS and not row['is_company']
+            row['invoice_requested'] = bool(invoice)
+            row['invoice_number'] = invoice.move_name if invoice else None
+        # The invoice summary: what was invoiced to which distributor, and what still has to be.
+        summary = [{
+            'distributor': row['distributor'], 'quantity': row['totals']['invoice_qty'],
+            'amount': invoices[row['distributor']['id']].amount if row['distributor']['id'] in invoices else None,
+            'number': row['invoice_number'], 'raised': row['invoice_requested'],
+        } for row in rows if row['totals']['invoice_qty'] > EPS and not row['is_company']]
+        return ok({'event': _event_data(event), 'distributors': rows, 'invoices': summary})
+
+    @api_route('/api/v1/events/<int:event_id>/invoice', methods=('POST',))
+    def invoice(self, employee, event_id, **kw):
+        """Raise the invoice for a distributor that got back more than it supplied (a draft for the office)."""
+        event = _mine(employee, event_id)
+        env = request.env
+        distributor_id = int(body().get('distributor_id') or 0)
+        rows = [r for r in _distributor_rows(event) if r['distributor']['id'] == distributor_id]
+        if not rows:
+            raise ApiError('That distributor is not part of this event.', 404, 'not_found')
+        row = rows[0]
+        if row['is_company']:
+            raise ApiError('An invoice is not raised to Kumbayah Foods.', 400, 'invalid')
+        Invoice = env['ff.event.invoice'].sudo()
+        existing = Invoice.search([('event_id', '=', event.id), ('distributor_id', '=', distributor_id)], limit=1)
+        if existing:
+            return ok({'raised': True, 'number': existing.move_name, 'amount': existing.amount})
+        lines = [f for f in row['flavours'] if f['net'] < -EPS]
+        if not lines:
+            raise ApiError('Nothing to invoice: this distributor got back no more than it supplied.', 400, 'invalid')
+        if 'account.move' not in env:
+            raise ApiError('Invoicing is not set up on this server.', 400, 'invalid')
+        partner = env['res.partner'].sudo().browse(distributor_id)
+        company = event.employee_id.company_id
+        invoice_lines, total, quantity = [], 0.0, 0.0
+        for f in lines:
+            product = env['product.template'].sudo().browse(f['product']['id']).product_variant_id
+            if not product:
+                continue
+            price = product.ff_distributor_price(partner) if hasattr(product, 'ff_distributor_price') else product.lst_price
+            qty = -f['net']
+            invoice_lines.append((0, 0, {'product_id': product.id, 'quantity': qty, 'price_unit': price}))
+            total += qty * price
+            quantity += qty
+        if not invoice_lines:
+            raise ApiError('These flavours have no product to invoice.', 400, 'invalid')
+        move = env['account.move'].sudo().with_company(company).create({
+            'move_type': 'out_invoice', 'partner_id': partner.id, 'company_id': company.id,
+            'invoice_origin': 'Event: %s' % event.name, 'ref': 'Event: %s' % event.name,
+            'invoice_line_ids': invoice_lines,
+        })
+        Invoice.create({'event_id': event.id, 'distributor_id': distributor_id, 'move_ref': move.id,
+                        'move_name': move.name or move.display_name, 'quantity': quantity,
+                        'amount': round(move.amount_total or total, 2)})
+        return ok({'raised': True, 'number': move.name or move.display_name, 'amount': round(move.amount_total or total, 2)})
 
     @api_route('/api/v1/events/<int:event_id>/debit-note', methods=('POST',))
     def debit_note(self, employee, event_id, **kw):
@@ -281,7 +359,7 @@ class FieldForceEventReportsApi(http.Controller):
             event.employee_id, 'debit', lines, distributor=request.env['res.partner'].sudo().browse(distributor_id),
             reason='Event: %s' % event.name, source='other')
         Debit.create({'event_id': event.id, 'distributor_id': distributor_id, 'note_id': note.id or False,
-                      'quantity': row['totals']['net']})
+                      'quantity': row['totals']['debit_qty']})
         return ok({'requested': True, 'note': note.name or None})
 
     @api_route('/api/v1/events/<int:event_id>/final', methods=('GET',))
