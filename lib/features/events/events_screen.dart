@@ -841,14 +841,22 @@ class _NewEventScreenState extends State<NewEventScreen> {
     final products = _products;
     final totals = <int, num>{};
     final byDist = <int, num>{};
+    // Each distributor's own stock, product by product.
+    final perDist = <int, Map<int, num>>{};
     for (final b in _blocks) {
       if (b.distributor == null) continue;
       b.qty.forEach((pid, c) {
         final v = num.tryParse(c.text.trim()) ?? 0;
         totals[pid] = (totals[pid] ?? 0) + v;
         byDist[b.distributor!] = (byDist[b.distributor!] ?? 0) + v;
+        if (v > 0) {
+          final mine = perDist.putIfAbsent(b.distributor!, () => {});
+          mine[pid] = (mine[pid] ?? 0) + v;
+        }
       });
     }
+    // Only the products that were given a quantity.
+    final stocked = products.where((p) => (totals[p['id']] ?? 0) > 0).toList();
     final names = {for (final d in _list(_options?['distributors'])) d['id'] as int: '${d['name']}'};
     final grand = byDist.values.fold<num>(0, (a, b) => a + b);
     return _Frame(
@@ -857,7 +865,10 @@ class _NewEventScreenState extends State<NewEventScreen> {
       onBack: () => setState(() => _step = 2),
       children: [
         _sectionTitle('Total opening stock', trailing: 'all distributors'),
-        _Grid(products: products, values: totals),
+        if (stocked.isEmpty)
+          const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No stock entered.', style: TextStyle(color: AppColors.muted)))
+        else
+          _Grid(products: stocked, values: totals),
         const SizedBox(height: 14),
         Container(
           padding: const EdgeInsets.all(14),
@@ -865,14 +876,25 @@ class _NewEventScreenState extends State<NewEventScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('By distributor', style: TextStyle(fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
-            for (final e in byDist.entries)
+            for (final e in byDist.entries.where((e) => e.value > 0)) ...[
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.only(top: 8, bottom: 2),
                 child: Row(children: [
-                  Expanded(child: Text(names[e.key] ?? '')),
-                  Text(_q(e.value), style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Expanded(
+                      child: Text(names[e.key] ?? '', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary))),
+                  Text(_q(e.value), style: const TextStyle(fontWeight: FontWeight.w900)),
                 ]),
               ),
+              // That distributor's products, each with its quantity.
+              for (final p in products.where((p) => (perDist[e.key]?[p['id']] ?? 0) > 0))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 3, 0, 3),
+                  child: Row(children: [
+                    Expanded(child: Text(flavourLabel(p), style: const TextStyle(fontSize: 13))),
+                    Text(_q(perDist[e.key]![p['id']]!), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  ]),
+                ),
+            ],
             const Divider(),
             Row(children: [
               const Expanded(child: Text('Total', style: TextStyle(fontWeight: FontWeight.w900))),
@@ -1175,7 +1197,10 @@ class _NextDayStockScreenState extends State<_NextDayStockScreen> {
         onBack: () => setState(() => _step = 2),
         children: [
           _sectionTitle('Total opening stock', trailing: 'all distributors'),
-          _Grid(products: _products, values: totals),
+          if (_products.every((p) => (totals[p['id']] ?? 0) <= 0))
+            const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No stock entered.', style: TextStyle(color: AppColors.muted)))
+          else
+            _Grid(products: _products.where((p) => (totals[p['id']] ?? 0) > 0).toList(), values: totals),
           const SizedBox(height: 16),
           Row(children: [
             Expanded(
