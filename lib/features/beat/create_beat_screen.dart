@@ -28,6 +28,10 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
   /// Recurrent only: Yes repeats on the chosen weekdays; No keeps the beat in my list without fixed days.
   bool _repeat = true;
   DateTime _date = DateTime.now();
+
+  /// Recurrent with Repeat on? No: the one day the beat is planned for. It follows the Day field until changed.
+  DateTime? _plannedPick;
+  DateTime get _planned => _plannedPick ?? _date;
   final Set<int> _days = {0, 3}; // Monday and Thursday default, as in mockup
   bool _busy = false;
 
@@ -120,6 +124,18 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
     }
   }
 
+  Future<void> _pickPlanned() async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final current = DateUtils.dateOnly(_planned);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current.isBefore(today) ? today : current,
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 365)),
+    );
+    if (picked != null && mounted) setState(() => _plannedPick = picked);
+  }
+
   Future<void> _pickOutlets() async {
     if (_territory == null) {
       showProblem(context, 'Please choose a District / Territory first.');
@@ -187,6 +203,11 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
       showProblem(context, 'Please choose at least one day for repeat, or choose No.');
       return;
     }
+    final planOneDay = _schedule == 'recurrent' && !_repeat;
+    if (planOneDay && DateUtils.dateOnly(_planned).isBefore(DateUtils.dateOnly(DateTime.now()))) {
+      showProblem(context, 'Choose today or an upcoming day as the planned day.');
+      return;
+    }
 
     setState(() => _busy = true);
     try {
@@ -198,7 +219,8 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
         if (_territory!['district_id'] != null) 'district_id': _territory!['district_id'],
         'partner_ids': _outlets.toList(),
         'schedule': _schedule,
-        'date': fmtDate(_date),
+        // Repeat off: the date is the planned day, not the Day field.
+        'date': fmtDate(planOneDay ? _planned : _date),
         // Recurrent with "Repeat on? No": kept in my beat list without fixed days.
         if (_schedule == 'recurrent') 'repeat': _repeat,
         if (_schedule == 'recurrent') 'weekdays': _repeat ? (_days.toList()..sort()) : <int>[],
@@ -417,12 +439,35 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
             _label('Repeat on?'),
             _yesNo(),
           ],
-          if (_schedule == 'recurrent' && !_repeat)
+          if (_schedule == 'recurrent' && !_repeat) ...[
+            const SizedBox(height: 16),
+            _label('Planned day'),
+            InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: _pickPlanned,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(children: [
+                  Expanded(
+                    child: Text(_formatDay(_planned),
+                        style: const TextStyle(fontSize: 14, color: Color(0xFF0F1B3D), fontWeight: FontWeight.w500)),
+                  ),
+                  const Icon(Icons.calendar_today_outlined, size: 20, color: Color(0xFF64748B)),
+                ]),
+              ),
+            ),
             const Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Text('Saved in your beat list without fixed days.',
+              child: Text(
+                  'Planned for this day only, then sent for approval. The beat stays in your beat list without fixed days.',
                   style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
             ),
+          ],
 
           // Repeat on: the seven day buttons, when it repeats.
           if (_schedule == 'recurrent' && _repeat) ...[
