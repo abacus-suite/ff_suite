@@ -377,9 +377,18 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
           _cities = cities;
           _territories = territories;
           _regions = regions;
+          // The region on their own profile is always theirs, even when the list could not be read.
+          final mineId = Services.auth.profile?.teamId;
+          final mineName = Services.auth.profile?.team;
+          if (mineId != null && !regions.any((r) => r['id'] == mineId)) {
+            regions = [
+              ...regions,
+              {'id': mineId, 'name': mineName ?? 'My region'},
+            ]..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+            _regions = regions;
+          }
           // Their own region is chosen for them when it is the only one (or the one on their profile).
-          final mine = Services.auth.profile?.team;
-          final own = regions.where((r) => '${r['name']}' == mine).firstOrNull ?? (regions.length == 1 ? regions.first : null);
+          final own = regions.where((r) => r['id'] == mineId).firstOrNull ?? (regions.length == 1 ? regions.first : null);
           if (own != null && _a['region_id'] == null) _a['region_id'] = own['id'];
         });
       }
@@ -963,10 +972,10 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
           title: 'Where it sits',
           child: Column(
             children: [
-              if (_regions.isNotEmpty) ...[
-                _dropdown('Region', _regions, _a['region_id'] as int?, _pickRegion),
-                const SizedBox(height: 10),
-              ],
+              // Always shown, before the Beat. Only the person's own regions are in it.
+              _dropdown('Region', _regions, _a['region_id'] as int?, _pickRegion,
+                  hint: _regions.isEmpty ? 'No region is set for you' : null),
+              const SizedBox(height: 10),
               _dropdown('Beat *', _beatOptions(), _a['beat_id'] as int?, _pickBeat),
               const SizedBox(height: 10),
               _dropdown('Area', _areaOptions(), _a['area_id'] as int?, _pickArea),
@@ -1007,11 +1016,12 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
         ),
       );
 
-  Widget _dropdown(String label, List<Map<String, dynamic>> items, int? value, ValueChanged<int?> onChanged) =>
+  Widget _dropdown(String label, List<Map<String, dynamic>> items, int? value, ValueChanged<int?> onChanged,
+          {String? hint}) =>
       DropdownButtonFormField<int>(
         initialValue: items.any((i) => i['id'] == value) ? value : null,
         isExpanded: true,
-        decoration: InputDecoration(labelText: label, isDense: true),
+        decoration: InputDecoration(labelText: label, isDense: true, helperText: hint),
         items: [
           for (final i in items)
             DropdownMenuItem(

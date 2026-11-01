@@ -43,6 +43,7 @@ class Profile {
     this.idleLogoutHours = 0,
     this.code,
     this.team,
+    this.teamId,
     this.manager,
     this.designation,
     this.shiftName,
@@ -60,6 +61,7 @@ class Profile {
   final String name;
   final String? code;
   final String? team;
+  final int? teamId;
   final String? manager;
   final String? designation;
   final String? shiftName;
@@ -165,6 +167,7 @@ class Profile {
       name: employee['name'] as String,
       code: employee['code'] as String?,
       team: _name(employee['team']),
+      teamId: employee['team'] is Map ? ((employee['team'] as Map)['id'] as num?)?.toInt() : null,
       manager: _name(employee['manager']),
       designation: _name(employee['designation']),
       shiftName: shift?['name'] as String?,

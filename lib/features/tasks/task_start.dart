@@ -438,13 +438,27 @@ class _LeadFollowUpScreenState extends State<_LeadFollowUpScreen> {
   final _search = TextEditingController();
   List<Map<String, dynamic>> _planned = [];
   List<Map<String, dynamic>> _unplanned = [];
+  List<Map<String, dynamic>> _territories = [];
+  List<Map<String, dynamic>> _beats = [];
   bool _loading = true;
   String? _error;
+
+  // The filter, as on the clients: territory, area and beat; and how the lists are grouped.
+  int? _territoryId;
+  int? _areaId;
+  String? _area;
+  final Set<int> _beatIds = {};
+  String _group = 'none';
+  final Set<String> _openGroups = {};
+  static const _allAreas = '__all_areas__';
+
+  bool get _filtered => _territoryId != null || _areaId != null || _beatIds.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadFilterLists();
   }
 
   @override
@@ -453,13 +467,30 @@ class _LeadFollowUpScreenState extends State<_LeadFollowUpScreen> {
     super.dispose();
   }
 
+  Future<void> _loadFilterLists() async {
+    try {
+      final data = await Services.api.get('/api/v1/clients/filters') as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _territories = ((data['territories'] as List?) ?? []).cast<Map<String, dynamic>>();
+        _beats = ((data['beats'] as List?) ?? []).cast<Map<String, dynamic>>();
+      });
+    } catch (_) {
+      // Without them the filter has nothing to choose from.
+    }
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final data = await Services.api.get('/api/v1/field-tasks/leads') as Map<String, dynamic>;
+      final data = await Services.api.get('/api/v1/field-tasks/leads', query: {
+        if (_territoryId != null) 'territory_id': _territoryId,
+        if (_areaId != null) 'area_id': _areaId,
+        if (_beatIds.isNotEmpty) 'beat_ids': _beatIds.join(','),
+      }) as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {
         _planned = ((data['planned'] as List?) ?? []).cast<Map<String, dynamic>>();
@@ -509,6 +540,77 @@ class _LeadFollowUpScreenState extends State<_LeadFollowUpScreen> {
     );
   }
 
+  /// The leads in groups when grouping is on (territory, area or beat); each group starts closed.
+  List<Widget> _grouped(List<Map<String, dynamic>> shown, {required bool planned}) {
+    final groups = <String, (String, List<Map<String, dynamic>>)>{};
+    (String, String)? ref(Object? r, String prefix) =>
+        r is Map && r['id'] != null ? ('$prefix${r['id']}', '${r['name']}') : null;
+    for (final lead in shown) {
+      final List<(String, String)> refs;
+      switch (_group) {
+        case 'territory':
+          final many = (lead['territories'] as List?) ?? const [];
+          refs = [for (final r in many.isNotEmpty ? many : [lead['territory']]) if (ref(r, 't') != null) ref(r, 't')!];
+        case 'area':
+          final r = ref(lead['area_master'], 'a');
+          refs = r == null ? const [] : [r];
+        default:
+          refs = [for (final r in ((lead['routes'] as List?) ?? const [])) if (ref(r, 'b') != null) ref(r, 'b')!];
+      }
+      final none = const {'territory': 'No territory', 'area': 'No area', 'beat': 'No beat'}[_group] ?? 'None';
+      if (refs.isEmpty) {
+        groups.putIfAbsent('~none', () => (none, [])).$2.add(lead);
+      } else {
+        for (final (key, label) in refs) {
+          groups.putIfAbsent(key, () => (label, [])).$2.add(lead);
+        }
+      }
+    }
+    final keys = groups.keys.toList()
+      ..sort((a, b) {
+        if (a == '~none') return 1;
+        if (b == '~none') return -1;
+        return groups[a]!.$1.toLowerCase().compareTo(groups[b]!.$1.toLowerCase());
+      });
+    final tag = planned ? 'p' : 'u';
+    return [
+      for (final key in keys) ...[
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 2),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => setState(() => _openGroups.contains('$tag$key') ? _openGroups.remove('$tag$key') : _openGroups.add('$tag$key')),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(children: [
+                  Expanded(
+                    child: Text(groups[key]!.$1,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, color: AppColors.primary)),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                    child: Text('${groups[key]!.$2.length}',
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: AppColors.primary)),
+                  ),
+                  Icon(_openGroups.contains('$tag$key') ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.muted),
+                ]),
+              ),
+            ),
+          ),
+        ),
+        if (_openGroups.contains('$tag$key'))
+          for (final lead in groups[key]!.$2) Padding(padding: const EdgeInsets.only(top: 8), child: _tile(lead, planned: planned)),
+      ],
+    ];
+  }
+
   Widget _list(List<Map<String, dynamic>> rows, {required bool planned}) {
     final shown = _match(rows);
     return RefreshIndicator(
@@ -522,8 +624,216 @@ class _LeadFollowUpScreenState extends State<_LeadFollowUpScreen> {
             ])
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-              children: [for (final lead in shown) _tile(lead, planned: planned)]),
+              children: _group == 'none'
+                  ? [for (final lead in shown) _tile(lead, planned: planned)]
+                  : _grouped(shown, planned: planned)),
     );
+  }
+
+  Map<String, dynamic>? get _territory => _territories.where((t) => t['id'] == _territoryId).firstOrNull;
+
+  List<String> _areaNames() {
+    final sent = _territory?['areas'];
+    return <String>[
+      if (sent is List) for (final a in sent) if (a is Map && asText(a['name']) != null) '${a['name']}',
+    ]..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  }
+
+  int? _areaIdOf(String? name) {
+    final sent = _territory?['areas'];
+    if (name == null || sent is! List) return null;
+    for (final a in sent) {
+      if (a is Map && asText(a['name']) == name) return (a['id'] as num?)?.toInt();
+    }
+    return null;
+  }
+
+  /// The filter: Territory, Area, Beat and Group by, as on the clients.
+  Future<void> _openFilters() async {
+    if (_territories.isEmpty && _beats.isEmpty) await _loadFilterLists();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (sheet) => StatefulBuilder(
+        builder: (context, setSheet) {
+          final areas = _areaNames();
+          final beats = _beats.where((b) => _territoryId == null || b['territory_id'] == _territoryId).toList()
+            ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+
+          Widget heading(IconData icon, String text) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(children: [
+                  Icon(icon, size: 22, color: AppColors.muted),
+                  const SizedBox(width: 12),
+                  Text(text, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                ]),
+              );
+
+          Widget dropdown<T>({
+            required T? value,
+            required List<DropdownMenuItem<T>> items,
+            required String hint,
+            required void Function(T?) onChanged,
+          }) =>
+              Container(
+                constraints: const BoxConstraints(minHeight: 54),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<T>(
+                    value: value,
+                    isExpanded: true,
+                    hint: Text(hint, style: const TextStyle(color: AppColors.muted)),
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.muted),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
+                    items: items,
+                    onChanged: items.isEmpty ? null : (v) => setSheet(() => onChanged(v)),
+                  ),
+                ),
+              );
+
+          return SafeArea(
+            child: SingleChildScrollView(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Container(
+                  color: AppColors.primary.withValues(alpha: 0.05),
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                  child: Column(children: [
+                    Container(
+                      width: 44,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(color: AppColors.muted.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(2)),
+                    ),
+                    Row(children: [
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(15)),
+                        child: const Icon(Icons.filter_alt_rounded, color: AppColors.primary, size: 26),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Filter Leads', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 21)),
+                          Text('Refine the list with your criteria', style: TextStyle(color: AppColors.muted, fontSize: 14)),
+                        ]),
+                      ),
+                      InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => Navigator.pop(sheet),
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: AppColors.border)),
+                          child: const Icon(Icons.close_rounded),
+                        ),
+                      ),
+                    ]),
+                  ]),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    heading(Icons.location_on_outlined, 'Territory'),
+                    dropdown<int>(
+                      value: _territoryId,
+                      hint: 'All territories',
+                      items: [
+                        const DropdownMenuItem(value: 0, child: Text('All territories')),
+                        for (final t in _territories..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase())))
+                          DropdownMenuItem(
+                              value: t['id'] as int,
+                              child: Text('${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : t['kind'] == 'other' ? ' (team / beat)' : ''}',
+                                  overflow: TextOverflow.ellipsis)),
+                      ],
+                      onChanged: (v) {
+                        final picked = (v == null || v <= 0) ? null : v;
+                        if (picked != _territoryId) {
+                          _area = null;
+                          _areaId = null;
+                          _beatIds.clear();
+                        }
+                        _territoryId = picked;
+                      },
+                    ),
+                    const SizedBox(height: 22),
+                    heading(Icons.map_outlined, 'Area'),
+                    dropdown<String>(
+                      value: areas.contains(_area) ? _area : null,
+                      hint: _territoryId == null ? 'Choose a territory first' : (areas.isEmpty ? 'No areas for this territory yet' : 'All areas'),
+                      items: [
+                        if (areas.isNotEmpty) const DropdownMenuItem(value: _allAreas, child: Text('All areas')),
+                        for (final a in areas) DropdownMenuItem(value: a, child: Text(a, overflow: TextOverflow.ellipsis)),
+                      ],
+                      onChanged: (v) {
+                        final picked = v == _allAreas ? null : v;
+                        _area = picked;
+                        _areaId = _areaIdOf(picked);
+                      },
+                    ),
+                    const SizedBox(height: 22),
+                    heading(Icons.route_outlined, 'Beat'),
+                    if (beats.isEmpty)
+                      const Text('No beats', style: TextStyle(color: AppColors.muted))
+                    else
+                      Wrap(spacing: 8, runSpacing: 6, children: [
+                        for (final b in beats)
+                          FilterChip(
+                            label: Text('${b['name']}'),
+                            selected: _beatIds.contains(b['id']),
+                            onSelected: (on) => setSheet(() => on ? _beatIds.add(b['id'] as int) : _beatIds.remove(b['id'])),
+                          ),
+                      ]),
+                    const SizedBox(height: 22),
+                    heading(Icons.grid_view_rounded, 'Group by'),
+                    Wrap(spacing: 8, runSpacing: 6, children: [
+                      for (final (label, value) in const [('None', 'none'), ('Territory', 'territory'), ('Area', 'area'), ('Beat', 'beat')])
+                        ChoiceChip(label: Text(label), selected: _group == value, onSelected: (_) => setSheet(() => _group = value)),
+                    ]),
+                  ]),
+                ),
+                const Divider(height: 28),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Row(children: [
+                    Expanded(
+                      flex: 4,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                        onPressed: () => setSheet(() {
+                          _territoryId = null;
+                          _area = null;
+                          _areaId = null;
+                          _beatIds.clear();
+                          _group = 'none';
+                        }),
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Clear All', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 5,
+                      child: GradientButton(label: 'Apply Filter', icon: Icons.check_rounded, onPressed: () => Navigator.pop(sheet)),
+                    ),
+                  ]),
+                ),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
+    if (mounted) {
+      setState(_openGroups.clear);
+      _load();
+    }
   }
 
   @override
@@ -548,18 +858,37 @@ class _LeadFollowUpScreenState extends State<_LeadFollowUpScreen> {
         body: Column(children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-            child: TextField(
-              controller: _search,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search_rounded),
-                hintText: 'Search by name',
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+            child: Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _search,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    hintText: 'Search by name',
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: _openFilters,
+                child: Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: _filtered || _group != 'none' ? AppColors.primary.withValues(alpha: 0.1) : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _filtered || _group != 'none' ? AppColors.primary : AppColors.border),
+                  ),
+                  child: const Icon(Icons.filter_alt_rounded, color: AppColors.primary),
+                ),
+              ),
+            ]),
           ),
           if (_loading) const LinearProgressIndicator(minHeight: 2),
           Expanded(
