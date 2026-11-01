@@ -552,6 +552,55 @@ class _DistributorReportScreenState extends State<DistributorReportScreen> {
             ]),
           ]),
         ),
+        // What became of the stock the event took from this distributor, flavour by flavour, with its sales and coupons.
+        if (totals.containsKey('sold')) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('What became of it', style: TextStyle(fontWeight: FontWeight.w900)),
+              const SizedBox(height: 6),
+              Table(columnWidths: const {0: FlexColumnWidth(1.3)}, children: [
+                TableRow(children: [
+                  cell('Flav', head: true, align: TextAlign.left),
+                  for (final h in ['Samp', 'Dmg', 'Close', 'Sold']) cell(h, head: true),
+                ]),
+                for (final f in flavours)
+                  TableRow(children: [
+                    cell(flavourLabel(f), bold: true, align: TextAlign.left),
+                    for (final k in ['samples', 'damage', 'closing']) cell(_q(_n(f[k]))),
+                    cell(_q(_n(f['sold'])), bold: true, colour: _green),
+                  ]),
+                TableRow(decoration: const BoxDecoration(color: Color(0xFFEEF3FB)), children: [
+                  cell('Total', bold: true, align: TextAlign.left),
+                  for (final k in ['samples', 'damage', 'closing']) cell(_q(_n(totals[k])), bold: true),
+                  cell(_q(_n(totals['sold'])), bold: true, colour: _green),
+                ]),
+              ]),
+              const Divider(height: 22),
+              for (final (label, value, bold) in [
+                ('Sales', fmtMoney(_n(totals['sales']), 'INR'), false),
+                ('Coupons used (${_q(_n(totals['coupons']))})', '- ${fmtMoney(_n(totals['coupon_amount']), 'INR')}', false),
+                ('Net sales', fmtMoney(_n(totals['net_sales']), 'INR'), true),
+              ])
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(children: [
+                    Expanded(child: Text(label, style: TextStyle(fontWeight: bold ? FontWeight.w900 : FontWeight.w500))),
+                    Text(value, style: TextStyle(fontWeight: bold ? FontWeight.w900 : FontWeight.w700)),
+                  ]),
+                ),
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text(
+                    'Samples, damage and sales are worked out for each distributor from the stock it had at the event each day; '
+                    'returns are exact.',
+                    style: TextStyle(fontSize: 11, color: AppColors.muted)),
+              ),
+            ]),
+          ),
+        ],
         const SizedBox(height: 14),
         // What is still to do: share on WhatsApp, and except Kumbayah, request the debit note.
         if (!_shared || (!company && !_requested))

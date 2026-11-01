@@ -1008,7 +1008,8 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
         return;
       }
     }
-    final today = fmtDate(DateTime.now());
+    // The server says which day is being worked on: a day closed after midnight still belongs to yesterday.
+    final today = asText(e['working_day']) ?? fmtDate(DateTime.now());
     final closedToday = ((e['day_dates'] as List?) ?? []).contains(today);
     if (closedToday) {
       showProblem(context, 'Day ${e['days']} is closed. Start Day ${((e['days'] as num?) ?? 0).toInt() + 1} tomorrow.');
