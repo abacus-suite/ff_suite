@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- The contact's real Territory, next to its City / District. -->
+    <record id="res_partner_view_form_ff_territory" model="ir.ui.view">
+        <field name="name">res.partner.form.ff.territory</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="ff_clients.res_partner_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='ff_district_id']" position="after">
+                <field name="ff_territory_id"/>
+                <field name="ff_secondary_territory_ids" widget="many2many_tags" options="{'no_create': True}"
+                       invisible="ff_category_type != 'distributor'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="res_partner_view_search_ff_territory" model="ir.ui.view">
+        <field name="name">res.partner.search.ff.territory</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="ff_clients.res_partner_view_search_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='ff_district_id']" position="after">
+                <field name="ff_territory_id"/>
+                <field name="ff_secondary_territory_ids"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

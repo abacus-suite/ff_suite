@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_res_company_view_form_instagram" model="ir.ui.view">
+        <field name="name">res.company.form.ff.instagram</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='website']" position="after">
+                <field name="ff_instagram" widget="url" placeholder="https://www.instagram.com/..."/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

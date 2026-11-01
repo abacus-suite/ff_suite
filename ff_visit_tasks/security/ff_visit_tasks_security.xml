@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="rule_ff_task_log_scope" model="ir.rule">
+        <field name="name">Field tasks: data access scope</field>
+        <field name="model_id" ref="model_ff_task_log"/>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_officer'))]"/>
+    </record>
+    <record id="rule_ff_task_log_admin" model="ir.rule">
+        <field name="name">Field tasks: all</field>
+        <field name="model_id" ref="model_ff_task_log"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
+    </record>
+    <record id="rule_ff_distributor_note_scope" model="ir.rule">
+        <field name="name">Credit / debit notes: data access scope</field>
+        <field name="model_id" ref="model_ff_distributor_note"/>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_officer'))]"/>
+    </record>
+    <record id="rule_ff_distributor_note_admin" model="ir.rule">
+        <field name="name">Credit / debit notes: all</field>
+        <field name="model_id" ref="model_ff_distributor_note"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
+    </record>
+    <record id="rule_ff_sample_move_scope" model="ir.rule">
+        <field name="name">Sample movements: data access scope</field>
+        <field name="model_id" ref="model_ff_sample_move"/>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_officer'))]"/>
+    </record>
+    <record id="rule_ff_sample_move_admin" model="ir.rule">
+        <field name="name">Sample movements: all</field>
+        <field name="model_id" ref="model_ff_sample_move"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
+    </record>
+    <record id="rule_company_ff_sample_move" model="ir.rule">
+        <field name="name">ff.sample.move: working company</field>
+        <field name="model_id" ref="model_ff_sample_move"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_partner_material" model="ir.rule">
+        <field name="name">ff.partner.material: working company</field>
+        <field name="model_id" ref="model_ff_partner_material"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>

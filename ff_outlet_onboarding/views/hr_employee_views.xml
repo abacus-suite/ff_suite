@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="hr_employee_view_form_edit_onboarded" model="ir.ui.view">
+        <field name="name">hr.employee.form.edit.onboarded</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="ff_base.hr_employee_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='ff_org']" position="inside">
+                <field name="ff_edit_after_onboard"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="option_mrp_149" model="ff.partner.option">
+        <field name="kind">mrp</field>
+        <field name="name">₹149</field>
+        <field name="code">149</field>
+        <field name="sequence">1</field>
+    </record>
+    <record id="option_mrp_179" model="ff.partner.option">
+        <field name="kind">mrp</field>
+        <field name="name">₹179</field>
+        <field name="code">179</field>
+        <field name="sequence">2</field>
+    </record>
+    <record id="option_scheme_3" model="ff.partner.option">
+        <field name="kind">scheme</field>
+        <field name="name">3</field>
+        <field name="code">3</field>
+        <field name="sequence">1</field>
+    </record>
+    <record id="option_scheme_20" model="ff.partner.option">
+        <field name="kind">scheme</field>
+        <field name="name">20</field>
+        <field name="code">20</field>
+        <field name="sequence">2</field>
+    </record>
+    <record id="option_scheme_30" model="ff.partner.option">
+        <field name="kind">scheme</field>
+        <field name="name">30</field>
+        <field name="code">30</field>
+        <field name="sequence">3</field>
+    </record>
+    <record id="option_scheme_none" model="ff.partner.option">
+        <field name="kind">scheme</field>
+        <field name="name">No Scheme</field>
+        <field name="code">none</field>
+        <field name="sequence">4</field>
+    </record>
+    <record id="option_chiller_model_SRC60" model="ff.partner.option">
+        <field name="kind">chiller_model</field>
+        <field name="name">SRC60</field>
+        <field name="code">SRC60</field>
+        <field name="sequence">1</field>
+    </record>
+    <record id="option_chiller_model_SRC200" model="ff.partner.option">
+        <field name="kind">chiller_model</field>
+        <field name="name">SRC200</field>
+        <field name="code">SRC200</field>
+        <field name="sequence">2</field>
+    </record>
+    <record id="option_chiller_model_SRC280" model="ff.partner.option">
+        <field name="kind">chiller_model</field>
+        <field name="name">SRC280</field>
+        <field name="code">SRC280</field>
+        <field name="sequence">3</field>
+    </record>
+    <record id="option_chiller_model_SRC380" model="ff.partner.option">
+        <field name="kind">chiller_model</field>
+        <field name="name">SRC380</field>
+        <field name="code">SRC380</field>
+        <field name="sequence">4</field>
+    </record>
+    <record id="option_chiller_model_SRC500" model="ff.partner.option">
+        <field name="kind">chiller_model</field>
+        <field name="name">SRC500</field>
+        <field name="code">SRC500</field>
+        <field name="sequence">5</field>
+    </record>
+    <record id="option_outlet_category_modern_trade" model="ff.partner.option">
+        <field name="kind">outlet_category</field>
+        <field name="name">Modern Trade</field>
+        <field name="code">modern_trade</field>
+        <field name="sequence">1</field>
+    </record>
+    <record id="option_outlet_category_general_trade" model="ff.partner.option">
+        <field name="kind">outlet_category</field>
+        <field name="name">General Trade</field>
+        <field name="code">general_trade</field>
+        <field name="sequence">2</field>
+    </record>
+    <record id="option_outlet_category_hotel" model="ff.partner.option">
+        <field name="kind">outlet_category</field>
+        <field name="name">Hotel</field>
+        <field name="code">hotel</field>
+        <field name="sequence">3</field>
+    </record>
+    <record id="option_outlet_category_cafe" model="ff.partner.option">
+        <field name="kind">outlet_category</field>
+        <field name="name">Café</field>
+        <field name="code">cafe</field>
+        <field name="sequence">4</field>
+    </record>
+    <record id="option_outlet_category_restaurant" model="ff.partner.option">
+        <field name="kind">outlet_category</field>
+        <field name="name">Restaurant</field>
+        <field name="code">restaurant</field>
+        <field name="sequence">5</field>
+    </record>
+    <record id="option_outlet_category_others" model="ff.partner.option">
+        <field name="kind">outlet_category</field>
+        <field name="name">Others</field>
+        <field name="code">others</field>
+        <field name="sequence">6</field>
+        <field name="needs_note" eval="True"/>
+    </record>
+</odoo>

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Rates per km: assigned route and other routes, by employee or by designation -->
+    <record id="ff_travel_rate_view_list" model="ir.ui.view">
+        <field name="name">ff.travel.rate.list</field>
+        <field name="model">ff.travel.rate</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="scope"/>
+                <field name="designation_id" invisible="scope != 'designation'" required="scope == 'designation'"/>
+                <field name="employee_id" invisible="scope != 'employee'" required="scope == 'employee'"/>
+                <field name="assigned_rate"/>
+                <field name="other_rate"/>
+                <field name="company_id" column_invisible="1"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_travel_rate_action" model="ir.actions.act_window">
+        <field name="name">Travel Rates per Km</field>
+        <field name="res_model">ff.travel.rate</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <!-- Odometer history: opening, closing, meter km and tracked km for each day -->
+    <record id="ff_odometer_history_view_list" model="ir.ui.view">
+        <field name="name">ff.odometer.history.list</field>
+        <field name="model">ff.odometer.history</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0">
+                <field name="date"/>
+                <field name="employee_id"/>
+                <field name="opening"/>
+                <field name="closing"/>
+                <field name="odometer_km"/>
+                <field name="geo_km"/>
+                <field name="auto_closed"/>
+                <field name="na"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_odometer_history_view_search" model="ir.ui.view">
+        <field name="name">ff.odometer.history.search</field>
+        <field name="model">ff.odometer.history</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <filter name="no_meter" string="Meter not available" domain="[('na', '=', True)]"/>
+                <group>
+                    <filter name="by_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="by_date" string="Day" context="{'group_by': 'date:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_odometer_history_action" model="ir.actions.act_window">
+        <field name="name">Odometer History</field>
+        <field name="res_model">ff.odometer.history</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <!-- The claim form shows the meter, the tracked distance and the split by route -->
+    <record id="ff_allowance_claim_view_form_travel" model="ir.ui.view">
+        <field name="name">ff.allowance.claim.form.travel</field>
+        <field name="model">ff.allowance.claim</field>
+        <field name="inherit_id" ref="ff_allowance.ff_allowance_claim_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='amount']" position="after">
+                <field name="odometer_opening" invisible="basis != 'odometer'"/>
+                <field name="odometer_closing" invisible="basis != 'odometer'"/>
+                <field name="odometer_km" invisible="basis != 'odometer' or odometer_na"/>
+                <field name="odometer_na" invisible="basis != 'odometer'"/>
+                <field name="geo_km" invisible="basis != 'odometer'"/>
+                <field name="own_km" invisible="basis != 'odometer'"/>
+                <field name="own_rate" invisible="basis != 'odometer'"/>
+                <field name="own_amount" invisible="basis != 'odometer'"/>
+                <field name="other_km" invisible="basis != 'odometer'"/>
+                <field name="other_rate" invisible="basis != 'odometer'"/>
+                <field name="other_amount" invisible="basis != 'odometer'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <menuitem id="menu_ff_travel_rates" name="Travel Rates per Km" parent="ff_base.menu_ff_masters"
+              action="ff_travel_rate_action" sequence="61" groups="ff_base.group_ff_admin"/>
+    <menuitem id="menu_ff_odometer_history" name="Odometer History" parent="ff_base.menu_ff_section_claims"
+              action="ff_odometer_history_action" sequence="21"/>
+</odoo>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- The client's allowance table as the starting setup: DA by designation, TA for all field staff, OLA.
+         Only what is missing is added, so rates the office already set are left alone. -->
+    <function model="ff.da.rate" name="_ff_seed_defaults"/>
+</odoo>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- List View -->
+    <record id="view_l4e_loan_installment_list" model="ir.ui.view">
+        <field name="name">l4e.loan.installment.list</field>
+        <field name="model">l4e.loan.installment</field>
+        <field name="arch" type="xml">
+            <list string="Monthly Installments Schedule" decoration-success="state == 'paid'" decoration-danger="state == 'overdue'" decoration-warning="state == 'pending'">
+                <field name="date"/>
+                <field name="name"/>
+                <field name="loan_id"/>
+                <field name="employee_id"/>
+                <field name="loan_type_id"/>
+                <field name="amount" widget="monetary" sum="Total Due"/>
+                <field name="state" widget="badge"
+                       decoration-warning="state == 'pending'"
+                       decoration-success="state == 'paid'"
+                       decoration-danger="state == 'overdue'"/>
+                <field name="paid_date" optional="show"/>
+                <field name="payslip_ref" optional="show"/>
+                <button name="action_mark_paid" string="Mark Paid" type="object" icon="fa-check" class="btn-success btn-sm" invisible="state == 'paid'"/>
+                <button name="action_mark_overdue" string="Skip / OD" type="object" icon="fa-exclamation-triangle" class="btn-outline-danger btn-sm" invisible="state != 'pending'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_l4e_loan_installment_search" model="ir.ui.view">
+        <field name="name">l4e.loan.installment.search</field>
+        <field name="model">l4e.loan.installment</field>
+        <field name="arch" type="xml">
+            <search string="Search Installments">
+                <field name="employee_id"/>
+                <field name="loan_id"/>
+                <field name="loan_type_id"/>
+                <field name="payslip_ref"/>
+                <separator/>
+                <filter name="filter_pending" string="Pending" domain="[('state', '=', 'pending')]"/>
+                <filter name="filter_paid" string="Paid" domain="[('state', '=', 'paid')]"/>
+                <filter name="filter_overdue" string="Overdue / Skipped (OD)" domain="[('state', '=', 'overdue')]"/>
+                <separator/>
+                <filter name="filter_due_date" date="date" string="Due Date"/>
+                <group>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_loan" string="Loan" context="{'group_by': 'loan_id'}"/>
+                    <filter name="group_date" string="Due Date" context="{'group_by': 'date'}"/>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Server Action: Bulk Mark as Paid -->
+    <record id="action_server_bulk_mark_installment_paid" model="ir.actions.server">
+        <field name="name">✔️ Mark as Paid / Deducted</field>
+        <field name="model_id" ref="model_l4e_loan_installment"/>
+        <field name="binding_model_id" ref="model_l4e_loan_installment"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">
+for rec in records:
+    if rec.state != 'paid':
+        rec.action_mark_paid()
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_l4e_loan_installment" model="ir.actions.act_window">
+        <field name="name">Monthly Installments Tracker</field>
+        <field name="res_model">l4e.loan.installment</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'search_default_filter_pending': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No installment schedules found.
+            </p>
+            <p>
+                Installment rows are automatically generated when employee loans are amortized.
+            </p>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="dealer_stock_move_view_list" model="ir.ui.view">
+        <field name="name">l4e.dealer.stock.move.list</field>
+        <field name="model">l4e.dealer.stock.move</field>
+        <field name="arch" type="xml">
+            <list decoration-success="direction == 'in'" decoration-danger="direction == 'out'">
+                <field name="date"/>
+                <field name="distributor_id"/>
+                <field name="product_id"/>
+                <field name="kind"/>
+                <field name="partner_id" optional="show"/>
+                <field name="reference" optional="show"/>
+                <field name="direction" column_invisible="1"/>
+                <field name="quantity"/>
+                <field name="uom_id" optional="show"/>
+                <field name="signed_qty" sum="Net" string="Net Effect"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="dealer_stock_move_view_form" model="ir.ui.view">
+        <field name="name">l4e.dealer.stock.move.form</field>
+        <field name="model">l4e.dealer.stock.move</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="distributor_id"/>
+                            <field name="product_id"/>
+                            <field name="kind"/>
+                            <field name="quantity"/>
+                        </group>
+                        <group>
+                            <field name="date"/>
+                            <field name="partner_id"/>
+                            <field name="reference"/>
+                            <field name="note"/>
+                            <field name="company_id" invisible="1"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="dealer_stock_move_view_search" model="ir.ui.view">
+        <field name="name">l4e.dealer.stock.move.search</field>
+        <field name="model">l4e.dealer.stock.move</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="distributor_id"/>
+                <field name="product_id"/>
+                <field name="reference"/>
+                <filter name="in" string="Stock In" domain="[('direction', '=', 'in')]"/>
+                <filter name="out" string="Stock Out" domain="[('direction', '=', 'out')]"/>
+                <filter name="date" string="Date" date="date"/>
+                <group>
+                    <filter name="by_distributor" string="Distributor" context="{'group_by': 'distributor_id'}"/>
+                    <filter name="by_product" string="Product" context="{'group_by': 'product_id'}"/>
+                    <filter name="by_kind" string="Type" context="{'group_by': 'kind'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="dealer_stock_move_view_pivot" model="ir.ui.view">
+        <field name="name">l4e.dealer.stock.move.pivot</field>
+        <field name="model">l4e.dealer.stock.move</field>
+        <field name="arch" type="xml">
+            <pivot string="Distributor Stock">
+                <field name="distributor_id" type="row"/>
+                <field name="product_id" type="row"/>
+                <field name="direction" type="col"/>
+                <field name="quantity" type="measure"/>
+                <field name="signed_qty" type="measure" string="On Hand"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="dealer_stock_move_action" model="ir.actions.act_window">
+        <field name="name">Distributor Stock Movements</field>
+        <field name="res_model">l4e.dealer.stock.move</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="dealer_stock_report_action" model="ir.actions.act_window">
+        <field name="name">Distributor Stock</field>
+        <field name="res_model">l4e.dealer.stock.move</field>
+        <field name="view_mode">pivot,list</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'pivot', 'view_id': ref('dealer_stock_move_view_pivot')}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('dealer_stock_move_view_list')})]"/>
+    </record>
+
+    <menuitem id="menu_dealer_stock_report" name="Distributor Stock" parent="ff_outlet_ledger.menu_ff_outlet_ledger"
+              action="dealer_stock_report_action" sequence="40"/>
+    <menuitem id="menu_dealer_stock_moves" name="Stock In / Out" parent="ff_outlet_ledger.menu_ff_outlet_ledger"
+              action="dealer_stock_move_action" sequence="42"/>
+</odoo>

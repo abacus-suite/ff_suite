@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- List View -->
+    <record id="view_l4e_loan_list" model="ir.ui.view">
+        <field name="name">l4e.loan.list</field>
+        <field name="model">l4e.loan</field>
+        <field name="arch" type="xml">
+            <list string="Employee Loans &amp; Advances"
+                  decoration-success="state == 'closed'"
+                  decoration-info="state == 'disbursed'"
+                  decoration-warning="state == 'submitted'"
+                  decoration-muted="state == 'refused'">
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="department_id" optional="show"/>
+                <field name="loan_type_id"/>
+                <field name="loan_amount" widget="monetary" sum="Total Sanctioned"/>
+                <field name="total_paid" widget="monetary" sum="Total Recovered"/>
+                <field name="balance_amount" widget="monetary" sum="Total Outstanding"/>
+                <field name="progress_percentage" widget="progressbar" string="Recovery %"/>
+                <field name="overdue_count" string="OD Count" optional="show"
+                       decoration-danger="overdue_count &gt; 0"/>
+                <field name="start_date"/>
+                <field name="state" widget="badge"
+                       decoration-warning="state == 'submitted'"
+                       decoration-primary="state == 'approved'"
+                       decoration-success="state in ('disbursed', 'closed')"
+                       decoration-danger="state == 'refused'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_l4e_loan_form" model="ir.ui.view">
+        <field name="name">l4e.loan.form</field>
+        <field name="model">l4e.loan</field>
+        <field name="arch" type="xml">
+            <form string="Employee Loan &amp; Advance">
+                <header>
+                    <button name="action_compute_schedule" string="⚡ Generate Schedule" type="object"
+                            class="btn-secondary" invisible="state not in ('draft', 'submitted')"/>
+                    <button name="action_submit" string="Submit for Approval" type="object"
+                            class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_approve" string="Approve" type="object"
+                            class="btn-success" invisible="state != 'submitted'"
+                            groups="l4e_loan_master.group_l4e_loan_manager"/>
+                    <button name="action_disburse" string="Disburse / Activate" type="object"
+                            class="btn-primary" invisible="state != 'approved'"
+                            groups="l4e_loan_master.group_l4e_loan_manager"/>
+                    <button name="action_activate_historical" string="Activate Historical Loan" type="object"
+                            class="btn-warning" invisible="not is_historical or state != 'draft'"
+                            groups="l4e_loan_master.group_l4e_loan_manager"/>
+                    <button name="action_open_settle_wizard" string="Settle Early / Pre-close" type="object"
+                            class="btn-outline-primary" invisible="state != 'disbursed'"
+                            groups="l4e_loan_master.group_l4e_loan_manager"/>
+                    <button name="action_refuse" string="Refuse" type="object"
+                            class="btn-secondary" invisible="state not in ('submitted', 'approved')"
+                            groups="l4e_loan_master.group_l4e_loan_manager"/>
+                    <button name="action_reset_to_draft" string="Reset to Draft" type="object"
+                            class="btn-secondary" invisible="state not in ('refused', 'submitted')"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,submitted,approved,disbursed,closed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <span class="o_form_label">Loan Reference</span>
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <!-- KPI Cards for Balances & Progress -->
+                    <div class="row mb-3" invisible="state == 'draft'">
+                        <div class="col-md-3">
+                            <div class="bg-light p-3 rounded border text-center">
+                                <small class="text-muted text-uppercase fw-bold">Sanctioned</small>
+                                <h4 class="mb-0 text-dark fw-bold">
+                                    <field name="loan_amount" widget="monetary" readonly="1"/>
+                                </h4>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="bg-light p-3 rounded border text-center">
+                                <small class="text-muted text-uppercase fw-bold">Recovered</small>
+                                <h4 class="mb-0 text-success fw-bold">
+                                    <field name="total_paid" widget="monetary" readonly="1"/>
+                                </h4>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="bg-light p-3 rounded border text-center">
+                                <small class="text-muted text-uppercase fw-bold">Outstanding Balance</small>
+                                <h4 class="mb-0 text-danger fw-bold">
+                                    <field name="balance_amount" widget="monetary" readonly="1"/>
+                                </h4>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="bg-light p-3 rounded border text-center">
+                                <small class="text-muted text-uppercase fw-bold">Recovery Progress</small>
+                                <h4 class="mb-0 text-primary fw-bold">
+                                    <field name="progress_percentage"/>%
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <group>
+                        <group string="Employee &amp; Policy">
+                            <field name="employee_id" readonly="state != 'draft'"/>
+                            <field name="department_id"/>
+                            <field name="job_id"/>
+                            <field name="loan_type_id" readonly="state != 'draft'"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Loan Terms">
+                            <field name="loan_amount" readonly="state != 'draft'"/>
+                            <field name="installment_count" readonly="state != 'draft'"/>
+                            <field name="monthly_amount" readonly="1"/>
+                            <field name="start_date" readonly="state != 'draft'"/>
+                            <field name="disbursement_date" readonly="state not in ('draft', 'approved')"/>
+                            <field name="is_historical" readonly="state != 'draft'"/>
+                        </group>
+                    </group>
+
+                    <!-- Historical Loan Migration Panel (Feature 1) -->
+                    <group string="Historical / Opening Loan Details" invisible="not is_historical">
+                        <group>
+                            <field name="historical_recovered" readonly="state != 'draft'"/>
+                        </group>
+                        <group>
+                            <field name="opening_balance" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <!-- Tab 1: Repayment Schedule Table -->
+                        <page string="Repayment Schedule" name="installment_schedule">
+                            <field name="installment_ids" readonly="state == 'closed'">
+                                <list editable="bottom" create="0">
+                                    <field name="name" readonly="1"/>
+                                    <field name="date" readonly="state == 'paid'"/>
+                                    <field name="amount" widget="monetary" readonly="state == 'paid'" sum="Total"/>
+                                    <field name="state" widget="badge"
+                                           decoration-warning="state == 'pending'"
+                                           decoration-success="state == 'paid'"
+                                           decoration-danger="state == 'overdue'"/>
+                                    <field name="paid_date" readonly="1"/>
+                                    <field name="payslip_ref"/>
+                                    <field name="note"/>
+                                    <button name="action_mark_paid" string="Mark Paid" type="object"
+                                            icon="fa-check" class="btn-success btn-sm"
+                                            invisible="state == 'paid'"/>
+                                    <button name="action_mark_overdue" string="Skip / OD" type="object"
+                                            icon="fa-exclamation-triangle" class="btn-outline-danger btn-sm"
+                                            invisible="state != 'pending'"/>
+                                    <button name="action_reset_pending" string="Reset" type="object"
+                                            icon="fa-undo" class="btn-link btn-sm"
+                                            invisible="state == 'pending'"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- Tab 2: Employee Lifetime Credit Profile (Feature 2 & 3) -->
+                        <page string="Employee Credit History (OD Track Record)" name="credit_history">
+                            <div class="alert alert-info" role="alert">
+                                <strong>Employee Credit Profile:</strong> Historical summary of all loans, repayments, and overdue (OD) records for <field name="employee_id" readonly="1" class="fw-bold"/>.
+                            </div>
+                            <group>
+                                <group string="Lifetime Summary">
+                                    <field name="employee_lifetime_loan_count"/>
+                                    <field name="employee_lifetime_loan_amount" widget="monetary"/>
+                                    <field name="employee_lifetime_repaid_amount" widget="monetary"/>
+                                </group>
+                                <group string="Risk &amp; Overdue Status">
+                                    <field name="employee_active_exposure" widget="monetary"/>
+                                    <field name="employee_overdue_count" string="Lifetime Overdue Months (OD)"/>
+                                    <field name="employee_credit_standing" widget="badge"
+                                           decoration-success="employee_credit_standing == 'excellent'"
+                                           decoration-warning="employee_credit_standing == 'fair'"
+                                           decoration-danger="employee_credit_standing == 'risk'"/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <!-- Tab 3: Terms & Approval Info -->
+                        <page string="Approval &amp; Audit Trail" name="approval_info">
+                            <group>
+                                <group string="Purpose / Reason">
+                                    <field name="reason" placeholder="State reason or emergency context..."
+                                           readonly="state != 'draft'"/>
+                                    <field name="refusal_reason" invisible="not refusal_reason" readonly="1"/>
+                                </group>
+                                <group string="Audit Stamps">
+                                    <field name="approved_by_id"/>
+                                    <field name="approved_date"/>
+                                    <field name="disbursed_by_id"/>
+                                    <field name="disbursed_date"/>
+                                    <field name="closed_date"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_l4e_loan_search" model="ir.ui.view">
+        <field name="name">l4e.loan.search</field>
+        <field name="model">l4e.loan</field>
+        <field name="arch" type="xml">
+            <search string="Search Loans">
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="department_id"/>
+                <field name="loan_type_id"/>
+                <separator/>
+                <filter name="filter_draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                <filter name="filter_waiting" string="Waiting Approval" domain="[('state', '=', 'submitted')]"/>
+                <filter name="filter_active" string="Active / Disbursed" domain="[('state', '=', 'disbursed')]"/>
+                <filter name="filter_closed" string="Closed" domain="[('state', '=', 'closed')]"/>
+                <separator/>
+                <filter name="filter_historical" string="Historical Opening Loans" domain="[('is_historical', '=', True)]"/>
+                <filter name="filter_overdue" string="With Overdue (OD)" domain="[('overdue_count', '&gt;', 0)]"/>
+                <separator/>
+                <filter name="filter_start_date" date="start_date" string="Deduction Start Date"/>
+                <group>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_type" string="Loan Type" context="{'group_by': 'loan_type_id'}"/>
+                    <filter name="group_department" string="Department" context="{'group_by': 'department_id'}"/>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="group_start_date" string="Deduction Start Date" context="{'group_by': 'start_date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_l4e_loan" model="ir.actions.act_window">
+        <field name="name">Employee Loans &amp; Advances</field>
+        <field name="res_model">l4e.loan</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_filter_active': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new Employee Loan or Salary Advance request.
+            </p>
+            <p>
+                Manage salary advances, E-Bike scheme recoveries, and emergency personal loans with amortization schedules.
+            </p>
+        </field>
+    </record>
+</odoo>

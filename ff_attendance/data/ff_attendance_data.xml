@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="shift_general" model="ff.shift">
+        <field name="name">General Shift (9:30 - 18:30)</field>
+        <field name="start_time">9.5</field>
+        <field name="end_time">18.5</field>
+        <field name="grace_minutes">15</field>
+        <field name="half_day_hours">4.5</field>
+        <field name="off_sun" eval="True"/>
+    </record>
+</odoo>

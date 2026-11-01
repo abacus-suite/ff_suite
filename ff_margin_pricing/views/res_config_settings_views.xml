@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_ff_margin" model="ir.ui.view">
+        <field name="name">res.config.settings.form.ff_margin</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="ff_demand.res_config_settings_view_form_ff_demand"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='ff_order_flow_settings']" position="after">
+                <block title="Pricing" name="ff_pricing_settings">
+                    <setting string="Pricing basis" help="How demands and orders are priced.">
+                        <field name="ff_price_basis" widget="radio"/>
+                        <div class="text-muted small mt-2" invisible="ff_price_basis != 'margin'">
+                            An outlet pays MRP less its own margin %. A distributor pays MRP less its own
+                            margin %. A product with no MRP, or a contact with no margin, keeps the product price.
+                            Example: MRP 200, distributor 30%, outlet 10% - the distributor buys at 140 and sells
+                            at 180 (profit 40); the outlet sells at 200 (profit 20).
+                        </div>
+                    </setting>
+                    <setting string="Default distributor margin %" invisible="ff_price_basis != 'margin'"
+                             help="Used for a distributor that has no margin of its own. Where an outlet is given a bigger margin than its distributor has, the company makes the distributor good with a debit note.">
+                        <field name="ff_total_margin"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

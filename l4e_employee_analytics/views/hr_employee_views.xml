@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_employee_form_inherit_l4e_analytics" model="ir.ui.view">
+        <field name="name">hr.employee.form.inherit.l4e.analytics</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="priority">40</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='l4e_employee_id']" position="after">
+                <field name="analytic_account_id" options="{'no_create': True}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Server Action to manually sync analytic accounts for selected employees -->
+    <record id="action_sync_employee_analytic_accounts" model="ir.actions.server">
+        <field name="name">Sync Analytic Accounts</field>
+        <field name="model_id" ref="hr.model_hr_employee"/>
+        <field name="binding_model_id" ref="hr.model_hr_employee"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">
+for employee in records:
+    employee._sync_analytic_account()
+        </field>
+    </record>
+</odoo>

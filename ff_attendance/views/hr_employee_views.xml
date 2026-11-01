@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="hr_employee_view_form_ff_attendance" model="ir.ui.view">
+        <field name="name">hr.employee.form.ff_attendance</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="ff_base.hr_employee_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='ff_designation_id']" position="after">
+                <field name="ff_shift_id"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

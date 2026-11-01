@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_l4e_salary_revision_user,l4e.salary.revision user,model_l4e_salary_revision,hr.group_hr_user,1,1,1,1
+access_l4e_salary_revision_manager,l4e.salary.revision manager,model_l4e_salary_revision,hr.group_hr_manager,1,1,1,1
+access_business_category_user,business.category user,model_business_category,base.group_user,1,1,1,1
+access_marketing_material_user,marketing.material user,model_marketing_material,base.group_user,1,1,1,1
+access_distributor_mrp_line_user,distributor.mrp.line user,model_distributor_mrp_line,base.group_user,1,1,1,1

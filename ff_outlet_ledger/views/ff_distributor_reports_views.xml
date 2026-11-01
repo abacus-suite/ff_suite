@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- What each distributor owes the company. These are the company's own
+         invoices in Accounting, so this is Accounting read through a distributor's eyes
+         rather than anything new kept here. -->
+    <record id="account_move_view_pivot_distributor" model="ir.ui.view">
+        <field name="name">account.move.pivot.ff_distributor</field>
+        <field name="model">account.move</field>
+        <field name="arch" type="xml">
+            <pivot string="Owed by Distributors">
+                <field name="partner_id" type="row"/>
+                <field name="invoice_date" interval="month" type="col"/>
+                <field name="amount_total_signed" type="measure"/>
+                <field name="amount_residual_signed" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="account_move_view_search_distributor" model="ir.ui.view">
+        <field name="name">account.move.search.ff_distributor</field>
+        <field name="model">account.move</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <filter name="ff_unpaid" string="Not paid"
+                        domain="[('payment_state', 'in', ('not_paid', 'partial'))]"/>
+                <filter name="ff_overdue" string="Overdue"
+                        domain="[('payment_state', 'in', ('not_paid', 'partial')),
+                                 ('invoice_date_due', '&lt;', context_today().strftime('%Y-%m-%d'))]"/>
+                <group>
+                    <filter name="ff_group_distributor" string="Distributor" context="{'group_by': 'partner_id'}"/>
+                    <filter name="ff_group_month" string="Month" context="{'group_by': 'invoice_date:month'}"/>
+                    <filter name="ff_group_state" string="Payment" context="{'group_by': 'payment_state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="account_move_distributor_action" model="ir.actions.act_window">
+        <field name="name">Owed by Distributors</field>
+        <field name="res_model">account.move</field>
+        <field name="view_mode">pivot,list,form</field>
+        <field name="search_view_id" ref="account_move_view_search_distributor"/>
+        <field name="domain">[('move_type', 'in', ('out_invoice', 'out_refund')),
+                              ('state', '=', 'posted'),
+                              ('partner_id.ff_is_distributor', '=', True)]</field>
+        <field name="context">{'default_move_type': 'out_invoice', 'search_default_ff_unpaid': 1}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'pivot', 'view_id': ref('account_move_view_pivot_distributor')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No distributor invoices yet</p>
+            <p>The company's own invoices to its distributors: how much each has been billed, how much
+            is paid and how much is still to come in.</p>
+        </field>
+    </record>
+
+    <!-- What the field collected, for the company and for outlets, side by side. -->
+    <record id="ff_collection_view_pivot_where" model="ir.ui.view">
+        <field name="name">ff.collection.pivot.where</field>
+        <field name="model">ff.collection</field>
+        <field name="arch" type="xml">
+            <pivot string="Collections">
+                <field name="handed_to" type="row"/>
+                <field name="distributor_id" type="row"/>
+                <field name="state" type="col"/>
+                <field name="amount" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="ff_collection_view_graph_where" model="ir.ui.view">
+        <field name="name">ff.collection.graph.where</field>
+        <field name="model">ff.collection</field>
+        <field name="arch" type="xml">
+            <graph string="Collections" type="bar">
+                <field name="employee_id"/>
+                <field name="handed_to"/>
+                <field name="amount" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="ff_collection_where_action" model="ir.actions.act_window">
+        <field name="name">Collections: Company and Outlets</field>
+        <field name="res_model">ff.collection</field>
+        <field name="view_mode">pivot,graph,list,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'pivot', 'view_id': ref('ff_collection_view_pivot_where')}),
+            (0, 0, {'view_mode': 'graph', 'view_id': ref('ff_collection_view_graph_where')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Nothing collected yet</p>
+            <p>Money collected for the company, and money collected from outlets for their distributors,
+            by distributor, by status and by salesperson.</p>
+        </field>
+    </record>
+</odoo>

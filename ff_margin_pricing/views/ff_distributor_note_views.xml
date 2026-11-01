@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_distributor_note_view_list_margin" model="ir.ui.view">
+        <field name="name">ff.distributor.note.list.margin</field>
+        <field name="model">ff.distributor.note</field>
+        <field name="inherit_id" ref="ff_visit_tasks.ff_distributor_note_view_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='quantity_total']" position="after">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="amount" sum="Value" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+    <record id="ff_distributor_note_view_form_margin" model="ir.ui.view">
+        <field name="name">ff.distributor.note.form.margin</field>
+        <field name="model">ff.distributor.note</field>
+        <field name="inherit_id" ref="ff_visit_tasks.ff_distributor_note_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='reason']" position="after">
+                <field name="currency_id" invisible="1"/>
+                <field name="amount" invisible="not amount"/>
+                <field name="margin_excess" invisible="not margin_excess"/>
+                <field name="delivery_id" invisible="not delivery_id"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

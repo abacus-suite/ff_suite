@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_task_summary_wizard_view_form" model="ir.ui.view">
+        <field name="name">ff.task.summary.wizard.form</field>
+        <field name="model">ff.task.summary.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Daily Task Summary">
+                <group>
+                    <group string="Period">
+                        <field name="period" widget="radio"/>
+                        <field name="date_from" readonly="period != 'custom'"/>
+                        <field name="date_to" readonly="period != 'custom'"/>
+                    </group>
+                    <group string="Employees">
+                        <field name="who" widget="radio"/>
+                        <field name="employee_ids" widget="many2many_tags" invisible="who != 'selected'"
+                               required="who == 'selected'" options="{'no_create': True}"/>
+                        <field name="team_id" invisible="who != 'all'" options="{'no_create': True}"/>
+                    </group>
+                </group>
+                <div class="text-muted">
+                    One Excel file. With more than one employee there is a tab for everybody first, then
+                    one tab for each person: the day-by-day summary, and every task below it.
+                </div>
+                <footer>
+                    <button name="action_download" type="object" string="Download Excel" class="btn-primary"
+                            icon="fa-download"/>
+                    <button string="Close" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_task_summary_wizard_action" model="ir.actions.act_window">
+        <field name="name">Daily Task Summary</field>
+        <field name="res_model">ff.task.summary.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_ff_task_summary" name="Daily Task Summary (Excel)" parent="ff_base.menu_ff_group_field"
+              action="ff_task_summary_wizard_action" sequence="24"/>
+</odoo>

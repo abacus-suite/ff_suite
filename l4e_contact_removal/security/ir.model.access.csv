@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_l4e_partner_delete_wizard_manager,l4e.partner.delete.wizard.manager,model_l4e_partner_delete_wizard,group_contact_removal,1,1,1,1
+access_l4e_partner_delete_wizard_admin,l4e.partner.delete.wizard.admin,model_l4e_partner_delete_wizard,base.group_system,1,1,1,1

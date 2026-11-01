@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_demand_request_view_form_portal" model="ir.ui.view">
+        <field name="name">ff.demand.request.form.portal</field>
+        <field name="model">ff.demand.request</field>
+        <field name="inherit_id" ref="ff_demand.ff_demand_request_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_send_portal_mail" type="object" string="E-mail Link" class="btn-primary"
+                        invisible="state != 'sent'"/>
+                <button name="action_open_portal" type="object" string="Open Portal Page"/>
+            </xpath>
+            <xpath expr="//field[@name='distributor_rejected_date']" position="after">
+                <field name="distributor_portal_link" widget="CopyClipboardChar"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_ola_claim_view_list" model="ir.ui.view">
+        <field name="name">ff.ola.claim.list</field>
+        <field name="model">ff.ola.claim</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0">
+                <field name="date"/>
+                <field name="employee_id"/>
+                <field name="hours"/>
+                <field name="kind"/>
+                <field name="day_rate"/>
+                <field name="amount" sum="Total"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_ola_claim_view_pivot" model="ir.ui.view">
+        <field name="name">ff.ola.claim.pivot</field>
+        <field name="model">ff.ola.claim</field>
+        <field name="arch" type="xml">
+            <pivot>
+                <field name="employee_id" type="row"/>
+                <field name="month" type="col" interval="month"/>
+                <field name="amount" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="ff_ola_claim_view_search" model="ir.ui.view">
+        <field name="name">ff.ola.claim.search</field>
+        <field name="model">ff.ola.claim</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <group>
+                    <filter name="by_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="by_month" string="Month" context="{'group_by': 'month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_ola_claim_action" model="ir.actions.act_window">
+        <field name="name">OLA</field>
+        <field name="res_model">ff.ola.claim</field>
+        <field name="view_mode">pivot,list</field>
+        <field name="context">{'search_default_by_month': 1}</field>
+    </record>
+
+    <menuitem id="menu_ff_ola_claims" name="OLA" parent="ff_base.menu_ff_section_claims"
+              action="ff_ola_claim_action" sequence="23"/>
+
+    <!-- On the employee -->
+    <record id="hr_employee_view_form_ff_ola" model="ir.ui.view">
+        <field name="name">hr.employee.form.ff.ola</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="ff_base.hr_employee_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='ff_org']" position="inside">
+                <field name="ff_ola_applicable"/>
+                <field name="ff_ola_monthly" invisible="not ff_ola_applicable"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- In Field Force settings -->
+    <record id="res_config_settings_view_form_ff_ola" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.ff.ola</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="ff_base.res_config_settings_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='ff_security_settings']" position="before">
+                <block title="OLA" name="ff_ola_settings">
+                    <setting string="OLA per month" help="The monthly OLA for employees marked OLA Applicable. An amount set on the employee wins.">
+                        <field name="ff_ola_monthly"/>
+                    </setting>
+                    <setting string="Days in the OLA month" help="One day of OLA is the month amount divided by this number (26).">
+                        <field name="ff_ola_days"/>
+                    </setting>
+                    <setting string="Half OLA from (hours)" help="A day worked this many hours or more, but fewer than the full hours, earns half.">
+                        <field name="ff_ola_half_hours"/>
+                    </setting>
+                    <setting string="Full OLA from (hours)" help="A day worked this many hours or more earns the full day amount.">
+                        <field name="ff_ola_full_hours"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

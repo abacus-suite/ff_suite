@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_l4e_loan_settle_wizard_form" model="ir.ui.view">
+        <field name="name">l4e.loan.settle.wizard.form</field>
+        <field name="model">l4e.loan.settle.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Pre-close / Settle Loan">
+                <group>
+                    <group>
+                        <field name="loan_id"/>
+                        <field name="employee_id"/>
+                    </group>
+                    <group>
+                        <field name="settlement_amount" widget="monetary"/>
+                        <field name="settlement_date"/>
+                        <field name="payment_mode"/>
+                    </group>
+                </group>
+                <group>
+                    <field name="note" placeholder="Enter settlement notes, bank transaction reference, etc..."/>
+                </group>
+                <footer>
+                    <button name="action_confirm_settlement" string="Confirm &amp; Close Loan" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

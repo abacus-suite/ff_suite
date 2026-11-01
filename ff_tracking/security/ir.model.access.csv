@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_location_ping_officer,ff.location.ping officer,model_ff_location_ping,ff_base.group_ff_officer,1,0,0,0
+access_ff_location_ping_admin,ff.location.ping admin,model_ff_location_ping,ff_base.group_ff_admin,1,1,1,1
+access_ff_employee_status_officer,ff.employee.status officer,model_ff_employee_status,ff_base.group_ff_officer,1,0,0,0
+access_ff_employee_status_admin,ff.employee.status admin,model_ff_employee_status,ff_base.group_ff_admin,1,1,1,1
+access_ff_daily_track_officer,ff.daily.track officer,model_ff_daily_track,ff_base.group_ff_officer,1,0,0,0
+access_ff_daily_track_admin,ff.daily.track admin,model_ff_daily_track,ff_base.group_ff_admin,1,1,1,1
+access_ff_compliance_log_officer,ff.compliance.log officer,model_ff_compliance_log,ff_base.group_ff_officer,1,0,0,0
+access_ff_compliance_log_admin,ff.compliance.log admin,model_ff_compliance_log,ff_base.group_ff_admin,1,1,1,1

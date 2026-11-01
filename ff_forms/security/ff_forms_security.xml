@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="rule_ff_form_response_scope" model="ir.rule">
+        <field name="name">Form responses: data access scope</field>
+        <field name="model_id" ref="model_ff_form_response"/>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_officer'))]"/>
+    </record>
+    <record id="rule_ff_form_response_admin" model="ir.rule">
+        <field name="name">Form responses: all</field>
+        <field name="model_id" ref="model_ff_form_response"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
+    </record>
+
+    <record id="rule_ff_form_response_line_scope" model="ir.rule">
+        <field name="name">Form answers: data access scope</field>
+        <field name="model_id" ref="model_ff_form_response_line"/>
+        <field name="domain_force">[('employee_id', 'in', user.ff_scope_employee_ids())]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_officer'))]"/>
+    </record>
+    <record id="rule_ff_form_response_line_admin" model="ir.rule">
+        <field name="name">Form answers: all</field>
+        <field name="model_id" ref="model_ff_form_response_line"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('ff_base.group_ff_admin'))]"/>
+    </record>
+</odoo>

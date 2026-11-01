@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_distributor_note_view_list" model="ir.ui.view">
+        <field name="name">ff.distributor.note.list</field>
+        <field name="model">ff.distributor.note</field>
+        <field name="arch" type="xml">
+            <list create="0" decoration-warning="state == 'pending'" decoration-muted="state == 'rejected'">
+                <field name="date"/>
+                <field name="name"/>
+                <field name="kind"/>
+                <field name="source" optional="show"/>
+                <field name="distributor_id"/>
+                <field name="partner_id" optional="show"/>
+                <field name="employee_id" optional="show"/>
+                <field name="reason" optional="show"/>
+                <field name="quantity_total" sum="Pieces"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="amount" sum="Value" optional="show"/>
+                <field name="move_id" string="Credit Note" optional="hide"/>
+                <field name="state" widget="badge"
+                       decoration-warning="state == 'pending'" decoration-success="state == 'approved'"
+                       decoration-danger="state == 'rejected'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_distributor_note_view_form" model="ir.ui.view">
+        <field name="name">ff.distributor.note.form</field>
+        <field name="model">ff.distributor.note</field>
+        <field name="arch" type="xml">
+            <form create="0">
+                <header>
+                    <button name="action_approve" type="object" string="Approve" class="btn-primary"
+                            invisible="state != 'pending'" groups="ff_base.group_ff_manager"/>
+                    <button name="action_reject" type="object" string="Reject" invisible="state != 'pending'"
+                            groups="ff_base.group_ff_manager"/>
+                    <button name="action_sync_stock_moves" type="object" string="Sync Stock Move" class="btn-secondary"
+                            invisible="state != 'approved'" groups="ff_base.group_ff_manager"/>
+                    <field name="state" widget="statusbar" statusbar_visible="pending,approved"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_credit_note" type="object" class="oe_stat_button" icon="fa-pencil-square-o"
+                                invisible="not move_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Credit Note</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group string="What it is for">
+                            <field name="kind"/>
+                            <field name="source"/>
+                            <field name="reason"/>
+                            <field name="demand_id"/>
+                            <field name="task_log_id"/>
+                            <field name="visit_id"/>
+                            <field name="move_id" string="Credit Note" readonly="1" invisible="not move_id"/>
+                        </group>
+                        <group string="Who">
+                            <field name="distributor_id"/>
+                            <field name="partner_id" string="Outlet"/>
+                            <field name="employee_id" string="Raised by"/>
+                            <field name="date"/>
+                            <field name="decided_by_id" invisible="not decided_by_id"/>
+                            <field name="decided_at" invisible="not decided_at"/>
+                        </group>
+                    </group>
+                    <field name="currency_id" invisible="1"/>
+                    <field name="line_ids">
+                        <list>
+                            <field name="product_id"/>
+                            <field name="quantity" sum="Units"/>
+                            <field name="uom_id"/>
+                            <field name="price_unit"/>
+                            <field name="subtotal" sum="Value"/>
+                            <field name="currency_id" column_invisible="1"/>
+                        </list>
+                    </field>
+                    <group class="oe_subtotal_footer">
+                        <field name="amount" class="oe_subtotal_footer_separator"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_distributor_note_view_search" model="ir.ui.view">
+        <field name="name">ff.distributor.note.search</field>
+        <field name="model">ff.distributor.note</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="distributor_id"/>
+                <field name="partner_id"/>
+                <field name="employee_id"/>
+                <filter name="pending" string="Waiting for approval" domain="[('state', '=', 'pending')]"/>
+                <filter name="credit" string="Credit notes" domain="[('kind', '=', 'credit')]"/>
+                <filter name="debit" string="Debit notes" domain="[('kind', '=', 'debit')]"/>
+                <group>
+                    <filter name="group_distributor" string="Distributor" context="{'group_by': 'distributor_id'}"/>
+                    <filter name="group_kind" string="Kind" context="{'group_by': 'kind'}"/>
+                    <filter name="group_month" string="Month" context="{'group_by': 'date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_distributor_note_action" model="ir.actions.act_window">
+        <field name="name">Credit / Debit Notes</field>
+        <field name="res_model">ff.distributor.note</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_pending': 1}</field>
+    </record>
+
+    <record id="ff_demand_view_form_foc_note" model="ir.ui.view">
+        <field name="name">ff.demand.form.foc.note</field>
+        <field name="model">ff.demand</field>
+        <field name="inherit_id" ref="ff_demand.ff_demand_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_notes" type="object" class="oe_stat_button" icon="fa-file-text-o"
+                        invisible="note_count == 0">
+                    <field name="note_count" widget="statinfo" string="Debit / Credit Notes"/>
+                </button>
+            </xpath>
+            <xpath expr="//header" position="inside">
+                <button name="action_ff_foc_note" type="object" string="Raise FOC Debit Note"
+                        invisible="not distributor_id or state in ('cancelled', 'rejected')"
+                        groups="ff_base.group_ff_manager"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_sync_distributor_stock_moves" model="ir.actions.server">
+        <field name="name">Sync Stock Moves</field>
+        <field name="model_id" ref="model_ff_distributor_note"/>
+        <field name="binding_model_id" ref="model_ff_distributor_note"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">records.action_sync_stock_moves()</field>
+    </record>
+</odoo>

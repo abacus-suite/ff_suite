@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="task_type_events" model="ff.task.type">
+        <field name="name">Events</field>
+        <field name="code">events</field>
+        <field name="sequence">60</field>
+        <field name="steps">3</field>
+        <field name="needs_contact" eval="False"/>
+        <field name="hint">Sampling, activation, exhibition</field>
+        <field name="geofence_required" eval="True"/>
+        <field name="geofence_radius">200</field>
+    </record>
+</odoo>

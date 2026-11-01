@@ -1,0 +1,860 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ================================================================= -->
+    <!-- CLEAN STYLING TO HIDE ODOO NAVBAR, BREADCRUMBS, FOOTER and RIBBON -->
+    <!-- ================================================================= -->
+    <template id="distributor_portal_clean_assets" name="Distributor Portal Clean Assets">
+        <style><![CDATA[
+            /* 1. Hide Standard Portal Navbar and Top Header (Logo, Administrator menu) */
+            header,
+            header#top,
+            header.o_header_standard,
+            nav.navbar,
+            .navbar,
+            #oe_main_menu_navbar,
+            .o_portal_header {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                border: none !important;
+            }
+
+            /* 2. Hide Portal Submenu and Breadcrumbs (/ Purchase Orders / S00012) */
+            .o_portal_submenu,
+            .breadcrumb,
+            .o_portal_my_doc_breadcrumbs,
+            .o_portal_breadcrumbs,
+            .o_portal_navbar {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                border: none !important;
+            }
+
+            /* 3. Hide Footer and Powered by Odoo / Copyright */
+            footer,
+            footer#bottom,
+            footer.o_footer,
+            .o_footer_copyright,
+            #footer,
+            .o_portal_footer {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                border: none !important;
+            }
+
+            /* 4. Hide Database Neutralized Testing Banner */
+            #oe_neutralize_banner,
+            span[id="oe_neutralize_banner"] {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+            }
+
+            /* Clean Body and Wrap styling */
+            body {
+                background-color: #f1f5f9 !important;
+                padding-top: 20px !important;
+                padding-bottom: 40px !important;
+            }
+            #wrap {
+                padding-top: 0 !important;
+            }
+            .text-secondary {
+                color: #475569 !important;
+            }
+
+            /* Custom Pop-up Modal Styling */
+            .custom-modal-backdrop {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(15, 23, 42, 0.65);
+                backdrop-filter: blur(2px);
+                z-index: 9998;
+                display: none;
+                opacity: 0;
+                transition: opacity 0.2s ease-in-out;
+            }
+            .custom-modal {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) scale(0.95);
+                width: 90%;
+                max-width: 500px;
+                background: #ffffff;
+                border-radius: 12px;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+                z-index: 9999;
+                display: none;
+                opacity: 0;
+                transition: all 0.2s ease-in-out;
+                overflow: hidden;
+            }
+            .custom-modal.active, .custom-modal-backdrop.active {
+                display: block;
+                opacity: 1;
+            }
+            .custom-modal.active {
+                transform: translate(-50%, -50%) scale(1);
+            }
+        ]]></style>
+        <script type="text/javascript"><![CDATA[
+            (function() {
+                function cleanChrome() {
+                    var selectors = [
+                        'header#top',
+                        'header.o_header_standard',
+                        'nav.navbar',
+                        'footer#bottom',
+                        'footer.o_footer',
+                        '.o_portal_submenu',
+                        '.breadcrumb',
+                        '.o_portal_my_doc_breadcrumbs',
+                        '#oe_neutralize_banner'
+                    ];
+                    selectors.forEach(function(sel) {
+                        document.querySelectorAll(sel).forEach(function(el) {
+                            el.style.display = 'none';
+                            el.remove();
+                        });
+                    });
+                }
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', cleanChrome);
+                } else {
+                    cleanChrome();
+                }
+                setTimeout(cleanChrome, 50);
+                setTimeout(cleanChrome, 300);
+            })();
+        ]]></script>
+    </template>
+
+    <!-- ================================================================= -->
+    <!-- MAIN DISTRIBUTOR ORDER REVIEW &amp; CONFIRMATION PORTAL PAGE      -->
+    <!-- ================================================================= -->
+    <template id="distributor_portal_order_page" name="Distributor Order Portal">
+        <t t-call="portal.portal_layout">
+            <t t-call="l4e_distributor_portal.distributor_portal_clean_assets"/>
+            <style><![CDATA[
+                .dp { --dp-ink:#0f172a; --dp-muted:#64748b; --dp-line:#e2e8f0; --dp-brand:#1d4ed8; --dp-free:#059669; }
+                .dp .dp-card { background:#fff; border:1px solid var(--dp-line); border-radius:18px; box-shadow:0 8px 24px rgba(15,23,42,.06); }
+                .dp .dp-hero { background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 55%,#0ea5a5 100%); color:#fff; border-radius:22px; padding:22px 24px; box-shadow:0 18px 40px rgba(29,78,216,.28); }
+                .dp .dp-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:999px; font-size:12px; font-weight:700; white-space:nowrap; flex-shrink:0; }
+                .dp .dp-foc, .dp .dp-off, .dp .dp-tax { white-space:nowrap; display:inline-block; }
+                .dp .dp-sec > .flex-grow-1 { min-width:0; }
+                .dp .dp-sec .sub-long { display:block; } .dp .dp-sec .sub-short { display:none; }
+                .dp .dp-stat { padding:14px 16px; border-radius:16px; background:#fff; border:1px solid var(--dp-line); height:100%; }
+                .dp .dp-stat .v { font-size:22px; font-weight:800; color:var(--dp-ink); line-height:1.1; }
+                .dp .dp-stat .l { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--dp-muted); font-weight:700; }
+                .dp .dp-sec { display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid var(--dp-line); }
+                .dp .dp-sec .ic { width:34px; height:34px; border-radius:11px; display:flex; align-items:center; justify-content:center; background:#e0e7ff; color:var(--dp-brand); }
+                .dp .dp-sec.free .ic { background:#d1fae5; color:var(--dp-free); }
+                .dp table.dp-table th { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--dp-muted); font-weight:700; background:#f8fafc; border-bottom:1px solid var(--dp-line); }
+                .dp table.dp-table td { vertical-align:middle; border-color:#f1f5f9; }
+                .dp .dp-free-row { background:linear-gradient(90deg,#ecfdf5 0%,#fff 70%); }
+                .dp .dp-foc { background:#059669; color:#fff; font-weight:800; letter-spacing:.6px; font-size:10.5px; padding:3px 8px; border-radius:6px; }
+                .dp .dp-off { background:#d1fae5; color:#047857; font-weight:700; font-size:10.5px; padding:3px 8px; border-radius:6px; }
+                .dp .dp-tax { background:#fef3c7; color:#92400e; font-weight:700; font-size:10.5px; padding:3px 8px; border-radius:6px; }
+                .dp .dp-strike { text-decoration:line-through; color:#94a3b8; }
+                .dp .dp-qty { max-width:150px; margin:auto; }
+                .dp .dp-qty input { font-weight:800; text-align:center; }
+                .dp .dp-outlet { border:1px solid var(--dp-line); border-radius:14px; padding:12px 14px; background:#fff; }
+                .dp .dp-total { background:#0f172a; color:#fff; border-radius:18px; padding:18px 20px; }
+                .dp .dp-total .row-l { display:flex; justify-content:space-between; font-size:13px; color:#cbd5e1; padding:3px 0; }
+                .dp .dp-total .grand { display:flex; justify-content:space-between; align-items:baseline; border-top:1px solid #334155; margin-top:8px; padding-top:10px; }
+                .dp .dp-total .grand .n { font-size:28px; font-weight:800; color:#fff; }
+                .dp .dp-step { display:flex; gap:8px; align-items:center; font-size:12px; color:var(--dp-muted); font-weight:700; }
+                .dp .dp-step .dot { width:22px; height:22px; border-radius:50%; background:#e2e8f0; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; }
+                .dp .dp-step.done .dot { background:#16a34a; }
+                .dp .dp-step.now .dot { background:#f59e0b; }
+                .dp .dp-step.bad .dot { background:#dc2626; }
+                .dp .dp-bar { position:sticky; bottom:0; z-index:50; background:rgba(255,255,255,.96); backdrop-filter:blur(6px); border-top:1px solid var(--dp-line); padding:12px 0; }
+                @media (max-width:767px) { .dp .dp-hero { padding:18px; } .dp .hide-sm { display:none !important; } }
+
+                /* ---- phones and small tablets: every line becomes a card ---- */
+                @media (max-width:767px) {
+                    .dp .dp-table thead { display:none; }
+                    .dp .dp-table, .dp .dp-table tbody { display:block; width:100%; }
+                    .dp tr.dp-line { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; padding:14px 16px; border-bottom:1px solid #eef2f7; }
+                    .dp tr.dp-line td { display:block; width:auto; border:none !important; padding:0 !important; }
+                    .dp tr.dp-line td.c-idx { display:none; }
+                    .dp tr.dp-line td.c-prod { flex:1 1 100%; }
+                    .dp tr.dp-line td.c-price, .dp tr.dp-line td.c-tax { display:none; }
+                    .dp tr.dp-line td.c-ask { flex:0 0 auto; }
+                    .dp tr.dp-line td.c-ask { display:flex !important; align-items:center; gap:6px; }
+                    .dp tr.dp-line td.c-ask::before { content:'Asked'; font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:.4px; font-weight:700; }
+                    .dp tr.dp-line td.c-qty { flex:1 1 auto; text-align:left !important; display:flex !important; align-items:center; gap:6px; }
+                    .dp tr.dp-line td.c-qty::before { content:attr(data-label); font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:.4px; font-weight:700; }
+                    .dp tr.dp-line td.c-qty .fs-6 { font-size:17px !important; }
+                    .dp tr.dp-line td.c-qty .dp-qty { margin:0; max-width:150px; }
+                    .dp tr.dp-line td.c-amt { flex:0 0 auto; margin-left:auto; text-align:right; font-size:15px; }
+                    .dp .dp-qty button, .dp .dp-qty input { height:40px; }
+                    .dp .dp-hero h2 { font-size:22px; }
+                    .dp .dp-total .grand .n { font-size:24px; }
+                    .dp .dp-sec { padding:14px; gap:10px; }
+                    .dp .dp-sec .sub-long { display:none; } .dp .dp-sec .sub-short { display:block; }
+                    .dp .dp-sec .ic { flex-shrink:0; }
+                    .dp .dp-outlet .small { font-size:12px; }
+                    .dp .dp-bar .btn { flex:1 1 0; padding-left:.5rem; padding-right:.5rem; white-space:nowrap; }
+                    .dp .dp-bar .btn-print { display:none; }
+                    .dp .dp-bar .btn-confirm { flex:2 1 0; }
+                }
+                .dp .dp-bar .d-flex { flex-direction:row !important; }
+                .dp { padding-bottom:84px; }
+                .dp .table-responsive { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+                @media print { .dp .dp-bar, .dp .no-print { display:none !important; } .dp .dp-card { box-shadow:none; } }
+            ]]></style>
+
+            <meta name="viewport" content="width=device-width, initial-scale=1"/>
+            <div class="container my-3 dp px-2 px-md-3" style="max-width: 1040px;">
+
+                <!-- ========== HERO ========== -->
+                <div class="dp-hero mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+                        <div>
+                            <span class="dp-pill" style="background:rgba(255,255,255,.18);">
+                                <i class="fa fa-truck"/> DISTRIBUTOR ORDER
+                            </span>
+                            <h2 class="mt-2 mb-1 text-white fw-bold"><t t-out="order.name"/></h2>
+                            <div class="small" style="opacity:.85;">
+                                For <strong><t t-out="order.partner_id.name"/></strong>
+                                <t t-if="order.date_order"> · <t t-out="order.date_order.strftime('%d %b %Y')"/></t>
+                                <t t-if="order.ff_employee_id"> · Raised by <t t-out="order.ff_employee_id.name"/></t>
+                            </div>
+                            <div class="small mt-1" style="opacity:.7;" t-if="order.origin">
+                                Demands: <t t-out="order.origin"/>
+                            </div>
+                        </div>
+                        <div class="text-md-end">
+                            <t t-if="is_confirmed">
+                                <span class="dp-pill" style="background:#16a34a;"><i class="fa fa-check"/> Confirmed</span>
+                                <div class="small mt-2" style="opacity:.85;" t-if="order.distributor_confirmed_date">
+                                    on <t t-out="order.distributor_confirmed_date.strftime('%d-%m-%Y %I:%M %p')"/>
+                                </div>
+                            </t>
+                            <t t-elif="is_rejected">
+                                <span class="dp-pill" style="background:#dc2626;"><i class="fa fa-times"/> Rejected</span>
+                                <div class="small mt-2" style="opacity:.85;" t-if="order.distributor_rejected_date">
+                                    on <t t-out="order.distributor_rejected_date.strftime('%d-%m-%Y %I:%M %p')"/>
+                                </div>
+                            </t>
+                            <t t-else="">
+                                <span class="dp-pill" style="background:#f59e0b;color:#1f2937;"><i class="fa fa-clock-o"/> Waiting for your review</span>
+                            </t>
+                        </div>
+                    </div>
+
+                    <!-- Progress -->
+                    <div class="d-flex flex-wrap gap-3 mt-3 pt-3" style="border-top:1px solid rgba(255,255,255,.2);">
+                        <div class="dp-step done" style="color:#fff;"><span class="dot"><i class="fa fa-check"/></span> Demand raised</div>
+                        <div class="dp-step done" style="color:#fff;"><span class="dot"><i class="fa fa-check"/></span> Sent to you</div>
+                        <div t-attf-class="dp-step #{'done' if is_confirmed else ('bad' if is_rejected else 'now')}" style="color:#fff;">
+                            <span class="dot"><i t-attf-class="fa #{'fa-check' if is_confirmed else ('fa-times' if is_rejected else 'fa-hourglass-half')}"/></span>
+                            Your decision
+                        </div>
+                        <div t-attf-class="dp-step #{'done' if order.state == 'done' else ''}" style="color:#fff;opacity:.8;">
+                            <span class="dot"><i class="fa fa-check"/></span> Delivery
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Banners -->
+                <t t-if="already_confirmed_msg and is_confirmed">
+                    <div class="alert alert-success shadow-sm" role="alert"><i class="fa fa-check-circle me-2"/>This order is confirmed. The quantities below are final.</div>
+                </t>
+                <t t-if="already_rejected_msg and is_rejected">
+                    <div class="alert alert-danger shadow-sm" role="alert"><i class="fa fa-times-circle me-2"/>This order was rejected. The sales team has been told.</div>
+                </t>
+
+                <!-- ========== SUMMARY ========== -->
+                <div class="row g-3 mb-4">
+                    <div class="col-6 col-md-3"><div class="dp-stat"><div class="l">Products</div><div class="v"><t t-out="summary['paid_count']"/></div></div></div>
+                    <div class="col-6 col-md-3"><div class="dp-stat" style="border-color:#a7f3d0;background:#f0fdf4;"><div class="l" style="color:#047857;">Free goods (FOC)</div><div class="v" style="color:#047857;"><t t-out="'%g' % summary['free_units']"/> <small style="font-size:12px;">units</small></div></div></div>
+                    <div class="col-6 col-md-3"><div class="dp-stat"><div class="l">Outlets</div><div class="v"><t t-out="len(outlets)"/></div></div></div>
+                    <div class="col-6 col-md-3"><div class="dp-stat"><div class="l">Order value</div><div class="v">₹<t t-out="'{:,.2f}'.format(order.amount_total)"/></div></div></div>
+                </div>
+
+                <form id="distributor_order_form" t-att-action="(base or '/distributor/order') + '/submit'" t-att-data-base="base or '/distributor/order'" method="post">
+                    <input type="hidden" name="order_id" t-att-value="order.id"/>
+                    <input type="hidden" name="token" t-att-value="token"/>
+
+                    <!-- ========== PAID PRODUCTS ========== -->
+                    <div class="dp-card mb-4" style="overflow:hidden;">
+                        <div class="dp-sec">
+                            <div class="ic"><i class="fa fa-cubes"/></div>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold text-dark">Products</div>
+                                <div class="small text-muted sub-long">
+                                    <t t-if="not is_confirmed and not is_rejected">Change the supply quantity if you cannot supply all of it.</t>
+                                    <t t-else="">Final quantities.</t>
+                                </div>
+                                <div class="small text-muted sub-short">
+                                    <t t-if="not is_confirmed and not is_rejected">Adjust what you can supply.</t>
+                                    <t t-else="">Final quantities.</t>
+                                </div>
+                            </div>
+                            <span class="dp-pill" style="background:#e2e8f0;color:#334155;"><t t-out="summary['paid_count']"/> items</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table dp-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="text-center" style="width:44px;">#</th>
+                                        <th>Product</th>
+                                        <th class="text-end hide-sm" style="width:110px;">Price (PTS)</th>
+                                        <th class="text-center" style="width:90px;">Asked</th>
+                                        <th class="text-center" style="width:170px;">Supply</th>
+                                        <th class="text-end hide-sm" style="width:90px;">Tax</th>
+                                        <th class="text-end" style="width:120px;">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-set="idx" t-value="0"/>
+                                    <t t-foreach="lines" t-as="l">
+                                        <t t-if="not l['free']">
+                                            <t t-set="idx" t-value="idx + 1"/>
+                                            <t t-call="l4e_distributor_portal.distributor_portal_line_row"/>
+                                        </t>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ========== FREE GOODS ========== -->
+                    <t t-if="summary['free_count']">
+                        <div class="dp-card mb-4" style="overflow:hidden;border-color:#a7f3d0;">
+                            <div class="dp-sec free" style="background:#f0fdf4;">
+                                <div class="ic"><i class="fa fa-gift"/></div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold" style="color:#047857;">Free goods (FOC)</div>
+                                    <div class="small text-muted sub-long">Given to the outlets free of charge, at 100% discount. The value is covered by our debit note to you.</div>
+                                    <div class="small text-muted sub-short">Free of charge, 100% off. Covered by our debit note.</div>
+                                </div>
+                                <span class="dp-foc" style="flex-shrink:0;">FREE</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table dp-table mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-center" style="width:44px;">#</th>
+                                            <th>Product</th>
+                                            <th class="text-end hide-sm" style="width:110px;">Worth (PTS)</th>
+                                            <th class="text-center" style="width:90px;">Asked</th>
+                                            <th class="text-center" style="width:170px;">Supply</th>
+                                            <th class="text-end hide-sm" style="width:90px;">Discount</th>
+                                            <th class="text-end" style="width:120px;">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-set="idx" t-value="0"/>
+                                        <t t-foreach="lines" t-as="l">
+                                            <t t-if="l['free']">
+                                                <t t-set="idx" t-value="idx + 1"/>
+                                                <t t-call="l4e_distributor_portal.distributor_portal_line_row"/>
+                                            </t>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </t>
+
+                    <!-- ========== OUTLETS ========== -->
+                    <t t-if="outlets">
+                        <div class="dp-card mb-4" style="overflow:hidden;">
+                            <div class="dp-sec">
+                                <div class="ic"><i class="fa fa-map-marker"/></div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold text-dark">Where it is going</div>
+                                    <div class="small text-muted sub-long">The outlets behind this order, and what each asked for.</div>
+                                    <div class="small text-muted sub-short">What each outlet asked for.</div>
+                                </div>
+                                <span class="dp-pill" style="background:#e2e8f0;color:#334155;"><t t-out="len(outlets)"/> outlets</span>
+                            </div>
+                            <div class="p-3">
+                                <div class="row g-3">
+                                    <t t-foreach="outlets" t-as="o">
+                                        <div class="col-md-6">
+                                            <div class="dp-outlet h-100">
+                                                <div class="d-flex justify-content-between align-items-start">
+                                                    <div>
+                                                        <div class="fw-bold text-dark"><t t-out="o['name']"/></div>
+                                                        <div class="small text-muted" t-if="o['address']"><i class="fa fa-map-marker me-1"/><t t-out="o['address']"/></div>
+                                                        <div class="small text-muted" t-if="o['phone']"><i class="fa fa-phone me-1"/><t t-out="o['phone']"/></div>
+                                                    </div>
+                                                    <span class="small text-muted"><t t-out="o['number']"/></span>
+                                                </div>
+                                                <div class="mt-2 small">
+                                                    <t t-foreach="o['items']" t-as="it">
+                                                        <div class="d-flex justify-content-between py-1" style="border-top:1px dashed #e2e8f0;">
+                                                            <span>
+                                                                <t t-out="it['name']"/>
+                                                                <span class="dp-foc ms-1" t-if="it['free']">FOC</span>
+                                                            </span>
+                                                            <strong>× <t t-out="it['qty']"/></strong>
+                                                        </div>
+                                                    </t>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+
+                    <!-- ========== NOTES + TOTALS ========== -->
+                    <div class="row g-3 mb-5">
+                        <div class="col-md-7">
+                            <div class="dp-card p-3 h-100">
+                                <t t-if="not is_confirmed and not is_rejected">
+                                    <label for="order_notes" class="form-label small text-muted text-uppercase fw-bold">
+                                        <i class="fa fa-commenting-o me-1"/> Your remarks (optional)
+                                    </label>
+                                    <textarea id="order_notes" name="notes" class="form-control" rows="4"
+                                              placeholder="Delivery timing, shortages, or the reason if you reject..."></textarea>
+                                </t>
+                                <t t-elif="order.distributor_note">
+                                    <div class="small text-muted fw-bold text-uppercase">Your remarks</div>
+                                    <p class="mb-0 mt-1 text-dark"><t t-out="order.distributor_note"/></p>
+                                </t>
+                                <t t-else="">
+                                    <div class="small text-muted">No remarks were added.</div>
+                                </t>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="dp-total">
+                                <div class="row-l"><span>Supply units</span><span id="grand_total_units" class="text-white fw-bold">0</span></div>
+                                <div class="row-l"><span>Untaxed</span><span>₹<span id="grand_untaxed">0.00</span></span></div>
+                                <div class="row-l"><span>Taxes</span><span>₹<span id="grand_tax">0.00</span></span></div>
+                                <div class="row-l" t-if="summary['free_count']" style="color:#6ee7b7;"><span>Free goods worth</span><span>₹<span id="grand_free">0.00</span></span></div>
+                                <div class="grand">
+                                    <span style="color:#cbd5e1;">Total payable</span>
+                                    <span class="n">₹<span id="grand_total_amount" t-out="'%.2f' % order.amount_total"/></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ========== ACTIONS ========== -->
+                    <t t-if="not is_confirmed and not is_rejected">
+                        <div class="dp-bar no-print">
+                            <div class="d-flex flex-row justify-content-end align-items-center gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-print px-4" onclick="window.print()"><i class="fa fa-print me-1"/> Print</button>
+                                <button type="button" class="btn btn-outline-danger px-4 fw-bold" onclick="showRejectModal()"><i class="fa fa-times-circle me-1"/> Reject</button>
+                                <button type="button" class="btn btn-success btn-confirm px-5 fw-bold shadow-sm" onclick="showConfirmModal()"><i class="fa fa-check-circle me-1"/> Confirm order</button>
+                            </div>
+                        </div>
+                    </t>
+                </form>
+
+                <t t-call="l4e_distributor_portal.distributor_delivery_card"/>
+            </div>
+
+            <!-- ================== MODALS ================== -->
+            <div id="custom_modal_backdrop" class="custom-modal-backdrop" onclick="closeAllCustomModals()"/>
+
+            <div id="custom_reject_modal" class="custom-modal">
+                <div class="p-3 px-4 border-bottom bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-danger"><i class="fa fa-times-circle me-2"/> Reject order</h5>
+                    <button type="button" class="btn-close" style="font-size: 12px;" onclick="closeCustomModal('custom_reject_modal')"></button>
+                </div>
+                <div class="p-4">
+                    <p class="text-secondary mb-3">This cancels the order and tells the sales team. Please say why.</p>
+                    <label class="form-label small fw-bold text-muted text-uppercase">Reason</label>
+                    <textarea id="modal_reject_reason" class="form-control" rows="3" placeholder="Stock unavailable, pricing, delivery constraints..."></textarea>
+                </div>
+                <div class="p-3 bg-light border-top d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary px-3" onclick="closeCustomModal('custom_reject_modal')">Keep order</button>
+                    <button type="button" class="btn btn-danger px-4 fw-bold" onclick="executeRejection()"><i class="fa fa-times-circle me-1"/> Reject order</button>
+                </div>
+            </div>
+
+            <div id="custom_confirm_modal" class="custom-modal">
+                <div class="p-3 px-4 border-bottom bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold text-success"><i class="fa fa-check-circle me-2"/> Confirm order</h5>
+                    <button type="button" class="btn-close" style="font-size: 12px;" onclick="closeCustomModal('custom_confirm_modal')"></button>
+                </div>
+                <div class="p-4">
+                    <p class="text-secondary mb-3">Confirm this order with the quantities you entered?</p>
+                    <div class="bg-light p-3 rounded border mb-3">
+                        <div class="d-flex justify-content-between mb-1 small text-muted"><span>Supply units</span><span id="modal_confirm_units" class="fw-bold text-dark">0</span></div>
+                        <div class="d-flex justify-content-between small text-muted"><span>Total payable</span><span class="fw-bold text-success fs-6">₹<span id="modal_confirm_amount">0.00</span></span></div>
+                    </div>
+                    <p class="small text-muted mb-0"><em>Once confirmed the quantities are locked. Then record what you deliver to each outlet - the outlets are billed only for that.</em></p>
+                </div>
+                <div class="p-3 bg-light border-top d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary px-3" onclick="closeCustomModal('custom_confirm_modal')">Back to edit</button>
+                    <button type="button" class="btn btn-success px-4 fw-bold" onclick="executeConfirmation()"><i class="fa fa-check-circle me-1"/> Confirm</button>
+                </div>
+            </div>
+
+            <div id="custom_alert_modal" class="custom-modal" style="max-width: 440px;">
+                <div class="p-4 text-center">
+                    <div class="text-warning mb-3"><i class="fa fa-exclamation-triangle fa-3x"/></div>
+                    <h5 class="fw-bold text-dark mb-2">Quantity needed</h5>
+                    <p class="text-secondary mb-4 small">Supply at least one unit before confirming, or reject the order if you cannot fulfil it.</p>
+                    <button type="button" class="btn btn-primary px-4 fw-bold" onclick="closeCustomModal('custom_alert_modal')">OK</button>
+                </div>
+            </div>
+
+            <script type="text/javascript"><![CDATA[
+                function stepQty(lineId, delta) {
+                    var input = document.getElementById('qty_' + lineId);
+                    if (!input) return;
+                    input.value = Math.max(0, (parseFloat(input.value) || 0) + delta);
+                    recalcLine(lineId);
+                }
+                function recalcLine(lineId) {
+                    var input = document.getElementById('qty_' + lineId);
+                    var row = document.getElementById('row_' + lineId);
+                    if (!input || !row) return;
+                    var price = parseFloat(row.getAttribute('data-price')) || 0;
+                    var disc = parseFloat(row.getAttribute('data-disc')) || 0;
+                    var tax = parseFloat(row.getAttribute('data-tax')) || 0;
+                    var qty = Math.max(0, parseFloat(input.value) || 0);
+                    if (qty !== (parseFloat(input.value) || 0)) input.value = qty;
+                    var untaxed = qty * price * (1 - disc / 100);
+                    row.setAttribute('data-untaxed', untaxed);
+                    row.setAttribute('data-taxamt', untaxed * tax / 100);
+                    row.setAttribute('data-worth', disc >= 100 ? qty * price : 0);
+                    var cell = document.getElementById('subtotal_' + lineId);
+                    if (cell) cell.innerText = untaxed.toFixed(2);
+                    recalcTotals();
+                }
+                function recalcTotals() {
+                    var units = 0, untaxed = 0, tax = 0, free = 0;
+                    document.querySelectorAll('tr.dp-line').forEach(function(row) {
+                        var id = row.id.replace('row_', '');
+                        var input = document.getElementById('qty_' + id);
+                        var qty = input ? (parseFloat(input.value) || 0) : (parseFloat(row.getAttribute('data-qty')) || 0);
+                        var price = parseFloat(row.getAttribute('data-price')) || 0;
+                        var disc = parseFloat(row.getAttribute('data-disc')) || 0;
+                        var rate = parseFloat(row.getAttribute('data-tax')) || 0;
+                        var base = qty * price * (1 - disc / 100);
+                        units += qty;
+                        untaxed += base;
+                        tax += base * rate / 100;
+                        if (disc >= 100) free += qty * price;
+                    });
+                    var set = function(id, v) { var el = document.getElementById(id); if (el) el.innerText = v; };
+                    set('grand_total_units', units);
+                    set('grand_untaxed', untaxed.toFixed(2));
+                    set('grand_tax', tax.toFixed(2));
+                    set('grand_free', free.toFixed(2));
+                    set('grand_total_amount', (untaxed + tax).toFixed(2));
+                }
+                function openCustomModal(id) {
+                    var b = document.getElementById('custom_modal_backdrop'), m = document.getElementById(id);
+                    if (b && m) { b.classList.add('active'); m.classList.add('active'); }
+                }
+                function closeCustomModal(id) {
+                    var b = document.getElementById('custom_modal_backdrop'), m = document.getElementById(id);
+                    if (m) m.classList.remove('active');
+                    if (b) b.classList.remove('active');
+                }
+                function closeAllCustomModals() {
+                    document.querySelectorAll('.custom-modal').forEach(function(m) { m.classList.remove('active'); });
+                    var b = document.getElementById('custom_modal_backdrop');
+                    if (b) b.classList.remove('active');
+                }
+                function showRejectModal() {
+                    var notes = document.getElementById('order_notes') ? document.getElementById('order_notes').value.trim() : '';
+                    var input = document.getElementById('modal_reject_reason');
+                    if (input && notes) input.value = notes;
+                    openCustomModal('custom_reject_modal');
+                }
+                function executeRejection() {
+                    var input = document.getElementById('modal_reject_reason');
+                    var notes = document.getElementById('order_notes');
+                    if (input && notes && input.value.trim()) notes.value = input.value.trim();
+                    var form = document.getElementById('distributor_order_form');
+                    form.action = form.getAttribute('data-base') + '/reject';
+                    form.submit();
+                }
+                function showConfirmModal() {
+                    var units = 0;
+                    document.querySelectorAll('.qty-input').forEach(function(i) { units += parseFloat(i.value) || 0; });
+                    if (units <= 0) { openCustomModal('custom_alert_modal'); return; }
+                    var u = document.getElementById('grand_total_units'), a = document.getElementById('grand_total_amount');
+                    var cu = document.getElementById('modal_confirm_units'), ca = document.getElementById('modal_confirm_amount');
+                    if (cu) cu.innerText = u ? u.innerText : units;
+                    if (ca) ca.innerText = a ? a.innerText : '0.00';
+                    openCustomModal('custom_confirm_modal');
+                }
+                function executeConfirmation() {
+                    var form = document.getElementById('distributor_order_form');
+                    form.action = form.getAttribute('data-base') + '/submit';
+                    form.submit();
+                }
+                document.addEventListener('DOMContentLoaded', function() { recalcTotals(); });
+            ]]></script>
+        </t>
+    </template>
+
+    <!-- ================================================================= -->
+    <!-- DELIVERY: what reached each outlet. The outlet pays for this only. -->
+    <!-- ================================================================= -->
+    <template id="distributor_delivery_card" name="Distributor Delivery Card">
+        <t t-if="deliveries">
+            <div class="dp-card mb-4" style="overflow:hidden;">
+                <div class="dp-sec">
+                    <div class="ic"><i class="fa fa-truck"/></div>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold text-dark">Deliveries</div>
+                        <div class="small text-muted">Enter what you delivered to each outlet. The outlet is billed only for this.</div>
+                    </div>
+                </div>
+                <div class="alert alert-success m-3" t-if="delivery_saved"><i class="fa fa-check-circle me-1"/> Delivery recorded.</div>
+                <t t-foreach="deliveries" t-as="d">
+                    <form t-att-action="base + '/deliver'" method="post" class="p-3 dp-outlet m-3">
+                        <input type="hidden" name="request_id" t-att-value="order.id"/>
+                        <input type="hidden" name="token" t-att-value="token"/>
+                        <input type="hidden" name="demand_id" t-att-value="d['demand'].id"/>
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                            <div>
+                                <div class="fw-bold text-dark"><t t-out="d['outlet'].display_name"/></div>
+                                <div class="small text-muted">
+                                    <t t-out="d['demand'].name"/>
+                                    <t t-if="d['outlet'].city"> · <t t-out="d['outlet'].city"/></t>
+                                    <t t-if="d['outlet'].phone"> · <t t-out="d['outlet'].phone"/></t>
+                                </div>
+                            </div>
+                            <span class="dp-pill" t-attf-style="background:#{'#d1fae5' if d['demand'].state == 'supplied' else '#fef3c7'};color:#{'#047857' if d['demand'].state == 'supplied' else '#92400e'};">
+                                <t t-out="d['status'] or 'In Progress'"/>
+                            </span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-2">
+                                <thead>
+                                    <tr><th>Product</th><th class="text-center">Approved</th><th class="text-center">Delivered</th>
+                                        <th class="text-center">Left</th><th class="text-center" t-if="d['open']" style="width:130px;">Deliver now</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="d['lines']" t-as="l">
+                                        <td>
+                                            <t t-out="l['name']"/>
+                                            <span class="dp-foc ms-1" t-if="l['free']">FOC</span>
+                                        </td>
+                                        <td class="text-center"><t t-out="'%g' % l['approved']"/> <small class="text-dark" t-out="l['uom']"/></td>
+                                        <td class="text-center"><t t-out="'%g' % l['delivered']"/></td>
+                                        <td class="text-center"><t t-out="'%g' % l['left']"/></td>
+                                        <td class="text-center" t-if="d['open']">
+                                            <input t-if="l['left'] > 0" type="number" min="0" step="1" t-att-max="l['left']"
+                                                   t-att-name="'dq_' + str(l['id'])" t-att-value="'%g' % l['left']"
+                                                   class="form-control form-control-sm text-center fw-bold"/>
+                                            <span t-else="" class="text-success"><i class="fa fa-check"/></span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <t t-if="d['open']">
+                            <input type="text" name="note" class="form-control form-control-sm mb-2" placeholder="Delivery note (optional)"/>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <button type="submit" class="btn btn-success btn-sm fw-bold"><i class="fa fa-truck me-1"/> Save delivery</button>
+                                <button type="submit" name="close" value="1" class="btn btn-outline-secondary btn-sm"
+                                        onclick="return confirm('The rest of this outlet will not be supplied. Close the delivery?');">
+                                    Cannot supply the rest
+                                </button>
+                            </div>
+                        </t>
+                        <t t-if="d['history']">
+                            <div class="small text-muted mt-3 fw-bold text-uppercase">Delivered so far</div>
+                            <div class="small" t-foreach="d['history']" t-as="h">
+                                <t t-out="h.name"/> · <t t-out="h.date.strftime('%d %b %Y %I:%M %p')"/>
+                                · ₹<t t-out="'{:,.2f}'.format(h.amount)"/>
+                            </div>
+                        </t>
+                    </form>
+                </t>
+            </div>
+        </t>
+    </template>
+
+    <!-- One line of the order: a paid product or a free (FOC) one -->
+    <template id="distributor_portal_line_row" name="Distributor Portal Line Row">
+        <tr t-att-id="'row_' + str(l['id'])" t-attf-class="dp-line #{'dp-free-row' if l['free'] else ''}"
+            t-att-data-price="l['price']" t-att-data-disc="l['discount']" t-att-data-tax="l['tax']"
+            t-att-data-qty="l['qty']">
+            <td class="c-idx text-center text-muted small fw-bold">
+                <t t-out="idx"/>
+                <input type="hidden" name="line_ids[]" t-att-value="l['id']"/>
+            </td>
+            <td class="c-prod">
+                <div class="fw-bold text-dark">
+                    <t t-out="l['name']"/>
+                    <span class="dp-foc ms-1" t-if="l['free']">FOC</span>
+                </div>
+                <div class="small text-muted" t-if="l['sku']">SKU <t t-out="l['sku']"/></div>
+                <div class="small d-md-none text-muted">
+                    ₹<t t-out="'%.2f' % l['price']"/>
+                    <t t-if="l['free']"> · <span class="dp-off">100% off</span></t>
+                    <t t-elif="l['tax']"> · <span class="dp-tax">+<t t-out="'%g' % l['tax']"/>% tax</span></t>
+                </div>
+            </td>
+            <td class="c-price text-end hide-sm">
+                <t t-if="l['free']"><span class="dp-strike">₹<t t-out="'%.2f' % l['price']"/></span></t>
+                <t t-else="">₹<t t-out="'%.2f' % l['price']"/></t>
+            </td>
+            <td class="c-ask text-center">
+                <span class="badge bg-light text-dark border px-2 py-1"><t t-out="l['demanded']"/><t t-if="l.get('uom')"> <t t-out="l['uom']"/></t></span>
+            </td>
+            <td class="c-qty text-center"
+                t-att-data-label="'Supply' if (not is_confirmed and not is_rejected) else ('Supplied' if is_confirmed else 'Final')">
+                <t t-if="not is_confirmed and not is_rejected">
+                    <div class="input-group input-group-sm dp-qty">
+                        <button class="btn btn-outline-secondary" type="button" t-att-onclick="'stepQty(' + str(l['id']) + ', -1)'"><i class="fa fa-minus"/></button>
+                        <input type="number" t-att-id="'qty_' + str(l['id'])" t-att-name="'qty_' + str(l['id'])"
+                               class="form-control qty-input" min="0" step="1" t-att-value="l['qty']"
+                               t-att-oninput="'recalcLine(' + str(l['id']) + ')'"/>
+                        <button class="btn btn-outline-secondary" type="button" t-att-onclick="'stepQty(' + str(l['id']) + ', 1)'"><i class="fa fa-plus"/></button>
+                    </div>
+                </t>
+                <t t-else="">
+                    <span class="fw-bold fs-6" t-att-class="'text-success' if is_confirmed else 'text-muted'"><t t-out="l['qty']"/></span>
+                </t>
+            </td>
+            <td class="c-tax text-end hide-sm">
+                <t t-if="l['free']"><span class="dp-off">100% off</span></t>
+                <t t-elif="l['tax']"><span class="dp-tax">+<t t-out="'%g' % l['tax']"/>%</span></t>
+                <t t-else=""><span class="text-muted">-</span></t>
+            </td>
+            <td class="c-amt text-end fw-bold">
+                <t t-if="l['free']"><span class="text-success">FREE</span><div class="small text-muted fw-normal">₹<span t-att-id="'subtotal_' + str(l['id'])"><t t-out="'%.2f' % l['subtotal']"/></span></div></t>
+                <t t-else="">₹<span t-att-id="'subtotal_' + str(l['id'])"><t t-out="'%.2f' % l['subtotal']"/></span></t>
+            </td>
+        </tr>
+    </template>
+
+    <!-- ================================================================= -->
+    <!-- THANK YOU CONFIRMATION / REJECTION PAGE                           -->
+    <!-- ================================================================= -->
+    <template id="distributor_thankyou_template" name="Distributor Order Status Result">
+        <t t-call="portal.portal_layout">
+            <t t-call="l4e_distributor_portal.distributor_portal_clean_assets"/>
+
+            <div class="container my-5 text-center" style="max-width: 600px;">
+                <div class="card shadow-sm border-0 p-4 p-md-5" style="border-radius: 12px;">
+
+                    <!-- REJECTED STATE -->
+                    <t t-if="is_rejected">
+                        <div class="mb-3">
+                            <div class="bg-danger text-white d-inline-flex align-items-center justify-content-center rounded-circle"
+                                 style="width: 80px; height: 80px; font-size: 40px;">
+                                <i class="fa fa-times"/>
+                            </div>
+                        </div>
+                        <h2 class="fw-bold text-dark mb-2">Order Rejected</h2>
+                        <p class="text-muted mb-4">
+                            Your response for order <strong><t t-out="order.name"/></strong> has been marked as <strong>Rejected</strong>.
+                            Our sales coordination team has been notified.
+                        </p>
+
+                        <div class="bg-light p-3 rounded text-start mb-4">
+                            <div class="d-flex justify-content-between mb-1 small">
+                                <span class="text-muted">Order Reference:</span>
+                                <span class="fw-bold text-dark"><t t-out="order.name"/></span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1 small">
+                                <span class="text-muted">Distributor:</span>
+                                <span class="fw-bold text-dark"><t t-out="order.partner_id.name"/></span>
+                            </div>
+                            <t t-if="order.distributor_note">
+                                <div class="border-top pt-2 mt-2 small">
+                                    <span class="text-muted">Rejection Remarks:</span>
+                                    <p class="mb-0 fw-semibold text-danger"><t t-out="order.distributor_note"/></p>
+                                </div>
+                            </t>
+                        </div>
+                    </t>
+
+                    <!-- CONFIRMED STATE -->
+                    <t t-else="">
+                        <div class="mb-3">
+                            <div class="bg-success text-white d-inline-flex align-items-center justify-content-center rounded-circle"
+                                 style="width: 80px; height: 80px; font-size: 40px;">
+                                <i class="fa fa-check"/>
+                            </div>
+                        </div>
+                        <h2 class="fw-bold text-dark mb-2">Order Confirmed!</h2>
+                        <p class="text-muted mb-4">
+                            Thank you, <strong><t t-out="order.partner_id.name"/></strong>. 
+                            Your confirmation for order <strong><t t-out="order.name"/></strong> has been received and registered in our system.
+                        </p>
+
+                        <div class="bg-light p-3 rounded text-start mb-4">
+                            <div class="d-flex justify-content-between mb-1 small">
+                                <span class="text-muted">Order Reference:</span>
+                                <span class="fw-bold text-dark"><t t-out="order.name"/></span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1 small">
+                                <span class="text-muted">Total Units:</span>
+                                <span class="fw-bold text-dark">
+                                    <t t-out="units"/>
+                                </span>
+                            </div>
+                            <div class="d-flex justify-content-between small">
+                                <span class="text-muted">Order Value:</span>
+                                <span class="fw-bold text-success">
+                                    ₹<t t-out="'%.2f' % order.amount_total"/>
+                                </span>
+                            </div>
+                        </div>
+                    </t>
+
+                    <div>
+                        <a t-att-href="(base or '/distributor/order') + '/' + str(order.id) + '?token=' + str(token)" 
+                           class="btn btn-outline-primary px-4 py-2">
+                            <i class="fa fa-eye me-1"/> View Finalized Order
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- ================================================================= -->
+    <!-- INVALID / EXPIRED TOKEN ERROR TEMPLATE                            -->
+    <!-- ================================================================= -->
+    <template id="distributor_invalid_token_template" name="Invalid Portal Access">
+        <t t-call="portal.portal_layout">
+            <t t-call="l4e_distributor_portal.distributor_portal_clean_assets"/>
+
+            <div class="container my-5 text-center" style="max-width: 500px;">
+                <div class="card shadow-sm border-0 p-4 p-md-5" style="border-radius: 12px;">
+                    <div class="mb-3 text-warning">
+                        <i class="fa fa-exclamation-triangle fa-4x"/>
+                    </div>
+                    <h3 class="fw-bold text-dark mb-2">Access Denied</h3>
+                    <p class="text-muted mb-4">
+                        <t t-out="message or 'This link is invalid, expired, or you do not have permission to view it.'"/>
+                    </p>
+                    <p class="small text-secondary">
+                        Please check your email for the correct order link or contact Kumbayah Foods support.
+                    </p>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

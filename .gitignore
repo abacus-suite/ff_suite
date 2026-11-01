@@ -1,0 +1,34 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Odoo specific
+*.log
+*.pot
+filestore/
+sessions/
+
+# Firebase service-account keys: place on the server, never commit
+ff_approvals/data/firebase_service_account.json
+ff_base/data/firebase_service_account.json

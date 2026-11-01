@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_return_manager,ff.return manager,model_ff_return,ff_base.group_ff_manager,1,1,1,1
+access_ff_return_line_manager,ff.return.line manager,model_ff_return_line,ff_base.group_ff_manager,1,1,1,1

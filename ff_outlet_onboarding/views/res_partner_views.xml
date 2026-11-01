@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_partner_view_form_onboarding" model="ir.ui.view">
+        <field name="name">res.partner.form.onboarding</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="ff_clients.res_partner_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='ff_client']" position="inside">
+                <group string="Onboarding" invisible="not ff_is_client">
+                    <group>
+                        <field name="ff_status"/>
+                        <field name="ff_onboarded_date"/>
+                        <field name="ff_outlet_category_id" invisible="ff_category_type == 'distributor'" options="{'no_create': True}"/>
+                        <field name="ff_outlet_category_note" invisible="not ff_outlet_category_needs_note"/>
+                        <field name="ff_not_interested_reason" invisible="ff_status != 'not_interested'"/>
+                        <field name="ff_gst_name"/>
+                        <field name="ff_billing_address"/>
+                        <field name="ff_mrp_id" options="{'no_create': True}"/>
+                        <field name="ff_scheme_id" options="{'no_create': True}"/>
+                        <field name="ff_credit_days"/>
+                        <field name="ff_margin"/>
+                    </group>
+                    <group>
+                        <field name="ff_poc_name"/>
+                        <field name="ff_poc_phone"/>
+                        <field name="ff_poc_email"/>
+                        <field name="ff_accounts_poc_name" invisible="ff_category_type != 'distributor'"/>
+                        <field name="ff_accounts_poc_phone" invisible="ff_category_type != 'distributor'"/>
+                        <field name="ff_accounts_poc_email" invisible="ff_category_type != 'distributor'"/>
+                        <field name="ff_swiggy_zomato"/>
+                        <field name="ff_swiggy_zomato_id" invisible="not ff_swiggy_zomato"/>
+                        <field name="ff_has_chiller" invisible="ff_category_type == 'distributor'"/>
+                        <field name="ff_chiller_serial" invisible="not ff_has_chiller"/>
+                        <field name="ff_chiller_model_id" invisible="not ff_has_chiller" options="{'no_create': True}"/>
+                    </group>
+                </group>
+                <field name="ff_terms_history_ids" invisible="not ff_terms_history_ids" readonly="1">
+                    <list>
+                        <field name="date_from"/>
+                        <field name="date_to"/>
+                        <field name="scheme_id"/>
+                        <field name="margin"/>
+                        <field name="changed_by_id"/>
+                    </list>
+                </field>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ff_demand_root" name="Demands" parent="ff_base.menu_ff_group_sales" sequence="20"/>
+    <menuitem id="menu_ff_demand" name="Outlet Demands" parent="menu_ff_demand_root"
+              action="ff_demand_action" sequence="10"/>
+    <menuitem id="menu_ff_demand_products" name="Demand by Product" parent="menu_ff_demand_root"
+              action="ff_demand_line_action" sequence="20"/>
+    <menuitem id="menu_ff_demand_requests" name="Distributor Requests" parent="menu_ff_demand_root"
+              action="ff_demand_request_action" sequence="15"/>
+    <menuitem id="menu_ff_demand_deliveries" name="Deliveries" parent="menu_ff_demand_root"
+              action="ff_demand_delivery_action" sequence="18"/>
+    <menuitem id="menu_ff_demand_delivery_status" name="Demand Delivery Status" parent="ff_base.menu_ff_masters"
+              action="ff_demand_delivery_status_action" sequence="60"/>
+    <menuitem id="menu_ff_distributors" name="Distributors" parent="menu_ff_demand_root"
+              action="ff_distributor_action" sequence="30"/>
+</odoo>

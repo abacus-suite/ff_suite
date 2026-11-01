@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="dealer_hub_access_view_form" model="ir.ui.view">
+        <field name="name">l4e.dealer.hub.access.form</field>
+        <field name="model">l4e.dealer.hub.access</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="partner_id" readonly="1"/>
+                    <field name="login"/>
+                    <field name="password" password="True"/>
+                </group>
+                <p class="text-muted">The distributor signs in at /dealer with this login and password.
+                    Saving again changes the password.</p>
+                <footer>
+                    <button name="action_apply" type="object" string="Save Login" class="btn-primary"/>
+                    <button string="Cancel" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

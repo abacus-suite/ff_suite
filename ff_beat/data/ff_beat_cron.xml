@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ir_cron_ff_plan_status" model="ir.cron">
+        <field name="name">Field Force: mark unvisited planned customers as missed</field>
+        <field name="model_id" ref="model_ff_route_plan_customer"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_refresh_status()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+    </record>
+    <record id="ir_cron_ff_beat_one_time" model="ir.cron">
+        <field name="name">Field Force: remove one-time beats once their day is done</field>
+        <field name="model_id" ref="model_ff_beat"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_archive_one_time()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+    </record>
+</odoo>

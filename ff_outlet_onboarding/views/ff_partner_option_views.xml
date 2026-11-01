@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_partner_option_view_list" model="ir.ui.view">
+        <field name="name">ff.partner.option.list</field>
+        <field name="model">ff.partner.option</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="kind" optional="hide"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="amount" optional="show"/>
+                <field name="needs_note"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+    <record id="ff_partner_option_view_search" model="ir.ui.view">
+        <field name="name">ff.partner.option.search</field>
+        <field name="model">ff.partner.option</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="by_kind" string="List" context="{'group_by': 'kind'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+    <record id="ff_option_mrp_action" model="ir.actions.act_window">
+        <field name="name">MRP</field>
+        <field name="res_model">ff.partner.option</field>
+        <field name="view_mode">list</field>
+        <field name="domain">[('kind', '=', 'mrp')]</field>
+        <field name="context">{'default_kind': 'mrp'}</field>
+    </record>
+    <record id="ff_option_scheme_action" model="ir.actions.act_window">
+        <field name="name">Schemes</field>
+        <field name="res_model">ff.partner.option</field>
+        <field name="view_mode">list</field>
+        <field name="domain">[('kind', '=', 'scheme')]</field>
+        <field name="context">{'default_kind': 'scheme'}</field>
+    </record>
+    <record id="ff_option_chiller_action" model="ir.actions.act_window">
+        <field name="name">Chiller Models</field>
+        <field name="res_model">ff.partner.option</field>
+        <field name="view_mode">list</field>
+        <field name="domain">[('kind', '=', 'chiller_model')]</field>
+        <field name="context">{'default_kind': 'chiller_model'}</field>
+    </record>
+    <record id="ff_option_category_action" model="ir.actions.act_window">
+        <field name="name">Outlet Categories</field>
+        <field name="res_model">ff.partner.option</field>
+        <field name="view_mode">list</field>
+        <field name="domain">[('kind', '=', 'outlet_category')]</field>
+        <field name="context">{'default_kind': 'outlet_category'}</field>
+    </record>
+
+    <menuitem id="menu_ff_commercials" name="Outlet &amp; Distributor Lists" parent="ff_base.menu_ff_masters_products"
+              sequence="30" groups="ff_base.group_ff_admin"/>
+    <menuitem id="menu_ff_option_mrp" name="MRP" parent="menu_ff_commercials" action="ff_option_mrp_action" sequence="10"/>
+    <menuitem id="menu_ff_option_scheme" name="Schemes" parent="menu_ff_commercials"
+              action="ff_option_scheme_action" sequence="20"/>
+    <menuitem id="menu_ff_option_chiller" name="Chiller Models" parent="menu_ff_commercials"
+              action="ff_option_chiller_action" sequence="30"/>
+    <menuitem id="menu_ff_option_category" name="Outlet Categories" parent="menu_ff_commercials"
+              action="ff_option_category_action" sequence="40"/>
+</odoo>

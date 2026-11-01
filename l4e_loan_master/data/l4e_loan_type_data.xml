@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="loan_type_salary_advance" model="l4e.loan.type">
+            <field name="name">Salary Advance</field>
+            <field name="code">ADV</field>
+            <field name="max_amount">15000.0</field>
+            <field name="max_installments">3</field>
+            <field name="deduct_from_payroll">True</field>
+            <field name="description">Short-term salary advance recoverable in upcoming payroll cycles.</field>
+        </record>
+
+        <record id="loan_type_ebike_scheme" model="l4e.loan.type">
+            <field name="name">E-Bike Deduction Scheme</field>
+            <field name="code">EBIKE</field>
+            <field name="max_amount">60000.0</field>
+            <field name="max_installments">24</field>
+            <field name="deduct_from_payroll">True</field>
+            <field name="description">Kumbayah Foods asset assistance program for field team E-Bike acquisition (Task 8.03).</field>
+        </record>
+
+        <record id="loan_type_festival_advance" model="l4e.loan.type">
+            <field name="name">Festival Advance</field>
+            <field name="code">FEST</field>
+            <field name="max_amount">20000.0</field>
+            <field name="max_installments">6</field>
+            <field name="deduct_from_payroll">True</field>
+            <field name="description">Seasonal festival advance provided to confirmed staff members.</field>
+        </record>
+
+        <record id="loan_type_emergency_loan" model="l4e.loan.type">
+            <field name="name">Emergency Personal Loan</field>
+            <field name="code">EMERGENCY</field>
+            <field name="max_amount">40000.0</field>
+            <field name="max_installments">12</field>
+            <field name="deduct_from_payroll">True</field>
+            <field name="description">Emergency medical or personal financial assistance for employees.</field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_territory_view_list" model="ir.ui.view">
+        <field name="name">ff.territory.list</field>
+        <field name="model">ff.territory</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="code" optional="show"/>
+                <field name="district_id"/>
+                <field name="state_id" optional="show"/>
+                <field name="beat_count"/>
+                <field name="is_company_location" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_territory_view_form" model="ir.ui.view">
+        <field name="name">ff.territory.form</field>
+        <field name="model">ff.territory</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_beats" type="object" class="oe_stat_button" icon="fa-road">
+                            <field name="beat_count" widget="statinfo" string="Beats"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="e.g. North Zone / Koramangala"/></h1>
+                    </div>
+                    <group>
+                        <group string="Details">
+                            <field name="code" placeholder="e.g. TR-001"/>
+                            <field name="district_id" options="{'no_create': True}"/>
+                            <field name="state_id"/>
+                            <field name="country_id" invisible="not country_id"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                        <group string="Configuration">
+                            <field name="is_company_location" widget="boolean_toggle"/>
+                            <field name="ff_price_category"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Beats" name="beats">
+                            <field name="beat_ids" context="{'default_territory_id': id, 'default_district_id': district_id}">
+                                <list decoration-warning="ff_approval_state == 'pending'"
+                                      decoration-muted="ff_approval_state == 'rejected'">
+                                    <field name="name"/>
+                                    <field name="code" optional="show"/>
+                                    <field name="route_type_id" widget="badge" optional="show"/>
+                                    <field name="team_id" optional="show"/>
+                                    <field name="client_count"/>
+                                    <field name="employee_ids" widget="many2many_tags" optional="show"/>
+                                    <field name="ff_approval_state" widget="badge"
+                                           decoration-success="ff_approval_state == 'approved'"
+                                           decoration-warning="ff_approval_state == 'pending'"
+                                           decoration-danger="ff_approval_state == 'rejected'"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Assigned Staff" name="staff">
+                            <group>
+                                <field name="employee_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                                <field name="secondary_employee_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_territory_view_search" model="ir.ui.view">
+        <field name="name">ff.territory.search</field>
+        <field name="model">ff.territory</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="district_id"/>
+                <field name="state_id"/>
+                <filter name="company_loc" string="Company Location" domain="[('is_company_location', '=', True)]"/>
+                <separator/>
+                <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_district" string="City / District" context="{'group_by': 'district_id'}"/>
+                    <filter name="group_state" string="State" context="{'group_by': 'state_id'}"/>
+                </group>
+                <searchpanel>
+                    <field name="district_id" icon="fa-building" enable_counters="1"/>
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_territory_action" model="ir.actions.act_window">
+        <field name="name">Territories</field>
+        <field name="res_model">ff.territory</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="ff_territory_view_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new territory
+            </p>
+            <p>
+                Territories divide cities into patches and group beats for field staff.
+            </p>
+        </field>
+    </record>
+
+    <record id="ff_beat_view_form_territory" model="ir.ui.view">
+        <field name="name">ff.beat.form.territory</field>
+        <field name="model">ff.beat</field>
+        <field name="inherit_id" ref="ff_beat.ff_beat_view_form"/>
+        <field name="arch" type="xml">
+            <field name="district_id" position="after">
+                <field name="territory_id"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="hr_employee_view_form_contact_access" model="ir.ui.view">
+        <field name="name">hr.employee.form.contact_access</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="ff_base.hr_employee_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='ff_org']" position="inside">
+                <field name="ff_territory_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                <field name="ff_secondary_territory" widget="many2many_tags" options="{'no_create': True}"/>
+                <field name="ff_district_ids" widget="many2many_tags" options="{'no_create': True}"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

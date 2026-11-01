@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_expense_request_view_list" model="ir.ui.view">
+        <field name="name">ff.expense.request.list</field>
+        <field name="model">ff.expense.request</field>
+        <field name="arch" type="xml">
+            <list decoration-info="state == 'requested'" decoration-warning="state == 'invoice_pending'"
+                  decoration-muted="state == 'rejected'">
+                <field name="date"/>
+                <field name="employee_id"/>
+                <field name="category_id"/>
+                <field name="sub_category_id"/>
+                <field name="document"/>
+                <field name="amount" sum="Total"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="paid_on" optional="show"/>
+                <field name="invoice_due" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'requested'"
+                       decoration-warning="state == 'invoice_pending'"
+                       decoration-success="state == 'completed'"
+                       decoration-danger="state == 'rejected'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_expense_request_view_form" model="ir.ui.view">
+        <field name="name">ff.expense.request.form</field>
+        <field name="model">ff.expense.request</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_mark_paid" type="object" string="Mark as Paid" class="btn-primary"
+                            invisible="state != 'requested'" groups="ff_base.group_ff_manager"/>
+                    <button name="action_reject" type="object" string="Reject"
+                            invisible="state != 'requested'" groups="ff_base.group_ff_manager"/>
+                    <button name="action_reset" type="object" string="Back to Accounts"
+                            invisible="state != 'rejected'" groups="ff_base.group_ff_manager"/>
+                    <field name="state" widget="statusbar" statusbar_visible="requested,invoice_pending,completed"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_documents" type="object" class="oe_stat_button" icon="fa-file-image-o">
+                            <field name="attachment_count" widget="statinfo" string="Documents"/>
+                        </button>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="employee_id"/>
+                            <field name="date"/>
+                            <field name="category_id" options="{'no_create': True}"/>
+                            <field name="sub_category_id" options="{'no_create': True}"
+                                   domain="[('parent_id', '=', category_id)]"/>
+                        </group>
+                        <group>
+                            <field name="document"/>
+                            <field name="amount"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="invoice_due" invisible="document != 'quotation'"
+                                   readonly="state in ('invoice_pending', 'completed', 'rejected')"/>
+                            <field name="paid_on"/>
+                            <field name="reject_reason" invisible="state not in ('requested', 'rejected')" placeholder="Reason, if you reject"/>
+                        </group>
+                    </group>
+                    <field name="note" placeholder="Note"/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_expense_request_view_search" model="ir.ui.view">
+        <field name="name">ff.expense.request.search</field>
+        <field name="model">ff.expense.request</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="category_id"/>
+                <filter name="with_accounts" string="With Accounts" domain="[('state', '=', 'requested')]"/>
+                <filter name="invoice_pending" string="Invoice Pending" domain="[('state', '=', 'invoice_pending')]"/>
+                <filter name="completed" string="Completed" domain="[('state', '=', 'completed')]"/>
+                <group>
+                    <filter name="by_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="by_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_expense_request_action" model="ir.actions.act_window">
+        <field name="name">Expense Payment Requests</field>
+        <field name="res_model">ff.expense.request</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="ff_expense_request_view_search"/>
+        <field name="context">{'search_default_with_accounts': 1}</field>
+    </record>
+
+    <menuitem id="menu_ff_expense_requests" name="Expense Payment Requests"
+              parent="ff_base.menu_ff_section_claims" action="ff_expense_request_action" sequence="30"/>
+
+    <record id="ir_cron_ff_expense_request_remind" model="ir.cron">
+        <field name="name">Field Force: remind about tax invoices still to be uploaded</field>
+        <field name="model_id" ref="model_ff_expense_request"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_remind()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+    </record>
+</odoo>

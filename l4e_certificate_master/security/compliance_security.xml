@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+        <!-- Module Category -->
+        <record id="module_category_compliance" model="ir.module.category">
+            <field name="name">Compliance &amp; Licensing</field>
+            <field name="description">Manage regulatory certificates, safety NOCs, and statutory licenses</field>
+            <field name="sequence">50</field>
+        </record>
+
+        <!-- Compliance User Group -->
+        <record id="group_compliance_user" model="res.groups">
+            <field name="name">Officer / User</field>
+            <field name="category_id" ref="module_category_compliance"/>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+
+        <!-- Compliance Manager Group -->
+        <record id="group_compliance_manager" model="res.groups">
+            <field name="name">Manager / Admin</field>
+            <field name="category_id" ref="module_category_compliance"/>
+            <field name="implied_ids" eval="[(4, ref('group_compliance_user'))]"/>
+            <field name="users" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+        </record>
+
+        <!-- Multi-Company Record Rule -->
+        <record id="compliance_certificate_company_rule" model="ir.rule">
+            <field name="name">Compliance Certificate Multi-Company</field>
+            <field name="model_id" ref="model_compliance_certificate"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- The expense categories and sub-categories the client listed. Edit them under Masters. -->
+    <record id="expense_cat_event" model="ff.expense.category">
+        <field name="name">Event</field>
+        <field name="sequence">10</field>
+    </record>
+    <record id="expense_cat_event_stall_fees" model="ff.expense.category">
+        <field name="name">Stall Fees</field>
+        <field name="parent_id" ref="expense_cat_event"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="expense_cat_event_event_materials_expenses" model="ff.expense.category">
+        <field name="name">Event Materials Expenses</field>
+        <field name="parent_id" ref="expense_cat_event"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="expense_cat_event_transportation_expenses" model="ff.expense.category">
+        <field name="name">Transportation Expenses</field>
+        <field name="parent_id" ref="expense_cat_event"/>
+        <field name="sequence">30</field>
+    </record>
+    <record id="expense_cat_event_food_expenses" model="ff.expense.category">
+        <field name="name">Food Expenses</field>
+        <field name="parent_id" ref="expense_cat_event"/>
+        <field name="sequence">40</field>
+    </record>
+    <record id="expense_cat_event_promoter_salary" model="ff.expense.category">
+        <field name="name">Promoter Salary</field>
+        <field name="parent_id" ref="expense_cat_event"/>
+        <field name="sequence">50</field>
+    </record>
+    <record id="expense_cat_event_chiller_transportation_charges" model="ff.expense.category">
+        <field name="name">Chiller Transportation Charges</field>
+        <field name="parent_id" ref="expense_cat_event"/>
+        <field name="sequence">60</field>
+    </record>
+    <record id="expense_cat_event_stock_transfer_charges" model="ff.expense.category">
+        <field name="name">Stock Transfer Charges</field>
+        <field name="parent_id" ref="expense_cat_event"/>
+        <field name="sequence">70</field>
+    </record>
+    <record id="expense_cat_event_props_expenses" model="ff.expense.category">
+        <field name="name">Props Expenses</field>
+        <field name="parent_id" ref="expense_cat_event"/>
+        <field name="sequence">80</field>
+    </record>
+    <record id="expense_cat_marketing_meetings" model="ff.expense.category">
+        <field name="name">Marketing Meetings</field>
+        <field name="sequence">20</field>
+    </record>
+    <record id="expense_cat_marketing_meetings_food_expenses" model="ff.expense.category">
+        <field name="name">Food Expenses</field>
+        <field name="parent_id" ref="expense_cat_marketing_meetings"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="expense_cat_marketing_meetings_travel_expenses" model="ff.expense.category">
+        <field name="name">Travel Expenses</field>
+        <field name="parent_id" ref="expense_cat_marketing_meetings"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="expense_cat_marketing_meetings_accommodation_expenses" model="ff.expense.category">
+        <field name="name">Accommodation Expenses</field>
+        <field name="parent_id" ref="expense_cat_marketing_meetings"/>
+        <field name="sequence">30</field>
+    </record>
+    <record id="expense_cat_marketing_meetings_fuel_expenses" model="ff.expense.category">
+        <field name="name">Fuel Expenses</field>
+        <field name="parent_id" ref="expense_cat_marketing_meetings"/>
+        <field name="sequence">40</field>
+    </record>
+    <record id="expense_cat_social_media" model="ff.expense.category">
+        <field name="name">Social Media</field>
+        <field name="sequence">30</field>
+    </record>
+    <record id="expense_cat_social_media_content_creation_expenses" model="ff.expense.category">
+        <field name="name">Content Creation Expenses</field>
+        <field name="parent_id" ref="expense_cat_social_media"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="expense_cat_social_media_influencer_video_expenses" model="ff.expense.category">
+        <field name="name">Influencer Video Expenses</field>
+        <field name="parent_id" ref="expense_cat_social_media"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="expense_cat_social_media_stock_transfer_charges" model="ff.expense.category">
+        <field name="name">Stock Transfer Charges</field>
+        <field name="parent_id" ref="expense_cat_social_media"/>
+        <field name="sequence">30</field>
+    </record>
+    <record id="expense_cat_promotional_material" model="ff.expense.category">
+        <field name="name">Promotional Material</field>
+        <field name="sequence">40</field>
+    </record>
+    <record id="expense_cat_promotional_material_props_expenses" model="ff.expense.category">
+        <field name="name">Props Expenses</field>
+        <field name="parent_id" ref="expense_cat_promotional_material"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="expense_cat_promotional_material_chiller_branding" model="ff.expense.category">
+        <field name="name">Chiller Branding</field>
+        <field name="parent_id" ref="expense_cat_promotional_material"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="expense_cat_sales_meetings" model="ff.expense.category">
+        <field name="name">Sales Meetings</field>
+        <field name="sequence">50</field>
+    </record>
+    <record id="expense_cat_sales_meetings_travel_expenses" model="ff.expense.category">
+        <field name="name">Travel Expenses</field>
+        <field name="parent_id" ref="expense_cat_sales_meetings"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="expense_cat_sales_meetings_accommodation_expenses" model="ff.expense.category">
+        <field name="name">Accommodation Expenses</field>
+        <field name="parent_id" ref="expense_cat_sales_meetings"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="expense_cat_sales_meetings_food_expenses" model="ff.expense.category">
+        <field name="name">Food Expenses</field>
+        <field name="parent_id" ref="expense_cat_sales_meetings"/>
+        <field name="sequence">30</field>
+    </record>
+    <record id="expense_cat_sales_manager_expenses" model="ff.expense.category">
+        <field name="name">Sales Manager Expenses</field>
+        <field name="sequence">60</field>
+    </record>
+    <record id="expense_cat_sales_manager_expenses_food_expenses" model="ff.expense.category">
+        <field name="name">Food Expenses</field>
+        <field name="parent_id" ref="expense_cat_sales_manager_expenses"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="expense_cat_sales_manager_expenses_accommodation_expenses" model="ff.expense.category">
+        <field name="name">Accommodation Expenses</field>
+        <field name="parent_id" ref="expense_cat_sales_manager_expenses"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="expense_cat_sales_manager_expenses_travel_expenses" model="ff.expense.category">
+        <field name="name">Travel Expenses</field>
+        <field name="parent_id" ref="expense_cat_sales_manager_expenses"/>
+        <field name="sequence">30</field>
+    </record>
+    <record id="expense_cat_sales_operation_expenses" model="ff.expense.category">
+        <field name="name">Sales Operation Expenses</field>
+        <field name="sequence">70</field>
+    </record>
+    <record id="expense_cat_sales_operation_expenses_accommodation_expenses" model="ff.expense.category">
+        <field name="name">Accommodation Expenses</field>
+        <field name="parent_id" ref="expense_cat_sales_operation_expenses"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="expense_cat_sales_operation_expenses_fizz_test_expenses" model="ff.expense.category">
+        <field name="name">Fizz Test Expenses</field>
+        <field name="parent_id" ref="expense_cat_sales_operation_expenses"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="expense_cat_sales_operation_expenses_customer_dl_transportation_charges" model="ff.expense.category">
+        <field name="name">Customer DL Transportation Charges</field>
+        <field name="parent_id" ref="expense_cat_sales_operation_expenses"/>
+        <field name="sequence">30</field>
+    </record>
+    <record id="expense_cat_sales_operation_expenses_chiller_transportation_charges" model="ff.expense.category">
+        <field name="name">Chiller Transportation Charges</field>
+        <field name="parent_id" ref="expense_cat_sales_operation_expenses"/>
+        <field name="sequence">40</field>
+    </record>
+    <record id="expense_cat_sales_operation_expenses_travel_expenses" model="ff.expense.category">
+        <field name="name">Travel Expenses</field>
+        <field name="parent_id" ref="expense_cat_sales_operation_expenses"/>
+        <field name="sequence">50</field>
+    </record>
+    <record id="expense_cat_sales_operation_expenses_stock_transfer_charges" model="ff.expense.category">
+        <field name="name">Stock Transfer Charges</field>
+        <field name="parent_id" ref="expense_cat_sales_operation_expenses"/>
+        <field name="sequence">60</field>
+    </record>
+    <record id="expense_cat_sales_operation_expenses_competitor_kombucha_expenses" model="ff.expense.category">
+        <field name="name">Competitor Kombucha Expenses</field>
+        <field name="parent_id" ref="expense_cat_sales_operation_expenses"/>
+        <field name="sequence">70</field>
+    </record>
+    <record id="expense_cat_sales_operation_expenses_stationery_expenses" model="ff.expense.category">
+        <field name="name">Stationery Expenses</field>
+        <field name="parent_id" ref="expense_cat_sales_operation_expenses"/>
+        <field name="sequence">80</field>
+    </record>
+    <record id="expense_cat_marketing_equipment" model="ff.expense.category">
+        <field name="name">Marketing Equipment</field>
+        <field name="sequence">80</field>
+    </record>
+    <record id="expense_cat_chillers" model="ff.expense.category">
+        <field name="name">Chillers</field>
+        <field name="sequence">90</field>
+    </record>
+    <record id="expense_cat_visi_cooler_chiller" model="ff.expense.category">
+        <field name="name">Visi-Cooler / Chiller</field>
+        <field name="sequence">100</field>
+    </record>
+    <record id="expense_cat_visi_cooler_chiller_repairs_maintenance_expenses" model="ff.expense.category">
+        <field name="name">Repairs &amp; Maintenance Expenses</field>
+        <field name="parent_id" ref="expense_cat_visi_cooler_chiller"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="expense_card_hsbc_card" model="ff.expense.card">
+        <field name="name">HSBC Card</field>
+        <field name="sequence">10</field>
+    </record>
+    <record id="expense_card_times_black_card" model="ff.expense.card">
+        <field name="name">Times Black Card</field>
+        <field name="sequence">20</field>
+    </record>
+</odoo>

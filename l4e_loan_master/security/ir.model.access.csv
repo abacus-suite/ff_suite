@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_l4e_loan_type_user,l4e.loan.type.user,model_l4e_loan_type,group_l4e_loan_user,1,0,0,0
+access_l4e_loan_type_manager,l4e.loan.type.manager,model_l4e_loan_type,group_l4e_loan_manager,1,1,1,1
+access_l4e_loan_user,l4e.loan.user,model_l4e_loan,group_l4e_loan_user,1,1,1,0
+access_l4e_loan_manager,l4e.loan.manager,model_l4e_loan,group_l4e_loan_manager,1,1,1,1
+access_l4e_loan_installment_user,l4e.loan.installment.user,model_l4e_loan_installment,group_l4e_loan_user,1,1,1,0
+access_l4e_loan_installment_manager,l4e.loan.installment.manager,model_l4e_loan_installment,group_l4e_loan_manager,1,1,1,1
+access_l4e_loan_settle_wizard_manager,l4e.loan.settle.wizard.manager,model_l4e_loan_settle_wizard,group_l4e_loan_manager,1,1,1,1

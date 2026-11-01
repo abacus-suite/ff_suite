@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_demand_view_form_outlet_invoice" model="ir.ui.view">
+        <field name="name">ff.demand.form.outlet_invoice</field>
+        <field name="model">ff.demand</field>
+        <field name="inherit_id" ref="ff_demand.ff_demand_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='action_cancel']" position="before">
+                <button name="action_ff_outlet_invoice" type="object" string="Create Outlet Invoice"
+                        invisible="outlet_invoice_count > 0 or not order_ids" groups="ff_base.group_ff_manager"/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_outlet_invoices" type="object" class="oe_stat_button" icon="fa-file-text-o"
+                        invisible="outlet_invoice_count == 0">
+                    <field name="outlet_invoice_count" widget="statinfo" string="Outlet Invoices"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="sale_order_view_form_ff_invoices" model="ir.ui.view">
+        <field name="name">sale.order.form.ff_invoices</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_ff_create_invoices" type="object" string="Create Company and Outlet Invoices"
+                        invisible="state not in ('sale', 'done') or ff_source != 'app'"
+                        groups="ff_base.group_ff_manager"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="contact_category_customer" model="ff.contact.category">
+        <field name="name">Customer</field>
+        <field name="category_type">customer</field>
+        <field name="sequence">10</field>
+    </record>
+    <record id="contact_category_outlet" model="ff.contact.category">
+        <field name="name">Outlet</field>
+        <field name="category_type">outlet</field>
+        <field name="sequence">20</field>
+    </record>
+    <record id="contact_category_distributor" model="ff.contact.category">
+        <field name="name">Distributor</field>
+        <field name="category_type">distributor</field>
+        <field name="sequence">30</field>
+    </record>
+    <record id="contact_category_lead" model="ff.contact.category">
+        <field name="name">Lead</field>
+        <field name="category_type">lead</field>
+        <field name="sequence">40</field>
+        <field name="requires_approval" eval="False"/>
+    </record>
+</odoo>

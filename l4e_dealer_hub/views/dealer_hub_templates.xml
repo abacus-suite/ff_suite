@@ -1,0 +1,1459 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ================================================================= -->
+    <!-- Shared look                                                       -->
+    <!-- ================================================================= -->
+    <template id="hub_styles" name="Dealer Hub Styles">
+        <style><![CDATA[
+            body { background:#f1f5f9 !important; }
+            .hub { --ink:#0f172a; --mute:#475569; --line:#cbd5e1; --brand:#1d4ed8; font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; color:var(--ink); }
+            .hub { position:fixed; top:0; left:0; right:0; bottom:0; height:100vh; height:100dvh; z-index:1030; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; background:#f1f5f9; margin:0; padding:0; }
+            html, body, #wrapwrap { margin:0 !important; padding:0 !important; }
+            .hub * { box-sizing:border-box; }
+            .hub a { text-decoration:none; }
+            .hub-shell { display:flex; min-height:100vh; }
+            .hub-side { width:246px; flex-shrink:0; background:#fff; color:#0f172a; padding:18px 14px; position:sticky; top:0; height:100vh; display:flex; flex-direction:column; border-right:1px solid #e2e8f0; }
+            .hub-brand { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:10px 12px; text-align:center; margin-bottom:16px; min-height:58px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+            .hub-brand .brand-img { max-width:100%; max-height:46px; width:auto; height:auto; object-fit:contain; display:block; margin:0 auto; }
+            .hub-brand .brand-title { font-size:16px; font-weight:900; letter-spacing:2px; color:#0f766e; text-transform:uppercase; margin:0; line-height:1.2; }
+            .hub-brand .brand-sub { font-size:11px; font-weight:800; letter-spacing:3px; color:#c2410c; margin-top:2px; text-transform:uppercase; }
+            .hub-brand .brand-tag { font-size:10.5px; font-style:italic; color:#94a3b8; margin-top:4px; font-weight:500; }
+            .hub-nav { display:flex; flex-direction:column; gap:2px; }
+            .hub-nav a { display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:10px; color:#1e293b; font-size:13.5px; font-weight:600; text-decoration:none; transition:all .15s ease; border:1.5px solid transparent; }
+            .hub-nav a:hover { background:#f8fafc; }
+            
+            /* Icon Badges */
+            .hub-nav a .hub-icon-badge { width:28px; height:28px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-size:13px; color:#fff; flex-shrink:0; }
+            
+            /* Teal Group: Outlets (items 1-7) */
+            .hub-nav a.grp-teal .hub-icon-badge { background:#0d9488; }
+            .hub-nav a.grp-teal:hover { background:#f0fdfa; color:#0f766e; }
+            .hub-nav a.grp-teal.on { background:#e6fcf5; border-color:#0d9488; color:#0f766e; font-weight:700; }
+            
+            /* Purple Group: Kumbayah Foods (items 8-10) */
+            .hub-nav a.grp-purple .hub-icon-badge { background:#7c3aed; }
+            .hub-nav a.grp-purple:hover { background:#f5f3ff; color:#6d28d9; }
+            .hub-nav a.grp-purple.on { background:#ede9fe; border-color:#7c3aed; color:#6d28d9; font-weight:700; }
+            
+            /* Blue Group: Stock (item 11) */
+            .hub-nav a.grp-blue .hub-icon-badge { background:#2563eb; }
+            .hub-nav a.grp-blue:hover { background:#eff6ff; color:#1d4ed8; }
+            .hub-nav a.grp-blue.on { background:#dbeafe; border-color:#2563eb; color:#1d4ed8; font-weight:700; }
+
+            .hub-nav-divider { height:1px; background:#e2e8f0; margin:8px 6px; }
+
+            .hub-side .who { margin-top:auto; font-size:12px; padding:14px 8px 0; border-top:1px solid #e2e8f0; }
+            .hub-side .who b { color:#0f172a; display:block; font-size:13px; }
+            .hub-side .who a { color:#2563eb; font-weight:700; text-decoration:none; }
+            .hub-side .who a:hover { text-decoration:underline; }
+            .hub-main { flex:1; min-width:0; padding:22px 26px 40px; }
+            .hub-top { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:14px; }
+            .hub-title-row { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+            .hub-top h1 { font-size:24px; font-weight:800; margin:0; }
+            .hub-top .sub { color:#334155; font-size:14.5px; margin-top:3px; }
+            .hub-main-pills { display:inline-flex; align-items:center; background:#fff; border:1px solid var(--line); border-radius:999px; padding:3px; }
+            .hub-main-pills a { padding:6px 18px; border-radius:999px; font-size:13.5px; font-weight:700; color:#334155; text-decoration:none; transition:all .15s ease; }
+            .hub-main-pills a.on { background:#1d4ed8; color:#fff; }
+            .hub-main-pills a:not(.on):hover { color:#0f172a; }
+            .hub-preview { background:#fef3c7; color:#92400e; border-radius:10px; padding:6px 12px; font-size:12px; font-weight:700; }
+            .hub-card { background:#fff; border:1px solid var(--line); border-radius:18px; box-shadow:0 6px 20px rgba(15,23,42,.05); padding:18px 20px; }
+            .hub-card h3 { font-size:16px; font-weight:800; margin:0 0 12px; color:#0f172a; }
+            .hub-grid { display:grid; gap:14px; }
+            .g4 { grid-template-columns:repeat(4,1fr); } .g3 { grid-template-columns:repeat(3,1fr); } .g2 { grid-template-columns:1.2fr 1fr; }
+            .tile { border-radius:18px; padding:18px 20px; border:1px solid transparent; display:block; color:inherit; position:relative; }
+            .tile .tile-badge { position:absolute; top:12px; right:14px; font-size:12px; font-weight:700; color:#94a3b8; }
+            .tile .ic { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:17px; margin-bottom:12px; }
+            .tile .n { font-size:26px; font-weight:800; line-height:1.1; }
+            .tile .l { font-size:14.5px; font-weight:800; margin-top:4px; }
+            .tile .s { font-size:12.5px; opacity:1; margin-top:4px; font-weight:500; }
+            
+            /* Tile 1: Outlet PO to Approve */
+            .t-po-approve { background:#eff6ff; border-color:#dbeafe; color:#1e40af; }
+            .t-po-approve .ic { background:#3b82f6; color:#fff; }
+            .t-po-approve .l { color:#1e3a8a; }
+            .t-po-approve .s { color:#3b82f6; }
+            
+            /* Tile 2: PO to Deliver */
+            .t-po-deliver { background:#fffbeb; border-color:#fef3c7; color:#92400e; }
+            .t-po-deliver .ic { background:#f59e0b; color:#fff; }
+            .t-po-deliver .l { color:#78350f; }
+            .t-po-deliver .s { color:#b45309; }
+
+            /* Tile 3: Out for Delivery */
+            .t-out-deliv { background:#fff7ed; border-color:#ffedd5; color:#9a3412; }
+            .t-out-deliv .ic { background:#f97316; color:#fff; }
+            .t-out-deliv .l { color:#7c2d12; }
+            .t-out-deliv .s { color:#c2410c; }
+
+            /* Tile 4: Delivered */
+            .t-delivered { background:#f0fdf4; border-color:#dcfce7; color:#166534; }
+            .t-delivered .ic { background:#22c55e; color:#fff; }
+            .t-delivered .l { color:#14532d; }
+            .t-delivered .s { color:#16a34a; }
+
+            /* Tile 5: Stock in Hand */
+            .t-stock { background:#f8fafc; border-color:#e2e8f0; color:#1e293b; }
+            .t-stock .ic { background:#3b82f6; color:#fff; }
+            .t-stock .n { color:#1d4ed8; }
+            .t-stock .l { color:#1e3a8a; }
+            .t-stock .s { color:#64748b; }
+
+            /* Tile 6: To be Paid to Kumbayah */
+            .t-owed { background:#fef2f2; border-color:#fee2e2; color:#991b1b; }
+            .t-owed .ic { background:#ef4444; color:#fff; }
+            .t-owed .n { color:#dc2626; }
+            .t-owed .l { color:#7f1d1d; }
+            .t-owed .s { color:#b91c1c; }
+
+            /* Tile 7: Outlet Collection */
+            .t-collection { background:#f0fdfa; border-color:#ccfbf1; color:#115e59; }
+            .t-collection .ic { background:#14b8a6; color:#fff; }
+            .t-collection .n { color:#0f766e; }
+            .t-collection .l { color:#134e4a; }
+            .t-collection .s { color:#0d9488; }
+
+            /* Tile 8: Outlet Overdue */
+            .t-overdue { background:#fffbeb; border-color:#fef3c7; color:#92400e; }
+            .t-overdue .ic { background:#f59e0b; color:#fff; }
+            .t-overdue .n { color:#d97706; }
+            .t-overdue .l { color:#78350f; }
+            .t-overdue .s { color:#b45309; }
+
+            /* Outlets Top-Right Card */
+            .hub-outlets-card { display:inline-flex; align-items:center; gap:10px; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:16px; padding:10px 18px; color:#5b21b6; text-decoration:none; margin-left:auto; }
+            .hub-outlets-card:hover { background:#ede9fe; color:#4c1d95; }
+            .hub-outlets-card i { font-size:18px; }
+            .hub-outlets-card b { font-size:16px; font-weight:800; }
+            .hub-outlets-card span { font-size:13.5px; font-weight:700; }
+            .pill { display:inline-block; padding:4px 12px; border-radius:999px; font-size:12px; font-weight:700; white-space:nowrap; }
+            .p-good { background:#dcfce7; color:#166534; } .p-warn { background:#fef3c7; color:#92400e; } .p-bad { background:#fee2e2; color:#991b1b; }
+            .p-info { background:#dbeafe; color:#1e40af; } .p-mute { background:#e2e8f0; color:#334155; }
+            .p-delivery { background:#ffedd5; color:#c2410c; }
+            .p-adjust-pos { background:#dcfce7; color:#15803d; }
+            .p-adjust-neg { background:#ffedd5; color:#c2410c; }
+            .p-qty-pos { background:#dcfce7; color:#15803d; font-weight:800; }
+            .p-qty-neg { background:#fee2e2; color:#b91c1c; font-weight:800; }
+            .hub-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+            .hub-tabs a { padding:7px 18px; border-radius:999px; border:1px solid var(--line); background:#fff; color:#1e293b; font-size:13.5px; font-weight:700; transition:all .15s ease; display:inline-flex; align-items:center; gap:6px; }
+            .hub-tabs a:hover { border-color:#94a3b8; color:#0f172a; }
+            .hub-tabs a.on { background:#1d4ed8; border-color:#1d4ed8; color:#fff; }
+            .hub-tabs a small { opacity:.85; font-weight:600; font-size:12px; }
+            .hub-search { display:flex; gap:8px; margin-bottom:16px; align-items:center; }
+            .hub-search input { width:280px; max-width:280px; flex:none; border:1px solid #cbd5e1; border-radius:10px; padding:9px 14px; font-size:14px; outline:none; background:#fff; color:#0f172a; }
+            .hub-search button { width:42px; height:40px; border:0; background:#1d4ed8; color:#fff; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; font-size:15px; cursor:pointer; }
+            table.hub-t { width:100%; border-collapse:collapse; font-size:14.5px; color:#0f172a; }
+            table.hub-t th { text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.4px; color:#1e293b; font-weight:800; padding:10px 12px; background:#f8fafc; border-bottom:1px solid var(--line); white-space:nowrap; }
+            table.hub-t td { padding:11px 12px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+            table.hub-t td.end, table.hub-t th.end { text-align:right; } table.hub-t td.center, table.hub-t th.center { text-align:center; }
+            .hub-wrap { overflow-x:auto; overflow-y:visible; max-width:100%; -webkit-overflow-scrolling:touch; }
+            .hub-wrap > table.hub-t { min-width:640px; }
+            .hub-card, .hub-grid > *, .hub-main > * { min-width:0; }
+            .hub-card { overflow-x:auto; }
+            .hub-side { overflow-y:auto; }
+            .hub-sum { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px; }
+            .hub-sum div { background:#fff; border:1px solid var(--line); border-radius:14px; padding:10px 16px; }
+            .hub-sum small { display:block; color:#334155; font-size:12px; text-transform:uppercase; letter-spacing:.5px; font-weight:700; }
+            .hub-sum b { font-size:18px; }
+            .donut { width:150px; height:150px; border-radius:50%; position:relative; flex-shrink:0; }
+            .donut::after { content:""; position:absolute; inset:24px; background:#fff; border-radius:50%; }
+            .donut span { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:2; font-size:26px; font-weight:800; }
+            .donut span small { font-size:11px; color:var(--mute); font-weight:600; }
+            .legend div { display:flex; align-items:center; gap:8px; font-size:14.5px; margin:6px 0; color:#0f172a; }
+            .legend i { width:11px; height:11px; border-radius:3px; display:inline-block; }
+            .legend b { margin-left:auto; padding-left:14px; }
+            .bars { display:flex; align-items:flex-end; gap:12px; height:170px; padding-top:8px; }
+            .bars .m { flex:1; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end; }
+            .bars .pair { display:flex; align-items:flex-end; gap:4px; height:140px; width:100%; justify-content:center; }
+            .bars .pair div { width:38%; max-width:22px; border-radius:6px 6px 0 0; min-height:2px; }
+            .bars .lb { font-size:13px; color:#334155; margin-top:6px; font-weight:600; }
+            .hub-filter { display:flex; width:100%; align-items:center; gap:10px; background:#fff; border:1px solid var(--line); border-radius:16px; padding:8px 12px; margin-bottom:10px; position:relative; }
+            .hub-cal-btn { width:38px; height:38px; display:inline-flex; align-items:center; justify-content:center; border-radius:11px; border:1px solid #bfdbfe; background:#fff; color:#1d4ed8; cursor:pointer; font-size:16px; transition:all .2s ease; padding:0; outline:none; }
+            .hub-cal-btn:hover { background:#eff6ff; border-color:#93c5fd; }
+            .hub-cal-btn.active { background:#2563eb; color:#fff; border-color:#2563eb; box-shadow:0 4px 12px rgba(37,99,235,.25); }
+            .hub-filter .chips { display:flex; flex-wrap:wrap; gap:6px; }
+            .hub-filter .chips a { padding:7px 14px; border-radius:999px; font-size:13px; font-weight:700; color:#1e293b; border:1px solid var(--line); background:#fff; transition:all .15s ease; }
+            .hub-filter .chips a:hover { border-color:#94a3b8; color:#0f172a; }
+            .hub-filter .chips a.on { background:#0f172a; color:#fff; border-color:#0f172a; }
+
+            /* Date Range Picker Modal/Popover */
+            .hub-cal-popover { position:absolute; top:calc(100% + 8px); left:0; z-index:1050; background:#fff; border:1px solid #cbd5e1; border-radius:18px; box-shadow:0 12px 36px rgba(15,23,42,.14); padding:20px; width:330px; display:none; }
+            .hub-cal-popover.open { display:block; animation:hubFadeIn .2s ease; }
+            @keyframes hubFadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+            .hub-cal-title { font-size:15px; font-weight:800; color:#0f172a; margin-bottom:14px; }
+            .hub-cal-inputs { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+            .hub-cal-field label { display:block; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:#64748b; margin-bottom:4px; }
+            .hub-cal-box { display:flex; align-items:center; gap:6px; border:1.5px solid #cbd5e1; border-radius:10px; padding:7px 10px; background:#fff; cursor:pointer; }
+            .hub-cal-box.active { border-color:#2563eb; box-shadow:0 0 0 2px rgba(37,99,235,.15); }
+            .hub-cal-box i { color:#2563eb; font-size:13px; }
+            .hub-cal-box span { font-size:12.5px; font-weight:600; color:#0f172a; white-space:nowrap; }
+
+            /* Month Navigation */
+            .hub-cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; padding:0 4px; }
+            .hub-cal-nav-btn { background:none; border:none; cursor:pointer; font-size:13px; color:#475569; padding:4px 8px; border-radius:6px; font-weight:bold; }
+            .hub-cal-nav-btn:hover { background:#f1f5f9; color:#0f172a; }
+            .hub-cal-nav-month { font-size:14px; font-weight:800; color:#0f172a; }
+
+            /* Grid */
+            .hub-cal-grid { display:grid; grid-template-columns:repeat(7, 1fr); text-align:center; row-gap:4px; margin-bottom:16px; }
+            .hub-cal-wday { font-size:11.5px; font-weight:700; color:#64748b; padding-bottom:6px; }
+            .hub-cal-day-cell { height:34px; display:flex; align-items:center; justify-content:center; position:relative; cursor:pointer; }
+            .hub-cal-day { width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:50%; font-size:12.5px; font-weight:600; color:#1e293b; z-index:2; transition:background .15s; }
+            .hub-cal-day-cell:hover .hub-cal-day { background:#e2e8f0; }
+            .hub-cal-day-cell.other-month { opacity:.3; cursor:default; }
+            .hub-cal-day-cell.other-month:hover .hub-cal-day { background:transparent; }
+            .hub-cal-day-cell.selected .hub-cal-day { background:#2563eb; color:#fff; font-weight:800; }
+            .hub-cal-day-cell.in-range { background:#eff6ff; }
+            .hub-cal-day-cell.range-start { border-top-left-radius:50%; border-bottom-left-radius:50%; background:#eff6ff; }
+            .hub-cal-day-cell.range-end { border-top-right-radius:50%; border-bottom-right-radius:50%; background:#eff6ff; }
+            .hub-cal-day-cell.range-start.range-end { background:transparent; }
+
+            /* Popover Actions */
+            .hub-cal-actions { display:flex; justify-content:flex-end; gap:8px; border-top:1px solid #f1f5f9; padding-top:14px; }
+            .hub-cal-cancel { padding:7px 18px; border-radius:10px; font-size:13px; font-weight:700; border:1px solid #cbd5e1; background:#fff; color:#334155; cursor:pointer; }
+            .hub-cal-cancel:hover { background:#f8fafc; }
+            .hub-cal-apply { padding:7px 20px; border-radius:10px; font-size:13px; font-weight:700; border:none; background:#2563eb; color:#fff; cursor:pointer; }
+            .hub-cal-apply:hover { background:#1d4ed8; }
+            .hub-btn { display:inline-flex; align-items:center; gap:7px; padding:8px 16px; border-radius:11px; font-weight:800; font-size:14px; border:1px solid #1d4ed8; color:#1d4ed8; background:#fff; }
+            .hub-btn.fill { background:#1d4ed8; color:#fff; }
+            .hub-form label { display:block; font-size:12.5px; font-weight:800; color:#334155; text-transform:uppercase; letter-spacing:.4px; margin:12px 0 4px; }
+            .hub-form input, .hub-form select { width:100%; border:1px solid #94a3b8; border-radius:11px; padding:10px 12px; font-size:15px; color:#0f172a; background:#fff; }
+            .period a { padding:6px 12px; border-radius:999px; font-size:12.5px; font-weight:700; color:#334155; border:1px solid var(--line); background:#fff; margin-left:6px; }
+            .period a.on { background:#0f172a; color:#fff; border-color:#0f172a; }
+            @media (max-width:1100px) { .g4 { grid-template-columns:repeat(2,1fr); } .g2 { grid-template-columns:1fr; } }
+            @media (max-width:820px) {
+                .hub-shell { flex-direction:column; }
+                .hub-side { width:100%; height:auto; position:static; padding:12px; flex-direction:row; align-items:center; flex-wrap:wrap; gap:8px; }
+                .hub-brand { margin:0; padding:6px 10px; }
+                .hub-nav { display:flex; flex-direction:row; gap:6px; overflow-x:auto; width:100%; padding-bottom:4px; }
+                .hub-nav-divider { width:1px; height:24px; margin:0 4px; }
+                .hub-nav a { white-space:nowrap; margin:0; padding:6px 10px; }
+                .hub-side .who { display:none; }
+                .hub-main { padding:16px 14px 40px; }
+                .g3 { grid-template-columns:1fr; }
+            }
+            @media (max-width:520px) { .g4 { grid-template-columns:1fr 1fr; } .tile .n { font-size:21px; } .tile { padding:13px; } }
+
+            /* Pagination */
+            .hub-pagination { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-top:20px; padding:12px 18px; background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:0 2px 8px rgba(15,23,42,.03); }
+            .hub-page-info { font-size:13.5px; color:#475569; font-weight:600; }
+            .hub-page-info b { color:#0f172a; font-weight:800; }
+            .hub-page-nav { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+            .hub-page-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:10px; font-size:13px; font-weight:700; border:1px solid #cbd5e1; background:#fff; color:#334155; text-decoration:none; transition:all .15s ease; cursor:pointer; }
+            .hub-page-btn:hover:not(.disabled) { background:#f8fafc; border-color:#94a3b8; color:#0f172a; }
+            .hub-page-btn.disabled { opacity:.45; cursor:not-allowed; border-color:#e2e8f0; color:#94a3b8; pointer-events:none; }
+            .hub-page-num { min-width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; font-size:13px; font-weight:700; border:1px solid #e2e8f0; background:#fff; color:#334155; text-decoration:none; transition:all .15s ease; padding:0 8px; }
+            .hub-page-num:hover:not(.active) { background:#f1f5f9; border-color:#cbd5e1; color:#0f172a; }
+            .hub-page-num.active { background:#1d4ed8; border-color:#1d4ed8; color:#fff; font-weight:800; cursor:default; }
+            .hub-page-ellipsis { display:inline-flex; align-items:center; justify-content:center; width:24px; color:#94a3b8; font-weight:800; font-size:14px; }
+        ]]></style>
+    </template>
+
+    <template id="hub_filters" name="Dealer Hub Date Filter">
+        <div class="hub-filter" t-if="flt">
+            <!-- Calendar Trigger Button -->
+            <button type="button" class="hub-cal-btn" id="hubCalBtn" title="Select custom date range">
+                <i class="fa fa-calendar"/>
+            </button>
+
+            <!-- Shortcuts Chips -->
+            <div class="chips">
+                <a t-foreach="flt_presets" t-as="p" t-att-href="p['href']" t-attf-class="#{'on' if p['on'] else ''}"><t t-out="p['label']"/></a>
+            </div>
+
+            <!-- Calendar Range Picker Popover Modal -->
+            <div class="hub-cal-popover" id="hubCalPopover">
+                <div class="hub-cal-title">Select date range</div>
+                <div class="hub-cal-inputs">
+                    <div class="hub-cal-field">
+                        <label>FROM</label>
+                        <div class="hub-cal-box active" id="hubBoxFrom">
+                            <i class="fa fa-calendar"/>
+                            <span id="hubTextFrom">--</span>
+                        </div>
+                    </div>
+                    <div class="hub-cal-field">
+                        <label>TO</label>
+                        <div class="hub-cal-box" id="hubBoxTo">
+                            <i class="fa fa-calendar"/>
+                            <span id="hubTextTo">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Month navigation -->
+                <div class="hub-cal-nav">
+                    <button type="button" class="hub-cal-nav-btn" id="hubCalPrev">&lt;</button>
+                    <span class="hub-cal-nav-month" id="hubCalMonthLabel">October 2026</span>
+                    <button type="button" class="hub-cal-nav-btn" id="hubCalNext">&gt;</button>
+                </div>
+
+                <!-- Calendar Grid -->
+                <div class="hub-cal-grid" id="hubCalGrid">
+                    <!-- Weekday labels -->
+                    <div class="hub-cal-wday">Mo</div>
+                    <div class="hub-cal-wday">Tu</div>
+                    <div class="hub-cal-wday">We</div>
+                    <div class="hub-cal-wday">Th</div>
+                    <div class="hub-cal-wday">Fr</div>
+                    <div class="hub-cal-wday">Sa</div>
+                    <div class="hub-cal-wday">Su</div>
+                    <!-- Day cells generated via JS -->
+                </div>
+
+                <!-- Actions -->
+                <div class="hub-cal-actions">
+                    <button type="button" class="hub-cal-cancel" id="hubCalCancel">Cancel</button>
+                    <button type="button" class="hub-cal-apply" id="hubCalApply">Apply</button>
+                </div>
+            </div>
+
+            <script><![CDATA[
+            (function() {
+                var btn = document.getElementById('hubCalBtn');
+                var pop = document.getElementById('hubCalPopover');
+                var prevBtn = document.getElementById('hubCalPrev');
+                var nextBtn = document.getElementById('hubCalNext');
+                var monthLbl = document.getElementById('hubCalMonthLabel');
+                var grid = document.getElementById('hubCalGrid');
+                var textFrom = document.getElementById('hubTextFrom');
+                var textTo = document.getElementById('hubTextTo');
+                var boxFrom = document.getElementById('hubBoxFrom');
+                var boxTo = document.getElementById('hubBoxTo');
+                var btnCancel = document.getElementById('hubCalCancel');
+                var btnApply = document.getElementById('hubCalApply');
+
+                if (!btn || !pop) return;
+
+                var initialStart = "]]><t t-out="flt.start.isoformat() if flt.start else ''"/><![CDATA[";
+                var initialEnd = "]]><t t-out="flt.end.isoformat() if flt.end else ''"/><![CDATA[";
+                var basePath = "]]><t t-out="flt_path"/><![CDATA[";
+                var extraParams = {
+                    ]]><t t-foreach="flt.kw.items()" t-as="kv">
+                        <t t-if="kv[0] not in ('period', 'date_from', 'date_to')">
+                            "<t t-out="kv[0]"/>": "<t t-out="kv[1]"/>",
+                        </t>
+                    </t><![CDATA[
+                };
+
+                var isCustomRange = "]]><t t-out="'1' if flt.period == 'custom' else '0'"/><![CDATA[" === "1";
+                var fromDate = initialStart ? new Date(initialStart + 'T00:00:00') : null;
+                var toDate = (isCustomRange && initialEnd) ? new Date(initialEnd + 'T00:00:00') : null;
+                var activeTarget = toDate ? 'from' : (fromDate ? 'to' : 'from');
+                var viewDate = fromDate ? new Date(fromDate) : new Date();
+
+                function formatDateDisplay(d) {
+                    if (!d) return '--';
+                    var dd = String(d.getDate()).padStart(2, '0');
+                    var mm = String(d.getMonth() + 1).padStart(2, '0');
+                    var yyyy = d.getFullYear();
+                    return dd + '-' + mm + '-' + yyyy;
+                }
+
+                function formatDateParam(d) {
+                    if (!d) return '';
+                    var dd = String(d.getDate()).padStart(2, '0');
+                    var mm = String(d.getMonth() + 1).padStart(2, '0');
+                    var yyyy = d.getFullYear();
+                    return yyyy + '-' + mm + '-' + dd;
+                }
+
+                var monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+                function renderInputs() {
+                    textFrom.textContent = formatDateDisplay(fromDate);
+                    textTo.textContent = formatDateDisplay(toDate);
+                    if (activeTarget === 'from') {
+                        boxFrom.classList.add('active');
+                        boxTo.classList.remove('active');
+                    } else {
+                        boxTo.classList.add('active');
+                        boxFrom.classList.remove('active');
+                    }
+                }
+
+                function renderCalendar() {
+                    monthLbl.textContent = monthNames[viewDate.getMonth()] + ' ' + viewDate.getFullYear();
+                    // Clear existing day cells, keep only first 7 weekday items
+                    while (grid.children.length > 7) {
+                        grid.removeChild(grid.lastChild);
+                    }
+
+                    var year = viewDate.getFullYear();
+                    var month = viewDate.getMonth();
+                    var firstDay = new Date(year, month, 1);
+                    var lastDay = new Date(year, month + 1, 0);
+
+                    // Mo=0, Su=6
+                    var startDayOfWeek = (firstDay.getDay() + 6) % 7;
+                    var daysInMonth = lastDay.getDate();
+
+                    // Previous month pad
+                    var prevMonthLastDay = new Date(year, month, 0).getDate();
+                    for (var p = startDayOfWeek - 1; p >= 0; p--) {
+                        var cell = document.createElement('div');
+                        cell.className = 'hub-cal-day-cell other-month';
+                        var span = document.createElement('span');
+                        span.className = 'hub-cal-day';
+                        span.textContent = prevMonthLastDay - p;
+                        cell.appendChild(span);
+                        grid.appendChild(cell);
+                    }
+
+                    // Month days
+                    for (var d = 1; d <= daysInMonth; d++) {
+                        var thisDate = new Date(year, month, d);
+                        var cell = document.createElement('div');
+                        cell.className = 'hub-cal-day-cell';
+
+                        var isStart = fromDate && thisDate.toDateString() === fromDate.toDateString();
+                        var isEnd = toDate && thisDate.toDateString() === toDate.toDateString();
+                        var inRange = fromDate && toDate && thisDate > fromDate && thisDate < toDate;
+
+                        if (isStart || isEnd) cell.classList.add('selected');
+                        if (isStart) cell.classList.add('range-start');
+                        if (isEnd) cell.classList.add('range-end');
+                        if (inRange) cell.classList.add('in-range');
+
+                        var span = document.createElement('span');
+                        span.className = 'hub-cal-day';
+                        span.textContent = d;
+                        cell.appendChild(span);
+
+                        (function(dateObj) {
+                            cell.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                var clickedTime = dateObj.getTime();
+
+                                if (activeTarget === 'from') {
+                                    if (toDate && clickedTime > toDate.getTime()) {
+                                        // User clicked a date after 'to', so this becomes 'to'
+                                        toDate = new Date(dateObj);
+                                        activeTarget = 'from';
+                                    } else {
+                                        fromDate = new Date(dateObj);
+                                        activeTarget = toDate ? 'from' : 'to';
+                                    }
+                                } else { // activeTarget === 'to'
+                                    if (fromDate && clickedTime < fromDate.getTime()) {
+                                        // User clicked a date before 'from', so this becomes 'from'
+                                        fromDate = new Date(dateObj);
+                                        activeTarget = 'to';
+                                    } else {
+                                        toDate = new Date(dateObj);
+                                        activeTarget = 'to';
+                                    }
+                                }
+                                renderInputs();
+                                renderCalendar();
+                            });
+                        })(thisDate);
+
+                        grid.appendChild(cell);
+                    }
+                }
+
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var isOpen = pop.classList.contains('open');
+                    if (isOpen) {
+                        pop.classList.remove('open');
+                        btn.classList.remove('active');
+                    } else {
+                        pop.classList.add('open');
+                        btn.classList.add('active');
+                        renderInputs();
+                        renderCalendar();
+                    }
+                });
+
+                boxFrom.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    activeTarget = 'from';
+                    renderInputs();
+                });
+
+                boxTo.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    activeTarget = 'to';
+                    renderInputs();
+                });
+
+                prevBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1);
+                    renderCalendar();
+                });
+
+                nextBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
+                    renderCalendar();
+                });
+
+                btnCancel.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    pop.classList.remove('open');
+                    btn.classList.remove('active');
+                    fromDate = initialStart ? new Date(initialStart + 'T00:00:00') : null;
+                    toDate = (isCustomRange && initialEnd) ? new Date(initialEnd + 'T00:00:00') : null;
+                    activeTarget = toDate ? 'from' : (fromDate ? 'to' : 'from');
+                    renderInputs();
+                    renderCalendar();
+                });
+
+                btnApply.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var params = new URLSearchParams();
+                    for (var k in extraParams) {
+                        if (extraParams[k]) params.append(k, extraParams[k]);
+                    }
+                    if (fromDate) params.append('date_from', formatDateParam(fromDate));
+                    if (toDate) params.append('date_to', formatDateParam(toDate));
+                    var qs = params.toString();
+                    window.location.href = basePath + (qs ? ('?' + qs) : '');
+                });
+
+                document.addEventListener('click', function(e) {
+                    if (!pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+                        pop.classList.remove('open');
+                        btn.classList.remove('active');
+                    }
+                });
+            })();
+            ]]></script>
+        </div>
+    </template>
+
+    <!-- ================================================================= -->
+    <!-- Page frame: logo, menu, who is signed in                           -->
+    <!-- ================================================================= -->
+    <template id="hub_layout" name="Dealer Hub Layout">
+        <t t-call="portal.portal_layout">
+            <t t-call="l4e_distributor_portal.distributor_portal_clean_assets"/>
+            <t t-call="l4e_dealer_hub.hub_styles"/>
+            <meta name="viewport" content="width=device-width, initial-scale=1"/>
+            <div class="hub">
+                <div class="hub-shell">
+                    <aside class="hub-side">
+                        <t t-set="comp" t-value="company or (dealer and dealer.company_id) or request.env.company"/>
+                        <div class="hub-brand" t-if="comp and comp.logo">
+                            <img t-att-src="'/web/image/res.company/%s/logo' % comp.id" t-att-alt="comp.name or 'Logo'" class="brand-img"/>
+                        </div>
+                        <nav class="hub-nav">
+                            <t t-set="last_group" t-value="''"/>
+                            <t t-foreach="items.items()" t-as="item">
+                                <t t-set="grp" t-value="item[1][3] if len(item[1]) > 3 else 'teal'"/>
+                                <t t-if="last_group and last_group != grp">
+                                    <div class="hub-nav-divider"/>
+                                </t>
+                                <t t-set="last_group" t-value="grp"/>
+                                <a t-att-href="item[1][2] + q" t-attf-class="grp-#{grp} #{'on' if nav == item[0] else ''}">
+                                    <span class="hub-icon-badge">
+                                        <i t-attf-class="fa #{item[1][1]}"/>
+                                    </span>
+                                    <span><t t-out="item[1][0]"/></span>
+                                </a>
+                            </t>
+                        </nav>
+                        <div class="who">
+                            <b t-out="dealer.name"/>
+                            <a href="/web/session/logout?redirect=/dealer/login">Sign out</a>
+                        </div>
+                    </aside>
+                    <main class="hub-main">
+                        <div class="hub-preview mb-3" t-if="preview">Previewing this dealer's hub from the back office.</div>
+                        <t t-out="0"/>
+                    </main>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- ================================================================= -->
+    <!-- Sign in                                                           -->
+    <!-- ================================================================= -->
+    <template id="hub_login" name="Dealer Hub Sign In">
+        <t t-call="portal.portal_layout">
+            <t t-call="l4e_distributor_portal.distributor_portal_clean_assets"/>
+            <t t-call="l4e_dealer_hub.hub_styles"/>
+            <meta name="viewport" content="width=device-width, initial-scale=1"/>
+            <style><![CDATA[
+                .hub-login { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+                             background:radial-gradient(circle at 20% 10%,#dbeafe 0,#f1f5f9 45%,#ede9fe 100%); }
+                .hub-login .card-l { width:100%; max-width:410px; background:#fff; border-radius:24px; padding:30px 28px 26px; box-shadow:0 24px 60px rgba(30,58,138,.18); }
+                .hub-login img { width:100%; max-width:250px; display:block; margin:0 auto; }
+                .hub-login .sub { text-align:center; font-weight:800; letter-spacing:4px; color:#1e3a8a; font-size:15px; text-transform:uppercase; margin:2px 0 4px; }
+                .hub-login .tag { text-align:center; color:#64748b; font-size:13px; margin-bottom:22px; }
+                .hub-login label { font-size:12px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.5px; }
+                .hub-login input.f { width:100%; border:1px solid #cbd5e1; border-radius:12px; padding:12px 14px; font-size:15px; margin:5px 0 14px; }
+                .hub-login input.f:focus { outline:0; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.15); }
+                .hub-login button { width:100%; border:0; border-radius:12px; padding:13px; background:linear-gradient(135deg,#1d4ed8,#7c3aed); color:#fff; font-weight:800; font-size:15px; }
+                .hub-login .err { background:#fee2e2; color:#991b1b; border-radius:10px; padding:9px 12px; font-size:13px; margin-bottom:12px; }
+            ]]></style>
+            <div class="hub hub-login">
+                <form class="card-l" action="/web/login" method="post">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <t t-if="request.env.company and request.env.company.logo">
+                        <img t-att-src="'/web/image/res.company/%s/logo' % request.env.company.id" style="max-height:64px;object-fit:contain;display:block;margin:0 auto;" alt="Logo"/>
+                    </t>
+                    <t t-else="">
+                        <img src="/l4e_dealer_hub/static/src/img/links4engg_logo.webp" alt="Links4Engg"/>
+                    </t>
+                    <div class="sub">Dealer Hub</div>
+                    <div class="tag">Your demands, deliveries and collections in one place</div>
+                    <div class="err" t-if="error"><t t-out="error"/></div>
+                    <label for="hub_login_id">Login</label>
+                    <input id="hub_login_id" class="f" type="text" name="login" autocomplete="username" required="required" autofocus="autofocus"/>
+                    <label for="hub_pass">Password</label>
+                    <input id="hub_pass" class="f" type="password" name="password" autocomplete="current-password" required="required"/>
+                    <button type="submit">Sign in</button>
+                </form>
+            </div>
+        </t>
+    </template>
+
+    <template id="hub_no_access" name="Dealer Hub No Access">
+        <t t-call="portal.portal_layout">
+            <t t-call="l4e_distributor_portal.distributor_portal_clean_assets"/>
+            <t t-call="l4e_dealer_hub.hub_styles"/>
+            <div class="hub" style="padding:60px 20px;text-align:center;">
+                <img src="/l4e_dealer_hub/static/src/img/links4engg_logo.webp" style="max-width:220px;" alt="Links4Engg"/>
+                <h3 class="mt-4">This login is not set up for the Dealer Hub</h3>
+                <p class="text-muted">Ask the office to switch on Dealer Hub access for your distributor account.</p>
+                <a href="/web/session/logout?redirect=/dealer/login" class="btn btn-primary">Sign out</a>
+            </div>
+        </t>
+    </template>
+
+    <!-- ================================================================= -->
+    <!-- Dashboard                                                         -->
+    <!-- ================================================================= -->
+    <template id="hub_dashboard" name="Dealer Hub Dashboard">
+        <t t-call="l4e_dealer_hub.hub_layout">
+            <div class="hub-top">
+                <div>
+                    <h1>Welcome, <t t-out="dealer.name"/></h1>
+                    <div class="sub">Here is your business overview</div>
+                </div>
+            </div>
+
+            <!-- Top Filter Bar & Outlets Card on the right -->
+            <div class="d-flex align-items-center justify-content-between gap-3 mb-3" style="width:100%;">
+                <div style="flex:1;min-width:0;margin-bottom:-12px;">
+                    <t t-call="l4e_dealer_hub.hub_filters"/>
+                </div>
+                <a class="hub-outlets-card" t-att-href="'/dealer/outlets' + q">
+                    <i class="fa fa-home"/>
+                    <b><t t-out="kpis['outlets']"/></b>
+                    <span>Outlets under you</span>
+                </a>
+            </div>
+
+            <div class="banner" t-if="waiting">
+                <i class="fa fa-bell"/>
+                <span><t t-out="waiting"/> demand request<t t-if="waiting != 1">s are</t><t t-else=""> is</t> waiting for your approval</span>
+                <a t-att-href="'/dealer/requests?state=to_approve' + ('&amp;as=' + str(preview) if preview else '')">Review now</a>
+            </div>
+
+            <!-- 8 Dashboard Cards in 4x2 Grid -->
+            <div class="hub-grid g4 mb-3">
+                <!-- Card 1: Outlet PO to Approve -->
+                <a class="tile t-po-approve" t-att-href="'/dealer/requests' + q">
+                    <span class="tile-badge">1</span>
+                    <div class="ic"><i class="fa fa-file-text-o"/></div>
+                    <div class="n"><t t-out="kpis['demands']"/></div>
+                    <div class="l">Outlet PO to Approve</div>
+                    <div class="s"><t t-out="money(kpis['demand_value'])"/> asked</div>
+                </a>
+
+                <!-- Card 2: PO to Deliver -->
+                <a class="tile t-po-deliver" t-att-href="'/dealer/deliveries?state=to_deliver' + ('&amp;as=' + str(preview) if preview else '')">
+                    <span class="tile-badge">2</span>
+                    <div class="ic"><i class="fa fa-truck"/></div>
+                    <div class="n"><t t-out="kpis['in_delivery']"/></div>
+                    <div class="l">PO to Deliver</div>
+                    <div class="s">approved, not fully delivered</div>
+                </a>
+
+                <!-- Card 3: Out for Delivery -->
+                <a class="tile t-out-deliv" t-att-href="'/dealer/deliveries?state=out_for_delivery' + ('&amp;as=' + str(preview) if preview else '')">
+                    <span class="tile-badge">3</span>
+                    <div class="ic"><i class="fa fa-motorcycle"/></div>
+                    <div class="n"><t t-out="kpis.get('out_for_delivery', 0)"/></div>
+                    <div class="l">Out for Delivery</div>
+                    <div class="s">on the way to outlets</div>
+                </a>
+
+                <!-- Card 4: Delivered -->
+                <a class="tile t-delivered" t-att-href="'/dealer/deliveries?state=delivered' + ('&amp;as=' + str(preview) if preview else '')">
+                    <span class="tile-badge">4</span>
+                    <div class="ic"><i class="fa fa-check-circle"/></div>
+                    <div class="n"><t t-out="money(kpis['delivered_value'])"/></div>
+                    <div class="l">Delivered</div>
+                    <div class="s">what the outlets are billed</div>
+                </a>
+
+                <!-- Card 5: Stock in Hand -->
+                <a class="tile t-stock" t-att-href="'/dealer/stock' + q">
+                    <span class="tile-badge">5</span>
+                    <div class="ic"><i class="fa fa-archive"/></div>
+                    <div class="n"><t t-out="'%g' % kpis['stock_units']"/> <small style="font-size:15px;font-weight:700;">units</small></div>
+                    <div class="l">Stock in Hand</div>
+                    <div class="s"><t t-out="kpis['stock_items']"/> products in stock</div>
+                </a>
+
+                <!-- Card 6: To be Paid to Kumbayah -->
+                <a class="tile t-owed" t-att-href="'/dealer/invoices' + q">
+                    <span class="tile-badge">6</span>
+                    <div class="ic"><i class="fa fa-university"/></div>
+                    <div class="n"><t t-out="money(kpis['owed'])"/></div>
+                    <div class="l">To be Paid to Kumbayah</div>
+                    <div class="s">view invoices</div>
+                </a>
+
+                <!-- Card 7: Outlet Collection -->
+                <a class="tile t-collection" t-att-href="'/dealer/collections' + q">
+                    <span class="tile-badge">7</span>
+                    <div class="ic"><i class="fa fa-money"/></div>
+                    <div class="n"><t t-out="money(kpis['collected'])"/></div>
+                    <div class="l">Outlet Collection</div>
+                    <div class="s">of <t t-out="money(kpis['billed'])"/> billed to outlets</div>
+                </a>
+
+                <!-- Card 8: Outlet Overdue -->
+                <a class="tile t-overdue" t-att-href="'/dealer/outlets/outstanding' + q">
+                    <span class="tile-badge">8</span>
+                    <div class="ic"><i class="fa fa-exclamation-triangle"/></div>
+                    <div class="n"><t t-out="money(kpis.get('overdue_amount', kpis['pending']))"/></div>
+                    <div class="l">Outlet Overdue</div>
+                    <div class="s">past the due date</div>
+                </a>
+            </div>
+
+            <!-- Charts Section: PO Status and Delivered & Collected -->
+            <div class="hub-grid g2 mb-3">
+                <div class="hub-card">
+                    <h3>PO Status</h3>
+                    <div class="d-flex align-items-center gap-4 flex-wrap">
+                        <div class="donut" t-attf-style="background:#{donut};"><span><t t-out="total_demands"/><small>POs</small></span></div>
+                        <div class="legend flex-grow-1" style="min-width:180px;">
+                            <div t-foreach="counts.items()" t-as="c">
+                                <i t-attf-style="background:#{c[1][1]};"/> <t t-out="c[0]"/> <b><t t-out="c[1][0]"/></b>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="hub-card">
+                    <h3>Delivered and collected, last 6 months</h3>
+                    <div class="bars">
+                        <div class="m" t-foreach="trend" t-as="m">
+                            <div class="pair">
+                                <div t-attf-style="height:#{m['dh']}%;background:#3b82f6;" t-att-title="'Delivered ' + money(m['d'])"/>
+                                <div t-attf-style="height:#{m['ch']}%;background:#16a34a;" t-att-title="'Collected ' + money(m['c'])"/>
+                            </div>
+                            <div class="lb"><t t-out="m['label']"/></div>
+                        </div>
+                    </div>
+                    <div class="small text-muted mt-2"><i class="fa fa-square" style="color:#3b82f6;"/> Delivered &#160; <i class="fa fa-square" style="color:#16a34a;"/> Collected</div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- ================================================================= -->
+    <!-- One request from the field: approve it, then record deliveries     -->
+    <!-- ================================================================= -->
+    <template id="hub_request" name="Dealer Hub Request">
+        <t t-call="l4e_dealer_hub.hub_layout">
+            <t t-set="can_decide" t-value="req.state == 'sent'"/>
+            <div class="hub-top">
+                <div>
+                    <a t-att-href="'/dealer/requests' + q" class="small fw-bold" style="color:#1d4ed8;"><i class="fa fa-arrow-left"/> Outlet PO</a>
+                    <h1 class="mt-1"><t t-out="req.name"/></h1>
+                    <div class="sub">
+                        Raised <t t-out="req.date_order.strftime('%d %b %Y') if req.date_order else ''"/>
+                        <t t-if="req.ff_employee_id"> by <t t-out="req.ff_employee_id.name"/></t>
+                        &#183; <t t-out="req.demand_count"/> outlet<t t-if="req.demand_count != 1">s</t>
+                    </div>
+                </div>
+                <span t-attf-class="pill #{'p-warn' if req.state == 'sent' else ('p-bad' if req.state in ('rejected', 'cancel') else ('p-good' if (req.state == 'done' or (req.approved_total &gt; 0 and req.delivered_total &gt;= req.approved_total - 0.01)) else ('p-delivery' if (req.delivered_total &gt; 0 or any(d.delivery_ids for d in req.demand_ids)) else 'p-info')))}" style="font-size:14px;padding:6px 16px;">
+                    <t t-out="'PO to Approve' if req.state == 'sent' else ('Cancelled' if req.state in ('rejected', 'cancel') else ('Delivered' if (req.state == 'done' or (req.approved_total &gt; 0 and req.delivered_total &gt;= req.approved_total - 0.01)) else ('Out for Delivery' if (req.delivered_total &gt; 0 or any(d.delivery_ids for d in req.demand_ids)) else 'PO to Deliver')))"/>
+                </span>
+            </div>
+
+            <div class="alert alert-danger" t-if="error"><t t-out="error"/></div>
+            <div class="alert alert-success" t-if="saved"><i class="fa fa-check-circle"/> Saved.</div>
+
+            <div class="hub-sum">
+                <div><small>Asked</small><b t-out="money(req.amount_total)"/></div>
+                <div><small>Approved</small><b t-out="money(req.approved_total)"/></div>
+                <div><small>Delivered</small><b t-out="money(req.delivered_total)"/></div>
+            </div>
+
+            <form t-att-action="'/dealer/requests/%s/approve' % req.id" method="post">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <input type="hidden" name="as" t-att-value="preview" t-if="preview"/>
+                <div class="hub-card mb-3" style="padding:0;">
+                    <div style="padding:16px 20px 4px;"><h3>Products</h3>
+                        <div class="small text-dark" t-if="can_decide">Approve the request first. You then record what you deliver to each outlet, and can close what you cannot supply.</div></div>
+                    <div class="hub-wrap">
+                        <table class="hub-t">
+                            <thead><tr><th>Product</th><th class="end">Price</th><th class="center">Asked</th><th class="center" style="width:150px;"><t t-out="'Will supply' if can_decide else 'Approved'"/></th><th class="end">Amount</th></tr></thead>
+                            <tbody>
+                                <tr t-foreach="lines" t-as="l">
+                                    <td>
+                                        <input type="hidden" name="line_ids[]" t-att-value="l['id']"/>
+                                        <b t-out="l['name']"/>
+                                        <span class="pill p-good ms-1" t-if="l['free']">FOC</span>
+                                        <div class="small text-dark" t-if="l['sku']">SKU <t t-out="l['sku']"/></div>
+                                    </td>
+                                    <td class="end"><t t-if="l['free']">FREE</t><t t-else=""><t t-out="money(l['price'])"/></t></td>
+                                    <td class="center"><t t-out="l['demanded']"/> <small t-out="l['uom']"/></td>
+                                    <td class="center">
+                                        <b t-out="l['qty']"/>
+                                    </td>
+                                    <td class="end"><t t-if="l['free']">FREE</t><t t-else=""><t t-out="money(l['subtotal'])"/></t></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="hub-card mb-3" t-if="pricing">
+                    <h3>How the price is worked out</h3>
+                    <div class="small text-dark mb-2">The rate each outlet pays, and what it means for you. Check it before you approve.</div>
+                    <div t-foreach="pricing" t-as="p" class="mb-3" style="border:1px solid #cbd5e1;border-radius:14px;padding:12px 14px;">
+                        <b t-out="p['outlet']"/>
+                        <div class="small text-dark">
+                            <t t-if="p['scheme']">Scheme <t t-out="money(p['scheme'])"/> per bottle &#183; </t>Outlet margin <t t-out="'%g' % p['margin']"/>%
+                            <t t-if="p['total']"> &#183; Total margin <t t-out="'%g' % p['total']"/>%</t>
+                        </div>
+                        <div class="hub-wrap mt-2">
+                            <table class="hub-t">
+                                <thead><tr><th>Product</th><th class="end">MRP</th><th class="end">Less scheme</th><th class="end">After scheme</th><th class="end">Less margin</th><th class="end">Rate</th><th class="center">Qty</th><th class="end">Amount</th></tr></thead>
+                                <tbody>
+                                    <tr t-foreach="p['rows']" t-as="r">
+                                        <td><b t-out="r['name']"/></td>
+                                        <td class="end"><t t-out="money(r['mrp'])"/></td>
+                                        <td class="end"><t t-if="r['scheme']">- <t t-out="money(r['scheme'])"/></t><t t-else="">-</t></td>
+                                        <td class="end"><t t-out="money(r['after'])"/></td>
+                                        <td class="end">- <t t-out="money(r['margin_amount'])"/></td>
+                                        <td class="end"><b t-out="money(r['rate'])"/><div class="small text-danger" t-if="r['differs']">calculated <t t-out="money(r['worked'])"/></div></td>
+                                        <td class="center"><t t-out="qty(r['qty'])"/></td>
+                                        <td class="end"><t t-out="money(r['amount'])"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="small mt-2" t-if="p['total']">
+                            <div class="d-flex justify-content-between"><span>Invoiced to the outlet</span><b t-out="money(p['billed'])"/></div>
+                            <div class="d-flex justify-content-between"><span>You buy from Kumbayah Foods (MRP less <t t-out="'%g' % p['total']"/>%)</span><b t-out="money(p['buy'])"/></div>
+                            <div class="d-flex justify-content-between" t-if="p['note']"><span>Debit note from Kumbayah Foods (<t t-out="'%g' % p['excess']"/>% of MRP, on delivery)</span><b t-out="money(p['note'])"/></div>
+                            <div class="d-flex justify-content-between"><span>Your margin on this request</span><b t-out="money(p['net'])"/></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hub-card mb-3" t-if="can_decide">
+                    <h3>Your remarks (optional)</h3>
+                    <textarea name="notes" rows="3" class="form-control" placeholder="Delivery timing, shortages, or the reason if you reject..."/>
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <button type="submit" name="decision" value="approve" class="hub-btn fill"><i class="fa fa-check-circle"/> Approve</button>
+                        <button type="submit" name="decision" value="reject" class="hub-btn" style="border-color:#dc2626;color:#dc2626;"
+                                onclick="return confirm('Reject this request? The sales team will be told.');"><i class="fa fa-times-circle"/> Reject</button>
+                    </div>
+                </div>
+                <div class="hub-card mb-3" t-elif="req.distributor_note">
+                    <h3>Your remarks</h3>
+                    <div t-out="req.distributor_note"/>
+                </div>
+            </form>
+
+            <div class="hub-card mb-3">
+                <h3>Outlets behind this request</h3>
+                <div class="hub-grid g3">
+                    <div t-foreach="outlets" t-as="o" style="border:1px solid #cbd5e1;border-radius:14px;padding:12px 14px;">
+                        <b t-out="o['name']"/>
+                        <div class="small text-dark"><t t-out="o['number']"/><t t-if="o['address']"> &#183; <t t-out="o['address']"/></t><t t-if="o['phone']"> &#183; <t t-out="o['phone']"/></t></div>
+                        <div class="small mt-2" t-foreach="o['items']" t-as="i"><t t-out="i['name']"/> <b>&#215; <t t-out="i['qty']"/></b></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hub-card mb-3" t-if="notes">
+                <h3>Debit / credit notes on these demands</h3>
+                <div class="small text-dark mb-2">Free goods and other notes raised for the outlets in this request.</div>
+                <div t-foreach="notes" t-as="n" class="d-flex justify-content-between flex-wrap gap-2 py-2" style="border-bottom:1px solid #e2e8f0;">
+                    <span><a t-att-href="'/dealer/returns/%s' % n.id + q" style="color:#1d4ed8;font-weight:800;" t-out="n.name"/>
+                        &#183; <t t-out="n.partner_id.display_name or ''"/> &#183; <t t-out="n.demand_id.name or ''"/></span>
+                    <span><t t-out="money(n.amount)"/>
+                        <span t-attf-class="pill #{'p-good' if n.state == 'approved' else ('p-bad' if n.state == 'rejected' else 'p-warn')}">
+                            <t t-out="{'pending': 'Waiting for approval', 'approved': 'Approved', 'rejected': 'Rejected'}.get(n.state)"/></span></span>
+                </div>
+            </div>
+
+            <div class="hub-card" t-if="deliveries">
+                <h3>Deliveries</h3>
+                <div class="small text-dark mb-2">Enter what you delivered to each outlet. The outlet is billed only for this.</div>
+                <t t-foreach="deliveries" t-as="d">
+                    <form t-att-action="'/dealer/requests/%s/deliver' % req.id" method="post" style="border:1px solid #cbd5e1;border-radius:14px;padding:14px;margin-bottom:12px;">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <input type="hidden" name="as" t-att-value="preview" t-if="preview"/>
+                        <input type="hidden" name="demand_id" t-att-value="d['demand'].id"/>
+                        <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
+                            <div><b t-out="d['outlet'].display_name"/>
+                                <div class="small text-dark"><t t-out="d['demand'].name"/><t t-if="d['outlet'].city"> &#183; <t t-out="d['outlet'].city"/></t></div></div>
+                            <span t-attf-class="pill #{'p-good' if d['demand'].state == 'supplied' else 'p-warn'}"><t t-out="d['status'] or 'In Progress'"/></span>
+                        </div>
+                        <div class="hub-wrap">
+                            <table class="hub-t">
+                                <thead><tr><th>Product</th><th class="center">Approved</th><th class="center">Delivered</th><th class="center">Left</th><th class="center" t-if="d['open']" style="width:140px;">Deliver now</th></tr></thead>
+                                <tbody>
+                                    <tr t-foreach="d['lines']" t-as="l">
+                                        <td><t t-out="l['name']"/> <span class="pill p-good" t-if="l['free']">FOC</span></td>
+                                        <td class="center"><t t-out="qty(l['approved'])"/> <small t-out="l['uom']"/></td>
+                                        <td class="center"><t t-out="qty(l['delivered'])"/></td>
+                                        <td class="center"><t t-out="qty(l['left'])"/></td>
+                                        <td class="center" t-if="d['open']">
+                                            <input t-if="l['left'] > 0" type="number" min="0" step="any" t-att-max="l['left']" t-att-name="'dq_%s' % l['id']" t-att-value="qty(l['left'])"
+                                                   style="width:100px;border:1px solid #94a3b8;border-radius:10px;padding:6px 8px;text-align:center;font-weight:800;"/>
+                                            <i t-else="" class="fa fa-check" style="color:#16a34a;"/>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <t t-if="d['open']">
+                            <input type="text" name="note" class="form-control mt-2" placeholder="Delivery note (optional)"/>
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <button type="submit" class="hub-btn fill"><i class="fa fa-truck"/> Save delivery</button>
+                                <button type="submit" name="close" value="1" class="hub-btn"
+                                        onclick="return confirm('The rest of this outlet will not be supplied. Close the delivery?');">Cannot supply the rest</button>
+                            </div>
+                        </t>
+                        <div class="small mt-3" t-foreach="d['history']" t-as="h">
+                            <i class="fa fa-truck"/> <b t-out="h.name"/> &#183; <t t-out="h.date.strftime('%d %b %Y %I:%M %p')"/> &#183; <t t-out="money(h.amount)"/>
+                        </div>
+                    </form>
+                </t>
+            </div>
+        </t>
+    </template>
+
+    <!-- ================================================================= -->
+    <!-- One order taken for the distributor: view only                     -->
+    <!-- ================================================================= -->
+    <template id="hub_order" name="Dealer Hub Order">
+        <t t-call="l4e_dealer_hub.hub_layout">
+            <div class="hub-top">
+                <div>
+                    <a t-att-href="'/dealer/orders' + q" class="small fw-bold" style="color:#1d4ed8;"><i class="fa fa-arrow-left"/> PO to Kumbayah Foods</a>
+                    <h1 class="mt-1"><t t-out="order.name"/></h1>
+                    <div class="sub">Ordered <t t-out="order.date_order.strftime('%d %b %Y') if order.date_order else ''"/>. We deliver and invoice this order; you can follow it here.</div>
+                </div>
+                <span t-attf-class="pill #{'p-bad' if order.state == 'cancel' or getattr(order, 'distributor_status', False) == 'rejected' else ('p-good' if order.invoice_status == 'invoiced' else ('p-good' if getattr(order, 'delivery_status', False) == 'full' else ('p-warn' if (getattr(order, 'distributor_status', False) == 'pending' or order.state in ('draft', 'sent')) else 'p-info')))}" style="font-size:14px;padding:6px 16px;">
+                    <t t-out="'Cancelled' if order.state == 'cancel' or getattr(order, 'distributor_status', False) == 'rejected' else ('Invoiced' if order.invoice_status == 'invoiced' else ('Delivered' if getattr(order, 'delivery_status', False) == 'full' else ('To Approve' if (getattr(order, 'distributor_status', False) == 'pending' or order.state in ('draft', 'sent')) else 'Approved')))"/>
+                </span>
+            </div>
+            <div class="hub-sum">
+                <div><small>Order value</small><b t-out="money(order.amount_total)"/></div>
+                <div><small>Invoiced</small><b t-out="money(sum(invoices.mapped('amount_total')))"/></div>
+                <div><small>Still to pay</small><b t-out="money(sum(invoices.mapped('amount_residual')))"/></div>
+            </div>
+            <div class="hub-card mb-3" style="padding:0;">
+                <div style="padding:16px 20px 4px;"><h3>Products</h3></div>
+                <div class="hub-wrap">
+                    <table class="hub-t">
+                        <thead><tr><th>Product</th><th class="center">Ordered</th><th class="center">Delivered</th><th class="end">Price</th><th class="end">Amount</th></tr></thead>
+                        <tbody>
+                            <tr t-foreach="order.order_line.filtered(lambda l: not l.display_type)" t-as="l">
+                                <td><b t-out="l.product_id.display_name or l.name"/></td>
+                                <td class="center"><t t-out="qty(l.product_uom_qty)"/> <small t-out="l.product_uom_id.name if 'product_uom_id' in l._fields else ''"/></td>
+                                <td class="center"><t t-out="qty(l.qty_delivered)"/></td>
+                                <td class="end"><t t-out="money(l.price_unit)"/></td>
+                                <td class="end"><t t-out="money(l.price_subtotal)"/></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="hub-grid g2">
+                <div class="hub-card">
+                    <h3>Invoices</h3>
+                    <div t-if="not invoices" class="text-dark">Not invoiced yet. We invoice after delivery.</div>
+                    <div t-foreach="invoices" t-as="m" class="d-flex justify-content-between py-2" style="border-bottom:1px solid #e2e8f0;">
+                        <span><b t-out="m.name"/> &#183; <t t-out="m.invoice_date.strftime('%d %b %Y') if m.invoice_date else ''"/></span>
+                        <span><t t-out="money(m.amount_total)"/>
+                            <span t-attf-class="pill #{'p-good' if m.payment_state in ('paid', 'in_payment') else ('p-warn' if m.payment_state == 'partial' else 'p-bad')}">
+                                <t t-out="{'paid': 'Paid', 'in_payment': 'Paid', 'partial': 'Part paid'}.get(m.payment_state, 'Unpaid')"/></span></span>
+                    </div>
+                </div>
+                <div class="hub-card">
+                    <h3>Deliveries</h3>
+                    <div t-if="not pickings" class="text-dark">Nothing sent yet.</div>
+                    <div t-foreach="pickings" t-as="p" class="d-flex justify-content-between py-2" style="border-bottom:1px solid #e2e8f0;">
+                        <span><b t-out="p.name"/> &#183; <t t-out="p.scheduled_date.strftime('%d %b %Y') if p.scheduled_date else ''"/></span>
+                        <span class="pill p-info"><t t-out="dict(p._fields['state'].selection).get(p.state, p.state)"/></span>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- ================================================================= -->
+    <!-- One debit or credit note, in full                                   -->
+    <!-- ================================================================= -->
+    <template id="hub_note" name="Dealer Hub Note">
+        <t t-call="l4e_dealer_hub.hub_layout">
+            <div class="hub-top">
+                <div>
+                    <a t-att-href="'/dealer/returns' + q" class="small fw-bold" style="color:#1d4ed8;"><i class="fa fa-arrow-left"/> Returns / Credit Notes</a>
+                    <h1 class="mt-1"><t t-out="note.name"/></h1>
+                    <div class="sub"><t t-out="kinds.get(note.kind)"/> &#183; <t t-out="sources.get(note.source)"/> &#183; <t t-out="note.date.strftime('%d %b %Y %I:%M %p') if note.date else ''"/></div>
+                </div>
+                <span t-attf-class="pill #{'p-good' if note.state == 'approved' else ('p-bad' if note.state == 'rejected' else 'p-warn')}" style="font-size:14px;padding:6px 16px;">
+                    <t t-out="{'pending': 'Waiting for approval', 'approved': 'Approved', 'rejected': 'Rejected'}.get(note.state)"/>
+                </span>
+            </div>
+            <div class="hub-sum">
+                <div><small>Value</small><b t-out="money(note.amount)"/></div>
+                <div><small>Units</small><b t-out="qty(note.quantity_total)"/></div>
+            </div>
+            <div class="hub-grid g2 mb-3">
+                <div class="hub-card">
+                    <h3>What it is for</h3>
+                    <table class="hub-t">
+                        <tr><td>Raised for</td><td><b t-out="sources.get(note.source)"/></td></tr>
+                        <tr><td>Reason</td><td><t t-out="note.reason or '-'"/></td></tr>
+                        <tr t-if="note.demand_id"><td>Demand</td><td><b t-out="note.demand_id.name"/></td></tr>
+                        <tr t-if="note.delivery_id if 'delivery_id' in note._fields else False"><td>Delivery</td><td><t t-out="note.delivery_id.name"/></td></tr>
+                        <tr t-if="note.task_log_id"><td>Field task</td><td><t t-out="note.task_log_id.display_name"/></td></tr>
+                    </table>
+                </div>
+                <div class="hub-card">
+                    <h3>Who</h3>
+                    <table class="hub-t">
+                        <tr><td>Outlet</td><td><b t-out="note.partner_id.display_name or '-'"/></td></tr>
+                        <tr t-if="note.partner_id.city"><td>Place</td><td><t t-out="note.partner_id.city"/></td></tr>
+                        <tr><td>Raised by</td><td><t t-out="note.employee_id.name or '-'"/></td></tr>
+                        <tr t-if="note.decided_by_id"><td>Decided by</td><td><t t-out="note.decided_by_id.name"/> &#183; <t t-out="note.decided_at.strftime('%d %b %Y') if note.decided_at else ''"/></td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="hub-card" style="padding:0;">
+                <div style="padding:16px 20px 4px;"><h3>Products</h3></div>
+                <div class="hub-wrap">
+                    <table class="hub-t">
+                        <thead><tr><th>Product</th><th class="center">Quantity</th><th class="end">Rate</th><th class="end">Value</th></tr></thead>
+                        <tbody>
+                            <tr t-foreach="note.line_ids" t-as="l">
+                                <td><b t-out="l.product_id.display_name"/></td>
+                                <td class="center"><t t-out="qty(l.quantity)"/> <small t-out="l.uom_id.name"/></td>
+                                <td class="end"><t t-out="money(l.price_unit)"/></td>
+                                <td class="end"><t t-out="money(l.subtotal)"/></td>
+                            </tr>
+                            <tr><td colspan="3" class="end"><b>Total</b></td><td class="end"><b t-out="money(note.amount)"/></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="hub_handover" name="Dealer Hub Handover">
+        <t t-call="l4e_dealer_hub.hub_layout">
+            <div class="hub-top">
+                <div>
+                    <a t-att-href="'/dealer/handovers' + q" class="small fw-bold" style="color:#1d4ed8;"><i class="fa fa-arrow-left"/> Money Received</a>
+                    <h1 class="mt-1"><t t-out="h.name"/></h1>
+                    <div class="sub">Handed by <t t-out="h.employee_id.name"/> &#183; <t t-out="h.date.strftime('%d %b %Y') if h.date else ''"/></div>
+                </div>
+                <span t-attf-class="pill #{'p-good' if h.state == 'confirmed' else ('p-bad' if h.state == 'rejected' else 'p-warn')}" style="font-size:14px;padding:6px 16px;">
+                    <t t-out="states.get(h.state)"/>
+                </span>
+            </div>
+            <div class="hub-sum">
+                <div><small>Amount</small><b t-out="money(h.amount)"/></div>
+                <div><small>Outlets</small><b t-out="len(set(r['outlet'] for r in rows))"/></div>
+            </div>
+            <div class="hub-grid g2 mb-3">
+                <div class="hub-card">
+                    <h3>Handover</h3>
+                    <table class="hub-t">
+                        <tr><td>Received by</td><td><b t-out="h.received_by or '-'"/></td></tr>
+                        <tr><td>Date</td><td><t t-out="h.date.strftime('%d %b %Y') if h.date else '-'"/></td></tr>
+                        <tr><td>Mode</td><td><t t-out="h.mode_id.name or '-'"/></td></tr>
+                        <tr><td>Reference</td><td><t t-out="h.reference or '-'"/></td></tr>
+                        <tr t-if="h.note"><td>Note</td><td><t t-out="h.note"/></td></tr>
+                    </table>
+                </div>
+                <div class="hub-card">
+                    <h3>Who</h3>
+                    <table class="hub-t">
+                        <tr><td>Handed by</td><td><b t-out="h.employee_id.name or '-'"/></td></tr>
+                        <tr t-if="h.decided_by_id"><td>Confirmed by</td><td><t t-out="h.decided_by_id.name"/> &#183; <t t-out="h.decided_at.strftime('%d %b %Y') if h.decided_at else ''"/></td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="hub-card" style="padding:0;">
+                <div style="padding:16px 20px 4px;"><h3>Where the money came from</h3></div>
+                <div class="hub-wrap">
+                    <table class="hub-t">
+                        <thead><tr><th>Outlet</th><th>Collection</th><th>Collected on</th><th>Mode</th><th>Invoices</th><th class="end">Given now</th></tr></thead>
+                        <tbody>
+                            <tr t-foreach="rows" t-as="r">
+                                <td><b t-out="r['outlet']"/></td>
+                                <td t-out="r['payment']"/>
+                                <td t-out="r['collected'].strftime('%d %b %Y') if r['collected'] else ''"/>
+                                <td t-out="r['mode'] or '-'"/>
+                                <td t-out="r['invoices'] or 'On account'"/>
+                                <td class="end"><b t-out="money(r['amount'])"/></td>
+                            </tr>
+                            <tr><td colspan="5" class="end"><b>Total</b></td><td class="end"><b t-out="money(h.amount)"/></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="hub_invoice" name="Dealer Hub Invoice">
+        <t t-call="l4e_dealer_hub.hub_layout">
+            <div class="hub-top">
+                <div>
+                    <a t-att-href="'/dealer/invoices' + q" class="small fw-bold" style="color:#1d4ed8;"><i class="fa fa-arrow-left"/> Invoices from Us</a>
+                    <h1 class="mt-1"><t t-out="move.name"/></h1>
+                    <div class="sub">Dated <t t-out="move.invoice_date.strftime('%d %b %Y') if move.invoice_date else ''"/>
+                        &#183; due <t t-out="move.invoice_date_due.strftime('%d %b %Y') if move.invoice_date_due else '-'"/></div>
+                </div>
+                <div class="d-flex gap-2 align-items-start flex-wrap">
+                    <span t-attf-class="pill #{'p-good' if move.payment_state in ('paid', 'in_payment') else ('p-warn' if move.payment_state == 'partial' else 'p-bad')}" style="font-size:14px;padding:6px 16px;">
+                        <t t-out="{'paid': 'Paid', 'in_payment': 'Paid', 'partial': 'Part paid'}.get(move.payment_state, 'Unpaid')"/></span>
+                    <a t-att-href="'/dealer/invoices/%s/pdf' % move.id + q" class="hub-btn fill"><i class="fa fa-download"/> Download PDF</a>
+                </div>
+            </div>
+            <div class="hub-sum">
+                <div><small>Amount</small><b t-out="money(move.amount_total)"/></div>
+                <div><small>Paid</small><b t-out="money(move.amount_total - move.amount_residual)"/></div>
+                <div><small>Outstanding</small><b t-out="money(move.amount_residual)"/></div>
+            </div>
+            <div class="hub-card mb-3" style="padding:0;">
+                <div style="padding:16px 20px 4px;"><h3>Invoice lines</h3></div>
+                <div class="hub-wrap">
+                    <table class="hub-t">
+                        <thead><tr><th>Product</th><th class="center">Quantity</th><th class="end">Price</th><th class="end">Tax</th><th class="end">Amount</th></tr></thead>
+                        <tbody>
+                            <tr t-foreach="lines" t-as="l">
+                                <td><b t-out="l.product_id.display_name or l.name"/></td>
+                                <td class="center"><t t-out="qty(l.quantity)"/> <small t-out="l.product_uom_id.name if l.product_uom_id else ''"/></td>
+                                <td class="end"><t t-out="money(l.price_unit)"/></td>
+                                <td class="end"><t t-out="', '.join(l.tax_ids.mapped('name'))"/></td>
+                                <td class="end"><t t-out="money(l.price_subtotal)"/></td>
+                            </tr>
+                            <tr><td colspan="4" class="end">Untaxed</td><td class="end" t-out="money(move.amount_untaxed)"/></tr>
+                            <tr><td colspan="4" class="end">Taxes</td><td class="end" t-out="money(move.amount_tax)"/></tr>
+                            <tr><td colspan="4" class="end"><b>Total</b></td><td class="end"><b t-out="money(move.amount_total)"/></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="hub-card" t-if="payments">
+                <h3>Payments received</h3>
+                <div t-foreach="payments" t-as="p" class="d-flex justify-content-between py-2" style="border-bottom:1px solid #e2e8f0;">
+                    <span><t t-out="p['ref']"/> &#183; <t t-out="p['date'].strftime('%d %b %Y') if p['date'] else ''"/></span>
+                    <b t-out="money(p['amount'])"/>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="hub_stock_count" name="Dealer Hub Update Current Stock">
+        <t t-call="l4e_dealer_hub.hub_layout">
+            <div class="hub-top">
+                <div>
+                    <h1>Update current stock</h1>
+                    <div class="sub">Type the quantity you actually have today. Only the products you change are booked, as an adjustment.</div>
+                </div>
+            </div>
+
+            <form action="/dealer/stock/count/save" method="post" id="stockCountForm">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <input type="hidden" name="as" t-att-value="preview" t-if="preview"/>
+
+                <!-- Description Input Box -->
+                <div class="mb-3">
+                    <label style="display:block;font-size:11.5px;font-weight:800;letter-spacing:.5px;color:#0f172a;text-transform:uppercase;margin-bottom:6px;">
+                        DESCRIPTION <span style="color:#ef4444;">*</span>
+                    </label>
+                    <textarea name="description" required="required" rows="2"
+                              placeholder="Why is the stock being updated? e.g. physical stock count on 10 Oct"
+                              style="width:100%;border:1.5px solid #ea580c;border-radius:12px;padding:10px 14px;font-size:14px;color:#0f172a;outline:none;background:#fff;resize:vertical;"></textarea>
+                </div>
+
+                <div class="d-flex align-items-center gap-2" style="margin-bottom:16px;">
+                    <input type="text" id="stockSearchInput" placeholder="Search a product..."
+                           style="width:280px;border:1px solid #cbd5e1;border-radius:10px;padding:9px 14px;font-size:14px;color:#0f172a;background:#fff;outline:none;"/>
+                    <button type="button" id="stockSearchBtn"
+                            style="width:42px;height:40px;background:#1d4ed8;border:none;border-radius:10px;color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;">
+                        <i class="fa fa-search"/>
+                    </button>
+                </div>
+
+                <div class="hub-card" style="padding:0;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+                    <div class="hub-wrap">
+                        <table class="hub-t" id="stockCountTable" style="margin:0;">
+                            <thead>
+                                <tr style="border-bottom:1px solid #f1f5f9;">
+                                    <th style="padding:14px 20px;font-size:11.5px;letter-spacing:.6px;color:#0f172a;font-weight:800;">PRODUCT</th>
+                                    <th style="padding:14px 20px;font-size:11.5px;letter-spacing:.6px;color:#0f172a;font-weight:800;">UNIT</th>
+                                    <th class="center" style="padding:14px 20px;font-size:11.5px;letter-spacing:.6px;color:#0f172a;font-weight:800;">IN THE SYSTEM</th>
+                                    <th class="center" style="width:200px;padding:14px 20px;font-size:11.5px;letter-spacing:.6px;color:#0f172a;font-weight:800;">COUNTED TODAY</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="rows" t-as="r" class="stock-row" style="border-bottom:1px solid #f8fafc;">
+                                    <td class="product-name" style="padding:14px 20px;font-size:13.5px;font-weight:800;color:#0f172a;">
+                                        <span t-out="r['product'].display_name.upper() if r['product'].display_name else ''"/>
+                                    </td>
+                                    <td style="padding:14px 20px;font-size:13.5px;color:#334155;" t-out="r['product'].uom_id.name"/>
+                                    <td class="center" style="padding:14px 20px;font-size:13.5px;color:#334155;" t-out="qty(r['system'])"/>
+                                    <td class="center" style="padding:10px 20px;">
+                                        <input type="number" min="0" t-att-step="r['step']"
+                                               t-att-name="'cnt_' + str(r['product'].id)"
+                                               t-att-value="qty(r['system'])"
+                                               style="width:110px;border:1.5px solid #94a3b8;border-radius:10px;padding:7px 12px;text-align:center;font-weight:800;font-size:14px;color:#0f172a;background:#fff;outline:none;"/>
+                                    </td>
+                                </tr>
+                                <tr t-if="not rows"><td colspan="4" class="text-center py-5 text-dark">No product found.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mt-4 d-flex gap-2">
+                    <button type="submit" class="hub-btn fill" style="padding:9px 26px;border-radius:10px;font-weight:700;">Save</button>
+                    <a t-att-href="'/dealer/stock' + q" class="hub-btn" style="padding:9px 24px;border-radius:10px;border-color:#2563eb;color:#2563eb;font-weight:700;">Cancel</a>
+                </div>
+            </form>
+
+            <script><![CDATA[
+            (function() {
+                var searchInput = document.getElementById('stockSearchInput');
+                var searchBtn = document.getElementById('stockSearchBtn');
+                var table = document.getElementById('stockCountTable');
+                if (!searchInput || !table) return;
+
+                function doFilter() {
+                    var query = searchInput.value.toLowerCase().trim();
+                    var rows = table.querySelectorAll('tbody tr.stock-row');
+                    rows.forEach(function(row) {
+                        var name = row.querySelector('.product-name') ? row.querySelector('.product-name').textContent.toLowerCase() : '';
+                        if (!query || name.indexOf(query) !== -1) {
+                            row.style.display = '';
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    });
+                }
+
+                searchInput.addEventListener('input', doFilter);
+                if (searchBtn) searchBtn.addEventListener('click', doFilter);
+            })();
+            ]]></script>
+        </t>
+    </template>
+
+    <template id="hub_stock_add" name="Dealer Hub Add Stock Entry">
+        <t t-call="l4e_dealer_hub.hub_layout">
+            <div class="hub-top">
+                <div>
+                    <h1>Add a stock entry</h1>
+                    <div class="sub">Record stock you received, your opening stock, or something returned or written off.</div>
+                </div>
+            </div>
+
+            <div class="alert alert-danger" t-if="error" style="max-width:680px;border-radius:12px;margin-bottom:16px;"><t t-out="error"/></div>
+
+            <div class="hub-card" style="max-width:680px;border-radius:18px;border:1px solid #e2e8f0;padding:22px 24px;">
+                <form action="/dealer/stock/save" method="post" id="stockAddForm">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <input type="hidden" name="as" t-att-value="preview" t-if="preview"/>
+
+                    <!-- TYPE Select -->
+                    <div class="mb-4">
+                        <label style="display:block;font-size:11.5px;font-weight:800;letter-spacing:.5px;color:#0f172a;text-transform:uppercase;margin-bottom:6px;">
+                            TYPE
+                        </label>
+                        <select name="kind" required="required"
+                                style="width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:9px 12px;font-size:14px;color:#0f172a;background:#fff;outline:none;">
+                            <option t-foreach="kinds" t-as="k" t-att-value="k[0]"><t t-out="k[1]"/></option>
+                        </select>
+                    </div>
+
+                    <!-- QUANTITY BY FLAVOUR Table -->
+                    <div class="mb-4">
+                        <label style="display:block;font-size:11.5px;font-weight:800;letter-spacing:.5px;color:#0f172a;text-transform:uppercase;margin-bottom:8px;">
+                            QUANTITY BY FLAVOUR <span style="color:#ef4444;">*</span>
+                        </label>
+                        <div class="hub-card" style="padding:0;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:none;">
+                            <div class="hub-wrap">
+                                <table class="hub-t" style="margin:0;">
+                                    <thead>
+                                        <tr style="border-bottom:1px solid #f1f5f9;background:#f8fafc;">
+                                            <th style="padding:12px 16px;font-size:11.5px;letter-spacing:.5px;color:#0f172a;font-weight:800;">FLAVOUR</th>
+                                            <th style="padding:12px 16px;font-size:11.5px;letter-spacing:.5px;color:#0f172a;font-weight:800;">UNIT</th>
+                                            <th class="center" style="width:140px;padding:12px 16px;font-size:11.5px;letter-spacing:.5px;color:#0f172a;font-weight:800;">QUANTITY</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="products" t-as="p" style="border-bottom:1px solid #f8fafc;">
+                                            <td style="padding:10px 16px;font-size:13.5px;font-weight:800;color:#0f172a;">
+                                                <span t-out="p.display_name.upper() if p.display_name else ''"/>
+                                            </td>
+                                            <td style="padding:10px 16px;font-size:13px;color:#334155;" t-out="p.uom_id.name"/>
+                                            <td class="center" style="padding:8px 16px;">
+                                                <input type="number" min="0" t-att-step="steps.get(p.id, '1')"
+                                                       t-att-name="'qty_' + str(p.id)"
+                                                       placeholder=""
+                                                       style="width:96px;border:1.5px solid #ea580c;border-radius:8px;padding:6px 10px;text-align:center;font-weight:800;font-size:13.5px;color:#0f172a;background:#fff;outline:none;"/>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- REFERENCE (OPTIONAL) Input -->
+                    <div class="mb-4">
+                        <label style="display:block;font-size:11.5px;font-weight:800;letter-spacing:.5px;color:#0f172a;text-transform:uppercase;margin-bottom:6px;">
+                            REFERENCE (OPTIONAL)
+                        </label>
+                        <input type="text" name="reference"
+                               placeholder="Delivery challan, transfer or receipt number"
+                               style="width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:9px 12px;font-size:14px;color:#0f172a;background:#fff;outline:none;"/>
+                    </div>
+
+                    <!-- DESCRIPTION * Input -->
+                    <div class="mb-4">
+                        <label style="display:block;font-size:11.5px;font-weight:800;letter-spacing:.5px;color:#0f172a;text-transform:uppercase;margin-bottom:6px;">
+                            DESCRIPTION <span style="color:#ef4444;">*</span>
+                        </label>
+                        <input type="text" name="description" required="required"
+                               placeholder=""
+                               style="width:100%;border:1.5px solid #ea580c;border-radius:10px;padding:9px 12px;font-size:14px;color:#0f172a;background:#fff;outline:none;"/>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="mt-4 d-flex gap-2">
+                        <button type="submit" class="hub-btn fill" style="padding:9px 24px;border-radius:10px;font-weight:700;">Save entry</button>
+                        <a t-att-href="'/dealer/stock/moves' + q" class="hub-btn" style="padding:9px 22px;border-radius:10px;border-color:#2563eb;color:#2563eb;font-weight:700;">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </t>
+    </template>
+
+    <!-- ================================================================= -->
+    <!-- A list page: title, tabs, search, a table                         -->
+    <!-- ================================================================= -->
+    <template id="hub_table" name="Dealer Hub List">
+        <t t-call="l4e_dealer_hub.hub_layout">
+            <div class="hub-top">
+                <div class="hub-title-row">
+                    <h1><t t-out="title"/></h1>
+                    <div class="hub-main-pills" t-if="main_tabs">
+                        <a t-foreach="main_tabs" t-as="mt" t-att-href="mt['href']" t-attf-class="#{'on' if mt['on'] else ''}">
+                            <t t-out="mt['label']"/>
+                        </a>
+                    </div>
+                </div>
+                <div class="sub w-100" t-if="subtitle"><t t-out="subtitle"/></div>
+            </div>
+
+            <t t-if="dates" t-call="l4e_dealer_hub.hub_filters"/>
+
+            <div class="d-flex flex-wrap gap-2 mb-3" t-if="export or action">
+                <a t-foreach="action or []" t-as="act" t-att-href="act[1]" class="hub-btn fill">
+                    <i t-attf-class="fa #{act[2] if len(act) > 2 else 'fa-pencil'}"/> <t t-out="act[0]"/>
+                </a>
+                <a t-if="export" t-att-href="export" class="hub-btn"><i class="fa fa-table"/> Download Excel</a>
+            </div>
+
+            <div class="hub-sum" t-if="summary">
+                <div t-foreach="summary" t-as="s"><small><t t-out="s[0]"/></small><b><t t-out="s[1]"/></b></div>
+            </div>
+
+            <div class="hub-tabs" t-if="tabs">
+                <a t-foreach="tabs" t-as="tab"
+                   t-att-href="tab['href']"
+                   t-attf-class="#{'on' if active == tab['key'] else ''}">
+                    <t t-out="tab['label']"/><small><t t-out="tab['n']"/></small>
+                </a>
+            </div>
+
+            <form class="hub-search" method="get">
+                <t t-foreach="flt.kw.items()" t-as="kv">
+                    <input type="hidden" t-if="kv[0] not in ('search', 'page')" t-att-name="kv[0]" t-att-value="kv[1]"/>
+                </t>
+                <input type="hidden" name="state" t-att-value="active" t-if="active and 'state' not in flt.kw"/>
+                <input type="text" name="search" t-att-value="search" placeholder="Search..."/>
+                <button type="submit"><i class="fa fa-search"/></button>
+            </form>
+
+            <div class="hub-card" style="padding:0;">
+                <div class="hub-wrap">
+                    <table class="hub-t">
+                        <thead>
+                            <tr>
+                                <th t-foreach="columns" t-as="col"><t t-out="col"/></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="rows" t-as="row">
+                                <t t-foreach="row" t-as="c">
+                                    <td t-attf-class="#{c['align'] or ''}">
+                                        <t t-if="c['href'] and c['tone']"><a t-att-href="c['href']" t-attf-class="pill p-#{c['tone']}"><t t-out="c['t']"/></a></t>
+                                        <t t-elif="c['href']"><a t-att-href="c['href']" t-att-style="'font-weight:800;color:#1d4ed8;' if c['bold'] else 'color:#1d4ed8;'"><t t-out="c['t']"/></a></t>
+                                        <t t-elif="c['tone']"><span t-attf-class="pill p-#{c['tone']}"><t t-out="c['t']"/></span></t>
+                                        <t t-elif="c['bold']"><b t-out="c['t']"/></t>
+                                        <t t-else=""><t t-out="c['t']"/></t>
+                                    </td>
+                                </t>
+                            </tr>
+                            <tr t-if="not rows"><td t-att-colspan="len(columns)" class="text-center text-muted py-5"><t t-out="empty"/></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination Controls -->
+            <div class="hub-pagination" t-if="pager and pager['page_count'] > 1">
+                <div class="hub-page-info">
+                    Showing <b t-out="pager['offset_start']"/>–<b t-out="pager['offset_end']"/> of <b t-out="pager['total']"/>
+                </div>
+                <div class="hub-page-nav">
+                    <a t-if="pager['has_prev']" t-att-href="pager['prev_url']" class="hub-page-btn prev">
+                        <i class="fa fa-chevron-left"/> Previous
+                    </a>
+                    <span t-else="" class="hub-page-btn prev disabled">
+                        <i class="fa fa-chevron-left"/> Previous
+                    </span>
+
+                    <t t-foreach="pager['pages']" t-as="p">
+                        <span t-if="p['is_gap']" class="hub-page-ellipsis">&#8230;</span>
+                        <a t-elif="not p['active']" t-att-href="p['url']" class="hub-page-num"><t t-out="p['num']"/></a>
+                        <span t-else="" class="hub-page-num active"><t t-out="p['num']"/></span>
+                    </t>
+
+                    <a t-if="pager['has_next']" t-att-href="pager['next_url']" class="hub-page-btn next">
+                        Next <i class="fa fa-chevron-right"/>
+                    </a>
+                    <span t-else="" class="hub-page-btn next disabled">
+                        Next <i class="fa fa-chevron-right"/>
+                    </span>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

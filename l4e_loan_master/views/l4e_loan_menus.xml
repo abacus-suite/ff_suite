@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Top section under Employees Application -->
+    <menuitem id="menu_l4e_loan_root"
+              name="Loans &amp; Advances"
+              parent="hr.menu_hr_root"
+              sequence="60"
+              groups="group_l4e_loan_user"/>
+
+    <!-- Employee Loans Application & Master -->
+    <menuitem id="menu_l4e_loan_records"
+              name="Employee Loans"
+              parent="menu_l4e_loan_root"
+              action="action_l4e_loan"
+              sequence="10"/>
+
+    <!-- Monthly Installments Tracker across all employees -->
+    <menuitem id="menu_l4e_loan_installments"
+              name="Monthly Installments"
+              parent="menu_l4e_loan_root"
+              action="action_l4e_loan_installment"
+              sequence="20"/>
+
+    <!-- Configuration Menu: Loan Types / Policies -->
+    <menuitem id="menu_l4e_loan_types"
+              name="Loan Policies / Types"
+              parent="hr.menu_human_resources_configuration"
+              action="action_l4e_loan_type"
+              sequence="85"
+              groups="group_l4e_loan_manager"/>
+</odoo>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_partner_view_form_ff_outlet_ledger" model="ir.ui.view">
+        <field name="name">res.partner.form.ff_outlet_ledger</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='vat']" position="after">
+                <field name="ff_is_distributor" invisible="1"/>
+                <field name="ff_earning_pct" invisible="not ff_is_distributor"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

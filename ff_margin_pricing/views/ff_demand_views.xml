@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_demand_view_form_margin" model="ir.ui.view">
+        <field name="name">ff.demand.form.margin</field>
+        <field name="model">ff.demand</field>
+        <field name="inherit_id" ref="ff_demand.ff_demand_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='note']" position="before">
+                <group string="Margin" invisible="not margin_total">
+                    <group>
+                        <field name="margin_outlet"/>
+                        <field name="margin_distributor"/>
+                    </group>
+                    <group>
+                        <field name="margin_total"/>
+                        <field name="margin_excess"/>
+                        <field name="currency_id" invisible="1"/>
+                        <field name="distributor_profit"/>
+                        <field name="outlet_profit"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

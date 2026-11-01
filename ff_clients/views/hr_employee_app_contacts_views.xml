@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="hr_employee_form_ff_app_contacts" model="ir.ui.view">
+        <field name="name">hr.employee.form.ff.app.contacts</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_ff_app_contacts" type="object" class="oe_stat_button"
+                        icon="fa-mobile"
+                        help="The contacts this person's app lists, worked out the same way the app does.">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">App</span>
+                        <span class="o_stat_text">Contacts</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

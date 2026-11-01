@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="group_contact_removal" model="res.groups">
+        <field name="name">Contact Removal / Global Delete</field>
+        <field name="comment">Allows permanently purging a contact and all its related records across the entire database.</field>
+    </record>
+
+    <!-- System administrators automatically get global delete rights -->
+    <record id="base.group_system" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('group_contact_removal'))]"/>
+    </record>
+</odoo>

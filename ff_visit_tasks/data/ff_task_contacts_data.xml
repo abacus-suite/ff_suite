@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Which contacts each task is offered for. Editable on the Task Types master;
+         empty means every contact. A lead is followed up and given material; a
+         contact that is onboarded is visited, not followed up. -->
+    <record id="task_type_lead_follow_up" model="ff.task.type">
+        <field name="category_ids" eval="[(6, 0, [ref('ff_clients.contact_category_lead')])]"/>
+    </record>
+    <record id="task_type_client_visit" model="ff.task.type">
+        <field name="category_ids" eval="[(6, 0, [ref('ff_clients.contact_category_customer'),
+            ref('ff_clients.contact_category_outlet'), ref('ff_clients.contact_category_distributor')])]"/>
+    </record>
+    <record id="task_type_sample_collection" model="ff.task.type">
+        <field name="category_ids" eval="[(6, 0, [ref('ff_clients.contact_category_customer'),
+            ref('ff_clients.contact_category_outlet'), ref('ff_clients.contact_category_distributor')])]"/>
+    </record>
+</odoo>

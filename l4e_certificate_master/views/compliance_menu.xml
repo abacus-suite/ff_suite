@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Top-level Root Menu -->
+    <menuitem id="menu_compliance_root"
+              name="Compliance"
+              sequence="75"
+              web_icon="l4e_certificate_master,static/description/icon.png"/>
+
+    <!-- Main Submenu Category -->
+    <menuitem id="menu_compliance_certificates_category"
+              name="Certificates &amp; Licenses"
+              parent="menu_compliance_root"
+              sequence="10"/>
+
+    <!-- Action Menuitem: All Certificates -->
+    <menuitem id="menu_compliance_certificate_all"
+              name="All Certificates"
+              parent="menu_compliance_certificates_category"
+              action="action_compliance_certificate"
+              sequence="10"/>
+</odoo>

@@ -1,0 +1,11 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ff_expense_category_user,ff.expense.category user,model_ff_expense_category,base.group_user,1,0,0,0
+access_ff_expense_category_admin,ff.expense.category admin,model_ff_expense_category,ff_base.group_ff_admin,1,1,1,1
+access_ff_expense_claim_officer,ff.expense.claim officer,model_ff_expense_claim,ff_base.group_ff_officer,1,1,1,0
+access_ff_expense_claim_manager,ff.expense.claim manager,model_ff_expense_claim,ff_base.group_ff_manager,1,1,1,0
+access_ff_expense_claim_admin,ff.expense.claim admin,model_ff_expense_claim,ff_base.group_ff_admin,1,1,1,1
+access_ff_expense_card_user,ff.expense.card user,model_ff_expense_card,base.group_user,1,0,0,0
+access_ff_expense_card_admin,ff.expense.card admin,model_ff_expense_card,ff_base.group_ff_admin,1,1,1,1
+access_ff_expense_request_officer,ff.expense.request officer,model_ff_expense_request,ff_base.group_ff_officer,1,0,0,0
+access_ff_expense_request_manager,ff.expense.request manager,model_ff_expense_request,ff_base.group_ff_manager,1,1,1,0
+access_ff_expense_request_admin,ff.expense.request admin,model_ff_expense_request,ff_base.group_ff_admin,1,1,1,1

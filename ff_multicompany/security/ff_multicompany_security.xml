@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- A person works in the company set on the employee; what they see is that company's. -->
+    <record id="rule_company_ff_allowance_claim" model="ir.rule">
+        <field name="name">ff.allowance.claim: working company</field>
+        <field name="model_id" ref="ff_allowance.model_ff_allowance_claim"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_allowance_policy" model="ir.rule">
+        <field name="name">ff.allowance.policy: working company</field>
+        <field name="model_id" ref="ff_allowance.model_ff_allowance_policy"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_app_profile" model="ir.rule">
+        <field name="name">ff.app.profile: working company</field>
+        <field name="model_id" ref="ff_base.model_ff_app_profile"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_approval_flow" model="ir.rule">
+        <field name="name">ff.approval.flow: working company</field>
+        <field name="model_id" ref="ff_approvals.model_ff_approval_flow"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_attendance_day" model="ir.rule">
+        <field name="name">ff.attendance.day: working company</field>
+        <field name="model_id" ref="ff_attendance.model_ff_attendance_day"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_beat" model="ir.rule">
+        <field name="name">ff.beat: working company</field>
+        <field name="model_id" ref="ff_beat.model_ff_beat"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_collection" model="ir.rule">
+        <field name="name">ff.collection: working company</field>
+        <field name="model_id" ref="ff_collections.model_ff_collection"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_collection_deposit" model="ir.rule">
+        <field name="name">ff.collection.deposit: working company</field>
+        <field name="model_id" ref="ff_collections.model_ff_collection_deposit"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_collection_mode" model="ir.rule">
+        <field name="name">ff.collection.mode: working company</field>
+        <field name="model_id" ref="ff_collections.model_ff_collection_mode"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_contact_category" model="ir.rule">
+        <field name="name">ff.contact.category: working company</field>
+        <field name="model_id" ref="ff_clients.model_ff_contact_category"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_demand" model="ir.rule">
+        <field name="name">ff.demand: working company</field>
+        <field name="model_id" ref="ff_demand.model_ff_demand"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_distributor_note" model="ir.rule">
+        <field name="name">ff.distributor.note: working company</field>
+        <field name="model_id" ref="ff_visit_tasks.model_ff_distributor_note"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_expense_category" model="ir.rule">
+        <field name="name">ff.expense.category: working company</field>
+        <field name="model_id" ref="ff_expenses.model_ff_expense_category"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_expense_claim" model="ir.rule">
+        <field name="name">ff.expense.claim: working company</field>
+        <field name="model_id" ref="ff_expenses.model_ff_expense_claim"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_foc_scheme" model="ir.rule">
+        <field name="name">ff.foc.scheme: working company</field>
+        <field name="model_id" ref="ff_foc.model_ff_foc_scheme"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_form" model="ir.rule">
+        <field name="name">ff.form: working company</field>
+        <field name="model_id" ref="ff_forms.model_ff_form"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_holiday" model="ir.rule">
+        <field name="name">ff.holiday: working company</field>
+        <field name="model_id" ref="ff_attendance.model_ff_holiday"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_incentive_rule" model="ir.rule">
+        <field name="name">ff.incentive.rule: working company</field>
+        <field name="model_id" ref="ff_targets.model_ff_incentive_rule"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_map_usage" model="ir.rule">
+        <field name="name">ff.map.usage: working company</field>
+        <field name="model_id" ref="ff_live_map.model_ff_map_usage"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_notification" model="ir.rule">
+        <field name="name">ff.notification: working company</field>
+        <field name="model_id" ref="ff_approvals.model_ff_notification"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_outlet_invoice" model="ir.rule">
+        <field name="name">ff.outlet.invoice: working company</field>
+        <field name="model_id" ref="ff_outlet_ledger.model_ff_outlet_invoice"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_outlet_payment" model="ir.rule">
+        <field name="name">ff.outlet.payment: working company</field>
+        <field name="model_id" ref="ff_outlet_ledger.model_ff_outlet_payment"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_return" model="ir.rule">
+        <field name="name">ff.return: working company</field>
+        <field name="model_id" ref="ff_returns.model_ff_return"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_route_plan" model="ir.rule">
+        <field name="name">ff.route.plan: working company</field>
+        <field name="model_id" ref="ff_beat.model_ff_route_plan"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_route_plan_template" model="ir.rule">
+        <field name="name">ff.route.plan.template: working company</field>
+        <field name="model_id" ref="ff_beat.model_ff_route_plan_template"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_route_type" model="ir.rule">
+        <field name="name">ff.route.type: working company</field>
+        <field name="model_id" ref="ff_beat.model_ff_route_type"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_shift" model="ir.rule">
+        <field name="name">ff.shift: working company</field>
+        <field name="model_id" ref="ff_attendance.model_ff_shift"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_target" model="ir.rule">
+        <field name="name">ff.target: working company</field>
+        <field name="model_id" ref="ff_targets.model_ff_target"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_task" model="ir.rule">
+        <field name="name">ff.task: working company</field>
+        <field name="model_id" ref="ff_tasks.model_ff_task"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_task_log" model="ir.rule">
+        <field name="name">ff.task.log: working company</field>
+        <field name="model_id" ref="ff_visit_tasks.model_ff_task_log"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_team" model="ir.rule">
+        <field name="name">ff.team: working company</field>
+        <field name="model_id" ref="ff_base.model_ff_team"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_visit_outcome" model="ir.rule">
+        <field name="name">ff.visit.outcome: working company</field>
+        <field name="model_id" ref="ff_visits.model_ff_visit_outcome"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_visit_step" model="ir.rule">
+        <field name="name">ff.visit.step: working company</field>
+        <field name="model_id" ref="ff_visit_steps.model_ff_visit_step"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_visit" model="ir.rule">
+        <field name="name">ff.visit: working company</field>
+        <field name="model_id" ref="ff_visits.model_ff_visit"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+    <record id="rule_company_ff_beat_plan" model="ir.rule">
+        <field name="name">ff.beat.plan: working company</field>
+        <field name="model_id" ref="ff_beat.model_ff_beat_plan"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>

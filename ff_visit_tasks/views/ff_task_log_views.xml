@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_task_log_view_list" model="ir.ui.view">
+        <field name="name">ff.task.log.list</field>
+        <field name="model">ff.task.log</field>
+        <field name="arch" type="xml">
+            <list create="0">
+                <field name="date"/>
+                <field name="employee_id"/>
+                <field name="task_type_id"/>
+                <field name="partner_id"/>
+                <field name="visit_outcome" optional="show"/>
+                <field name="lead_outcome" optional="show"/>
+                <field name="follow_up_date" optional="show"/>
+                <field name="photo_count" optional="show"/>
+                <field name="name" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_task_log_view_form" model="ir.ui.view">
+        <field name="name">ff.task.log.form</field>
+        <field name="model">ff.task.log</field>
+        <field name="arch" type="xml">
+            <form create="0">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_photos" type="object" class="oe_stat_button" icon="fa-camera"
+                                invisible="photo_count == 0">
+                            <field name="photo_count" widget="statinfo" string="Photos"/>
+                        </button>
+                    </div>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="task_type_id"/>
+                            <field name="employee_id"/>
+                            <field name="partner_id"/>
+                            <field name="visit_id"/>
+                            <field name="date"/>
+                        </group>
+                        <group>
+                            <field name="visit_outcome" invisible="not visit_outcome"/>
+                            <field name="meeting_result" invisible="not meeting_result"/>
+                            <field name="lead_outcome" invisible="not lead_outcome"/>
+                            <field name="follow_up_date" invisible="not follow_up_date"/>
+                            <field name="not_interested_reason" invisible="not not_interested_reason"/>
+                            <field name="onboard" invisible="not onboard"/>
+                            <field name="sample_source" invisible="not sample_source"/>
+                            <field name="distributor_id" invisible="not distributor_id"/>
+                        </group>
+                    </group>
+                    <group string="Client visit" invisible="task_code != 'client_visit'">
+                        <group>
+                            <field name="outlet_open"/>
+                            <field name="demand_wanted"/>
+                            <field name="demand_reason" invisible="demand_wanted"/>
+                            <field name="free_reason" invisible="not free_reason"/>
+                            <field name="free_note" invisible="not free_note"/>
+                        </group>
+                        <group>
+                            <field name="outstanding"/>
+                            <field name="ledger_sent"/>
+                            <field name="damage_any"/>
+                            <field name="damage_reason" invisible="not damage_any"/>
+                        </group>
+                    </group>
+                    <group string="Lead" invisible="task_code not in ('new_lead', 'lead_follow_up')">
+                        <group>
+                            <field name="outlet_category" invisible="not outlet_category"/>
+                            <field name="outlet_category_note" invisible="not outlet_category_note"/>
+                            <field name="person_met"/>
+                            <field name="person_note" invisible="not person_note"/>
+                            <field name="samples_given"/>
+                            <field name="samples_reason" invisible="samples_given"/>
+                        </group>
+                        <group>
+                            <field name="margin_note"/>
+                            <field name="meeting_update"/>
+                        </group>
+                    </group>
+                    <group invisible="not description">
+                        <field name="description"/>
+                    </group>
+                    <group invisible="not outcome_note">
+                        <field name="outcome_note"/>
+                    </group>
+                    <field name="task_code" invisible="1"/>
+                    <notebook>
+                        <page string="Quantities" name="lines">
+                            <field name="line_ids" readonly="1">
+                                <list>
+                                    <field name="kind"/>
+                                    <field name="product_id"/>
+                                    <field name="quantity" sum="Total"/>
+                                    <field name="note"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Raised" name="raised">
+                            <group>
+                                <field name="demand_ids" widget="many2many_tags"/>
+                                <field name="note_ids" widget="many2many_tags"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_task_log_view_search" model="ir.ui.view">
+        <field name="name">ff.task.log.search</field>
+        <field name="model">ff.task.log</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="partner_id"/>
+                <field name="task_type_id"/>
+                <field name="name"/>
+                <filter name="today" string="Today" domain="[('day', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter name="yesterday" string="Yesterday"
+                        domain="[('day', '=', (context_today() - relativedelta(days=1)).strftime('%Y-%m-%d'))]"/>
+                <filter name="this_week" string="This week"
+                        domain="[('day', '&gt;=', (context_today() - relativedelta(weekday=0, days=6)).strftime('%Y-%m-%d'))]"/>
+                <filter name="this_month" string="This month"
+                        domain="[('day', '&gt;=', context_today().strftime('%Y-%m-01'))]"/>
+                <separator/>
+                <filter name="follow_ups" string="Follow-ups due" domain="[('lead_outcome', '=', 'follow_up')]"/>
+                <group>
+                    <filter name="group_type" string="Task" context="{'group_by': 'task_type_id'}"/>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_team" string="Team" context="{'group_by': 'team_id'}"/>
+                    <filter name="group_day" string="Day" context="{'group_by': 'day:day'}"/>
+                    <filter name="group_week" string="Week" context="{'group_by': 'day:week'}"/>
+                    <filter name="group_month" string="Month" context="{'group_by': 'day:month'}"/>
+                    <filter name="group_partner" string="Contact" context="{'group_by': 'partner_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Task by employee, day by day or over a period. -->
+    <record id="ff_task_log_view_pivot" model="ir.ui.view">
+        <field name="name">ff.task.log.pivot</field>
+        <field name="model">ff.task.log</field>
+        <field name="arch" type="xml">
+            <pivot string="Tasks">
+                <field name="task_type_id" type="row"/>
+                <field name="employee_id" type="row"/>
+                <field name="day" interval="day" type="col"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="ff_task_log_view_graph" model="ir.ui.view">
+        <field name="name">ff.task.log.graph</field>
+        <field name="model">ff.task.log</field>
+        <field name="arch" type="xml">
+            <graph string="Tasks" type="bar" stacked="True">
+                <field name="employee_id"/>
+                <field name="task_type_id"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="ff_task_log_action" model="ir.actions.act_window">
+        <field name="name">Task Visits</field>
+        <field name="res_model">ff.task.log</field>
+        <field name="view_mode">list,form,pivot,graph</field>
+        <field name="context">{'search_default_today': 1, 'search_default_group_type': 1}</field>
+    </record>
+
+    <record id="ff_task_log_report_action" model="ir.actions.act_window">
+        <field name="name">Tasks by Employee</field>
+        <field name="res_model">ff.task.log</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="context">{'search_default_this_week': 1}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'pivot', 'view_id': ref('ff_task_log_view_pivot')}),
+            (0, 0, {'view_mode': 'graph', 'view_id': ref('ff_task_log_view_graph')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No tasks yet</p>
+            <p>Every task the sales staff do, by kind and by employee, for a day or for a period.</p>
+        </field>
+    </record>
+</odoo>

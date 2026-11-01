@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- The statement sent to an outlet or a distributor: one PDF with every invoice, what is on it,
+         every payment and what is left. Laid out with tables and plain sizes because it is rendered by
+         wkhtmltopdf and handed to a customer of the company's customer. -->
+    <record id="action_report_ff_ledger_statement" model="ir.actions.report">
+        <field name="name">Statement of Account</field>
+        <field name="model">res.partner</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">ff_outlet_ledger.report_ff_ledger_statement</field>
+        <field name="report_file">ff_outlet_ledger.report_ff_ledger_statement</field>
+        <field name="print_report_name">'Statement - %s' % (object.name or '')</field>
+        <field name="paperformat_id" ref="ff_demand.ff_distributor_summary_paperformat"/>
+        <field name="binding_model_id" ref="base.model_res_partner"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <template id="report_ff_ledger_statement">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="company" t-value="doc.env.company"/>
+                <t t-set="s" t-value="doc.ff_ledger_statement()"/>
+                <t t-set="cur" t-value="s['currency']"/>
+                <div class="page ff-ledger">
+                    <style>
+                        html, body { margin: 0 !important; padding: 0 !important; }
+                        .article, div.article { margin: 0 !important; padding: 0 !important; }
+                        .ff-ledger { font-family: Arial, 'DejaVu Sans', Helvetica, sans-serif; color: #000000; font-size: 9pt; line-height: 1.35; }
+                        .ff-ledger div, .ff-ledger td, .ff-ledger th, .ff-ledger span, .ff-ledger strong { font-size: 9pt; }
+                        .lg-title { font-size: 14pt; font-weight: bold; letter-spacing: .4px; }
+                        .lg-band { width: 100%; table-layout: fixed; border-collapse: collapse; border-bottom: 2px solid #000000; margin: 8px 0 10px; }
+                        .lg-band td { padding: 6px 0; vertical-align: bottom; }
+                        .lg-grid { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+                        .lg-card { border: 1px solid #000000; vertical-align: top; padding: 0; }
+                        .lg-gap { width: 12px; border: none; }
+                        .lg-card-head { background: #ededed; font-weight: bold; font-size: 8.5pt; padding: 4px 7px; border-bottom: 1px solid #000000; }
+                        .lg-card-body { padding: 6px 7px; }
+                        .lg-name { font-size: 10.5pt; font-weight: bold; }
+                        .lg-muted { color: #555555; }
+                        .lg-sum { width: 100%; border-collapse: collapse; margin: 10px 0 12px; border: 1px solid #000000; table-layout: fixed; }
+                        .lg-sum td { width: 25%; padding: 7px 9px; border-right: 1px solid #999999; background: #f5f5f5; vertical-align: top; }
+                        .lg-sum td:last-child { border-right: none; }
+                        .lg-sum .k { display: block; font-size: 7.5pt; text-transform: uppercase; letter-spacing: .4px; color: #555555; }
+                        .lg-sum .v { display: block; font-size: 12pt; font-weight: bold; }
+                        .lg-bad { color: #b00000; }
+                        .lg-inv { margin-bottom: 11px; page-break-inside: avoid; }
+                        .lg-ihead { width: 100%; table-layout: fixed; border-collapse: collapse; border: 1px solid #000000; background: #ededed; }
+                        .lg-ihead td { padding: 5px 8px; vertical-align: middle; }
+                        .lg-no { font-weight: bold; font-size: 10pt; }
+                        table.lg-t { width: 100%; border-collapse: collapse; table-layout: fixed; }
+                        table.lg-t th { background: #ffffff; border: 1px solid #000000; padding: 3px 7px; font-size: 8pt; text-align: left; }
+                        table.lg-t td { border: 1px solid #999999; padding: 3px 7px; font-size: 8.5pt; word-wrap: break-word; }
+                        .lg-r { text-align: right; }
+                        .lg-foc { font-weight: bold; border: 1px solid #000000; padding: 0 3px; font-size: 7pt; margin-left: 4px; }
+                        .lg-tot td { background: #f5f5f5; font-weight: bold; }
+                        .lg-h2 { font-size: 10.5pt; font-weight: bold; margin: 14px 0 5px; }
+                        .lg-pill { font-size: 8pt; font-weight: bold; padding: 1px 6px; border: 1px solid #000000; }
+                        .lg-foot { margin-top: 12px; font-size: 8pt; color: #444444; }
+                    </style>
+
+                    <img t-if="company.ff_report_header_image" t-att-src="image_data_uri(company.ff_report_header_image)"
+                         style="width: 100%; display: block; margin: 0;"/>
+
+                    <table class="lg-band">
+                        <tr>
+                            <td><span class="lg-title">STATEMENT OF ACCOUNT</span></td>
+                            <td class="lg-r" style="width: 190px;">
+                                <span class="lg-muted">As on</span>
+                                <strong t-out="s['today']" t-options="{'widget': 'date'}"/>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table class="lg-grid">
+                        <tr>
+                            <td class="lg-card" style="width: 48%;">
+                                <div class="lg-card-head">FROM</div>
+                                <div class="lg-card-body">
+                                    <div class="lg-name" t-out="s['from_name'] or company.name"/>
+                                    <t t-if="s['from_party']">
+                                        <div class="lg-muted" t-out="s['from_address']"/>
+                                        <div t-if="s['from_party'].phone"><span class="lg-muted">Phone: </span><span t-out="s['from_party'].phone"/></div>
+                                        <div t-if="s['from_party'].vat"><span class="lg-muted">GSTIN: </span><span t-out="s['from_party'].vat"/></div>
+                                    </t>
+                                </div>
+                            </td>
+                            <td class="lg-gap"/>
+                            <td class="lg-card" style="width: 48%;">
+                                <div class="lg-card-head">TO</div>
+                                <div class="lg-card-body">
+                                    <div class="lg-name" t-out="doc.name"/>
+                                    <div class="lg-muted" t-out="', '.join(x for x in (doc.street, doc.street2, doc.city, doc.zip) if x)"/>
+                                    <div t-if="doc.phone"><span class="lg-muted">Phone: </span><span t-out="doc.phone"/></div>
+                                    <div t-if="doc.vat"><span class="lg-muted">GSTIN: </span><span t-out="doc.vat"/></div>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table class="lg-sum">
+                        <tr>
+                            <td><span class="k">Invoiced</span><span class="v" t-out="s['money'](s['totals']['invoiced'])"/></td>
+                            <td><span class="k">Collected</span><span class="v" t-out="s['money'](s['totals']['collected'])"/></td>
+                            <td><span class="k">Outstanding</span><span class="v" t-out="s['money'](s['totals']['pending'])"/></td>
+                            <td><span class="k">Overdue</span><span class="v lg-bad" t-out="s['money'](s['totals']['overdue'])"/></td>
+                        </tr>
+                    </table>
+
+                    <div class="lg-h2">Invoices and what is on them</div>
+                    <div t-if="not s['invoices']" class="lg-muted">There are no invoices to show.</div>
+
+                    <div t-foreach="s['invoices']" t-as="inv" class="lg-inv">
+                        <table class="lg-ihead">
+                            <tr>
+                                <td style="width: 28%;"><span class="lg-no" t-out="inv['number']"/></td>
+                                <td><span class="lg-muted">Date </span><span t-out="inv['date']" t-options="{'widget': 'date'}"/></td>
+                                <td><span class="lg-muted">Due </span><span t-out="inv['due']" t-options="{'widget': 'date'}" t-if="inv['due']"/>
+                                    <span t-if="not inv['due']">-</span>
+                                    <span class="lg-bad" t-if="inv['overdue']"> OVERDUE</span></td>
+                                <td class="lg-r"><span class="lg-pill" t-out="inv['state']"/></td>
+                            </tr>
+                        </table>
+                        <table class="lg-t" t-if="inv['lines']">
+                            <thead>
+                                <tr>
+                                    <th style="width: 6%;">S.No</th>
+                                    <th>Product</th>
+                                    <th class="lg-r" style="width: 9%;">Qty</th>
+                                    <th class="lg-r" style="width: 12%;">Rate</th>
+                                    <th class="lg-r" style="width: 9%;">Disc %</th>
+                                    <th class="lg-r" style="width: 8%;">Tax %</th>
+                                    <th class="lg-r" style="width: 15%;">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="inv['lines']" t-as="l">
+                                    <td t-out="l_index + 1"/>
+                                    <td><span t-out="l['name']"/><span class="lg-foc" t-if="l['free']">FOC</span></td>
+                                    <td class="lg-r" t-out="l['qty']" t-options="{'widget': 'float', 'precision': 0}"/>
+                                    <td class="lg-r" t-out="l['price']" t-options="{'widget': 'float', 'precision': 2}"/>
+                                    <td class="lg-r" t-out="l['discount']" t-options="{'widget': 'float', 'precision': 0}"/>
+                                    <td class="lg-r" t-out="l['tax']" t-options="{'widget': 'float', 'precision': 0}"/>
+                                    <td class="lg-r" t-out="l['amount']" t-options="{'widget': 'float', 'precision': 2}"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div t-if="inv['note']" class="lg-muted" style="padding: 3px 8px; border: 1px solid #999999; border-top: none;" t-out="inv['note']"/>
+                        <table class="lg-t">
+                            <tr class="lg-tot">
+                                <td class="lg-r">Invoice amount <span t-out="s['money'](inv['amount'])"/></td>
+                                <td class="lg-r">Collected <span t-out="s['money'](inv['collected'])"/></td>
+                                <td class="lg-r">Pending <span t-out="s['money'](inv['pending'])"/></td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <t t-if="s['payments']">
+                        <div class="lg-h2">Payments received</div>
+                        <table class="lg-t">
+                            <thead>
+                                <tr>
+                                    <th style="width: 14%;">Date</th>
+                                    <th style="width: 16%;">Receipt</th>
+                                    <th style="width: 14%;">Mode</th>
+                                    <th>Reference</th>
+                                    <th style="width: 20%;">Against</th>
+                                    <th style="width: 12%;">Status</th>
+                                    <th class="lg-r" style="width: 13%;">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="s['payments']" t-as="p">
+                                    <td t-out="p['date']" t-options="{'widget': 'date'}"/>
+                                    <td t-out="p['number']"/>
+                                    <td t-out="p['mode']"/>
+                                    <td t-out="p['reference']"/>
+                                    <td t-out="', '.join(p['invoices'])"/>
+                                    <td t-out="p['state']"/>
+                                    <td class="lg-r" t-out="p['amount']" t-options="{'widget': 'float', 'precision': 2}"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </t>
+
+                    <table class="lg-sum" style="margin-top: 12px;">
+                        <tr>
+                            <td colspan="2"><span class="k">Total outstanding</span>
+                                <span class="v" t-out="s['money'](s['totals']['pending'])"/></td>
+                            <td colspan="2" class="lg-r"><span class="k">Please pay overdue invoices at once</span>
+                                <span class="v lg-bad" t-out="s['money'](s['totals']['overdue'])"/></td>
+                        </tr>
+                    </table>
+                    <div class="lg-foot">
+                        <span t-if="s['kind'] == 'outlet'">FOC lines are free of charge, given at 100% discount. Payments marked as given are awaiting confirmation.</span>
+                        This statement is system generated.
+                    </div>
+
+                    <div t-if="company.ff_report_footer_image" style="height: 95px;"/>
+                    <div t-if="company.ff_report_footer_image" style="position: fixed; bottom: 0; left: 0; right: 0;">
+                        <img t-att-src="image_data_uri(company.ff_report_footer_image)" style="width: 100%; display: block;"/>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+</odoo>

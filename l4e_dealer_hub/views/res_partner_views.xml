@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_partner_view_form_dealer_hub" model="ir.ui.view">
+        <field name="name">res.partner.form.dealer_hub</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="ff_is_distributor" invisible="1"/>
+                <field name="ff_hub_active" invisible="1"/>
+                <field name="ff_hub_user_id" invisible="1"/>
+                <button name="action_open_hub_access" type="object" class="oe_stat_button" icon="fa-key"
+                        invisible="not ff_is_distributor" groups="ff_base.group_ff_manager">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Dealer Hub Login</span>
+                        <field name="ff_hub_login" readonly="1"/>
+                    </div>
+                </button>
+                <button name="action_open_hub_preview" type="object" class="oe_stat_button" icon="fa-external-link"
+                        invisible="not ff_is_distributor" groups="ff_base.group_ff_manager">
+                    <div class="o_stat_info"><span class="o_stat_text">Open Dealer Hub</span></div>
+                </button>
+                <button name="action_hub_disable" type="object" class="oe_stat_button" icon="fa-ban"
+                        invisible="not ff_is_distributor or not ff_hub_active" groups="ff_base.group_ff_manager"
+                        confirm="The distributor will no longer be able to sign in. Switch the access off?">
+                    <div class="o_stat_info"><span class="o_stat_text">Switch Access Off</span></div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

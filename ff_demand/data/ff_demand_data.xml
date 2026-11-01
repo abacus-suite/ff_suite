@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="seq_ff_demand" model="ir.sequence">
+        <field name="name">Outlet Demand</field>
+        <field name="code">ff.demand</field>
+        <field name="prefix">DEM/%(year)s/</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+    <record id="seq_ff_demand_request" model="ir.sequence">
+        <field name="name">Distributor Demand Request</field>
+        <field name="code">ff.demand.request</field>
+        <field name="prefix">DRQ/%(year)s/</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+    </record>
+    <record id="seq_ff_demand_delivery" model="ir.sequence">
+        <field name="name">Demand Delivery</field>
+        <field name="code">ff.demand.delivery</field>
+        <field name="prefix">DLV/%(year)s/</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+    </record>
+    <record id="delivery_status_progress" model="ff.demand.delivery.status">
+        <field name="name">In Progress</field>
+        <field name="code">progress</field>
+        <field name="sequence">10</field>
+        <field name="color">3</field>
+    </record>
+    <record id="delivery_status_partial" model="ff.demand.delivery.status">
+        <field name="name">Partially Delivered</field>
+        <field name="code">partial</field>
+        <field name="sequence">20</field>
+        <field name="color">2</field>
+    </record>
+    <record id="delivery_status_full" model="ff.demand.delivery.status">
+        <field name="name">Fully Delivered</field>
+        <field name="code">full</field>
+        <field name="sequence">30</field>
+        <field name="color">10</field>
+    </record>
+
+    <record id="action_ff_apply_pts_price" model="ir.actions.server">
+        <field name="name">Set Sale Price from PTS</field>
+        <field name="model_id" ref="product.model_product_template"/>
+        <field name="binding_model_id" ref="product.model_product_template"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">records.action_ff_apply_pts_price()</field>
+    </record>
+</odoo>

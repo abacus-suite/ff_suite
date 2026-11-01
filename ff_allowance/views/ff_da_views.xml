@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_da_rate_view_list" model="ir.ui.view">
+        <field name="name">ff.da.rate.list</field>
+        <field name="model">ff.da.rate</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="designation_id"/>
+                <field name="primary_na"/>
+                <field name="primary_rate" readonly="primary_na"/>
+                <field name="outside_rate"/>
+                <field name="company_id" column_invisible="1"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_da_rate_action" model="ir.actions.act_window">
+        <field name="name">Daily Allowance (DA) Rates</field>
+        <field name="res_model">ff.da.rate</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <record id="ff_da_claim_view_list" model="ir.ui.view">
+        <field name="name">ff.da.claim.list</field>
+        <field name="model">ff.da.claim</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" decoration-success="state == 'approved'" decoration-danger="state == 'rejected'">
+                <field name="date"/>
+                <field name="week_start" optional="hide"/>
+                <field name="employee_id"/>
+                <field name="kind"/>
+                <field name="visit_count"/>
+                <field name="outside_count"/>
+                <field name="amount" sum="Total"/>
+                <field name="state" widget="badge"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_da_claim_view_form" model="ir.ui.view">
+        <field name="name">ff.da.claim.form</field>
+        <field name="model">ff.da.claim</field>
+        <field name="arch" type="xml">
+            <form create="0" edit="0">
+                <header><field name="state" widget="statusbar" statusbar_visible="draft,submitted,approved"/></header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="employee_id"/>
+                            <field name="date"/>
+                            <field name="week_start"/>
+                            <field name="kind"/>
+                        </group>
+                        <group>
+                            <field name="rate"/>
+                            <field name="amount"/>
+                            <field name="visit_count"/>
+                            <field name="outside_count"/>
+                            <field name="approver_id" invisible="not approver_id"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <field name="detail" placeholder="Places visited"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_da_claim_view_search" model="ir.ui.view">
+        <field name="name">ff.da.claim.search</field>
+        <field name="model">ff.da.claim</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <filter name="to_approve" string="To Approve" domain="[('state', '=', 'submitted')]"/>
+                <filter name="outside" string="Outside territory" domain="[('kind', '=', 'outside')]"/>
+                <group>
+                    <filter name="by_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="by_week" string="Week" context="{'group_by': 'week_start'}"/>
+                    <filter name="by_state" string="Status" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_da_claim_action" model="ir.actions.act_window">
+        <field name="name">Daily Allowances (DA)</field>
+        <field name="res_model">ff.da.claim</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_by_week': 1}</field>
+    </record>
+
+    <menuitem id="menu_ff_da_rates" name="Daily Allowance (DA) Rates" parent="ff_base.menu_ff_masters"
+              action="ff_da_rate_action" sequence="62" groups="ff_base.group_ff_admin"/>
+    <menuitem id="menu_ff_da_claims" name="Daily Allowances (DA)" parent="ff_base.menu_ff_section_claims"
+              action="ff_da_claim_action" sequence="22"/>
+</odoo>

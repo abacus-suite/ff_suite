@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_ff_missing_details" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.ff.missing.details</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="ff_base.res_config_settings_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='ff_security_settings']" position="before">
+                <block title="Onboarded contacts" name="ff_missing_details_settings">
+                    <setting string="Ask to fill missing details"
+                             help="When an onboarded outlet or distributor is visited and a required detail is missing, the person fills it in first. Only then can they visit it from any task, or create a PO or a collection.">
+                        <field name="ff_ask_missing_details"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

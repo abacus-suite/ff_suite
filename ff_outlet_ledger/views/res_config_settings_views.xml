@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_ff_outlet_ledger" model="ir.ui.view">
+        <field name="name">res.config.settings.form.ff_outlet_ledger</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="ff_base.res_config_settings_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='ff_feature_settings']" position="after">
+                <block title="Invoices from Field Orders" name="ff_invoice_settings">
+                    <setting string="Invoice automatically"
+                             help="When a distributor accepts an order: invoice the distributor in Accounting, and record each outlet's invoice, both posted and ready to collect.">
+                        <field name="ff_auto_invoice" widget="radio"/>
+                    </setting>
+                    <setting string="Default due days"
+                             help="Due date for an invoice whose customer has no credit days or payment terms.">
+                        <field name="ff_invoice_due_days"/>
+                    </setting>
+                    <setting string="Default payment terms"
+                             help="Used when the customer has none of its own.">
+                        <field name="ff_invoice_payment_term_id"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

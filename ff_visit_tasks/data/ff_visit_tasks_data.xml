@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="task_type_client_visit" model="ff.task.type">
+        <field name="name">Client Visit</field>
+        <field name="code">client_visit</field>
+        <field name="sequence">10</field>
+        <field name="steps">7</field>
+        <field name="hint">Photos, closing stock, demand, material, payment, damage, outcome</field>
+    </record>
+    <record id="task_type_new_lead" model="ff.task.type">
+        <field name="name">New Lead</field>
+        <field name="code">new_lead</field>
+        <field name="sequence">20</field>
+        <field name="steps">7</field>
+        <field name="needs_contact" eval="False"/>
+        <field name="hint">First visit to a prospective outlet</field>
+    </record>
+    <record id="task_type_lead_follow_up" model="ff.task.type">
+        <field name="name">New Lead Follow Up</field>
+        <field name="code">lead_follow_up</field>
+        <field name="sequence">30</field>
+        <field name="steps">6</field>
+        <field name="hint">Repeat visit to a lead until it is onboarded</field>
+    </record>
+    <record id="task_type_adhoc" model="ff.task.type">
+        <field name="name">Adhoc Task</field>
+        <field name="code">adhoc</field>
+        <field name="sequence">40</field>
+        <field name="steps">1</field>
+        <field name="needs_contact" eval="False"/>
+        <field name="hint">Photo and description</field>
+    </record>
+    <record id="task_type_sample_collection" model="ff.task.type">
+        <field name="name">Sample Collection</field>
+        <field name="code">sample_collection</field>
+        <field name="sequence">50</field>
+        <field name="steps">1</field>
+        <field name="needs_contact" eval="False"/>
+        <field name="hint">From a distributor, an outlet or the company</field>
+    </record>
+    <record id="task_type_marketing_supply" model="ff.task.type">
+        <field name="name">Marketing Material Supply</field>
+        <field name="code">marketing_supply</field>
+        <field name="sequence">60</field>
+        <field name="steps">1</field>
+        <field name="hint">Supply details</field>
+    </record>
+
+    <record id="seq_ff_task_log" model="ir.sequence">
+        <field name="name">Field Task</field>
+        <field name="code">ff.task.log</field>
+        <field name="prefix">TSK/%(year)s/</field>
+        <field name="padding">5</field>
+    </record>
+    <record id="seq_ff_distributor_note_credit" model="ir.sequence">
+        <field name="name">Credit Note Demand</field>
+        <field name="code">ff.distributor.note.credit</field>
+        <field name="prefix">CND/%(year)s/</field>
+        <field name="padding">4</field>
+    </record>
+    <record id="seq_ff_distributor_note_debit" model="ir.sequence">
+        <field name="name">Debit Note Demand</field>
+        <field name="code">ff.distributor.note.debit</field>
+        <field name="prefix">DND/%(year)s/</field>
+        <field name="padding">4</field>
+    </record>
+</odoo>

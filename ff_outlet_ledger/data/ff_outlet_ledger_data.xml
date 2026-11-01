@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="seq_ff_outlet_payment" model="ir.sequence">
+        <field name="name">Outlet Payment</field>
+        <field name="code">ff.outlet.payment</field>
+        <field name="prefix">OPY/%(year)s/</field>
+        <field name="padding">4</field>
+    </record>
+    <record id="seq_ff_outlet_invoice" model="ir.sequence">
+        <field name="name">Outlet Invoice</field>
+        <field name="code">ff.outlet.invoice</field>
+        <field name="prefix">OIN/%(year)s/</field>
+        <field name="padding">5</field>
+    </record>
+    <record id="seq_ff_distributor_handover" model="ir.sequence">
+        <field name="name">Distributor Handover</field>
+        <field name="code">ff.distributor.handover</field>
+        <field name="prefix">HOV/%(year)s/</field>
+        <field name="padding">4</field>
+    </record>
+</odoo>
