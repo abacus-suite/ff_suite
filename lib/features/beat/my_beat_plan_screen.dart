@@ -810,7 +810,9 @@ class _AddExistingBeatScreenState extends State<AddExistingBeatScreen> {
     final needle = _search.text.trim().toLowerCase();
     final beats = [
       for (final r in widget.routes)
-        if (needle.isEmpty || '${r['name']} ${r['city'] ?? ''}'.toLowerCase().contains(needle)) r,
+        // Only approved beats can be planned: one waiting for approval (new or edited) is not listed.
+        if (r['approval_state'] != 'pending' &&
+            (needle.isEmpty || '${r['name']} ${r['city'] ?? ''}'.toLowerCase().contains(needle))) r,
     ]..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
     final outletCount = _chosen.values.fold<int>(0, (sum, s) => sum + s.length);
     return Scaffold(

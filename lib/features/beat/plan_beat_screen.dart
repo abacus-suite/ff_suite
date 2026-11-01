@@ -290,9 +290,11 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
         final picked = {...chosenIds};
         return StatefulBuilder(builder: (context, setSheet) {
           final q = query.trim().toLowerCase();
+          // A beat waiting for approval (new or edited) is not offered for planning until it is approved.
+          final usable = _routes.where((r) => r['approval_state'] != 'pending').toList();
           final shown = q.isEmpty
-              ? _routes
-              : _routes.where((r) => '${r['name']} ${r['city'] ?? ''}'.toLowerCase().contains(q)).toList();
+              ? usable
+              : usable.where((r) => '${r['name']} ${r['city'] ?? ''}'.toLowerCase().contains(q)).toList();
           return SizedBox(
             height: MediaQuery.of(context).size.height * 0.8,
             child: Padding(
