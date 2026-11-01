@@ -337,11 +337,15 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // While the keyboard is up (typing in the search box) the + goes away: it would ride up above the keyboard.
+    final typing = MediaQuery.of(context).viewInsets.bottom > 0;
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: _add,
-        child: const Icon(Icons.add_rounded, size: 28),
-      ),
+      floatingActionButton: typing
+          ? null
+          : FloatingActionButton(
+              onPressed: _add,
+              child: const Icon(Icons.add_rounded, size: 28),
+            ),
       body: SafeArea(
         bottom: false,
         child: Column(

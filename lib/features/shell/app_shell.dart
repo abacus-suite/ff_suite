@@ -302,6 +302,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (index < 0) index = 0;
     // The "+" sits in the middle of the bar, so the tabs are split around it.
     final half = tabs.length ~/ 2;
+    // While the keyboard is up (typing in a search box, say) the chat button and the centre + go away: they would
+    // otherwise ride up above the keyboard and cover the list.
+    final typing = MediaQuery.of(context).viewInsets.bottom > 0;
+    final showPlus = !typing && !(Services.auth.profile!.isManager && Services.managerMode.value);
     return Scaffold(
       extendBody: true,
       body: ListenableBuilder(
@@ -328,15 +332,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           children: [
             IndexedStack(index: index, children: [for (final tab in tabs) tab.screen]),
             // Pull-up chat, tucked against the bottom bar so it never covers content.
-            Positioned(
-              right: 14,
-              bottom: MediaQuery.of(context).padding.bottom + 66,
-              child: const ChatDock(),
-            ),
+            if (!typing)
+              Positioned(
+                right: 14,
+                bottom: MediaQuery.of(context).padding.bottom + 66,
+                child: const ChatDock(),
+              ),
           ],
         ),
       ),
-      floatingActionButton: (Services.auth.profile!.isManager && Services.managerMode.value)
+      floatingActionButton: !showPlus
           ? null
           : Container(
         width: 58,
@@ -364,7 +369,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
-        shape: (Services.auth.profile!.isManager && Services.managerMode.value) ? null : const CircularNotchedRectangle(),
+        shape: showPlus ? const CircularNotchedRectangle() : null,
         notchMargin: 8,
         color: Colors.white,
         elevation: 10,
@@ -381,7 +386,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                   Expanded(child: _tabButton(tabs[i], i == index)),
               ]),
             ),
-            if (!(Services.auth.profile!.isManager && Services.managerMode.value)) const SizedBox(width: 72),
+            if (showPlus) const SizedBox(width: 72),
             Expanded(
               child: Row(children: [
                 for (var i = half; i < tabs.length; i++)
