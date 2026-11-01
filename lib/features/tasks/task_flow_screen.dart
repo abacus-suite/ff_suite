@@ -118,6 +118,9 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
 
   /// The person's own primary and secondary territories, each with its areas.
   List<Map<String, dynamic>> _territories = [];
+
+  /// The regions related to this person: their own, and those they manage.
+  List<Map<String, dynamic>> _regions = [];
   int _index = 0;
   bool _busy = false;
 
@@ -360,17 +363,47 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       } catch (_) {
         // An older server has no territory list: the district list below still works.
       }
+      var regions = <Map<String, dynamic>>[];
+      try {
+        final info = await Services.api.get('/api/v1/me/profile-details') as Map<String, dynamic>;
+        regions = ((info['teams'] as List?) ?? []).cast<Map<String, dynamic>>()
+          ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+      } catch (_) {
+        // No region list: the Region field simply stays out.
+      }
       if (mounted) {
         setState(() {
           _routes = routes..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
           _cities = cities;
           _territories = territories;
+          _regions = regions;
+          // Their own region is chosen for them when it is the only one (or the one on their profile).
+          final mine = Services.auth.profile?.team;
+          final own = regions.where((r) => '${r['name']}' == mine).firstOrNull ?? (regions.length == 1 ? regions.first : null);
+          if (own != null && _a['region_id'] == null) _a['region_id'] = own['id'];
         });
       }
     } catch (_) {}
   }
 
   int? _idOf(Object? ref) => ref is Map ? (ref['id'] as num?)?.toInt() : null;
+
+  /// Beats to choose from: only the ones that repeat (not one-time beats), and those of the chosen region.
+  List<Map<String, dynamic>> _beatOptions() {
+    final region = _a['region_id'] as int?;
+    return [
+      for (final r in _routes)
+        if (r['schedule'] != 'one_time' && (region == null || r['team_id'] == null || r['team_id'] == region)) r,
+    ];
+  }
+
+  void _pickRegion(int? id) {
+    setState(() {
+      _a['region_id'] = id;
+      // A beat of another region no longer applies.
+      if (!_beatOptions().any((r) => r['id'] == _a['beat_id'])) _a['beat_id'] = null;
+    });
+  }
 
   /// Areas to choose from: those of the chosen territory, else those of every territory of the person.
   List<Map<String, dynamic>> _areaOptions() {
@@ -930,7 +963,11 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
           title: 'Where it sits',
           child: Column(
             children: [
-              _dropdown('Beat *', _routes, _a['beat_id'] as int?, _pickBeat),
+              if (_regions.isNotEmpty) ...[
+                _dropdown('Region', _regions, _a['region_id'] as int?, _pickRegion),
+                const SizedBox(height: 10),
+              ],
+              _dropdown('Beat *', _beatOptions(), _a['beat_id'] as int?, _pickBeat),
               const SizedBox(height: 10),
               _dropdown('Area', _areaOptions(), _a['area_id'] as int?, _pickArea),
               const SizedBox(height: 10),
@@ -1437,6 +1474,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
             'category': _a['category'],
             'category_note': _s('category_note'),
             'beat_id': _a['beat_id'],
+            if (_a['region_id'] != null) 'region_id': _a['region_id'],
             'district_id': _a['district_id'],
             if (_a['territory_id'] != null) 'territory_id': _a['territory_id'],
             if (_a['area_id'] != null) 'area_id': _a['area_id'],

@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../clients/clients_screen.dart';
 import '../visits/visit_gate.dart';
 import '../../widgets/busy.dart';
+import '../../widgets/common.dart';
 import '../events/events_screen.dart';
 import 'onboard_screen.dart';
 import 'task_flow_screen.dart';
@@ -385,26 +386,8 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
 }
 
 Future<Map<String, dynamic>?> _pickLead(
-    BuildContext context, Future<Map<String, dynamic>?> Function(BuildContext, Map<String, dynamic>) onPick) async {
-  List<Map<String, dynamic>> leads;
-  try {
-    leads = await withBusy(context, 'Finding your leads…', () async =>
-        (await Services.api.get('/api/v1/field-tasks/leads-due') as List).cast<Map<String, dynamic>>());
-  } catch (e) {
-    if (context.mounted) showProblem(context, e.toString());
-    return null;
-  }
-  if (!context.mounted) return null;
-  if (leads.isEmpty) {
-    showSnack(context, 'No leads are waiting for a follow-up.');
-    return null;
-  }
-  return showModalBottomSheet<Map<String, dynamic>>(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    builder: (sheet) => _LeadList(leads: leads, onPick: onPick),
-  );
+    BuildContext context, Future<Map<String, dynamic>?> Function(BuildContext, Map<String, dynamic>) onPick) {
+  return Navigator.of(context).push<Map<String, dynamic>>(MaterialPageRoute(builder: (_) => _LeadFollowUpScreen(onPick: onPick)));
 }
 
 Future<void> _run(BuildContext context, Map<String, dynamic> config, String code,
@@ -440,82 +423,154 @@ Future<void> completeOnboarding(BuildContext context, Map<String, dynamic> clien
   }
 }
 
-class _LeadList extends StatefulWidget {
-  const _LeadList({required this.leads, required this.onPick});
+/// New Lead Follow Up: two tabs. Planned has the leads with a follow-up date set (overdue, today, coming);
+/// Unplanned has every other lead. Tapping one checks in and starts the follow-up.
+class _LeadFollowUpScreen extends StatefulWidget {
+  const _LeadFollowUpScreen({required this.onPick});
 
-  final List<Map<String, dynamic>> leads;
   final Future<Map<String, dynamic>?> Function(BuildContext, Map<String, dynamic>) onPick;
 
   @override
-  State<_LeadList> createState() => _LeadListState();
+  State<_LeadFollowUpScreen> createState() => _LeadFollowUpScreenState();
 }
 
-class _LeadListState extends State<_LeadList> {
-  String _query = '';
+class _LeadFollowUpScreenState extends State<_LeadFollowUpScreen> {
+  final _search = TextEditingController();
+  List<Map<String, dynamic>> _planned = [];
+  List<Map<String, dynamic>> _unplanned = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await Services.api.get('/api/v1/field-tasks/leads') as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _planned = ((data['planned'] as List?) ?? []).cast<Map<String, dynamic>>();
+        _unplanned = ((data['unplanned'] as List?) ?? []).cast<Map<String, dynamic>>();
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<Map<String, dynamic>> _match(List<Map<String, dynamic>> rows) {
+    final q = _search.text.trim().toLowerCase();
+    return q.isEmpty ? rows : rows.where((l) => '${l['name']}'.toLowerCase().contains(q)).toList();
+  }
+
+  Future<void> _open(Map<String, dynamic> lead) async {
+    final result = await widget.onPick(context, lead);
+    if (result != null && mounted) Navigator.pop(context, result);
+  }
+
+  Widget _tile(Map<String, dynamic> lead, {required bool planned}) {
+    final status = '${lead['follow_up_status']}';
+    final tint = status == 'overdue' ? AppColors.danger : status == 'today' ? AppColors.warning : AppColors.sky;
+    final where = asText((lead['area'] is Map ? (lead['area'] as Map)['name'] : lead['area'])) ?? asText(lead['city']);
+    final sub = [if (where != null) where, if (planned) 'Follow-up ${lead['follow_up']}'].join(' · ');
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        onTap: () => _open(lead),
+        leading: CircleAvatar(
+          backgroundColor: AppColors.warning.withValues(alpha: 0.14),
+          child: const Icon(Icons.person_add_alt_1_rounded, color: AppColors.warning, size: 20),
+        ),
+        title: Text('${lead['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+        subtitle: sub.isEmpty ? null : Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: planned
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(color: tint.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(20)),
+                child: Text(status == 'overdue' ? 'Overdue' : status == 'today' ? 'Today' : 'Upcoming',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: tint)),
+              )
+            : const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+      ),
+    );
+  }
+
+  Widget _list(List<Map<String, dynamic>> rows, {required bool planned}) {
+    final shown = _match(rows);
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: shown.isEmpty
+          ? ListView(children: [
+              EmptyView(
+                icon: planned ? Icons.event_available_rounded : Icons.person_search_rounded,
+                text: planned ? 'No follow-up is planned.' : 'No other leads.',
+              ),
+            ])
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+              children: [for (final lead in shown) _tile(lead, planned: planned)]),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final q = _query.trim().toLowerCase();
-    final shown = q.isEmpty
-        ? widget.leads
-        : widget.leads.where((l) => '${l['name']}'.toLowerCase().contains(q)).toList();
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.8,
-      child: Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Leads due for follow-up',
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                  const SizedBox(height: 8),
-                  TextField(
-                    onChanged: (v) => setState(() => _query = v),
-                    decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.search_rounded), hintText: 'Search by name', isDense: true),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: shown.length,
-                itemBuilder: (_, i) {
-                  final lead = shown[i];
-                  final status = '${lead['follow_up_status']}';
-                  final tint = status == 'overdue'
-                      ? AppColors.danger
-                      : status == 'today'
-                          ? AppColors.warning
-                          : AppColors.sky;
-                  return ListTile(
-                    title: Text('${lead['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: Text([
-                      if (asText(lead['city']) != null) '${lead['city']}',
-                      'Follow-up ${lead['follow_up']}',
-                    ].join(' · ')),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                          color: tint.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(20)),
-                      child: Text(
-                          status == 'overdue' ? 'Overdue' : status == 'today' ? 'Today' : 'Upcoming',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: tint)),
-                    ),
-                    onTap: () async {
-                      final result = await widget.onPick(context, lead);
-                      if (result != null && context.mounted) Navigator.pop(context, result);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('New Lead Follow Up', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            Text('Choose the lead to follow up',
+                style: TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
+          ]),
+          bottom: TabBar(
+            tabs: [
+              Tab(text: 'Planned (${_match(_planned).length})'),
+              Tab(text: 'Unplanned (${_match(_unplanned).length})'),
+            ],
+          ),
         ),
+        body: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: TextField(
+              controller: _search,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search_rounded),
+                hintText: 'Search by name',
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+              ),
+            ),
+          ),
+          if (_loading) const LinearProgressIndicator(minHeight: 2),
+          Expanded(
+            child: _error != null && _planned.isEmpty && _unplanned.isEmpty
+                ? ErrorView(message: _error!, onRetry: _load)
+                : TabBarView(children: [
+                    _list(_planned, planned: true),
+                    _list(_unplanned, planned: false),
+                  ]),
+          ),
+        ]),
       ),
     );
   }

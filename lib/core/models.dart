@@ -14,6 +14,7 @@ class Profile {
     required this.name,
     required this.isManager,
     this.canEditOnboarded = false,
+    this.canEditLeads = false,
     required this.isAdmin,
     required this.pingInterval,
     required this.distanceFilter,
@@ -68,6 +69,9 @@ class Profile {
   final double? shiftEnd;
   final bool isManager;
   final bool canEditOnboarded;
+
+  /// The office switched Lead Edit on for this person: a lead shows the Edit button.
+  final bool canEditLeads;
   final bool isAdmin;
   final String scope;
   final int pingInterval;
@@ -168,6 +172,7 @@ class Profile {
       shiftEnd: (shift?['end_time'] as num?)?.toDouble(),
       isManager: roles['is_manager'] == true,
       canEditOnboarded: roles['can_edit_onboarded'] == true,
+      canEditLeads: roles['can_edit_leads'] == true,
       isAdmin: roles['is_admin'] == true,
       scope: roles['scope'] as String? ?? 'own',
       pingInterval: (settings['ping_interval'] as num? ?? 120).toInt(),
