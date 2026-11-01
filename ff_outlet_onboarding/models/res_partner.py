@@ -37,8 +37,14 @@ class ResPartner(models.Model):
     ff_accounts_poc_email = fields.Char(string='Accounts Email')
     ff_billing_address = fields.Text(string='Billing Address')
     ff_mrp_id = fields.Many2one('ff.partner.option', string='MRP', domain=[('kind', '=', 'mrp')])
+    ff_has_gst = fields.Boolean(string='GST Available', default=True,
+                                help='Off for an outlet with no GST: then no GSTIN is asked for.')
     ff_swiggy_zomato = fields.Boolean(string='Swiggy / Zomato Outlet')
     ff_swiggy_zomato_id = fields.Char(string='Swiggy ID / Zomato ID')
+    ff_swiggy = fields.Boolean(string='On Swiggy')
+    ff_swiggy_id = fields.Char(string='Swiggy ID')
+    ff_zomato = fields.Boolean(string='On Zomato')
+    ff_zomato_id = fields.Char(string='Zomato ID')
     ff_has_chiller = fields.Boolean(string='Chiller (from Kumbayah)')
     ff_chiller_serial = fields.Char(string='Chiller Serial Number')
     ff_chiller_model_id = fields.Many2one('ff.partner.option', string='Chiller Model',
@@ -94,10 +100,11 @@ class ResPartner(models.Model):
                 missing.append(label)
 
         need(self.name, 'Name')
-        need(self.vat, 'GSTIN')
-        if self.vat and not GSTIN.match(self.vat.strip().upper()):
-            missing.append('A valid 15-character GSTIN')
-        need(self.ff_gst_name, 'Name as per GST')
+        if self.ff_has_gst is not False:
+            need(self.vat, 'GSTIN')
+            if self.vat and not GSTIN.match(self.vat.strip().upper()):
+                missing.append('A valid 15-character GSTIN')
+            need(self.ff_gst_name, 'Name as per GST')
         need(self.street, 'Delivery address')
         need(self.city, 'City')
         need(self.zip, 'Pincode')
@@ -106,8 +113,6 @@ class ResPartner(models.Model):
         need(self.ff_scheme_id, 'Scheme')
         if self.ff_credit_days is None or self.ff_credit_days < 0:
             missing.append('Credit days')
-        if self.ff_swiggy_zomato:
-            need(self.ff_swiggy_zomato_id, 'Swiggy ID / Zomato ID')
         if not self.ff_margin:
             missing.append('Margin')
         if kind == 'outlet':
@@ -115,7 +120,7 @@ class ResPartner(models.Model):
             if self.ff_outlet_category_id.needs_note:
                 need(self.ff_outlet_category_note, 'Outlet category description')
             need(self.ff_poc_name, 'POC name')
-            self._ff_check_contact(self.ff_poc_phone, self.ff_poc_email, 'POC', missing)
+            self._ff_check_contact(self.ff_poc_phone, self.ff_poc_email, 'POC', missing, email_required=False)
             need(self.ff_distributor_id, 'Distributor')
             if self.ff_has_chiller:
                 need(self.ff_chiller_serial, 'Chiller serial number')
@@ -128,10 +133,10 @@ class ResPartner(models.Model):
         return missing
 
     @api.model
-    def _ff_check_contact(self, phone, email, label, missing):
+    def _ff_check_contact(self, phone, email, label, missing, email_required=True):
         if not phone or not PHONE.match(phone.strip()):
             missing.append('%s contact number (10 digits)' % label)
-        if not email or not EMAIL.match(email.strip()):
+        if (email_required or email) and (not email or not EMAIL.match(email.strip())):
             missing.append('%s email' % label)
 
     @api.constrains('ff_status', 'ff_outlet_category_id', 'ff_outlet_category_note', 'ff_not_interested_reason')
@@ -201,8 +206,13 @@ class ResPartner(models.Model):
             'scheme': option(partner.ff_scheme_id),
             'distributor': {'id': partner.ff_distributor_id.id, 'name': partner.ff_distributor_id.name}
             if partner.ff_distributor_id else None,
+            'has_gst': partner.ff_has_gst is not False,
             'swiggy_zomato': partner.ff_swiggy_zomato,
             'swiggy_zomato_id': partner.ff_swiggy_zomato_id or None,
+            'swiggy': partner.ff_swiggy,
+            'swiggy_id': partner.ff_swiggy_id or None,
+            'zomato': partner.ff_zomato,
+            'zomato_id': partner.ff_zomato_id or None,
             'has_chiller': partner.ff_has_chiller,
             'chiller_serial': partner.ff_chiller_serial or None,
             'chiller_model': option(partner.ff_chiller_model_id),
@@ -282,17 +292,38 @@ class ResPartner(models.Model):
         def flag(key):
             return bool(data.get(key))
 
+        has_gst = data.get('has_gst') is not False
+        swiggy, zomato = flag('swiggy'), flag('zomato')
+        if 'swiggy' not in data and 'zomato' not in data:
+            swiggy = zomato = flag('swiggy_zomato')  # an older app: one answer for both
         values = {
-            'vat': (text('gstin') or '').upper() or False,
+            'ff_has_gst': has_gst,
+            'vat': ((text('gstin') or '').upper() or False) if has_gst else False,
             'ff_gst_name': text('gst_name'),
-            'street': text('street'), 'city': text('city'), 'zip': text('zip'),
+            'street': text('street'), 'street2': text('street2'), 'city': text('city'), 'zip': text('zip'),
             'ff_billing_address': text('billing_address'),
             'ff_poc_name': text('poc_name'), 'ff_poc_phone': text('poc_phone'), 'ff_poc_email': text('poc_email'),
             'ff_mrp_id': self.env['ff.partner.option'].ff_by_code('mrp', data.get('mrp')).id or False,
             'ff_scheme_id': self.env['ff.partner.option'].ff_by_code('scheme', data.get('scheme')).id or False,
-            'ff_swiggy_zomato': flag('swiggy_zomato'),
-            'ff_swiggy_zomato_id': text('swiggy_zomato_id') if flag('swiggy_zomato') else False,
+            'ff_swiggy': swiggy, 'ff_swiggy_id': text('swiggy_id') if swiggy else False,
+            'ff_zomato': zomato, 'ff_zomato_id': text('zomato_id') if zomato else False,
+            # The one answer older screens and reports still read.
+            'ff_swiggy_zomato': swiggy or zomato,
+            'ff_swiggy_zomato_id': (text('swiggy_id') if swiggy else False) or (text('zomato_id') if zomato else False)
+            or text('swiggy_zomato_id'),
         }
+        # State and district, found by name (the app works them out from the PIN code).
+        state = self.env['res.country.state'].sudo().search(
+            [('name', '=ilike', data.get('state') or ''), ('country_id.code', '=', 'IN')], limit=1) \
+            if data.get('state') else self.env['res.country.state']
+        if state:
+            values['state_id'] = state.id
+            values['country_id'] = state.country_id.id
+        district = self.env['ff.district'].sudo().search(
+            [('name', '=ilike', data.get('district') or '')] + ([('state_id', '=', state.id)] if state else []),
+            limit=1) if data.get('district') else self.env['ff.district']
+        if district:
+            values['ff_district_id'] = district.id
         try:
             values['ff_credit_days'] = int(data.get('credit_days'))
             values['ff_margin'] = float(data.get('margin'))
@@ -316,13 +347,17 @@ class ResPartner(models.Model):
             values.update(ff_accounts_poc_name=text('accounts_poc_name'),
                           ff_accounts_poc_phone=text('accounts_poc_phone'),
                           ff_accounts_poc_email=text('accounts_poc_email'))
+        if data.get('onboarded_date'):
+            chosen = fields.Date.to_date(data['onboarded_date'])
+            if chosen and chosen <= fields.Date.context_today(self):
+                values['ff_onboarded_date'] = chosen
         # Checked before anything is saved, on what the contact would be.
         partner.write(dict(values, ff_category_id=category.id))
         missing = partner.ff_onboard_missing(kind)
         if missing:
             raise ValidationError(self.env._('Still needed: %s.', ', '.join(missing)))
         partner._ff_set_status('onboarded')
-        today = fields.Date.context_today(self)
+        today = partner.ff_onboarded_date or fields.Date.context_today(self)
         partner.write({'ff_onboarded_date': today})
         if 'outlet_onboard_date' in partner._fields:
             partner.outlet_onboard_date = today

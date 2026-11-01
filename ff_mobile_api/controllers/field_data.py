@@ -110,6 +110,9 @@ def client_data(partner, lat=None, lng=None):
         'days_since_visit': partner.ff_days_since_visit if partner.ff_days_since_visit >= 0 else None,
         'routes': [ref(route) for route in partner.ff_route_ids],
         'territory': ref(territory),
+        # The region: the one on the contact, else that of whoever added it.
+        'region': ref(partner.ff_team_ids[:1]) if 'ff_team_ids' in partner._fields and partner.ff_team_ids
+        else ref(partner.ff_created_by_employee_id.ff_team_id),
         'secondary_territories': [ref(t) for t in partner.ff_secondary_territory_ids] if 'ff_secondary_territory_ids' in partner._fields else [],
         'territories': [ref(t) for t in territories],
         'assigned_to': [ref(person) for person in partner.ff_employee_ids[:3]],
