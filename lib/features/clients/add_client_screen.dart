@@ -63,8 +63,14 @@ class _AddClientScreenState extends State<AddClientScreen> {
       final data = await Services.api.get('/api/v1/clients/filters') as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {
-        _territories = ((data['territories'] as List?) ?? []).cast<Map<String, dynamic>>()
-          ..sort((a, b) => territoryLabel(a).toLowerCase().compareTo(territoryLabel(b).toLowerCase()));
+        // Their own territories only: primary first, then secondary (not the ones reached through a team or a beat).
+        _territories = [
+          for (final t in ((data['territories'] as List?) ?? []).cast<Map<String, dynamic>>())
+            if (t['kind'] == null || t['kind'] == 'primary' || t['kind'] == 'secondary') t,
+        ]..sort((a, b) {
+            final kind = (a['kind'] == 'secondary' ? 1 : 0).compareTo(b['kind'] == 'secondary' ? 1 : 0);
+            return kind != 0 ? kind : territoryLabel(a).toLowerCase().compareTo(territoryLabel(b).toLowerCase());
+          });
       });
       _applySuggestion();
     } catch (_) {
@@ -266,7 +272,10 @@ class _AddClientScreenState extends State<AddClientScreen> {
           items: [
             const DropdownMenuItem<int?>(value: null, child: Text('No territory')),
             for (final t in _territories)
-              DropdownMenuItem<int?>(value: t['id'] as int, child: Text(territoryLabel(t), overflow: TextOverflow.ellipsis)),
+              DropdownMenuItem<int?>(
+                  value: t['id'] as int,
+                  child: Text('${territoryLabel(t)}${t['kind'] == 'secondary' ? ' (secondary)' : ''}',
+                      overflow: TextOverflow.ellipsis)),
           ],
           onChanged: (v) => setState(() {
             _territoryTouched = true;
