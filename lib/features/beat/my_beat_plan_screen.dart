@@ -200,14 +200,27 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
             if (_loading) const LinearProgressIndicator(minHeight: 2),
             if (_error != null) ErrorView(message: _error!, onRetry: _loadMonth),
             const SizedBox(height: 10),
-            // An empty day picked: say so, right above the two ways to fill it.
-            if (!_loading && _error == null && _codesOn(_day).isEmpty) ...[
-              _emptyDayNote(),
+            if (_day.isBefore(DateUtils.dateOnly(DateTime.now())))
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                decoration: BoxDecoration(
+                  color: AppColors.muted.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text('A day gone by can be viewed but not changed. Pick today or an upcoming day to plan.',
+                    style: TextStyle(fontSize: 12.5, color: AppColors.muted, fontWeight: FontWeight.w600)),
+              )
+            else ...[
+              // An empty day picked: say so, right above the two ways to fill it.
+              if (!_loading && _error == null && _codesOn(_day).isEmpty) ...[
+                _emptyDayNote(),
+                const SizedBox(height: 10),
+              ],
+              _actionCard(Icons.flag_rounded, 'Add an Existing $_label', _busy ? null : _addExisting),
               const SizedBox(height: 10),
+              _actionCard(Icons.edit_calendar_rounded, 'Create a $_label (Manager Approval)', _busy ? null : _create),
             ],
-            _actionCard(Icons.flag_rounded, 'Add an Existing $_label', _busy ? null : _addExisting),
-            const SizedBox(height: 10),
-            _actionCard(Icons.edit_calendar_rounded, 'Create a $_label (Manager Approval)', _busy ? null : _create),
             ],
           ],
         ),
@@ -584,10 +597,12 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
 
   Widget _beatCard(_DayBeat b) {
     final planned = b.outlets == null ? null : b.sel.length;
-    final line = [
-      if (planned != null) '$planned of ${b.outlets!.length} outlets planned',
-      b.canEdit ? 'added by you' : (_past ? 'past day' : 'assigned by manager'),
-    ].join(' · ');
+    final line = _past
+        ? [if (planned != null) '$planned outlet${planned == 1 ? '' : 's'} planned', 'view only'].join(' · ')
+        : [
+            if (planned != null) '$planned of ${b.outlets!.length} outlets planned',
+            b.canEdit ? 'added by you' : 'assigned by manager',
+          ].join(' · ');
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       clipBehavior: Clip.antiAlias,
@@ -597,11 +612,17 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(4, 8, 10, 8),
             child: Row(children: [
-              Checkbox(
-                tristate: true,
-                value: b.value,
-                onChanged: b.canEdit ? (_) => _toggleBeat(b) : null,
-              ),
+              if (_past)
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(14, 0, 12, 0),
+                  child: Icon(Icons.event_available_rounded, color: AppColors.muted),
+                )
+              else
+                Checkbox(
+                  tristate: true,
+                  value: b.value,
+                  onChanged: b.canEdit ? (_) => _toggleBeat(b) : null,
+                ),
               Container(
                 margin: const EdgeInsets.only(right: 10),
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
@@ -626,8 +647,21 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
               padding: EdgeInsets.fromLTRB(16, 4, 16, 14),
               child: Align(alignment: Alignment.centerLeft, child: Text('No outlets in this beat yet.', style: TextStyle(color: AppColors.muted, fontSize: 12.5))),
             ),
-          for (final o in b.outlets ?? const <Map<String, dynamic>>[])
-            CheckboxListTile(
+          if (_past)
+            for (final o in b.outlets ?? const <Map<String, dynamic>>[])
+              if (b.initial.contains(o['id']))
+                ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.only(left: 18, right: 14),
+                  leading: const Icon(Icons.storefront_rounded, size: 20, color: AppColors.muted),
+                  title: Text('${o['name']}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                  subtitle: o['visited'] == true
+                      ? const Text('Visited', style: TextStyle(fontSize: 11.5, color: AppColors.success))
+                      : null,
+                ),
+          if (!_past)
+            for (final o in b.outlets ?? const <Map<String, dynamic>>[])
+              CheckboxListTile(
               dense: true,
               contentPadding: const EdgeInsets.only(left: 30, right: 14),
               controlAffinity: ListTileControlAffinity.leading,
@@ -635,7 +669,7 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
               onChanged: (b.canEdit && o['visited'] != true) ? (v) => _toggleOutlet(b, o['id'] as int, v == true) : null,
               title: Text('${o['name']}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
               subtitle: o['visited'] == true ? const Text('Visited', style: TextStyle(fontSize: 11.5, color: AppColors.success)) : null,
-            ),
+              ),
           const SizedBox(height: 4),
         ],
       ]),
@@ -659,7 +693,7 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
         appBar: AppBar(
           title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-            Text(_past ? 'A day gone by cannot be changed' : 'Tick what you will visit',
+            Text(_past ? 'View only: a day gone by cannot be changed' : 'Tick to plan, untick to unplan',
                 style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
           ]),
           actions: [
@@ -685,7 +719,7 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
             Padding(
               padding: const EdgeInsets.all(24),
               child: Center(
-                child: Text('No ${widget.label.toLowerCase()} on this day. Tap + to add one.',
+                child: Text(_past ? 'No ${widget.label.toLowerCase()} was planned on this day.' : 'No ${widget.label.toLowerCase()} on this day. Tap + to add one.',
                     textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted)),
               ),
             ),
