@@ -44,10 +44,15 @@ class _OnboardScreenState extends State<OnboardScreen> {
   bool _sameAsBilling = false;
   Map<String, dynamic>? _gstInfo;
 
-  // Step 2: what the PIN code says
+  // Step 2: what the PIN code says, and where it sits (each a dropdown, filled from the lead and editable).
   Map<String, dynamic> _pinInfo = {};
-  String? _city;
-  String? _area;
+  List<Map<String, dynamic>> _regions = [];
+  List<Map<String, dynamic>> _territories = [];
+  List<Map<String, dynamic>> _districts = [];
+  int? _regionId;
+  int? _territoryId;
+  int? _districtId;
+  int? _areaId;
 
   // Step 3
   String? _mrp;
@@ -80,7 +85,8 @@ class _OnboardScreenState extends State<OnboardScreen> {
         'text': {for (final e in _c.entries) e.key: e.value.text},
         'swiggy': _swiggy, 'zomato': _zomato, 'chiller': _chiller, 'mrp': _mrp, 'category': _category,
         'scheme': _scheme, 'chiller_model': _chillerModel, 'distributor': _distributor,
-        'city': _city, 'area': _area, 'date': fmtDate(_onboardedOn),
+        'region': _regionId, 'territory': _territoryId, 'district': _districtId, 'area': _areaId,
+        'date': fmtDate(_onboardedOn),
       };
 
   Future<void> _restore() async {
@@ -102,8 +108,10 @@ class _OnboardScreenState extends State<OnboardScreen> {
       _scheme = d['scheme'] as String?;
       _chillerModel = d['chiller_model'] as String?;
       _distributor = (d['distributor'] as Map?)?.cast<String, dynamic>();
-      _city = d['city'] as String?;
-      _area = d['area'] as String?;
+      _regionId = (d['region'] as num?)?.toInt();
+      _territoryId = (d['territory'] as num?)?.toInt();
+      _districtId = (d['district'] as num?)?.toInt();
+      _areaId = (d['area'] as num?)?.toInt();
       _onboardedOn = DateTime.tryParse('${d['date']}') ?? _onboardedOn;
     });
     showSnack(context, 'The details you filled earlier are back.');
@@ -158,7 +166,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
     for (final e in _c.entries) {
       _starting[e.key] = e.value.text.trim();
     }
-    _restore();
+    _restore().then((_) => _loadPlaces());
     _startAutosave();
     Services.api.get('/api/v1/onboarding/options').then((d) {
       if (mounted) setState(() => _options = d as Map<String, dynamic>);
@@ -181,6 +189,68 @@ class _OnboardScreenState extends State<OnboardScreen> {
   bool get _outlet => _kind == 'outlet';
   bool get _categoryNeedsNote =>
       _list('outlet_categories').any((o) => o['code'] == _category && o['needs_note'] == true);
+
+  int? _idOf(Object? ref) => ref is Map ? (ref['id'] as num?)?.toInt() : null;
+
+  /// The lists behind the four dropdowns, then what the lead already knows put into them.
+  Future<void> _loadPlaces() async {
+    List<Map<String, dynamic>> regions = [], territories = [], districts = [];
+    try {
+      final info = await Services.api.get('/api/v1/me/profile-details') as Map<String, dynamic>;
+      regions = ((info['teams'] as List?) ?? []).cast<Map<String, dynamic>>();
+    } catch (_) {}
+    try {
+      territories = [
+        for (final t in (await Services.api.get('/api/v1/territories') as List).cast<Map<String, dynamic>>())
+          if (t['kind'] == null || t['kind'] == 'primary' || t['kind'] == 'secondary') t,
+      ];
+    } catch (_) {}
+    try {
+      districts = (await Services.api.get('/api/v1/districts') as List).cast<Map<String, dynamic>>();
+    } catch (_) {}
+    int byName(Map<String, dynamic> a, Map<String, dynamic> b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase());
+    if (!mounted) return;
+    final c = widget.client;
+    setState(() {
+      // A region on the lead's own profile is the person's even when the list could not be read.
+      final mineId = Services.auth.profile?.teamId;
+      if (mineId != null && !regions.any((r) => r['id'] == mineId)) {
+        regions = [...regions, {'id': mineId, 'name': Services.auth.profile?.team ?? 'My region'}];
+      }
+      _regions = regions..sort(byName);
+      _territories = territories..sort(byName);
+      _districts = districts..sort(byName);
+      // What the lead was created with; whatever is missing is left for the person to choose.
+      final territory = _idOf(c['territory']);
+      if (_territoryId == null && territory != null && _territories.any((t) => t['id'] == territory)) _territoryId = territory;
+      _districtId ??= _idOf(c['district']) ?? _districtOfTerritory(_territoryId);
+      final area = _idOf(c['area_master']);
+      if (_areaId == null && area != null && _areaOptions().any((a) => a['id'] == area)) _areaId = area;
+      final region = _idOf(c['region']) ?? mineId;
+      if (_regionId == null && region != null && _regions.any((r) => r['id'] == region)) _regionId = region;
+      if (_regionId == null && _regions.length == 1) _regionId = _regions.first['id'] as int;
+    });
+  }
+
+  int? _districtOfTerritory(int? territoryId) =>
+      (_territories.where((t) => t['id'] == territoryId).firstOrNull?['district_id'] as num?)?.toInt();
+
+  /// The areas of the chosen territory, A to Z.
+  List<Map<String, dynamic>> _areaOptions() {
+    final t = _territories.where((t) => t['id'] == _territoryId).firstOrNull;
+    return ((t?['areas'] as List?) ?? const []).cast<Map<String, dynamic>>().toList()
+      ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+  }
+
+  /// Choosing a territory sets the city, and drops an area that is not in it.
+  void _pickTerritory(int? id) {
+    setState(() {
+      _territoryId = id;
+      final city = _districtOfTerritory(id);
+      if (city != null) _districtId = city;
+      if (!_areaOptions().any((a) => a['id'] == _areaId)) _areaId = null;
+    });
+  }
 
   // ------------------------------------------------------------------ the two free lookups
 
@@ -208,12 +278,6 @@ class _OnboardScreenState extends State<OnboardScreen> {
       if (!mounted || _v('zip') != pin) return;
       setState(() {
         _pinInfo = data;
-        final cities = ((data['cities'] as List?) ?? []).map((e) => '$e').toList();
-        final areas = ((data['areas'] as List?) ?? []).map((e) => '$e').toList();
-        if (_city != null && !cities.contains(_city) && cities.isNotEmpty) _city = null;
-        if (_area != null && !areas.contains(_area) && areas.isNotEmpty) _area = null;
-        if (cities.length == 1) _city ??= cities.first;
-        if (areas.length == 1) _area ??= areas.first;
       });
     } catch (_) {
       if (mounted) setState(() => _pinInfo = {});
@@ -248,8 +312,10 @@ class _OnboardScreenState extends State<OnboardScreen> {
         if (_v('billing_address').isEmpty) bad.add('Billing address');
       case 1:
         if (_v('zip').length != 6) bad.add('PIN code: 6 digits');
-        if ((_city ?? _v('city_text')).isEmpty) bad.add('City');
-        if ((_area ?? _v('area_text')).isEmpty) bad.add('Area');
+        if (_regions.isNotEmpty && _regionId == null) bad.add('Region');
+        if (_territoryId == null) bad.add('Territory');
+        if (_districtId == null) bad.add('City');
+        if (_areaOptions().isNotEmpty && _areaId == null) bad.add('Area');
         if (_v('street_name').isEmpty) bad.add('Street name');
         if (_v('door').isEmpty) bad.add('Door / TC No.');
       case 2:
@@ -310,8 +376,8 @@ class _OnboardScreenState extends State<OnboardScreen> {
     }
     setState(() => _busy = true);
     try {
-      final city = _city ?? _v('city_text');
-      final area = _area ?? _v('area_text');
+      final city = '${_districts.where((d) => d['id'] == _districtId).firstOrNull?['name'] ?? ''}';
+      final area = '${_areaOptions().where((a) => a['id'] == _areaId).firstOrNull?['name'] ?? ''}';
       final result = await withBusy(context, 'Saving…', () async => await Services.api.post(
             '/api/v1/clients/${widget.client['id']}/onboard',
             {
@@ -325,7 +391,10 @@ class _OnboardScreenState extends State<OnboardScreen> {
               'city': city,
               'zip': _v('zip'),
               if (_pinInfo['state'] != null) 'state': _pinInfo['state'],
-              if (_pinInfo['district'] != null) 'district': _pinInfo['district'],
+              if (_regionId != null) 'region_id': _regionId,
+              if (_territoryId != null) 'territory_id': _territoryId,
+              if (_districtId != null) 'district_id': _districtId,
+              if (_areaId != null) 'area_id': _areaId,
               'poc_name': _v('poc_name'),
               'poc_phone': _v('poc_phone'),
               'poc_email': _v('poc_email'),
@@ -513,31 +582,38 @@ class _OnboardScreenState extends State<OnboardScreen> {
     return [if (state != null) 'State: $state', if (warning != null) warning].join(' · ');
   }
 
+  /// A dropdown over {id, name} rows, the id as its value.
+  Widget _dropId(String label, List<Map<String, dynamic>> rows, int? value, ValueChanged<int?> onChanged,
+          {bool required = true, String? helper}) =>
+      _drop(label, [for (final r in rows) ('${r['id']}', '${r['name']}')], value?.toString(),
+          (v) => onChanged(v == null ? null : int.tryParse(v)),
+          required: required, helper: helper);
+
   Widget _step2() {
-    final cities = ((_pinInfo['cities'] as List?) ?? []).map((e) => '$e').toList();
-    final areas = ((_pinInfo['areas'] as List?) ?? []).map((e) => '$e').toList();
     final place = [asText(_pinInfo['state']), asText(_pinInfo['district'])].whereType<String>().join(' · ');
+    final areas = _areaOptions();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _same(),
+      // Each one a dropdown, filled from the lead and editable: some leads arrive without a region or territory.
+      _dropId('Region', _regions, _regionId, (v) => setState(() => _regionId = v),
+          required: _regions.isNotEmpty, helper: _regions.isEmpty ? 'No region is set for you' : null),
+      _dropId('Territory', [
+        for (final t in _territories) {'id': t['id'], 'name': '${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}'},
+      ], _territoryId, _pickTerritory),
+      _dropId('City', _districts, _districtId, (v) => setState(() => _districtId = v)),
+      _dropId('Area', areas, _areaId, (v) => setState(() => _areaId = v),
+          required: areas.isNotEmpty,
+          helper: _territoryId == null ? 'Choose a territory first' : (areas.isEmpty ? 'No areas in this territory yet' : null)),
       _field('zip', 'PIN code', required: true, type: TextInputType.number, maxLength: 6, onChanged: (v) {
         if (v.length == 6) _lookupPin();
       }),
       _readOnly('State · District (auto from PIN)', place.isEmpty ? 'Enter the PIN code' : place),
-      if (cities.isNotEmpty)
-        _drop('City', [for (final c in cities) (c, c)], _city, (v) => setState(() => _city = v))
-      else
-        _field('city_text', 'City', required: true),
-      if (areas.isNotEmpty)
-        _drop('Area', [for (final a in areas) (a, a)], _area, (v) => setState(() => _area = v))
-      else
-        _field('area_text', 'Area', required: true),
       _field('street_name', 'Street name', required: true),
       _field('door', 'Door / TC No.', required: true),
     ]);
   }
 
   Widget _step3() {
-    final region = asText((widget.client['region'] as Map?)?['name']) ?? Services.auth.profile?.team ?? '—';
     final onboardedText = fmtDate(_onboardedOn);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (_outlet) ...[
@@ -546,7 +622,6 @@ class _OnboardScreenState extends State<OnboardScreen> {
         if (_categoryNeedsNote) _field('outlet_category_note', 'Describe the category', required: true),
       ],
       _drop('MRP', [for (final o in _list('mrp')) ('${o['code']}', '${o['name']}')], _mrp, (v) => setState(() => _mrp = v)),
-      _readOnly('Region', region, tag: 'auto'),
       if (_outlet)
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
