@@ -191,10 +191,46 @@ def _distributor_filter(Partner):
     return conds
 
 
-def _category_counts(employee, member=None, category_type=None):
+def _location_domain(Partner, territory_id=None, beat_id=None, kw=None):
+    """The territory, area, city and beat filters of the client list, as a domain.
+
+    The count boxes use the very same domain, so they always agree with the list.
+    """
+    kw = kw or {}
+    domain = []
+    if territory_id:
+        tid = to_int(territory_id)
+        if 'ff_secondary_territory_ids' in Partner._fields:
+            domain += ['|', '|', ('ff_territory_id', '=', tid),
+                                 ('ff_secondary_territory_ids', 'in', [tid]),
+                                 ('ff_beat_line_ids.beat_id.territory_id', '=', tid)]
+        elif 'ff_territory_id' in Partner._fields:
+            domain += ['|', ('ff_territory_id', '=', tid), ('ff_beat_line_ids.beat_id.territory_id', '=', tid)]
+        else:
+            domain += [('ff_beat_line_ids.beat_id.territory_id', '=', tid)]
+    if kw.get('area_id') and 'ff_area_id' in Partner._fields:
+        domain.append(('ff_area_id', '=', to_int(kw['area_id'])))
+    district_id = kw.get('district_id') or kw.get('city_id')
+    if district_id:
+        did = to_int(district_id)
+        if 'ff_secondary_district_ids' in Partner._fields:
+            domain += ['|', '|', ('ff_district_id', '=', did),
+                                 ('ff_secondary_district_ids', 'in', [did]),
+                                 ('ff_beat_line_ids.beat_id.district_id', '=', did)]
+        else:
+            domain += ['|', ('ff_district_id', '=', did), ('ff_beat_line_ids.beat_id.district_id', '=', did)]
+    if beat_id:
+        domain.append(('ff_beat_line_ids.beat_id', '=', to_int(beat_id)))
+    beat_ids = [to_int(x) for x in str(kw.get('beat_ids') or '').split(',') if to_int(x)]
+    if beat_ids:
+        domain.append(('ff_beat_line_ids.beat_id', 'in', beat_ids))
+    return domain
+
+
+def _category_counts(employee, member=None, category_type=None, extra=None):
     """How many contacts of each kind the person may see, for the chips."""
     Partner = request.env['res.partner'].sudo()
-    base = client_domain(employee, member)
+    base = client_domain(employee, member) + (extra or [])
     if category_type == 'distributor':
         count_base = base + _distributor_filter(Partner)
     elif category_type == 'lead':
@@ -308,32 +344,8 @@ class FieldForceClientsApi(http.Controller):
                 **kw):
         Partner = request.env['res.partner'].sudo()
         domain = client_domain(employee, member)
-        if territory_id:
-            tid = to_int(territory_id)
-            if 'ff_secondary_territory_ids' in Partner._fields:
-                domain += ['|', '|', ('ff_territory_id', '=', tid),
-                                     ('ff_secondary_territory_ids', 'in', [tid]),
-                                     ('ff_beat_line_ids.beat_id.territory_id', '=', tid)]
-            elif 'ff_territory_id' in Partner._fields:
-                domain += ['|', ('ff_territory_id', '=', tid), ('ff_beat_line_ids.beat_id.territory_id', '=', tid)]
-            else:
-                domain += [('ff_beat_line_ids.beat_id.territory_id', '=', tid)]
-        if kw.get('area_id') and 'ff_area_id' in Partner._fields:
-            domain.append(('ff_area_id', '=', to_int(kw['area_id'])))
-        district_id = kw.get('district_id') or kw.get('city_id')
-        if district_id:
-            did = to_int(district_id)
-            if 'ff_secondary_district_ids' in Partner._fields:
-                domain += ['|', '|', ('ff_district_id', '=', did),
-                                     ('ff_secondary_district_ids', 'in', [did]),
-                                     ('ff_beat_line_ids.beat_id.district_id', '=', did)]
-            else:
-                domain += ['|', ('ff_district_id', '=', did), ('ff_beat_line_ids.beat_id.district_id', '=', did)]
-        if beat_id:
-            domain.append(('ff_beat_line_ids.beat_id', '=', to_int(beat_id)))
-        beat_ids = [to_int(x) for x in str(kw.get('beat_ids') or '').split(',') if to_int(x)]
-        if beat_ids:
-            domain.append(('ff_beat_line_ids.beat_id', 'in', beat_ids))
+        location = _location_domain(Partner, territory_id, beat_id, kw)
+        domain += location
         if never_visited in ('1', 'true', 'True', 1, True):
             domain.append(('ff_last_visit_at', '=', False))
         if q:
@@ -368,12 +380,12 @@ class FieldForceClientsApi(http.Controller):
                        ('partner_longitude', '>=', lng - dlng), ('partner_longitude', '<=', lng + dlng)]
             rows = [client_data(p, lat, lng) for p in Partner.search(domain)]
             rows = sorted((r for r in rows if r['distance_m'] <= radius * 1000), key=lambda r: r['distance_m'])
-            return ok({'total': len(rows), 'counts': _category_counts(employee, member, category_type=category_type),
+            return ok({'total': len(rows), 'counts': _category_counts(employee, member, category_type=category_type, extra=location),
                        'clients': rows[offset:offset + limit]})
 
         total = Partner.search_count(domain)
         partners = Partner.search(domain, order='name', limit=limit, offset=offset)
-        return ok({'total': total, 'counts': _category_counts(employee, member, category_type=category_type),
+        return ok({'total': total, 'counts': _category_counts(employee, member, category_type=category_type, extra=location),
                    'clients': [client_data(p) for p in partners]})
 
     @api_route('/api/v1/clients/<int:partner_id>', methods=('GET',))
