@@ -8,7 +8,6 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='ff_district_id']" position="after">
                 <field name="ff_territory_id"/>
-                <field name="ff_area_id" options="{'no_create': True}"/>
                 <field name="ff_secondary_territory_ids" widget="many2many_tags" options="{'no_create': True}"
                        invisible="ff_category_type != 'distributor'"/>
             </xpath>
@@ -22,7 +21,6 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='ff_district_id']" position="after">
                 <field name="ff_territory_id"/>
-                <field name="ff_area_id"/>
                 <field name="ff_secondary_territory_ids"/>
             </xpath>
         </field>

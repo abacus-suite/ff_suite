@@ -10,9 +10,6 @@ class ResPartner(models.Model):
         index=True, domain="[('district_id', '=?', ff_district_id)]",
         help='Taken from the territory of the beat of the contact. It can also be set here, for a contact that '
              'is not on a beat yet.')
-    ff_area_id = fields.Many2one(
-        'ff.area', string='Area', index=True, domain="[('territory_id', '=?', ff_territory_id)]",
-        help='The neighbourhood of the contact inside its territory. The app filters the client list by it.')
     ff_secondary_territory_ids = fields.Many2many(
         'ff.territory', 'ff_partner_secondary_territory_rel', 'partner_id', 'territory_id',
         string='Secondary Territories',
