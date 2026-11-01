@@ -733,10 +733,14 @@ class _ClientsScreenState extends State<ClientsScreen> {
                       hint: _territoryId == null
                           ? 'Choose a territory first'
                           : (areas.isEmpty ? 'No areas for this territory yet' : 'All areas'),
-                      items: [for (final a in areas) DropdownMenuItem(value: a, child: Text(a, overflow: TextOverflow.ellipsis))],
+                      items: [
+                        if (areas.isNotEmpty) const DropdownMenuItem(value: _allAreas, child: Text('All areas')),
+                        for (final a in areas) DropdownMenuItem(value: a, child: Text(a, overflow: TextOverflow.ellipsis)),
+                      ],
                       onChanged: (v) {
-                        _area = v;
-                        _areaId = _areaIdOf(_territory, v);
+                        final picked = v == _allAreas ? null : v;
+                        _area = picked;
+                        _areaId = _areaIdOf(_territory, picked);
                       },
                     ),
                     const SizedBox(height: 22),
@@ -781,6 +785,10 @@ class _ClientsScreenState extends State<ClientsScreen> {
                       groupOption('None', 'none'),
                       const SizedBox(width: 10),
                       groupOption('Territory', 'territory'),
+                    ]),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      groupOption('Area', 'area'),
                       const SizedBox(width: 10),
                       groupOption('Beat', 'beat'),
                     ]),
@@ -826,6 +834,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
       _load();
     }
   }
+
+  static const _allAreas = '__all_areas__';
 
   /// The territory dropdown: "All", then Primary, Secondary and Other under their own labels,
   /// each in alphabetical order. A label is a disabled row (its value is negative, so no territory clashes with it).
@@ -1222,6 +1232,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     if (_group == 'none') return List<Object>.from(_shownClients);
     String keyOf(Map<String, dynamic> c) {
       if (_group == 'territory') return '${(c['territory'] as Map?)?['name'] ?? 'No territory'}';
+      if (_group == 'area') return outletArea(c) ?? 'No area';
       final routes = (c['routes'] as List?) ?? const [];
       return routes.isEmpty ? 'No beat' : '${(routes.first as Map)['name']}';
     }
