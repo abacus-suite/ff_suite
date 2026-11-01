@@ -156,6 +156,41 @@ class FieldForceRoutePlanApi(http.Controller):
             employee, beat, data.get('partner_ids') or [])
         return ok(dict(beat.ff_app_payload(), added=len(added)), status=201)
 
+    @api_route('/api/v1/beats/<int:beat_id>/plans', methods=('GET',))
+    def beat_plans(self, employee, beat_id, member=None, **kw):
+        """The days a beat was planned on for this person - upcoming, done and missed - and the days asked for
+        that are still waiting for approval."""
+        target, _label = _one(employee, member)
+        beat = request.env['ff.beat'].sudo().browse(beat_id).exists()
+        if not beat:
+            raise ApiError('Beat not found.', 404, 'not_found')
+        if beat.ff_created_by_employee_id != target and not request.env['ff.beat'].ff_can_use_beat(target, beat):
+            raise ApiError('That beat is not one of yours.', 403, 'forbidden')
+        days = request.env['ff.beat.plan'].sudo().search(
+            [('employee_id', '=', target.id), ('beat_id', '=', beat.id)], order='date desc', limit=300)
+        planned_on = set(days.mapped('date'))
+        today = target._ff_today()
+        requested = []
+        if beat.ff_approval_state == 'pending':
+            for text in (beat.ff_plan_dates or '').split(','):
+                day = fields.Date.to_date(text) if text else None
+                if day and day >= today and day not in planned_on:
+                    requested.append(day.isoformat())
+        return ok({
+            'beat': ref(beat),
+            'approval_state': beat.ff_approval_state,
+            'days': [{
+                'id': day.id,
+                'date': day.date.isoformat(),
+                'status': day.status,
+                'planned_count': day.planned_count,
+                'completed_count': day.completed_count,
+                'missed_count': day.missed_count,
+                'cancelled_count': day.cancelled_count,
+            } for day in days],
+            'requested': requested,
+        })
+
     @api_route('/api/v1/beats/to-approve', methods=('GET',), manager=True)
     def beats_to_approve(self, employee, **kw):
         """Beats the team drew in the app that wait for a manager."""

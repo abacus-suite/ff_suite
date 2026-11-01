@@ -38,6 +38,9 @@ class FfBeatApp(models.Model):
         help='How a route drawn in the app is meant to be used.')
     ff_weekdays = fields.Char(string='Weekdays', help='Comma separated, Monday is 0. For a recurrent route.')
     ff_one_time_date = fields.Date(string='Date', help='The day a one time route is for.')
+    ff_plan_dates = fields.Char(
+        string='Planned Days', copy=False,
+        help='The days a route without fixed weekdays is planned on, as dates separated by commas.')
 
     def _ff_can_be_decided_by(self, employee):
         """Only somebody above whoever drew it may decide on it."""
@@ -93,13 +96,15 @@ class FfBeatApp(models.Model):
         pending = False if for_member else (bool(employee.parent_id) or beats_need_approval(self.env))
         schedule = data.get('schedule') if data.get('schedule') in ('one_time', 'recurrent') else False
         weekdays = ','.join(sorted({str(int(d)) for d in (data.get('weekdays') or []) if str(d) in '0123456'}))
+        plan_dates = []
         if schedule == 'recurrent' and not weekdays:
             if data.get('repeat') is not False:
                 raise UserError(self.env._('Choose the weekdays this route repeats on.'))
-            # "Repeat on? No": the route stays in the list and is planned on one chosen day, today or later.
-            planned = fields.Date.to_date(data.get('date')) if data.get('date') else False
-            if not planned or planned < fields.Date.context_today(self):
-                raise UserError(self.env._('Choose today or an upcoming day to plan this route on.'))
+            # "Repeat on? No": the route stays in the list and is planned on the days chosen, today or later.
+            picked = data.get('dates') or ([data['date']] if data.get('date') else [])
+            plan_dates = sorted({fields.Date.to_date(d) for d in picked if d})
+            if not plan_dates or plan_dates[0] < fields.Date.context_today(self):
+                raise UserError(self.env._('Choose today or upcoming days to plan this route on.'))
         territory = {}
         if 'territory_id' in self._fields and data.get('territory_id'):
             territory = {'territory_id': int(data['territory_id'])}
@@ -117,7 +122,8 @@ class FfBeatApp(models.Model):
             'ff_approval_state': 'pending' if pending else 'approved',
             'ff_schedule': schedule,
             'ff_weekdays': weekdays if schedule == 'recurrent' else False,
-            'ff_one_time_date': data.get('date') if data.get('date') else False,
+            'ff_one_time_date': plan_dates[0] if plan_dates else (data.get('date') or False),
+            'ff_plan_dates': ','.join(d.isoformat() for d in plan_dates) if plan_dates else False,
         }))
         partner_ids = data.get('partner_ids') or []
         if partner_ids:
@@ -213,6 +219,7 @@ class FfBeatApp(models.Model):
             'schedule': self.ff_schedule or None,
             'weekdays': [int(d) for d in (self.ff_weekdays or '').split(',') if d],
             'date': self.ff_one_time_date.isoformat() if self.ff_one_time_date else None,
+            'plan_dates': [d for d in (self.ff_plan_dates or '').split(',') if d],
             'mine': self.ff_created_by_employee_id.id or None,
         }
 
@@ -277,9 +284,9 @@ class FfBeatApp(models.Model):
             elif schedule == 'recurrent':
                 weekdays = [int(d) for d in (beat.ff_weekdays or '').split(',') if d.isdigit()]
                 if not weekdays:
-                    # Repeat off: only the day it was planned for, though it stays in the beat list.
-                    if start_date and start_date >= today:
-                        target_dates.append(start_date)
+                    # Repeat off: only the days it was planned for, though it stays in the beat list.
+                    chosen = [fields.Date.to_date(d) for d in (beat.ff_plan_dates or '').split(',') if d] or [start_date]
+                    target_dates = sorted({d for d in chosen if d and d >= today})
                 else:
                     cur = start_date if start_date >= today else today
                     # Auto-plan for the next 4 weeks (28 days) matching recurring weekdays
