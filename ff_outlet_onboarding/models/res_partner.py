@@ -131,7 +131,7 @@ class ResPartner(models.Model):
                 need(self.ff_chiller_model_id, 'Chiller model')
         else:
             need(self.ff_poc_name, 'Sales POC name')
-            self._ff_check_contact(self.ff_poc_phone, self.ff_poc_email, 'Sales POC', missing)
+            self._ff_check_contact(self.ff_poc_phone, self.ff_poc_email, 'Sales POC', missing, email_required=False)
             need(self.ff_accounts_poc_name, 'Accounts POC name')
             self._ff_check_contact(self.ff_accounts_poc_phone, self.ff_accounts_poc_email, 'Accounts POC', missing,
                                    email_required=False)
