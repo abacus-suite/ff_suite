@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
@@ -109,32 +110,20 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
 
   /// Add one or more existing beats to the chosen day. A beat still waiting for approval is greyed out.
   Future<void> _addExisting() async {
-    final picked = await Navigator.of(context).push<List<int>>(
+    final picked = await Navigator.of(context).push<Map<int, List<int>>>(
       MaterialPageRoute(builder: (_) => AddExistingBeatScreen(day: _day, label: _label, routes: _routes)),
     );
     if (picked == null || picked.isEmpty || !mounted) return;
     setState(() => _busy = true);
     try {
-      final routes = <Map<String, dynamic>>[];
-      for (final id in picked) {
-        final data = await Services.api.get('/api/v1/route-plan/customers',
-            query: {'beat_id': id, 'date': fmtDate(_day), 'member': 'me'}) as Map<String, dynamic>;
-        final customers = ((data['customers'] as List?) ?? []).cast<Map<String, dynamic>>();
-        final ids = [for (final c in customers) c['id'] as int];
-        if (ids.isNotEmpty) routes.add({'beat_id': id, 'partner_ids': ids});
-      }
-      if (routes.isEmpty) {
-        if (mounted) showProblem(context, 'The chosen beats have no outlets to plan.');
-      } else {
-        await Services.outbox.submit('/api/v1/route-plan/days', {
-          'uuid': const Uuid().v4(),
-          'date': fmtDate(_day),
-          'member': 'me',
-          'routes': routes,
-        });
-        settleAndRefresh();
-        if (mounted) showSnack(context, 'Added to ${fmtDate(_day)}');
-      }
+      await Services.outbox.submit('/api/v1/route-plan/days', {
+        'uuid': const Uuid().v4(),
+        'date': fmtDate(_day),
+        'member': 'me',
+        'routes': [for (final e in picked.entries) {'beat_id': e.key, 'partner_ids': e.value}],
+      });
+      settleAndRefresh();
+      if (mounted) showSnack(context, 'Added to ${fmtDate(_day)}');
       await _loadMonth();
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
@@ -336,8 +325,48 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
 }
 
 
-/// A day's plan, opened by tapping a day: the beat(s) on it, a tick list of the existing beats, and below it
-/// the outlets of the ticked beats.
+/// One beat on a day, with its outlets and what is ticked.
+class _DayBeat {
+  _DayBeat({required this.id, required this.name, required this.code, required this.canEdit});
+
+  final int id;
+  final String name;
+  final String code;
+
+  /// A beat I drew myself can be unplanned, one my manager assigned cannot.
+  final bool canEdit;
+
+  /// The beat's outlets (null until they have been fetched) and the ones ticked as planned.
+  List<Map<String, dynamic>>? outlets;
+  Set<int> sel = {};
+  Set<int> initial = {};
+  bool open = false;
+  bool loading = false;
+
+  /// Unticked before its outlets were known: the whole beat comes off the day.
+  bool removed = false;
+
+  Set<int> get visited => {
+        for (final o in outlets ?? const <Map<String, dynamic>>[])
+          if (o['visited'] == true) o['id'] as int,
+      };
+
+  /// What the beat's own tick shows: all planned, some, or none.
+  bool? get value {
+    if (removed) return false;
+    final all = outlets;
+    if (all == null) return true;
+    if (sel.isEmpty) return false;
+    return sel.length == all.length ? true : null;
+  }
+
+  bool get changed => outlets == null ? removed : !setEquals(sel, initial);
+}
+
+
+/// A day's plan, opened by tapping a day: the beats on it, each one a tick (the whole beat) that opens to its
+/// outlets (each a tick). Everything starts ticked because it is planned; unticking unplans it. The + adds an
+/// existing beat, whole or with only the outlets picked.
 class BeatDayScreen extends StatefulWidget {
   const BeatDayScreen(
       {super.key, required this.day, required this.label, required this.planned, required this.routes, this.entries = const []});
@@ -346,13 +375,13 @@ class BeatDayScreen extends StatefulWidget {
   final String label;
 
   /// The day's plan lines from `/api/v1/route-plan/days`: `{date, beat, beat_code, added_by, ...}`. They say
-  /// who put each beat on the day: a beat I added myself can be removed from the day, my manager's cannot.
+  /// who put each beat on the day: a beat I added myself can be unplanned, my manager's cannot.
   final List<Map<String, dynamic>> entries;
 
   /// The beats already planned on this day: `{id, name}`.
   final List<Map<String, dynamic>> planned;
 
-  /// Every existing beat, for the tick list: `{id, name, approval_state, customer_count, ...}`.
+  /// Every existing beat, for the + : `{id, name, approval_state, customer_count, ...}`.
   final List<Map<String, dynamic>> routes;
 
   @override
@@ -362,210 +391,254 @@ class BeatDayScreen extends StatefulWidget {
 class _BeatDayScreenState extends State<BeatDayScreen> {
   static const _blue = Color(0xFF1A56DB);
 
-  late final Set<int> _ticked = {for (final b in widget.planned) b['id'] as int};
-  final Map<int, List<Map<String, dynamic>>> _outlets = {};
-  final Set<int> _loading = {};
-  bool _open = false;
+  late final List<_DayBeat> _beats = [for (final b in widget.planned) _beatOf(b)]
+    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  bool _saving = false;
 
-  /// Every beat that can be ticked: the existing ones, plus any on this day the list lacks.
-  late final List<Map<String, dynamic>> _beats = [
-    ...widget.routes,
-    for (final b in widget.planned)
-      if (!widget.routes.any((r) => r['id'] == b['id'])) b,
-  ];
+  /// Anything saved or added here: the calendar reloads when the screen closes.
+  bool _saved = false;
+
+  bool get _past => widget.day.isBefore(DateUtils.dateOnly(DateTime.now()));
+  bool get _dirty => _beats.any((b) => b.changed);
+
+  Map<String, dynamic> _entry(int id) =>
+      widget.entries.firstWhere((e) => (e['beat'] as Map?)?['id'] == id, orElse: () => <String, dynamic>{});
+
+  Map<String, dynamic> _route(int id) => widget.routes.firstWhere((b) => b['id'] == id, orElse: () => {'id': id});
+
+  _DayBeat _beatOf(Map<String, dynamic> b) {
+    final id = b['id'] as int;
+    final entry = _entry(id);
+    final route = _route(id);
+    final byManager = entry['assigned_by_manager'] == true;
+    final mine = byManager
+        ? false
+        : (entry['added_by'] is Map ? beatIsMine({'added_by': entry['added_by']}) : beatIsMine(route));
+    final name = '${b['name'] ?? route['name'] ?? '#$id'}';
+    return _DayBeat(id: id, name: name, code: asText(entry['beat_code']) ?? asText(route['code']) ?? name, canEdit: mine && !_past);
+  }
 
   @override
   void initState() {
     super.initState();
-    for (final id in _ticked) {
-      _fetch(id);
+    for (final b in _beats) {
+      _fetch(b);
     }
   }
 
-  String _name(int id) => '${_beats.firstWhere((b) => b['id'] == id, orElse: () => {'name': '#$id'})['name']}';
-
-  Future<void> _fetch(int id) async {
-    if (_outlets.containsKey(id) || _loading.contains(id)) return;
-    setState(() => _loading.add(id));
+  Future<void> _fetch(_DayBeat b) async {
+    if (b.outlets != null || b.loading) return;
+    setState(() => b.loading = true);
     try {
       final data = await Services.api.get('/api/v1/route-plan/customers',
-          query: {'beat_id': id, 'date': fmtDate(widget.day), 'member': 'me'}) as Map<String, dynamic>;
-      final rows = ((data['customers'] as List?) ?? []).cast<Map<String, dynamic>>();
-      if (mounted) setState(() => _outlets[id] = rows);
+          query: {'beat_id': b.id, 'date': fmtDate(widget.day), 'member': 'me'}) as Map<String, dynamic>;
+      final rows = ((data['customers'] as List?) ?? []).cast<Map<String, dynamic>>()
+        ..sort((a, c) => '${a['name']}'.toLowerCase().compareTo('${c['name']}'.toLowerCase()));
+      if (!mounted) return;
+      setState(() {
+        b.outlets = rows;
+        b.initial = {for (final r in rows) if (r['selected'] == true) r['id'] as int};
+        // A beat unticked before this arrived stays unplanned (what was already visited cannot be).
+        b.sel = b.removed ? b.visited : {...b.initial};
+        b.removed = b.removed && b.sel.isEmpty;
+      });
     } catch (_) {
-      if (mounted) setState(() => _outlets[id] = const []);
+      if (mounted) setState(() => b.outlets = const []);
     } finally {
-      if (mounted) setState(() => _loading.remove(id));
+      if (mounted) setState(() => b.loading = false);
     }
   }
 
-  void _toggle(int id, bool on) {
-    setState(() => on ? _ticked.add(id) : _ticked.remove(id));
-    if (on) _fetch(id);
+  void _toggleBeat(_DayBeat b) {
+    if (!b.canEdit) return;
+    setState(() {
+      if (b.value != false) {
+        // Untick the whole beat: everything comes off (a visited outlet stays on the day).
+        b.sel = b.visited;
+        b.removed = b.sel.isEmpty;
+      } else {
+        b.removed = false;
+        final all = b.outlets;
+        if (all == null) {
+          _fetch(b);
+        } else {
+          b.sel = {for (final o in all) o['id'] as int};
+        }
+      }
+    });
   }
 
-  int get _outletCount => _ticked.fold(0, (sum, id) => sum + (_outlets[id]?.length ?? 0));
-
-  /// Beats removed from this day here; the calendar reloads when the screen closes.
-  final Set<int> _removed = {};
-  bool _removing = false;
-
-  /// Beats whose outlets are shown open under their card.
-  final Set<int> _expanded = {};
-
-  void _toggleOutlets(int id) {
-    setState(() => _expanded.contains(id) ? _expanded.remove(id) : _expanded.add(id));
-    if (_expanded.contains(id)) _fetch(id);
+  void _toggleOutlet(_DayBeat b, int id, bool on) {
+    if (!b.canEdit) return;
+    setState(() {
+      on ? b.sel.add(id) : b.sel.remove(id);
+      b.removed = false;
+    });
   }
 
-  Map<String, dynamic> _entry(int id) => widget.entries
-      .firstWhere((e) => (e['beat'] as Map?)?['id'] == id, orElse: () => <String, dynamic>{});
-
-  Map<String, dynamic> _beat(int id) => _beats.firstWhere((b) => b['id'] == id, orElse: () => {'id': id});
-
-  String _code(int id) => asText(_entry(id)['beat_code']) ?? asText(_beat(id)['code']) ?? _name(id);
-
-  /// Put on this day by me (removable) or by my manager (not). The plan line says who added it;
-  /// without that, who drew the beat decides.
-  bool _addedByMe(int id) {
-    final entry = _entry(id);
-    if (entry['assigned_by_manager'] == true) return false;
-    if (entry['added_by'] is Map) return beatIsMine({'added_by': entry['added_by']});
-    return beatIsMine(_beat(id));
+  void _toggleOpen(_DayBeat b) {
+    setState(() => b.open = !b.open);
+    if (b.open) _fetch(b);
   }
 
-  /// The bin: takes my own beat off this day only. The beat stays in My Beats.
-  Future<void> _removeFromDay(int id) async {
+  /// Save the ticks: a beat with nothing left ticked comes off the day, the others keep what is ticked.
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final keep = <Map<String, dynamic>>[];
+      final gone = <_DayBeat>[];
+      for (final b in _beats.where((b) => b.changed)) {
+        if ((b.outlets == null && b.removed) || (b.outlets != null && b.sel.isEmpty)) {
+          gone.add(b);
+        } else {
+          keep.add({'beat_id': b.id, 'partner_ids': b.sel.toList()});
+        }
+      }
+      for (final b in gone) {
+        await Services.api.post('/api/v1/route-plan/days/remove', {
+          'date': fmtDate(widget.day),
+          'member': 'me',
+          'beat_id': b.id,
+          if (_entry(b.id)['id'] != null) 'plan_id': _entry(b.id)['id'],
+        });
+      }
+      if (keep.isNotEmpty) {
+        await Services.outbox.submit('/api/v1/route-plan/days', {
+          'uuid': const Uuid().v4(),
+          'date': fmtDate(widget.day),
+          'member': 'me',
+          'routes': keep,
+        });
+      }
+      settleAndRefresh();
+      if (!mounted) return;
+      _saved = true;
+      setState(() {
+        _beats.removeWhere(gone.contains);
+        for (final b in _beats) {
+          b.initial = {...b.sel};
+        }
+      });
+      showSnack(context, 'Plan saved');
+    } catch (e) {
+      if (mounted) showProblem(context, e is ApiException && e.status == 404 ? 'Please ask the office to switch this on.' : e.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// The + : an existing beat, whole or with some of its outlets.
+  Future<void> _add() async {
+    final planned = {for (final b in _beats) b.id};
+    final picked = await Navigator.of(context).push<Map<int, List<int>>>(MaterialPageRoute(
+      builder: (_) => AddExistingBeatScreen(
+        day: widget.day,
+        label: widget.label,
+        routes: [for (final r in widget.routes) if (!planned.contains(r['id'])) r],
+      ),
+    ));
+    if (picked == null || picked.isEmpty || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      await Services.outbox.submit('/api/v1/route-plan/days', {
+        'uuid': const Uuid().v4(),
+        'date': fmtDate(widget.day),
+        'member': 'me',
+        'routes': [for (final e in picked.entries) {'beat_id': e.key, 'partner_ids': e.value}],
+      });
+      settleAndRefresh();
+      _saved = true;
+      if (!mounted) return;
+      setState(() {
+        for (final id in picked.keys) {
+          final b = _beatOf({'id': id, 'name': _route(id)['name']});
+          _beats.add(_DayBeat(id: b.id, name: b.name, code: b.code, canEdit: !_past));
+        }
+        _beats.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      });
+      for (final b in _beats) {
+        _fetch(b);
+      }
+      showSnack(context, 'Added to ${fmtDate(widget.day)}');
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<bool> _confirmDiscard() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
-        title: Text('Remove ${_name(id)}?'),
-        content: const Text('It is taken off this day only. The beat stays in your beat list.'),
+        title: const Text('Discard changes?'),
+        content: const Text('You unticked or ticked beats or outlets and did not save.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Keep')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () => Navigator.pop(dialog, true),
-            child: const Text('Remove'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Keep editing')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Discard')),
         ],
       ),
     );
-    if (ok != true || !mounted) return;
-    setState(() => _removing = true);
-    try {
-      final entry = _entry(id);
-      await Services.api.post('/api/v1/route-plan/days/remove', {
-        'date': fmtDate(widget.day),
-        'member': 'me',
-        'beat_id': id,
-        if (entry['id'] != null) 'plan_id': entry['id'],
-      });
-      if (!mounted) return;
-      setState(() {
-        _removed.add(id);
-        _ticked.remove(id);
-      });
-      settleAndRefresh();
-      showSnack(context, 'Removed from this day. The beat stays in your beat list.');
-    } catch (e) {
-      if (!mounted) return;
-      // Until the server has the call, say so plainly rather than a bare "not found".
-      showProblem(
-          context,
-          e is ApiException && e.status == 404
-              ? 'Removing a beat from a day is not switched on yet. Please ask the office.'
-              : e.toString());
-    } finally {
-      if (mounted) setState(() => _removing = false);
-    }
+    return ok == true;
   }
 
-  /// One of the day's beats: code, name, status and outlets, with the bin when I added it.
-  Widget _dayBeatCard(int id) {
-    final beat = _beat(id);
-    final mine = _addedByMe(id);
-    final pending = '${beat['approval_state']}' == 'pending';
-    final count = (beat['customer_count'] as num?)?.toInt() ?? _outlets[id]?.length;
-    final colour = pending ? AppColors.warning : AppColors.success;
-    final open = _expanded.contains(id);
+  Widget _beatCard(_DayBeat b) {
+    final planned = b.outlets == null ? null : b.sel.length;
+    final line = [
+      if (planned != null) '$planned of ${b.outlets!.length} outlets planned',
+      b.canEdit ? 'added by you' : (_past ? 'past day' : 'assigned by manager'),
+    ].join(' · ');
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => _toggleOutlets(id),
-        child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 6, 6),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(
-              margin: const EdgeInsets.only(right: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(color: _blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-              child: Text(_code(id), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: _blue)),
-            ),
-            Expanded(
-              child: Text(_name(id),
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-            ),
-            Container(
-              margin: const EdgeInsets.only(right: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: colour.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)),
-              child: Text(pending ? 'Pending' : 'Approved',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: colour)),
-            ),
-            Icon(open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                size: 20, color: AppColors.muted),
-            const SizedBox(width: 6),
-          ]),
-          Row(children: [
-            Expanded(
-              child: Text(
-                  [if (count != null) '$count outlet${count == 1 ? '' : 's'}', mine ? 'added by you' : 'assigned by manager']
-                      .join(' · '),
-                  style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-            ),
-            if (mine)
-              IconButton(
-                tooltip: 'Remove from this day',
-                onPressed: _removing ? null : () => _removeFromDay(id),
-                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
-              )
-            else
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.lock_rounded, size: 13, color: AppColors.muted),
-                  SizedBox(width: 3),
-                  Text('by manager', style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: [
+        InkWell(
+          onTap: () => _toggleOpen(b),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(4, 8, 10, 8),
+            child: Row(children: [
+              Checkbox(
+                tristate: true,
+                value: b.value,
+                onChanged: b.canEdit ? (_) => _toggleBeat(b) : null,
+              ),
+              Container(
+                margin: const EdgeInsets.only(right: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(color: _blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                child: Text(b.code, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: _blue)),
+              ),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(b.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+                  Text(line, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
                 ]),
               ),
-          ]),
-          if (open) ...[
-            if (_loading.contains(id)) const LinearProgressIndicator(minHeight: 2),
-            for (final c in _outlets[id] ?? const <Map<String, dynamic>>[])
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
-                child: Row(children: [
-                  const Icon(Icons.storefront_rounded, size: 15, color: AppColors.muted),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text('${c['name']}',
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                  ),
-                ]),
-              ),
-            if (!_loading.contains(id) && (_outlets[id] ?? const []).isEmpty)
-              const Padding(
-                padding: EdgeInsets.fromLTRB(4, 4, 8, 8),
-                child: Text('No outlets in this beat yet.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
-              ),
-            const SizedBox(height: 6),
-          ],
-        ]),
-      ),
-      ),
+              if (!b.canEdit && !_past) const Padding(padding: EdgeInsets.only(right: 4), child: Icon(Icons.lock_rounded, size: 15, color: AppColors.muted)),
+              Icon(b.open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded, color: AppColors.muted),
+            ]),
+          ),
+        ),
+        if (b.open) ...[
+          if (b.loading) const LinearProgressIndicator(minHeight: 2),
+          if (!b.loading && (b.outlets ?? const []).isEmpty)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 14),
+              child: Align(alignment: Alignment.centerLeft, child: Text('No outlets in this beat yet.', style: TextStyle(color: AppColors.muted, fontSize: 12.5))),
+            ),
+          for (final o in b.outlets ?? const <Map<String, dynamic>>[])
+            CheckboxListTile(
+              dense: true,
+              contentPadding: const EdgeInsets.only(left: 30, right: 14),
+              controlAffinity: ListTileControlAffinity.leading,
+              value: b.sel.contains(o['id']),
+              onChanged: (b.canEdit && o['visited'] != true) ? (v) => _toggleOutlet(b, o['id'] as int, v == true) : null,
+              title: Text('${o['name']}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+              subtitle: o['visited'] == true ? const Text('Visited', style: TextStyle(fontSize: 11.5, color: AppColors.success)) : null,
+            ),
+          const SizedBox(height: 4),
+        ],
+      ]),
     );
   }
 
@@ -574,161 +647,59 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     final d = widget.day;
     final title = '${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}';
-    final ids = _ticked.toList();
-    final first = ids.isEmpty ? null : _name(ids.first);
-    final others = ids.skip(1).map(_name).toList();
-    final onDay = [
-      for (final b in widget.planned)
-        if (!_removed.contains(b['id'])) b['id'] as int,
-    ];
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) Navigator.of(context).pop(_removed.isNotEmpty);
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (_dirty && !await _confirmDiscard()) return;
+        if (mounted) Navigator.of(context).pop(_saved);
       },
       child: Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-          const Text('Opened by tapping a day', style: TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
-        ]),
-      ),
-      body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
-        for (final id in onDay) _dayBeatCard(id),
-        if (onDay.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Text('No ${widget.label.toLowerCase()} on this day any more.',
-                style: const TextStyle(color: AppColors.muted)),
-          ),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(children: [
-              Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(first ?? 'No ${widget.label.toLowerCase()} ticked',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: _blue)),
-                    if (first != null)
-                      Text(
-                        '${others.isEmpty ? '' : '+ ${others.join(', ')} · '}$_outletCount outlet${_outletCount == 1 ? '' : 's'}',
-                        style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
-                      ),
-                  ]),
-                ),
-                InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: () => setState(() => _open = !_open),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(color: _blue.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(18)),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text('${ids.length} ${ids.length == 1 ? widget.label.toLowerCase() : '${widget.label.toLowerCase()}s'}',
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: _blue)),
-                      Icon(_open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded, size: 18, color: _blue),
-                    ]),
-                  ),
-                ),
-              ]),
-              if (_open) ...[
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Column(children: [
-                    for (final b in _beats)
-                      Builder(builder: (_) {
-                        final id = b['id'] as int;
-                        final pending = '${b['approval_state']}' == 'pending';
-                        final open = _expanded.contains(id);
-                        return Column(children: [
-                          CheckboxListTile(
-                            dense: true,
-                            value: _ticked.contains(id),
-                            onChanged: pending ? null : (v) => _toggle(id, v == true),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            title: Text('${b['name']}',
-                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: pending ? AppColors.muted : null)),
-                            secondary: Row(mainAxisSize: MainAxisSize.min, children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: (pending ? AppColors.warning : AppColors.success).withValues(alpha: 0.14),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(pending ? 'Pending' : 'Approved',
-                                    style: TextStyle(
-                                        fontSize: 10.5, fontWeight: FontWeight.w800, color: pending ? AppColors.warning : AppColors.success)),
-                              ),
-                              InkWell(
-                                borderRadius: BorderRadius.circular(16),
-                                onTap: () => _toggleOutlets(id),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(4),
-                                  child: Icon(open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                                      size: 22, color: AppColors.muted),
-                                ),
-                              ),
-                            ]),
-                          ),
-                          if (open) ...[
-                            if (_loading.contains(id)) const LinearProgressIndicator(minHeight: 2),
-                            for (final c in _outlets[id] ?? const <Map<String, dynamic>>[])
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(52, 3, 12, 3),
-                                child: Row(children: [
-                                  const Icon(Icons.storefront_rounded, size: 14, color: AppColors.muted),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: Text('${c['name']}', style: const TextStyle(fontSize: 12.5))),
-                                ]),
-                              ),
-                            if (!_loading.contains(id) && (_outlets[id] ?? const []).isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.fromLTRB(52, 3, 12, 6),
-                                child: Text('No outlets in this beat yet.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
-                              ),
-                            const SizedBox(height: 6),
-                          ],
-                        ]);
-                      }),
-                  ]),
-                ),
-              ],
-            ]),
-          ),
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            Text(_past ? 'A day gone by cannot be changed' : 'Tick what you will visit',
+                style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
+          ]),
+          actions: [
+            if (!_past)
+              IconButton(
+                tooltip: 'Add an existing ${widget.label.toLowerCase()}',
+                onPressed: _saving ? null : _add,
+                icon: const Icon(Icons.add_circle_rounded, color: _blue, size: 30),
+              ),
+            const SizedBox(width: 6),
+          ],
         ),
-        const SizedBox(height: 4),
-        if (_loading.isNotEmpty) const LinearProgressIndicator(minHeight: 2),
-        for (final id in ids)
-          for (final c in _outlets[id] ?? const <Map<String, dynamic>>[])
-            Card(
-              margin: const EdgeInsets.only(top: 8),
-              child: ListTile(
-                dense: true,
-                title: Text('${c['name']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-                subtitle: Text(_code(id), style: const TextStyle(fontSize: 11.5)),
+        bottomNavigationBar: _dirty
+            ? SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: GradientButton(label: 'Save changes', icon: Icons.check_rounded, busy: _saving, onPressed: _saving ? null : _save),
+                ),
+              )
+            : null,
+        body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
+          if (_beats.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                child: Text('No ${widget.label.toLowerCase()} on this day. Tap + to add one.',
+                    textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted)),
               ),
             ),
-        if (ids.isNotEmpty)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(4, 12, 4, 0),
-            child: Text('… all outlets of the selected beats',
-                style: TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: AppColors.muted)),
-          ),
-      ]),
+          for (final b in _beats) _beatCard(b),
+        ]),
       ),
     );
   }
 }
 
 
-/// "Add an Existing Beat" as a full page: every beat with a checkbox, more than one can be picked for the day.
-/// A beat still waiting for approval is greyed out and cannot be ticked.
+/// "Add an Existing Beat" as a full page. Each beat has a tick (the whole beat) and opens to its outlets, each
+/// with a tick of its own: tick the beat to take it all, or open it and keep only the outlets wanted.
+/// A beat still waiting for approval is greyed out. Returns `{beatId: [outletIds]}`.
 class AddExistingBeatScreen extends StatefulWidget {
   const AddExistingBeatScreen({super.key, required this.day, required this.label, required this.routes});
 
@@ -741,7 +712,11 @@ class AddExistingBeatScreen extends StatefulWidget {
 }
 
 class _AddExistingBeatScreenState extends State<AddExistingBeatScreen> {
-  final Set<int> _chosen = {};
+  /// The outlets ticked in each beat; a beat with any ticked is chosen.
+  final Map<int, Set<int>> _chosen = {};
+  final Map<int, List<Map<String, dynamic>>> _outlets = {};
+  final Set<int> _open = {};
+  final Set<int> _loading = {};
   final _search = TextEditingController();
 
   @override
@@ -752,6 +727,48 @@ class _AddExistingBeatScreenState extends State<AddExistingBeatScreen> {
 
   static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+  Future<void> _fetch(int id) async {
+    if (_outlets.containsKey(id) || _loading.contains(id)) return;
+    setState(() => _loading.add(id));
+    try {
+      final data = await Services.api.get('/api/v1/route-plan/customers',
+          query: {'beat_id': id, 'date': fmtDate(widget.day), 'member': 'me'}) as Map<String, dynamic>;
+      final rows = ((data['customers'] as List?) ?? []).cast<Map<String, dynamic>>()
+        ..sort((a, c) => '${a['name']}'.toLowerCase().compareTo('${c['name']}'.toLowerCase()));
+      if (mounted) setState(() => _outlets[id] = rows);
+    } catch (_) {
+      if (mounted) setState(() => _outlets[id] = const []);
+    } finally {
+      if (mounted) setState(() => _loading.remove(id));
+    }
+  }
+
+  bool? _valueOf(int id) {
+    final ticked = _chosen[id];
+    if (ticked == null || ticked.isEmpty) return false;
+    final all = _outlets[id];
+    return all != null && ticked.length < all.length ? null : true;
+  }
+
+  /// The beat's tick: all of its outlets, or none.
+  Future<void> _toggleBeat(int id) async {
+    if (_valueOf(id) != false) {
+      setState(() => _chosen.remove(id));
+      return;
+    }
+    await _fetch(id);
+    if (!mounted) return;
+    setState(() => _chosen[id] = {for (final o in _outlets[id] ?? const <Map<String, dynamic>>[]) o['id'] as int});
+  }
+
+  void _toggleOutlet(int beat, int outlet, bool on) {
+    setState(() {
+      final set = _chosen.putIfAbsent(beat, () => {});
+      on ? set.add(outlet) : set.remove(outlet);
+      if (set.isEmpty) _chosen.remove(beat);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = widget.day;
@@ -760,13 +777,14 @@ class _AddExistingBeatScreenState extends State<AddExistingBeatScreen> {
     final beats = [
       for (final r in widget.routes)
         if (needle.isEmpty || '${r['name']} ${r['city'] ?? ''}'.toLowerCase().contains(needle)) r,
-    ];
+    ]..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+    final outletCount = _chosen.values.fold<int>(0, (sum, s) => sum + s.length);
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Add an Existing ${widget.label}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
-          Text('For $date · select one or more',
+          Text('For $date · tick a beat, or open it and tick outlets',
               style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w500)),
         ]),
       ),
@@ -774,9 +792,11 @@ class _AddExistingBeatScreenState extends State<AddExistingBeatScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: GradientButton(
-            label: 'Add selected beats (${_chosen.length})',
+            label: 'Add selected ($outletCount outlet${outletCount == 1 ? '' : 's'} · ${_chosen.length} ${widget.label.toLowerCase()}${_chosen.length == 1 ? '' : 's'})',
             icon: Icons.check_rounded,
-            onPressed: _chosen.isEmpty ? null : () => Navigator.pop(context, _chosen.toList()),
+            onPressed: _chosen.isEmpty
+                ? null
+                : () => Navigator.pop(context, <int, List<int>>{for (final e in _chosen.entries) e.key: e.value.toList()}),
           ),
         ),
       ),
@@ -795,16 +815,18 @@ class _AddExistingBeatScreenState extends State<AddExistingBeatScreen> {
         ),
         const SizedBox(height: 10),
         if (beats.isEmpty)
-          const Padding(padding: EdgeInsets.all(32), child: Center(child: Text('No beats found.', style: TextStyle(color: AppColors.muted)))),
+          const Padding(padding: EdgeInsets.all(32), child: Center(child: Text('No beats to add.', style: TextStyle(color: AppColors.muted)))),
         for (final r in beats)
           Builder(builder: (_) {
             final id = r['id'] as int;
             final pending = '${r['approval_state']}' == 'pending';
-            final ticked = _chosen.contains(id);
+            final open = _open.contains(id);
+            final value = _valueOf(id);
             final line = pending
                 ? 'Cannot be selected until approved'
                 : [
-                    if (r['customer_count'] != null) '${r['customer_count']} outlets',
+                    if (value != false && _outlets[id] != null) '${_chosen[id]!.length} of ${_outlets[id]!.length} outlets',
+                    if (value == false && r['customer_count'] != null) '${r['customer_count']} outlets',
                     if (asText(r['city']) != null) '${r['city']}',
                   ].join(' · ');
             return Opacity(
@@ -814,37 +836,61 @@ class _AddExistingBeatScreenState extends State<AddExistingBeatScreen> {
                 decoration: BoxDecoration(
                   color: pending ? AppColors.background : Colors.white,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: ticked ? AppColors.primary : AppColors.border),
+                  border: Border.all(color: value != false ? AppColors.primary : AppColors.border),
                 ),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: pending ? null : () => setState(() => ticked ? _chosen.remove(id) : _chosen.add(id)),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                    child: Row(children: [
-                      Checkbox(
-                        value: ticked,
-                        onChanged: pending ? null : (v) => setState(() => v == true ? _chosen.add(id) : _chosen.remove(id)),
-                      ),
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('${r['name']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-                          if (line.isNotEmpty) Text(line, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-                        ]),
-                      ),
-                      Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: (pending ? AppColors.warning : AppColors.success).withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(16),
+                child: Column(children: [
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: pending
+                        ? null
+                        : () {
+                            setState(() => open ? _open.remove(id) : _open.add(id));
+                            if (!open) _fetch(id);
+                          },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                      child: Row(children: [
+                        Checkbox(tristate: true, value: value, onChanged: pending ? null : (_) => _toggleBeat(id)),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('${r['name']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+                            if (line.isNotEmpty) Text(line, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                          ]),
                         ),
-                        child: Text(pending ? 'Pending approval' : 'Approved',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: pending ? AppColors.warning : AppColors.success)),
-                      ),
-                    ]),
+                        Container(
+                          margin: const EdgeInsets.only(right: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: (pending ? AppColors.warning : AppColors.success).withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(pending ? 'Pending' : 'Approved',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: pending ? AppColors.warning : AppColors.success)),
+                        ),
+                        if (!pending) Icon(open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded, color: AppColors.muted),
+                        const SizedBox(width: 4),
+                      ]),
+                    ),
                   ),
-                ),
+                  if (open) ...[
+                    if (_loading.contains(id)) const LinearProgressIndicator(minHeight: 2),
+                    if (!_loading.contains(id) && (_outlets[id] ?? const []).isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 2, 16, 12),
+                        child: Align(alignment: Alignment.centerLeft, child: Text('No outlets in this beat yet.', style: TextStyle(color: AppColors.muted, fontSize: 12.5))),
+                      ),
+                    for (final o in _outlets[id] ?? const <Map<String, dynamic>>[])
+                      CheckboxListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.only(left: 30, right: 14),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        value: _chosen[id]?.contains(o['id']) ?? false,
+                        onChanged: (v) => _toggleOutlet(id, o['id'] as int, v == true),
+                        title: Text('${o['name']}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                      ),
+                    const SizedBox(height: 4),
+                  ],
+                ]),
               ),
             );
           }),
