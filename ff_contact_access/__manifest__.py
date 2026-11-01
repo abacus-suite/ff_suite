@@ -15,7 +15,6 @@ day after the last date.
     'data': [
         'security/ir.model.access.csv',
         'data/ff_contact_access_data.xml',
-        'data/ff_area_data.xml',
         'views/ff_territory_views.xml',
         'views/ff_area_views.xml',
         'views/ff_partner_territory_views.xml',

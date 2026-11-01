@@ -29,8 +29,9 @@ class FfBeatPlanApp(models.Model):
             ('date', '>=', fields.Date.context_today(self) - timedelta(days=90))]).beat_id
         routes |= self.env['ff.beat'].sudo()._ff_beat_usable(planned, employee).filtered(
             lambda b: b.ff_schedule != 'one_time' or b.ff_approval_state != 'approved')
-        # Alphabetical, whoever drew the beat.
-        return routes.sorted(lambda route: (route.display_name or '').lower())
+        own = employee.sudo().ff_route_ids
+        # Their own beats first: that is still where most of the work is.
+        return routes.sorted(lambda route: (route not in own, route.display_name))
 
     @api.model
     def ff_app_route_customers(self, employee, route, date=None):

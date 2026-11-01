@@ -173,7 +173,7 @@ class FieldForceProfileApi(http.Controller):
                 'outlets': getattr(b, 'client_count', 0) or len(b.line_ids),
                 'city': (b.district_id.name if 'district_id' in b._fields and b.district_id else None) or (b.territory_id.district_id.name if 'territory_id' in b._fields and b.territory_id and b.territory_id.district_id else None),
                 'state': 'pending' if getattr(b, 'ff_approval_state', 'approved') == 'pending' else 'approved',
-            } for b in beats.sorted(lambda r: (r.name or '').lower())],
+            } for b in beats.sorted('name')],
             'details': {
                 'reports_to': e.parent_id.name or None,
                 'department': e.department_id.name or None,
