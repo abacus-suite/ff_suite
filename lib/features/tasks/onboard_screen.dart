@@ -335,7 +335,8 @@ class _OnboardScreenState extends State<OnboardScreen> {
         if (_v('zip').length != 6) bad.add('PIN code: 6 digits');
         if (_regions.isNotEmpty && _regionId == null) bad.add('Region');
         if (_territoryId == null) bad.add('Territory');
-        if (_districtId == null) bad.add('City');
+        // The city comes from the territory (or, failing that, the PIN code).
+        if (_districtId == null && asText(_pinInfo['district']) == null) bad.add('City: choose a territory that has one, or enter a valid PIN code');
         if (_areaOptions().isNotEmpty && _areaId == null) bad.add('Area');
         if (_v('street_name').isEmpty) bad.add('Street name');
         if (_v('door').isEmpty) bad.add('Door / TC No.');
@@ -399,7 +400,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
     }
     setState(() => _busy = true);
     try {
-      final city = '${_districts.where((d) => d['id'] == _districtId).firstOrNull?['name'] ?? ''}';
+      final city = asText(_districts.where((d) => d['id'] == _districtId).firstOrNull?['name']) ?? asText(_pinInfo['district']) ?? '';
       final area = '${_areaOptions().where((a) => a['id'] == _areaId).firstOrNull?['name'] ?? ''}';
       final result = await withBusy(context, 'Saving…', () async => await Services.api.post(
             '/api/v1/clients/${widget.client['id']}/onboard',
@@ -626,7 +627,6 @@ class _OnboardScreenState extends State<OnboardScreen> {
       _dropId('Territory', [
         for (final t in _territories) {'id': t['id'], 'name': '${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}'},
       ], _territoryId, _pickTerritory),
-      _dropId('City', _districts, _districtId, (v) => setState(() => _districtId = v)),
       _dropId('Area', areas, _areaId, (v) => setState(() => _areaId = v),
           required: areas.isNotEmpty,
           helper: _territoryId == null ? 'Choose a territory first' : (areas.isEmpty ? 'No areas in this territory yet' : null)),
