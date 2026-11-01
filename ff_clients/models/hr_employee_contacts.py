@@ -10,6 +10,10 @@ from odoo import fields, models
 class HrEmployeeAppContacts(models.Model):
     _inherit = 'hr.employee'
 
+    ff_lead_edit = fields.Boolean(
+        string='Lead Edit', tracking=True,
+        help='On: this person sees the Edit button on a lead in the app and can change its details. '
+             'Off: leads are view only for them.')
     ff_allocated_outlets = fields.Boolean(
         string='Allocated Outlets', tracking=True,
         help='On: this person sees, in the app, only the outlets that have their name on them (Field Employees '

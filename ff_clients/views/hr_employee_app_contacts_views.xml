@@ -6,6 +6,7 @@
         <field name="inherit_id" ref="hr.view_employee_form"/>
         <field name="arch" type="xml">
             <xpath expr="//group[@name='ff_tracking']" position="inside">
+                <field name="ff_lead_edit" groups="ff_base.group_ff_admin"/>
                 <field name="ff_allocated_outlets" groups="ff_base.group_ff_admin"/>
                 <field name="ff_allocated_distributors" groups="ff_base.group_ff_admin"/>
             </xpath>

@@ -524,6 +524,8 @@ class FieldForceClientsApi(http.Controller):
         """Correct a customer's contact details, or move its pin to where the employee stands."""
         partner = visible_client(employee, partner_id).sudo()
         data = body()
+        if partner.ff_category_type == 'lead' and not getattr(employee.sudo(), 'ff_lead_edit', False):
+            raise ApiError('You are not allowed to edit leads.', 403, 'forbidden')
         asking = request.env['ir.config_parameter'].sudo().get_param('ff_base.ask_missing_details') in (
             'True', 'true', '1')
         filling = asking and hasattr(partner, 'ff_onboard_missing') and bool(
@@ -670,6 +672,8 @@ class FieldForceClientsApi(http.Controller):
             'name': route.name,
             'city': route.district_id.name or None,
             'district_id': route.district_id.id or None,
+            'schedule': route.ff_schedule or None,
+            'team_id': route.team_id.id or None,
             'territory_id': route.territory_id.id or None if 'territory_id' in route._fields else None,
             'territory': ref(route.territory_id) if 'territory_id' in route._fields else None,
             'area': usual_area(route),

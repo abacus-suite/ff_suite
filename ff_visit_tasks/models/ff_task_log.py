@@ -418,6 +418,9 @@ class FfTaskLog(models.Model):
             'phone': contact.get('phone') or False, 'street': contact.get('street') or False,
             'comment': (contact.get('note') or '').strip() or False,
         }
+        region = self.env['ff.team'].sudo().browse(int(contact.get('region_id') or 0)).exists()
+        if region and 'ff_team_ids' in Partner._fields:
+            vals['ff_team_ids'] = [(4, region.id)]
         if territory and 'ff_territory_id' in Partner._fields:
             vals['ff_territory_id'] = territory.id
         area = self.env['ff.area'].sudo().browse(int(contact.get('area_id') or 0)).exists() \

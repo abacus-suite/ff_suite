@@ -287,6 +287,8 @@ def employee_profile(employee):
             'is_admin': scope == 'all',
             # Onboarded contacts can only be edited by those marked for it.
             'can_edit_onboarded': bool(getattr(employee, 'ff_edit_after_onboard', False)),
+            # The Edit button on a lead: only for people the office switched Lead Edit on for.
+            'can_edit_leads': bool(getattr(employee, 'ff_lead_edit', False)),
         },
         'shift': {
             'id': shift.id,
