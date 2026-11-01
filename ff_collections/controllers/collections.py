@@ -100,6 +100,8 @@ class FieldForceCollectionsApi(http.Controller):
         check_enabled()
         data = body()
         partner = request.env['res.partner'].sudo().browse(to_int(data.get('partner_id'))).exists()
+        if partner and partner.ff_category_type == 'lead':
+            raise ApiError('A payment can only be collected from an outlet or a distributor, not a lead.', 400, 'invalid')
         if partner:
             require_punched_in(employee, 'collect a payment', data)
             request.env['ff.visit'].ff_require_visit(employee, partner, action_time(data) if data.get('at') else None)

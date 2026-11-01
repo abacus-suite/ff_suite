@@ -160,6 +160,8 @@ class FieldForceOrdersApi(http.Controller):
         except (TypeError, ValueError):
             raise ApiError('partner_id is required.')
         partner = visible_client(employee, partner_id)
+        if partner.ff_category_type == 'lead':
+            raise ApiError('A PO can only be raised for an outlet or a distributor, not a lead.', 400, 'invalid')
         require_punched_in(employee, 'take an order', data)
         request.env['ff.visit'].ff_require_visit(employee, partner, action_time(data) if data.get('at') else None)
         # Companies that sell through distributors collect demand instead of

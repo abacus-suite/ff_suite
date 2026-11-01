@@ -273,6 +273,8 @@ class FieldForceClientsApi(http.Controller):
         """Every located contact, as points, for the map."""
         Partner = request.env['res.partner'].sudo()
         domain = client_domain(employee, member) + [('partner_latitude', '!=', False)]
+        if kw.get('exclude_leads') in ('1', 'true', 'True', 1, True):
+            domain.append(('ff_category_type', '!=', 'lead'))
         category_type = kw.get('category_type')
         if category_type == 'outlet':
             domain += _outlet_filter(Partner)
@@ -348,6 +350,9 @@ class FieldForceClientsApi(http.Controller):
         Partner = request.env['res.partner'].sudo()
         domain = client_domain(employee, member)
         location = _location_domain(Partner, territory_id, beat_id, kw)
+        if kw.get('exclude_leads') in ('1', 'true', 'True', 1, True):
+            # Outlets and distributors only: for a PO or a payment, which are never for a lead.
+            location = location + [('ff_category_type', '!=', 'lead')]
         domain += location
         if never_visited in ('1', 'true', 'True', 1, True):
             domain.append(('ff_last_visit_at', '=', False))
