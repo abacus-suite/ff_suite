@@ -2,6 +2,9 @@
 import io
 import time as clock
 from collections import Counter
+from datetime import datetime, timedelta
+
+import pytz
 
 from odoo import fields, http
 from odoo.http import request
@@ -10,6 +13,51 @@ from odoo.addons.ff_app_reports.controllers.reports import LINK_SECONDS, _sign, 
 from odoo.addons.ff_mobile_api.controllers.common import ApiError, api_route, body, ok, ref
 
 EPS = 0.0001
+
+# A day closed before this hour (local time) is the day before's: the work was done yesterday, the app was
+# only closed after midnight.
+EARLY_HOURS = 6
+
+
+def _working_day(employee, event):
+    """The calendar date of the event day being worked on.
+
+    Closing a day at 1:30 am closes yesterday's day, not a new one: it is filed under yesterday's date, as long as
+    the event had started by then and that day is not already closed. Without this the day closed after midnight is
+    dated today, so at 10:30 the same morning the event looks closed for today and the new day cannot be opened.
+    """
+    employee = employee.sudo()
+    now = datetime.now(pytz.utc).astimezone(employee._ff_tz())
+    today = now.date()
+    if now.hour < EARLY_HOURS and event.date_start:
+        yesterday = today - timedelta(days=1)
+        if yesterday >= event.date_start and not event.day_ids.filtered(lambda d: d.date == yesterday):
+            return yesterday
+    return today
+
+
+def _repair_after_midnight_days(event):
+    """Days that were closed after midnight and filed under the next date go back to the day they belong to.
+
+    Safe to run again and again: a day moves only when it was created before EARLY_HOURS on its own date, the
+    event had started the day before, and nothing is filed under the day before.
+    """
+    if not event.date_start:
+        return
+    employee = event.employee_id.sudo()
+    changed = False
+    for entry in event.day_ids.sorted('date'):
+        if not entry.create_date:
+            continue
+        created = pytz.utc.localize(entry.create_date).astimezone(employee._ff_tz())
+        if created.date() != entry.date or created.hour >= EARLY_HOURS:
+            continue
+        before = entry.date - timedelta(days=1)
+        if before >= event.date_start and not event.day_ids.filtered(lambda d: d.date == before):
+            entry.sudo().write({'date': before})
+            changed = True
+    if changed:
+        event.invalidate_recordset(['day_ids'])
 
 
 def _num(value):
@@ -111,7 +159,8 @@ def _day_number(event, day):
 
 def _event_data(event, detail=False):
     env = request.env
-    today = event.env['hr.employee'].browse(event.employee_id.id)._ff_today()
+    _repair_after_midnight_days(event)
+    today = _working_day(event.employee_id, event)
     data = {
         'id': event.id, 'name': event.name, 'state': event.state,
         'has_offer': event.has_offer, 'offer_price': int(event.offer_price or 0),
@@ -129,6 +178,8 @@ def _event_data(event, detail=False):
         'staff': [ref(s) for s in event.staff_ids], 'created_by': ref(event.employee_id),
         'coupons_used': event.coupons_used, 'days': len(event.day_ids),
         'day_no': _day_number(event, today),
+        # The date of the event day being worked on (a day closed after midnight is still yesterday's).
+        'working_day': today.isoformat(),
         'latitude': event.latitude, 'longitude': event.longitude,
         'geofence_m': _geofence_m(),
     }
@@ -301,6 +352,23 @@ def _xlsx(event):
           ['Total', '', '', '', sum(event.stock_ids.mapped('qty'))])
     sheet.set_column(0, 4, 22)
 
+    # ---- each distributor's own account: what the event took, what became of it, sales and coupons
+    from .event_reports import _distributor_rows  # imported here: that module imports this one
+    sheet = book.add_worksheet('By distributor')
+    row = 0
+    for entry in _distributor_rows(event):
+        sheet.write(row, 0, entry['distributor']['name'], title)
+        keys = ('open', 'add', 'ret', 'net', 'samples', 'damage', 'closing', 'sold', 'sales')
+        row = table(sheet, row + 1,
+                    ['Flavour', 'Opening', 'Added', 'Returned', 'Net taken', 'Samples', 'Damage', 'Closing', 'Sold', 'Sales'],
+                    [[f['code'], *[f[k] for k in keys]] for f in entry['flavours']],
+                    ['Total', *[entry['totals'][k] for k in keys]])
+        sheet.write(row - 1, 0, 'Coupons %s (Rs. %s)' % (entry['totals']['coupons'], entry['totals']['coupon_amount']), bold)
+        sheet.write(row - 1, 3, 'Net sales', bold)
+        sheet.write(row - 1, 4, entry['totals']['net_sales'], bold)
+        row += 1
+    sheet.set_column(0, 9, 14)
+
     # ---- one sheet per day: opening, closing, next day opening, samples, damage, returned and sales
     days_list = list(days)
     for i, d in enumerate(days_list):
@@ -416,7 +484,7 @@ class FieldForceEventsApi(http.Controller):
         event = _mine(employee, event_id)
         if event.state == 'done':
             raise ApiError('This event has ended.', 400, 'invalid')
-        today = employee._ff_today()
+        today = _working_day(employee, event)
         rows = [r for r in (body().get('stock') or []) if _num(r.get('qty')) > 0]
         event.stock_ids.filtered(lambda s: s.date == today).unlink()
         event.write({'state': 'running', 'stock_ids': [(0, 0, {
@@ -428,7 +496,8 @@ class FieldForceEventsApi(http.Controller):
         data = body()
         if event.state == 'done':
             raise ApiError('This event has ended.', 400, 'invalid')
-        day = employee._ff_today()
+        _repair_after_midnight_days(event)
+        day = _working_day(employee, event)
         opening = _day_rows(event, day)
         samples = {int(k): _num(v) for k, v in (data.get('samples') or {}).items()}
         damage = {int(k): _num(v) for k, v in (data.get('damage') or {}).items()}

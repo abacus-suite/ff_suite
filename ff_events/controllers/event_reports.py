@@ -8,12 +8,101 @@ from odoo.http import request
 from odoo.addons.ff_app_reports.controllers.reports import LINK_SECONDS, _sign, _unsign
 from odoo.addons.ff_mobile_api.controllers.common import ApiError, api_route, body, ok, ref
 
-from .events import _code, _event_data, _mine, _report, event_mrp
+from .events import EPS, _code, _event_data, _mine, _report, event_mrp
 
 
 def _first_day(event):
     days = event.day_ids.sorted('date')
     return days[0].date if days else event.date_start
+
+
+def _share(total, weights):
+    """Split ``total`` over the keys of ``weights`` in proportion to them, in whole bottles when ``total`` is a whole
+    number (largest remainder, so the parts always add up to the total), else as plain fractions."""
+    keys = [k for k, w in weights.items() if w > EPS]
+    if not keys or total <= EPS:
+        return {k: 0.0 for k in weights}
+    weight_sum = sum(weights[k] for k in keys)
+    exact = {k: total * weights[k] / weight_sum for k in keys}
+    if abs(total - round(total)) > EPS or any(abs(weights[k] - round(weights[k])) > EPS for k in keys):
+        return {k: exact.get(k, 0.0) for k in weights}
+    parts = {k: int(exact[k]) for k in keys}
+    left = int(round(total)) - sum(parts.values())
+    for k in sorted(keys, key=lambda key: exact[key] - parts[key], reverse=True)[:left]:
+        parts[k] += 1
+    return {k: float(parts.get(k, 0)) for k in weights}
+
+
+def _distributor_ledger(event):
+    """What happened to each distributor's stock, day by day, from the figures the days were closed with.
+
+    The staff count samples, damage and what stays at the event per flavour, not per distributor. So each day, for a
+    flavour, the distributors' stock (what they had there at the start of the day plus what was added, less what was
+    sent back to them, which is exact) is the pool, and samples, damage and sales are shared over the pools in
+    proportion to their size. What is left is each distributor's closing stock, and it carries to the next day.
+    Coupons of a day are shared in proportion to the bottles each distributor's stock sold that day.
+
+    Returns ``{distributor id: {product id: {open, add, samples, damage, ret, closing, sold}}}`` and
+    ``{distributor id: coupons}``.
+    """
+    days = event.day_ids.sorted('date')
+    ledger = {}
+    coupons = {}
+    carry = {}  # (distributor, product) -> what that distributor's stock closed the day before at
+    previous = None
+    for day in days:
+        since = previous.date if previous else None
+        fresh = {}
+        for stock in event.stock_ids:
+            if stock.date <= day.date and (since is None or stock.date > since):
+                key = (stock.distributor_id.id, stock.product_id.id)
+                fresh[key] = fresh.get(key, 0.0) + stock.qty
+        returned = {}
+        for ret in day.return_ids:
+            key = (ret.distributor_id.id, ret.product_id.id)
+            returned[key] = returned.get(key, 0.0) + ret.qty
+        stock_came_back = previous is not None and previous.closing_action == 'return'
+        start = {} if (previous is None or stock_came_back) else dict(carry)
+        closing_today = {}
+        sold_by_distributor = {}
+        for line in day.line_ids:
+            pid = line.product_id.id
+            who = {d for (d, p) in list(start) + list(fresh) + list(returned) if p == pid}
+            pools, opening, added = {}, {}, {}
+            for d in who:
+                key = (d, pid)
+                if previous is None or stock_came_back:
+                    opening[d], added[d] = fresh.get(key, 0.0), 0.0
+                else:
+                    opening[d], added[d] = start.get(key, 0.0), fresh.get(key, 0.0)
+                pools[d] = max(opening[d] + added[d] - returned.get(key, 0.0), 0.0)
+            samples = _share(line.samples, pools)
+            damage = _share(line.damage, pools)
+            sold = _share(max(line.sold, 0.0), pools)
+            for d in who:
+                key = (d, pid)
+                closing = max(pools[d] - samples[d] - damage[d] - sold[d], 0.0)
+                closing_today[key] = closing
+                row = ledger.setdefault(d, {}).setdefault(pid, {
+                    'open': 0.0, 'add': 0.0, 'samples': 0.0, 'damage': 0.0, 'ret': 0.0, 'closing': 0.0, 'sold': 0.0})
+                if days[0] == day:
+                    row['open'] += opening[d]
+                    row['add'] += added[d]
+                else:
+                    # Stock that came after the first day, or after the stock was sent back, is "added".
+                    row['add'] += opening[d] - carry.get(key, 0.0) if not stock_came_back else opening[d]
+                    row['add'] += added[d]
+                row['samples'] += samples[d]
+                row['damage'] += damage[d]
+                row['ret'] += returned.get(key, 0.0)
+                row['closing'] = closing
+                row['sold'] += sold[d]
+                sold_by_distributor[d] = sold_by_distributor.get(d, 0.0) + sold[d]
+        for d, count in _share(float(day.coupons_used or 0), sold_by_distributor).items():
+            coupons[d] = coupons.get(d, 0.0) + count
+        carry = closing_today if day.closing_action != 'return' else {}
+        previous = day
+    return ledger, coupons
 
 
 def _distributor_rows(event):
@@ -36,14 +125,30 @@ def _distributor_rows(event):
             f['ret'] += ret.qty
     out = []
     company = event.employee_id.company_id.partner_id
+    ledger, coupon_share = _distributor_ledger(event)
+    value = int(event.offer_price or 0) if event.has_offer else 0
     for row in data.values():
         flavours = []
+        mine = ledger.get(row['partner'].id, {})
         for f in sorted(row['flavours'].values(), key=lambda x: _code(x['template'])):
             f['net'] = f['open'] + f['add'] - f['ret']
+            work = mine.get(f['template'].id, {})
+            mrp = event_mrp(event, f['template'])
+            sold = work.get('sold', 0.0)
             flavours.append({
                 'product': ref(f['template']), 'code': _code(f['template']),
-                'open': f['open'], 'add': f['add'], 'ret': f['ret'], 'net': f['net']})
-        totals = {k: sum(x[k] for x in flavours) for k in ('open', 'add', 'ret', 'net')}
+                'open': f['open'], 'add': f['add'], 'ret': f['ret'], 'net': f['net'],
+                # What happened to the stock the event took from this distributor.
+                'samples': work.get('samples', 0.0), 'damage': work.get('damage', 0.0),
+                'closing': work.get('closing', 0.0), 'sold': sold,
+                'mrp': mrp, 'sales': round(sold * mrp, 2)})
+        totals = {k: sum(x[k] for x in flavours) for k in
+                  ('open', 'add', 'ret', 'net', 'samples', 'damage', 'closing', 'sold', 'sales')}
+        coupons = int(round(coupon_share.get(row['partner'].id, 0.0)))
+        totals.update({
+            'coupons': coupons, 'coupon_amount': coupons * value,
+            'net_sales': round(totals['sales'] - coupons * value, 2),
+        })
         out.append({
             'distributor': ref(row['partner']), 'is_company': row['partner'] == company,
             'flavours': flavours, 'totals': totals,
@@ -214,10 +319,14 @@ class FieldForceEventReportsApi(http.Controller):
             row = rows[0]
             html = _html_table(
                 row['distributor']['name'], '%s  |  %s' % (event.name, period),
-                ['Flavour', 'Open', 'Add', 'Ret', 'Net'],
-                [[f['code'], '%g' % f['open'], '%g' % f['add'], '%g' % f['ret'], '%g' % f['net']]
+                ['Flavour', 'Open', 'Add', 'Ret', 'Net taken', 'Samples', 'Damage', 'Closing', 'Sold', 'Sales ₹'],
+                [[f['code'], '%g' % f['open'], '%g' % f['add'], '%g' % f['ret'], '%g' % f['net'], '%g' % f['samples'],
+                  '%g' % f['damage'], '%g' % f['closing'], '%g' % f['sold'], '₹{:,.2f}'.format(f['sales'])]
                  for f in row['flavours']],
-                ['Total'] + ['%g' % row['totals'][k] for k in ('open', 'add', 'ret', 'net')])
+                ['Total'] + ['%g' % row['totals'][k] for k in ('open', 'add', 'ret', 'net', 'samples', 'damage', 'closing', 'sold')]
+                + ['₹{:,.2f}'.format(row['totals']['sales'])],
+                extra='<p style="font-size:12px">Coupons: %s (₹%s) &nbsp;|&nbsp; <b>Net sales: ₹{:,.2f}</b></p>'.format(
+                    row['totals']['net_sales']) % (row['totals']['coupons'], row['totals']['coupon_amount']))
             name = 'Event_%s_%s.pdf' % (event.name.replace(' ', '_'), row['distributor']['name'].replace(' ', '_'))
         else:
             f = _final(event)
