@@ -62,7 +62,7 @@ class SaleOrder(models.Model):
 
     def _ff_product_code(self, product):
         template = product.product_tmpl_id
-        return product.default_code or getattr(template, 'ff_sku_code', False) or ''
+        return getattr(template, 'ff_sku_code', False) or product.default_code or ''
 
     def _ff_one_line_address(self, partner):
         parts = [partner.street, partner.street2, partner.city,

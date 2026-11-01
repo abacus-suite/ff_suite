@@ -28,6 +28,7 @@ def product_data(product, partner=None):
         'id': product.id,
         'name': product.display_name,
         'sku': product.product_tmpl_id.ff_sku_code or None,
+        'code': product.product_tmpl_id.ff_code() or None,
         'default_code': product.default_code or None,
         'price': price,
         'tax_percent': sum(t.amount for t in product.taxes_id
@@ -589,6 +590,7 @@ class FieldForceOrdersApi(http.Controller):
                 'id': product.id,
                 'name': product.display_name,
                 'sku': product.product_tmpl_id.ff_sku_code or None,
+                'code': product.product_tmpl_id.ff_code() or None,
                 'has_image': bool(product.image_128),
                 'qty': quantity,
                 'amount': round(value or 0.0, 2),

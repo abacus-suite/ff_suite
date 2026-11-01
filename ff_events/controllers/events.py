@@ -54,7 +54,7 @@ def event_mrp(event, template):
 
 
 def _code(template):
-    return template.default_code or template.name
+    return getattr(template, 'ff_sku_code', False) or template.default_code or template.name
 
 
 # --------------------------------------------------------------------------- the stock arithmetic
@@ -127,7 +127,7 @@ def _event_data(event, detail=False):
             'products': [{'id': t.id, 'name': t.name, 'code': _code(t), 'mrp': event_mrp(event, t)}
                          for t in sorted({s.product_id for s in event.stock_ids} |
                                          {env['product.template'].browse(p) for p in rows},
-                                         key=lambda t: t.default_code or t.name)],
+                                         key=lambda t: getattr(t, 'ff_sku_code', False) or t.default_code or t.name)],
             'opening': [{'product_id': pid, 'opening': o, 'added': a} for pid, (o, a) in rows.items()],
             'returned_yesterday': returned_yesterday,
             'has_previous_day': bool(previous),
@@ -308,7 +308,7 @@ class FieldForceEventsApi(http.Controller):
     def options(self, employee, **kw):
         env = request.env
         flavours = env['product.product'].sudo().ff_flavours()
-        templates = flavours.mapped('product_tmpl_id').sorted(lambda t: t.default_code or t.name)
+        templates = flavours.mapped('product_tmpl_id').sorted(lambda t: getattr(t, 'ff_sku_code', False) or t.default_code or t.name)
         company_partner = employee.company_id.partner_id
         all_distributors = env['res.partner'].sudo().search(
             [('ff_category_type', '=', 'distributor'), ('active', '=', True)], limit=300, order='name')

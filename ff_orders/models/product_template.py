@@ -12,8 +12,10 @@ class ProductTemplate(models.Model):
     """
     _inherit = 'product.template'
 
-    ff_sku_code = fields.Char(string='SKU Short Code', index=True, copy=False,
-                              help='Short code shown in the field app and order reports, e.g. LR, CP.')
+    ff_sku_code = fields.Char(string='Product Code', index=True, copy=False,
+                              help='The product\'s short code, e.g. LR, CP. The field app shows it in the small box '
+                                   'beside the product name, and every order and report uses it. When it is empty, '
+                                   'the Internal Reference is used.')
     ff_show_in_app = fields.Boolean(string='Available in Field App', default=True)
 
     ff_mrp = fields.Monetary(string='MRP', currency_field='currency_id',
@@ -28,6 +30,11 @@ class ProductTemplate(models.Model):
     ff_stockist_margin = fields.Float(string='Distributor Margin %', digits=(5, 2),
                                       compute='_compute_ff_margins', store=True,
                                       help='What the distributor earns on what it pays: (PTR - PTS) / PTS.')
+
+    def ff_code(self):
+        """The one Product Code everything shows: the short code, else the internal reference, else nothing."""
+        self.ensure_one()
+        return self.ff_sku_code or self.default_code or False
 
     @api.depends('ff_mrp', 'ff_pts', 'ff_ptr')
     def _compute_ff_margins(self):

@@ -23,8 +23,8 @@ def _product(product):
     return {
         'id': product.id,
         'name': product.display_name,
-        # What a flavour is called on the screen: its code, where it has one.
-        'code': product.default_code or product.product_tmpl_id.ff_sku_code or None,
+        # The small box beside the name: the Product Code only.
+        'code': product.product_tmpl_id.ff_code() or None,
         'uom': product.uom_id.name,
     }
 

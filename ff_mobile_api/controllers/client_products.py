@@ -80,6 +80,7 @@ def _product_ref(product):
         'id': product.id,
         'name': product.display_name,
         'sku': product.product_tmpl_id.ff_sku_code or product.default_code or None,
+        'code': product.product_tmpl_id.ff_code() or None,
         'category': product.categ_id.name or None,
         'uom': product.uom_id.name or None,
     }
