@@ -29,13 +29,9 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
   bool _repeat = true;
   DateTime _date = DateTime.now();
 
-  /// Recurrent with Repeat on? No: the days the beat is planned for (one or many). Until the person picks,
-  /// it is the Day field's date.
+  /// Recurrent with Repeat on? No: the days the beat is planned for (one or many), all picked by the person.
   Set<DateTime>? _plannedPicks;
-  List<DateTime> get _plannedDays {
-    final days = (_plannedPicks ?? {DateUtils.dateOnly(_date)}).toList()..sort();
-    return days;
-  }
+  List<DateTime> get _plannedDays => (_plannedPicks ?? <DateTime>{}).toList()..sort();
   final Set<int> _days = {0, 3}; // Monday and Thursday default, as in mockup
   bool _busy = false;
 
@@ -318,7 +314,8 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         children: [
-          // Day
+          // Day: a one-time beat only. A recurrent beat is planned on its weekdays, or on the days picked below.
+          if (_schedule != 'recurrent') ...[
           _label('Day'),
           InkWell(
             borderRadius: BorderRadius.circular(10),
@@ -348,6 +345,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          ],
 
           // Beat name *
           _label('Beat name', required: true),
@@ -470,7 +468,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
                 for (final d in _plannedDays)
                   InputChip(
                     label: Text(_formatDay(d), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                    onDeleted: _plannedDays.length > 1 ? () => _removePlanned(d) : null,
+                    onDeleted: () => _removePlanned(d),
                   ),
                 ActionChip(
                   avatar: const Icon(Icons.add_rounded, size: 18),
