@@ -406,6 +406,10 @@ class FfTaskLog(models.Model):
         Partner = self.env['res.partner']
         category = self.env.ref('ff_clients.contact_category_lead')
         district = self.env['ff.district'].sudo().browse(int(contact.get('district_id') or 0)).exists()
+        territory = self.env['ff.territory'].sudo().browse(int(contact.get('territory_id') or 0)).exists() \
+            if 'ff.territory' in self.env else None
+        if territory and not district:
+            district = territory.district_id
         vals = {
             'name': name, 'ff_category_id': category.id,
             'partner_latitude': float(data.get('lat') or 0.0),
@@ -414,6 +418,14 @@ class FfTaskLog(models.Model):
             'phone': contact.get('phone') or False, 'street': contact.get('street') or False,
             'comment': (contact.get('note') or '').strip() or False,
         }
+        if territory and 'ff_territory_id' in Partner._fields:
+            vals['ff_territory_id'] = territory.id
+        area = self.env['ff.area'].sudo().browse(int(contact.get('area_id') or 0)).exists() \
+            if 'ff.area' in self.env else None
+        if area and 'ff_area_id' in Partner._fields:
+            vals['ff_area_id'] = area.id
+            if not territory and 'ff_territory_id' in Partner._fields:
+                vals['ff_territory_id'] = area.territory_id.id
         route = self.env['ff.beat'].sudo().browse(int(contact.get('beat_id') or 0)).exists()
         if route and not self.env['ff.beat'].ff_can_use_beat(employee, route):
             raise UserError(self.env._('%s is not one of your beats.', route.display_name))
@@ -443,7 +455,7 @@ class FfTaskLog(models.Model):
         note = (contact.get('category_note') or '').strip()
         self._ff_require(category not in self._ff_note_categories() or note, 'Describe the outlet category.')
         self._ff_require(contact.get('beat_id'), 'Choose the beat.')
-        self._ff_require(contact.get('district_id'), 'Choose the territory.')
+        self._ff_require(contact.get('territory_id') or contact.get('district_id'), 'Choose the territory.')
         lead = self._ff_create_lead(employee, data)
         if hasattr(lead, 'ff_set_outlet_category'):
             lead.ff_set_outlet_category(category, note)

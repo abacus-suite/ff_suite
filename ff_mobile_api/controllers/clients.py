@@ -654,11 +654,25 @@ class FieldForceClientsApi(http.Controller):
         own = employee.sudo().ff_route_ids
         routes = request.env['ff.beat'].ff_beats_for(employee)
         routes = routes.sorted(lambda route: (route.display_name or '').lower())
+
+        def usual_area(route):
+            """The area most of the beat's outlets sit in, so choosing a beat can fill the area in."""
+            Partner = request.env['res.partner']
+            if 'ff_area_id' not in Partner._fields:
+                return None
+            counts = {}
+            for area in route.line_ids.partner_id.mapped('ff_area_id'):
+                counts[area] = sum(1 for p in route.line_ids.partner_id if p.ff_area_id == area)
+            return ref(max(counts, key=counts.get)) if counts else None
+
         return ok([{
             'id': route.id,
             'name': route.name,
             'city': route.district_id.name or None,
             'district_id': route.district_id.id or None,
+            'territory_id': route.territory_id.id or None if 'territory_id' in route._fields else None,
+            'territory': ref(route.territory_id) if 'territory_id' in route._fields else None,
+            'area': usual_area(route),
             'approval_state': route.ff_approval_state,
         } for route in routes])
 
