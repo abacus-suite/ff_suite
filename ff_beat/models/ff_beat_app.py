@@ -94,7 +94,12 @@ class FfBeatApp(models.Model):
         schedule = data.get('schedule') if data.get('schedule') in ('one_time', 'recurrent') else False
         weekdays = ','.join(sorted({str(int(d)) for d in (data.get('weekdays') or []) if str(d) in '0123456'}))
         if schedule == 'recurrent' and not weekdays:
-            raise UserError(self.env._('Choose the weekdays this route repeats on.'))
+            if data.get('repeat') is not False:
+                raise UserError(self.env._('Choose the weekdays this route repeats on.'))
+            # "Repeat on? No": the route stays in the list and is planned on one chosen day, today or later.
+            planned = fields.Date.to_date(data.get('date')) if data.get('date') else False
+            if not planned or planned < fields.Date.context_today(self):
+                raise UserError(self.env._('Choose today or an upcoming day to plan this route on.'))
         territory = {}
         if 'territory_id' in self._fields and data.get('territory_id'):
             territory = {'territory_id': int(data['territory_id'])}
@@ -271,20 +276,22 @@ class FfBeatApp(models.Model):
                     target_dates.append(start_date)
             elif schedule == 'recurrent':
                 weekdays = [int(d) for d in (beat.ff_weekdays or '').split(',') if d.isdigit()]
-                if not weekdays and start_date:
-                    weekdays = [start_date.weekday()]
+                if not weekdays:
+                    # Repeat off: only the day it was planned for, though it stays in the beat list.
+                    if start_date and start_date >= today:
+                        target_dates.append(start_date)
+                else:
+                    cur = start_date if start_date >= today else today
+                    # Auto-plan for the next 4 weeks (28 days) matching recurring weekdays
+                    end_date = cur + timedelta(days=28)
+                    while cur <= end_date:
+                        if cur.weekday() in weekdays:
+                            target_dates.append(cur)
+                        cur += timedelta(days=1)
 
-                cur = start_date if start_date >= today else today
-                # Auto-plan for the next 4 weeks (28 days) matching recurring weekdays
-                end_date = cur + timedelta(days=28)
-                while cur <= end_date:
-                    if cur.weekday() in weekdays:
-                        target_dates.append(cur)
-                    cur += timedelta(days=1)
-
-                if start_date >= today and start_date not in target_dates:
-                    target_dates.append(start_date)
-                target_dates.sort()
+                    if start_date >= today and start_date not in target_dates:
+                        target_dates.append(start_date)
+                    target_dates.sort()
 
             # Create daily beat plans for the target dates
             for day_date in target_dates:
