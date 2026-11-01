@@ -613,6 +613,12 @@ class FieldForceClientsApi(http.Controller):
             'ff_category_id': category_for(employee, data.get('category_id')).id,
             'ff_district_id': to_int(data.get('district_id')) or False,
         }
+        # The territory and area the app suggested from the location (or the person chose).
+        Partner = request.env['res.partner']
+        if to_int(data.get('territory_id')) and 'ff_territory_id' in Partner._fields:
+            vals['ff_territory_id'] = to_int(data['territory_id'])
+        if to_int(data.get('area_id')) and 'ff_area_id' in Partner._fields:
+            vals['ff_area_id'] = to_int(data['area_id'])
         # An outlet or a distributor needs a beat; a lead may wait for one.
         request.env['res.partner']._ff_check_beat(
             category_for(employee, data.get('category_id')), data.get('route_id'))

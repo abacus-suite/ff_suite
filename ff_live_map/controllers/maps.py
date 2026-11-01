@@ -16,6 +16,16 @@ class FieldForceMapUsageApi(http.Controller):
             raise ApiError('lat and lng are required.')
         return ok({'address': request.env['ff.employee.status'].ff_address_at(latitude, longitude)})
 
+    @api_route('/api/v1/geo/suggest', methods=('POST',))
+    def suggest(self, employee, **kw):
+        """The district, territory and area of a new contact, worked out from where it stands."""
+        data = body()
+        try:
+            latitude, longitude = float(data.get('lat')), float(data.get('lng'))
+        except (TypeError, ValueError):
+            raise ApiError('lat and lng are required.')
+        return ok(request.env['ff.geo.suggest'].ff_suggest(employee, latitude, longitude))
+
     @api_route('/api/v1/maps/usage', methods=('POST',))
     def usage(self, employee, **kw):
         data = body()
