@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- The MRP of a territory, next to its price category. -->
+    <record id="ff_territory_view_form_mrp" model="ir.ui.view">
+        <field name="name">ff.territory.form.mrp</field>
+        <field name="model">ff.territory</field>
+        <field name="inherit_id" ref="ff_contact_access.ff_territory_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='ff_price_category']" position="after">
+                <field name="ff_mrp_id" options="{'no_create': True}"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

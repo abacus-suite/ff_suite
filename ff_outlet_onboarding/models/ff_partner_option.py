@@ -58,5 +58,7 @@ class FfPartnerOption(models.Model):
 
     @api.model
     def ff_choices(self, kind):
-        return [{'code': o.code, 'name': o.name, 'needs_note': o.needs_note}
+        return [{'code': o.code, 'name': o.name, 'needs_note': o.needs_note,
+                 # A scheme is shown as its amount with the company's currency symbol.
+                 'value': o.ff_scheme_value() if o.kind == 'scheme' else None}
                 for o in self.sudo().search([('kind', '=', kind)])]

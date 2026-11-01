@@ -10,6 +10,8 @@
                     <group>
                         <field name="ff_status"/>
                         <field name="ff_onboarded_date"/>
+                        <field name="ff_has_gst"/>
+                        <field name="vat" invisible="not ff_has_gst"/>
                         <field name="ff_outlet_category_id" invisible="ff_category_type == 'distributor'" options="{'no_create': True}"/>
                         <field name="ff_outlet_category_note" invisible="not ff_outlet_category_needs_note"/>
                         <field name="ff_not_interested_reason" invisible="ff_status != 'not_interested'"/>
@@ -27,11 +29,28 @@
                         <field name="ff_accounts_poc_name" invisible="ff_category_type != 'distributor'"/>
                         <field name="ff_accounts_poc_phone" invisible="ff_category_type != 'distributor'"/>
                         <field name="ff_accounts_poc_email" invisible="ff_category_type != 'distributor'"/>
-                        <field name="ff_swiggy_zomato"/>
-                        <field name="ff_swiggy_zomato_id" invisible="not ff_swiggy_zomato"/>
+                        <field name="ff_swiggy"/>
+                        <field name="ff_swiggy_id" invisible="not ff_swiggy"/>
+                        <field name="ff_zomato"/>
+                        <field name="ff_zomato_id" invisible="not ff_zomato"/>
                         <field name="ff_has_chiller" invisible="ff_category_type == 'distributor'"/>
                         <field name="ff_chiller_serial" invisible="not ff_has_chiller"/>
                         <field name="ff_chiller_model_id" invisible="not ff_has_chiller" options="{'no_create': True}"/>
+                    </group>
+                </group>
+                <group string="Delivery Address" invisible="not ff_is_client">
+                    <group>
+                        <field name="ff_delivery_same_billing"/>
+                        <field name="ff_door_no"/>
+                        <field name="ff_street_name"/>
+                        <field name="ff_area_id" options="{'no_create': True}"/>
+                    </group>
+                    <group>
+                        <field name="ff_district_id" string="City / District" options="{'no_create': True}"/>
+                        <field name="state_id" options="{'no_create': True}"/>
+                        <field name="zip"/>
+                        <field name="ff_team_ids" string="Region" widget="many2many_tags" options="{'no_create': True}"/>
+                        <field name="ff_territory_id" options="{'no_create': True}"/>
                     </group>
                 </group>
                 <field name="ff_terms_history_ids" invisible="not ff_terms_history_ids" readonly="1">

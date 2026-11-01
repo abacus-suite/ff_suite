@@ -37,6 +37,9 @@ class ResPartner(models.Model):
     ff_accounts_poc_email = fields.Char(string='Accounts Email')
     ff_billing_address = fields.Text(string='Billing Address')
     ff_mrp_id = fields.Many2one('ff.partner.option', string='MRP', domain=[('kind', '=', 'mrp')])
+    ff_door_no = fields.Char(string='Door / TC No.')
+    ff_street_name = fields.Char(string='Street Name')
+    ff_delivery_same_billing = fields.Boolean(string='Delivery Same as Billing')
     ff_has_gst = fields.Boolean(string='GST Available', default=True,
                                 help='Off for an outlet with no GST: then no GSTIN is asked for.')
     ff_swiggy_zomato = fields.Boolean(string='Swiggy / Zomato Outlet')
@@ -79,6 +82,7 @@ class ResPartner(models.Model):
         return {
             'mrp': Option.ff_choices('mrp'),
             'schemes': Option.ff_choices('scheme'),
+            'currency_symbol': self.env.company.currency_id.symbol or self.env.company.currency_id.name or '',
             'chiller_models': Option.ff_choices('chiller_model'),
             'outlet_categories': Option.ff_choices('outlet_category'),
         }
@@ -129,7 +133,8 @@ class ResPartner(models.Model):
             need(self.ff_poc_name, 'Sales POC name')
             self._ff_check_contact(self.ff_poc_phone, self.ff_poc_email, 'Sales POC', missing)
             need(self.ff_accounts_poc_name, 'Accounts POC name')
-            self._ff_check_contact(self.ff_accounts_poc_phone, self.ff_accounts_poc_email, 'Accounts POC', missing)
+            self._ff_check_contact(self.ff_accounts_poc_phone, self.ff_accounts_poc_email, 'Accounts POC', missing,
+                                   email_required=False)
         return missing
 
     @api.model
@@ -203,7 +208,9 @@ class ResPartner(models.Model):
             'outlet_category': option(partner.ff_outlet_category_id),
             'outlet_category_note': partner.ff_outlet_category_note or None,
             'mrp': option(partner.ff_mrp_id),
-            'scheme': option(partner.ff_scheme_id),
+            'scheme': dict(option(partner.ff_scheme_id), value=partner.ff_scheme_id.ff_scheme_value())
+            if partner.ff_scheme_id else None,
+            'currency_symbol': (partner.company_id or self.env.company).currency_id.symbol or '',
             'distributor': {'id': partner.ff_distributor_id.id, 'name': partner.ff_distributor_id.name}
             if partner.ff_distributor_id else None,
             'has_gst': partner.ff_has_gst is not False,
@@ -301,6 +308,8 @@ class ResPartner(models.Model):
             'vat': ((text('gstin') or '').upper() or False) if has_gst else False,
             'ff_gst_name': text('gst_name'),
             'street': text('street'), 'street2': text('street2'), 'city': text('city'), 'zip': text('zip'),
+            'ff_door_no': text('door_no'), 'ff_street_name': text('street_name'),
+            'ff_delivery_same_billing': flag('delivery_same'),
             'ff_billing_address': text('billing_address'),
             'ff_poc_name': text('poc_name'), 'ff_poc_phone': text('poc_phone'), 'ff_poc_email': text('poc_email'),
             'ff_mrp_id': self.env['ff.partner.option'].ff_by_code('mrp', data.get('mrp')).id or False,

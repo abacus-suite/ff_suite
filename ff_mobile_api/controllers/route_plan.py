@@ -138,6 +138,9 @@ class FieldForceRoutePlanApi(http.Controller):
                 'id': territory.id,
                 'name': territory.name,
                 'district_id': territory.district_id.id or None,
+                # The MRP of this territory, picked by itself when somebody is onboarded here.
+                'mrp': ({'code': mrp.code, 'name': mrp.name}
+                        if hasattr(territory, 'ff_mrp_option') and (mrp := territory.ff_mrp_option()) else None),
                 'is_secondary': is_sec,
                 'kind': 'secondary' if is_sec else 'primary',
                 # The Area master of this territory, with how many of its outlets sit in each (0 too).
