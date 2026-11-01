@@ -76,6 +76,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   /// Groups opened by tapping their header; when grouping is on, every group starts closed.
   final Set<String> _openGroups = {};
+  bool _listsAsked = false;
   Map<String, dynamic> _counts = const {};
   String _sort = 'latest';
   LatLng? _me;
@@ -1204,6 +1205,12 @@ class _ClientsScreenState extends State<ClientsScreen> {
             ])
           : Builder(builder: (context) {
               final rows = _groupedRows();
+              if (_group != 'none' && !_listsAsked && _territories.isEmpty && _beats.isEmpty) {
+                _listsAsked = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _loadFilterLists();
+                });
+              }
               if (_group != 'none' && _clients.length < _total) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) _loadMore();
@@ -1221,7 +1228,13 @@ class _ClientsScreenState extends State<ClientsScreen> {
                   );
                 }
                 final row = rows[i];
-                if (row is MapEntry<String, int>) {
+                if (row is String) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                    child: Text(row, style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                  );
+                }
+                if (row is _GroupHeader) {
                   final open = _openGroups.contains(row.key);
                   return Padding(
                     padding: const EdgeInsets.only(top: 8, bottom: 2),
@@ -1235,7 +1248,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           child: Row(children: [
                             Expanded(
-                              child: Text(row.key,
+                              child: Text(row.label,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, color: AppColors.primary)),
@@ -1244,7 +1257,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                               decoration: BoxDecoration(
                                   color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                              child: Text('${row.value}',
+                              child: Text('${row.count}',
                                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: AppColors.primary)),
                             ),
                             Icon(open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
@@ -1263,33 +1276,94 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
-  /// The list as rows: a header whenever the territory or the beat changes, when grouping is on.
+  /// The list as rows when grouping is on: every territory, area or beat of the masters gets a header with its
+  /// count (an empty one shows 0), a contact appears under each beat or territory it belongs to, and contacts
+  /// with none are gathered under "No ...". Every group starts closed.
   List<Object> _groupedRows() {
     if (_group == 'none') return List<Object>.from(_shownClients);
-    String keyOf(Map<String, dynamic> c) {
-      if (_group == 'territory') return '${(c['territory'] as Map?)?['name'] ?? 'No territory'}';
-      if (_group == 'area') return outletArea(c) ?? 'No area';
-      final routes = (c['routes'] as List?) ?? const [];
-      return routes.isEmpty ? 'No beat' : '${(routes.first as Map)['name']}';
+    final groups = <String, _Group>{};
+    final none = _Group('none', const {'territory': 'No territory', 'area': 'No area', 'beat': 'No beat'}[_group] ?? 'None');
+
+    // The masters in scope, so a group with nobody in it is still listed.
+    final inScope = _territories.where((t) => _territoryId == null || t['id'] == _territoryId);
+    if (_group == 'territory') {
+      for (final t in inScope) {
+        groups['t${t['id']}'] = _Group('t${t['id']}', territoryLabel(t));
+      }
+    } else if (_group == 'area') {
+      for (final t in inScope) {
+        for (final a in ((t['areas'] as List?) ?? const [])) {
+          if (a is Map && (_areaId == null || a['id'] == _areaId)) groups['a${a['id']}'] = _Group('a${a['id']}', '${a['name']}');
+        }
+      }
+    } else {
+      for (final b in _beats) {
+        if (_territoryId != null && b['territory_id'] != _territoryId) continue;
+        if (_beatIds.isNotEmpty && !_beatIds.contains(b['id'])) continue;
+        groups['b${b['id']}'] = _Group('b${b['id']}', '${b['name']}');
+      }
+    }
+    // With that filter on, only its own groups; otherwise a group the lists did not know of is added as it turns up.
+    final restricted = switch (_group) {
+      'territory' => _territoryId != null,
+      'area' => _areaId != null || _territoryId != null,
+      _ => _beatIds.isNotEmpty || _territoryId != null,
+    };
+
+    List<(String, String)> refsOf(Map<String, dynamic> c) {
+      (String, String)? ref(Object? r, String prefix) =>
+          r is Map && r['id'] != null ? ('$prefix${r['id']}', '${r['name']}') : null;
+      switch (_group) {
+        case 'territory':
+          final many = (c['territories'] as List?) ?? const [];
+          return [
+            for (final r in many.isNotEmpty ? many : [c['territory']])
+              if (ref(r, 't') != null) ref(r, 't')!,
+          ];
+        case 'area':
+          if (c.containsKey('area_master')) {
+            final r = ref(c['area_master'], 'a');
+            return r == null ? const [] : [r];
+          }
+          // An older server: the area worked out from the outlet, matched to the master by name.
+          final name = outletArea(c);
+          if (name == null) return const [];
+          for (final g in groups.values) {
+            if (g.label.toLowerCase() == name.toLowerCase()) return [(g.key, g.label)];
+          }
+          return [('n$name', name)];
+        default:
+          return [
+            for (final r in ((c['routes'] as List?) ?? const []))
+              if (ref(r, 'b') != null) ref(r, 'b')!,
+          ];
+      }
     }
 
-    final sorted = [..._shownClients]..sort((a, b) {
-        final byGroup = keyOf(a).toLowerCase().compareTo(keyOf(b).toLowerCase());
-        return byGroup != 0 ? byGroup : '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase());
-      });
-    final counts = <String, int>{};
-    for (final c in sorted) {
-      counts.update(keyOf(c), (n) => n + 1, ifAbsent: () => 1);
-    }
-    final rows = <Object>[];
-    String? last;
-    for (final c in sorted) {
-      final key = keyOf(c);
-      if (key != last) {
-        rows.add(MapEntry(key, counts[key] ?? 0));
-        last = key;
+    for (final c in _shownClients) {
+      var placed = false;
+      for (final (key, label) in refsOf(c)) {
+        final g = groups[key] ?? (restricted ? null : (groups[key] = _Group(key, label)));
+        if (g == null) continue;
+        g.clients.add(c);
+        placed = true;
       }
-      if (_openGroups.contains(key)) rows.add(c);
+      if (!placed) none.clients.add(c);
+    }
+
+    int byName(Map<String, dynamic> a, Map<String, dynamic> b) =>
+        '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase());
+    final ordered = groups.values.toList()..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+    if (none.clients.isNotEmpty) ordered.add(none);
+    final rows = <Object>[];
+    for (final g in ordered) {
+      rows.add(_GroupHeader(g.key, g.label, g.clients.length));
+      if (!_openGroups.contains(g.key)) continue;
+      if (g.clients.isEmpty) {
+        rows.add('No contacts in this group yet.');
+      } else {
+        rows.addAll(g.clients..sort(byName));
+      }
     }
     return rows;
   }
@@ -1720,4 +1794,23 @@ class ClientTile extends StatelessWidget {
           ),
         ],
       );
+}
+
+
+/// One group of the grouped client list while it is being built.
+class _Group {
+  _Group(this.key, this.label);
+
+  final String key;
+  final String label;
+  final List<Map<String, dynamic>> clients = [];
+}
+
+/// The header row of a group: its name and how many contacts it holds.
+class _GroupHeader {
+  const _GroupHeader(this.key, this.label, this.count);
+
+  final String key;
+  final String label;
+  final int count;
 }
