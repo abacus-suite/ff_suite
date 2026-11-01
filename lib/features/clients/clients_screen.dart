@@ -11,6 +11,7 @@ import '../../core/geo.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/hide_when_typing.dart';
 import '../../widgets/map.dart';
 import '../../widgets/map_clusters.dart';
 import '../../widgets/sdk_map.dart';
@@ -337,15 +338,14 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // While the keyboard is up (typing in the search box) the + goes away: it would ride up above the keyboard.
-    final typing = MediaQuery.of(context).viewInsets.bottom > 0;
     return Scaffold(
-      floatingActionButton: typing
-          ? null
-          : FloatingActionButton(
-              onPressed: _add,
-              child: const Icon(Icons.add_rounded, size: 28),
-            ),
+      // Gone while the keyboard is up (typing in the search box): it would ride up above the keyboard.
+      floatingActionButton: HideWhenTyping(
+        child: FloatingActionButton(
+          onPressed: _add,
+          child: const Icon(Icons.add_rounded, size: 28),
+        ),
+      ),
       body: SafeArea(
         bottom: false,
         child: Column(
