@@ -1,6 +1,6 @@
 {
     'name': 'Field Force - Contact Access Rules',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'category': 'Human Resources/Field Force',
     'summary': 'Who sees which contacts: open, by territory, beat, city or assigned - with dated access requests',
     'description': """
@@ -16,6 +16,7 @@ day after the last date.
         'security/ir.model.access.csv',
         'data/ff_contact_access_data.xml',
         'views/ff_territory_views.xml',
+        'views/ff_area_views.xml',
         'views/ff_partner_territory_views.xml',
         'views/ff_contact_access_views.xml',
         'views/ff_contact_access_menus.xml',

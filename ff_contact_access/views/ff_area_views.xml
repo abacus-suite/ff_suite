@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_area_view_list" model="ir.ui.view">
+        <field name="name">ff.area.list</field>
+        <field name="model">ff.area</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="name"/>
+                <field name="code" optional="show"/>
+                <field name="territory_id" options="{'no_create': True}"/>
+                <field name="district_id" optional="show"/>
+                <field name="contact_count"/>
+                <field name="active" widget="boolean_toggle" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_area_view_search" model="ir.ui.view">
+        <field name="name">ff.area.search</field>
+        <field name="model">ff.area</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="territory_id"/>
+                <field name="district_id"/>
+                <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_territory" string="Territory" context="{'group_by': 'territory_id'}"/>
+                    <filter name="group_district" string="City / District" context="{'group_by': 'district_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="ff_area_action" model="ir.actions.act_window">
+        <field name="name">Areas</field>
+        <field name="res_model">ff.area</field>
+        <field name="view_mode">list</field>
+    </record>
+</odoo>
