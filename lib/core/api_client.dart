@@ -54,7 +54,30 @@ class ApiClient {
   /// Bearer header for requests made outside this client (Image.network).
   Future<Map<String, String>> authHeaders() async {
     final token = await _storage.token();
-    return {if (token != null) 'Authorization': 'Bearer $token'};
+    final db = await _storage.db();
+    return {
+      if (token != null) 'Authorization': 'Bearer $token',
+      if (db != null) 'X-Odoo-Database': db,
+    };
+  }
+
+  /// The databases a server offers, first one first. Null when it does not list them
+  /// (a single-database server, or listing switched off): then the server decides.
+  Future<List<String>?> listDatabases(String baseUrl) async {
+    final base = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
+    try {
+      final res = await Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 6),
+        receiveTimeout: const Duration(seconds: 10),
+        validateStatus: (_) => true,
+      )).post<dynamic>('$base/web/database/list', data: {'jsonrpc': '2.0', 'method': 'call', 'params': {}});
+      final data = res.data;
+      if (data is Map && data['result'] is List) {
+        final names = (data['result'] as List).map((e) => '$e').where((e) => e.isNotEmpty).toList();
+        return names.isEmpty ? null : names;
+      }
+    } catch (_) {}
+    return null;
   }
 
   final Dio _dio = Dio(BaseOptions(
@@ -127,6 +150,7 @@ class ApiClient {
   Future<dynamic> _send(String method, String path, {Object? body, Map<String, dynamic>? query}) async {
     final base = await _storage.baseUrl();
     final token = await _storage.token();
+    final db = await _storage.db();
     final Response<dynamic> res;
     final watch = Stopwatch()..start();
     final foreground = Zone.current[#ffBackground] != true;
@@ -141,6 +165,7 @@ class ApiClient {
         queryParameters: query,
         options: Options(method: method, headers: {
           if (token != null) 'Authorization': 'Bearer $token',
+          if (db != null) 'X-Odoo-Database': db,
         }),
       ).timeout(const Duration(seconds: 40));
     } on DioException {

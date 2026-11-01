@@ -26,13 +26,49 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _showServer = false;
   bool _hidePassword = true;
   String? _error;
+  List<String>? _dbs;
+  String? _db;
+  bool _checking = false;
 
   @override
   void initState() {
     super.initState();
     _error = widget.message;
-    Services.storage.baseUrl().then((url) => _server.text = url);
+    Services.storage.baseUrl().then((url) {
+      _server.text = url;
+      _loadDbs();
+    });
   }
+
+  /// Ask the server which databases it has: the one used last (else the first) is chosen,
+  /// and the person can change it. A server that does not list them leaves it to the server.
+  Future<void> _loadDbs() async {
+    final url = _server.text.trim();
+    if (!url.startsWith('http')) return;
+    setState(() => _checking = true);
+    final list = await Services.api.listDatabases(url);
+    final saved = await Services.storage.db();
+    if (!mounted || url != _server.text.trim()) return;
+    setState(() {
+      _checking = false;
+      _dbs = list;
+      _db = list == null ? null : (list.contains(saved) ? saved : list.first);
+    });
+    // Remembered now, so Forgot password talks to the same server and database.
+    await Services.storage.saveBaseUrl(url);
+    await Services.storage.saveDb(_db);
+  }
+
+  Widget _dbField() => DropdownButtonFormField<String>(
+        initialValue: _db,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'Database', prefixIcon: Icon(Icons.storage_rounded)),
+        items: [for (final name in _dbs!) DropdownMenuItem(value: name, child: Text(name))],
+        onChanged: (value) {
+          setState(() => _db = value);
+          Services.storage.saveDb(value);
+        },
+      );
 
   @override
   void dispose() {
@@ -49,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      await Services.auth.login(_server.text, _login.text, _password.text);
+      await Services.auth.login(_server.text, _login.text, _password.text, db: _db);
       Services.notifications.start();
       await Services.outbox.start();
       await SecurityGuard.instance.start();
@@ -91,6 +127,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 4),
                     const Text('Log in with the app login given by your admin.', style: TextStyle(color: AppColors.muted)),
                     const SizedBox(height: 20),
+                    if (_dbs != null && _dbs!.length > 1) ...[
+                      _dbField(),
+                      const SizedBox(height: 14),
+                    ],
                     TextFormField(
                       controller: _login,
                       decoration: const InputDecoration(labelText: 'App login', prefixIcon: Icon(Icons.person_rounded)),
@@ -118,10 +158,26 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _server,
-                        decoration: const InputDecoration(labelText: 'Server URL', prefixIcon: Icon(Icons.dns_rounded)),
+                        decoration: InputDecoration(
+                          labelText: 'Server URL',
+                          prefixIcon: const Icon(Icons.dns_rounded),
+                          suffixIcon: _checking
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+                              : IconButton(
+                                  tooltip: 'Check server and load databases',
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  onPressed: _loadDbs),
+                        ),
                         keyboardType: TextInputType.url,
                         validator: (v) => (v == null || !v.startsWith('http')) ? 'Enter a valid URL' : null,
+                        onFieldSubmitted: (_) => _loadDbs(),
                       ),
+                      if (_dbs != null && _dbs!.length == 1) ...[
+                        const SizedBox(height: 14),
+                        _dbField(),
+                      ],
                     ],
                     if (_error != null) ...[
                       const SizedBox(height: 14),

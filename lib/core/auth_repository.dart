@@ -27,8 +27,9 @@ class AuthRepository {
     }
   }
 
-  Future<Profile> login(String baseUrl, String login, String password) async {
+  Future<Profile> login(String baseUrl, String login, String password, {String? db}) async {
     await _storage.saveBaseUrl(baseUrl);
+    await _storage.saveDb(db);
     final device = await _deviceMeta();
     final data = await _api.post('/api/v1/auth/login', {
       'login': login.trim(),

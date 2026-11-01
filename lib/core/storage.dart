@@ -30,6 +30,24 @@ class AppStorage {
     await write('base_url', cleaned);
   }
 
+  String? _db;
+  bool _dbRead = false;
+
+  /// The database chosen at login, for servers that host more than one (null: the server decides).
+  Future<String?> db() async {
+    if (!_dbRead) {
+      _db = await _store.read(key: 'db_name');
+      _dbRead = true;
+    }
+    return _db;
+  }
+
+  Future<void> saveDb(String? value) async {
+    _db = (value == null || value.trim().isEmpty) ? null : value.trim();
+    _dbRead = true;
+    await write('db_name', _db);
+  }
+
   Future<String> deviceUid() async {
     var id = await _store.read(key: 'device_uid');
     if (id == null) {
