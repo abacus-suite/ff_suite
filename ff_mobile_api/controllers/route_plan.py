@@ -28,6 +28,12 @@ class FieldForceRoutePlanApi(http.Controller):
             # A route drawn in the app may still be waiting for the office.
             'approval_state': route.ff_approval_state,
             'added_by': ref(route.ff_created_by_employee_id) or {'id': 0, 'name': 'Office'},
+            'code': route.code or None,
+            'territory': ref(route.territory_id) if 'territory_id' in route._fields else None,
+            # Repeat on or off: a recurrent beat with weekdays repeats on them; without, it repeats on none.
+            'schedule': route.ff_schedule or None,
+            'weekdays': [int(d) for d in (route.ff_weekdays or '').split(',') if d],
+            'plan_dates': [d for d in (route.ff_plan_dates or '').split(',') if d],
         } for route in routes])
 
     @api_route('/api/v1/route-plan/customers', methods=('GET',))
@@ -117,13 +123,27 @@ class FieldForceRoutePlanApi(http.Controller):
         for territory in mine.sorted(lambda r: (r.name or '').lower()):
             partners = sorted(by_territory.get(territory.id, {}).values(), key=lambda p: (p.name or '').lower())
             is_sec = territory.id in secondary_ids
+            has_area = 'ff_area_id' in request.env['res.partner']._fields
+            counts = {}
+            for p in partners[:1000]:
+                if has_area and p.ff_area_id:
+                    counts[p.ff_area_id.id] = counts.get(p.ff_area_id.id, 0) + 1
+            areas = []
+            if 'ff.area' in request.env:
+                areas = [{'id': a.id, 'name': a.name, 'count': counts.get(a.id, 0)}
+                         for a in request.env['ff.area'].sudo().search([('territory_id', '=', territory.id)])]
+                areas.sort(key=lambda a: a['name'].lower())
             out.append({
                 'id': territory.id,
                 'name': territory.name,
                 'district_id': territory.district_id.id or None,
                 'is_secondary': is_sec,
                 'kind': 'secondary' if is_sec else 'primary',
+                # The Area master of this territory, with how many of its outlets sit in each (0 too).
+                'areas': areas,
+                'no_area_count': sum(1 for p in partners[:1000] if not (has_area and p.ff_area_id)),
                 'outlets': [{'id': p.id, 'name': p.name, 'city': p.city or None,
+                            'area': ref(p.ff_area_id) if has_area and p.ff_area_id else None,
                             'kind': getattr(p, 'ff_category_type', '') or 'outlet'} for p in partners[:1000]],
             })
         return ok(out)
@@ -155,6 +175,15 @@ class FieldForceRoutePlanApi(http.Controller):
         added = request.env['ff.beat'].ff_add_customers_from_app(
             employee, beat, data.get('partner_ids') or [])
         return ok(dict(beat.ff_app_payload(), added=len(added)), status=201)
+
+    @api_route('/api/v1/beats/<int:beat_id>/update', methods=('POST',))
+    def update_beat(self, employee, beat_id, **kw):
+        """Change a beat I drew: which customers are on it, and the weekdays it repeats on."""
+        beat = request.env['ff.beat'].sudo().browse(beat_id).exists()
+        if not beat:
+            raise ApiError('Route not found.', 404, 'not_found')
+        beat = request.env['ff.beat'].ff_update_from_app(employee, beat, body())
+        return ok(beat.ff_app_payload())
 
     @api_route('/api/v1/beats/<int:beat_id>/plans', methods=('GET',))
     def beat_plans(self, employee, beat_id, member=None, **kw):

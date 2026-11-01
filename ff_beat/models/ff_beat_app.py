@@ -186,6 +186,56 @@ class FfBeatApp(models.Model):
             beat._ff_send_back_for_approval(employee)
         return added
 
+    @api.model
+    def ff_update_from_app(self, employee, beat, data):
+        """The person who drew a beat changes its customers (add and take off) and its repeat weekdays.
+
+        No weekday, or ``repeat`` off, switches the repeat off. A change sends the beat back to the manager.
+        """
+        beat = beat.sudo()
+        if beat.ff_approval_state == 'rejected':
+            raise UserError(self.env._('%s was rejected; it cannot be changed.', beat.display_name))
+        if beat.ff_created_by_employee_id != employee:
+            raise AccessError(self.env._('Only the person who drew %s can change it.', beat.display_name))
+        changed = False
+
+        if data.get('partner_ids') is not None:
+            Partner = self.env['res.partner'].sudo()
+            wanted = {int(p) for p in data.get('partner_ids') or []}
+            current = beat.line_ids.partner_id
+            if not wanted:
+                raise UserError(self.env._('Keep at least one customer on this route.'))
+            new_ids = wanted - set(current.ids)
+            new = Partner.search(Partner._ff_visible_domain(employee) + [('id', 'in', list(new_ids))]) if new_ids else Partner
+            gone = beat.line_ids.filtered(lambda line: line.partner_id.id not in wanted)
+            if gone:
+                gone.unlink()
+                changed = True
+            sequence = max(beat.line_ids.mapped('sequence') or [0])
+            Line = self.env['ff.beat.line'].sudo()
+            for partner in new:
+                sequence += 10
+                Line.create({'beat_id': beat.id, 'partner_id': partner.id, 'sequence': sequence})
+                changed = True
+
+        if 'weekdays' in data or 'repeat' in data:
+            days = ','.join(sorted({str(int(d)) for d in (data.get('weekdays') or []) if str(d) in '0123456'}))
+            if data.get('repeat') is False:
+                days = ''
+            if days != (beat.ff_weekdays or ''):
+                vals = {'ff_weekdays': days or False}
+                if days and beat.ff_schedule != 'recurrent':
+                    vals['ff_schedule'] = 'recurrent'
+                beat.write(vals)
+                if not days:
+                    # Repeat switched off: the weekly template stops putting this beat on those days.
+                    self.env['ff.route.plan.template.line'].sudo().search([('beat_id', '=', beat.id)]).unlink()
+                changed = True
+
+        if changed:
+            beat._ff_send_back_for_approval(employee)
+        return beat
+
     def _ff_send_back_for_approval(self, employee):
         """An approved route that somebody edited waits for the manager again (Pending re-approval)."""
         self.ensure_one()
@@ -345,12 +395,18 @@ class FfBeatApp(models.Model):
         for beat in self.filtered(lambda b: b.ff_schedule == 'recurrent' and b.ff_weekdays):
             who = beat.employee_ids[:1] if (beat.employee_ids and beat.ff_created_by_employee_id not in beat.employee_ids) \
                 else beat.ff_created_by_employee_id
+            lines = [(0, 0, {'weekday': day, 'week': 'all', 'beat_id': beat.id})
+                     for day in beat.ff_weekdays.split(',') if day]
+            # A beat approved again after an edit renews its template rather than adding another.
+            old = Template.search([('employee_id', '=', who.id or False), ('line_ids.beat_id', '=', beat.id)], limit=1)
+            if old:
+                old.write({'line_ids': [(5, 0, 0)] + lines})
+                continue
             Template.create({
                 'name': '%s - %s' % (beat.display_name, who.name or ''),
                 'employee_id': who.id or False,
                 'company_id': beat.company_id.id or self.env.company.id,
-                'line_ids': [(0, 0, {'weekday': day, 'week': 'all', 'beat_id': beat.id})
-                             for day in beat.ff_weekdays.split(',') if day],
+                'line_ids': lines,
             })
 
     def ff_decide_from_app(self, employee, approve):
