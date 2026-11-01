@@ -21,10 +21,10 @@
     <menuitem id="menu_ff_masters_contacts" name="Contacts" parent="ff_base.menu_ff_masters" sequence="10"/>
     <menuitem id="menu_ff_masters_locations" name="Locations" parent="ff_base.menu_ff_masters" sequence="20"/>
     <menuitem id="menu_ff_masters_visits" name="Visits &amp; Routes" parent="ff_base.menu_ff_masters" sequence="30"/>
-    <menuitem id="menu_ff_masters_team" name="Team &amp; Organization" parent="ff_base.menu_ff_masters" sequence="40"/>
+    <menuitem id="menu_ff_masters_team" name="Region &amp; Organization" parent="ff_base.menu_ff_masters" sequence="40"/>
     <menuitem id="menu_ff_masters_products" name="Products &amp; Commercials" parent="ff_base.menu_ff_masters" sequence="50"/>
 
-    <menuitem id="menu_ff_teams" name="Teams" parent="ff_base.menu_ff_masters_team"
+    <menuitem id="menu_ff_teams" name="Regions" parent="ff_base.menu_ff_masters_team"
               action="ff_team_action" sequence="10"/>
     <menuitem id="menu_ff_config" name="Configuration" parent="menu_ff_root" sequence="100"
               groups="group_ff_admin"/>

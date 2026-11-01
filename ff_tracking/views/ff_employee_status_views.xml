@@ -74,7 +74,7 @@
                 <filter name="alerts" string="Needs Attention"
                         domain="[('punched_in', '=', True), '|', '|', '|', ('is_inactive', '=', True), ('is_signal_lost', '=', True), ('gps_on', '=', False), ('is_low_battery', '=', True)]"/>
                 <group>
-                    <filter name="group_team" string="Team" context="{'group_by': 'team_id'}"/>
+                    <filter name="group_team" string="Region" context="{'group_by': 'team_id'}"/>
                     <filter name="group_manager" string="Manager" context="{'group_by': 'manager_id'}"/>
                 </group>
             </search>

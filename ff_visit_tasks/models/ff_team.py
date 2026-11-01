@@ -6,5 +6,5 @@ class FfTeam(models.Model):
 
     ff_company_samples = fields.Boolean(
         string='Can Take Company Samples',
-        help='Staff on this team may collect samples from the company\'s own stock, which is an '
+        help='Staff in this region may collect samples from the company\'s own stock, which is an '
              'internal stock issue and creates no demand and no debit note.')

@@ -63,7 +63,7 @@ class FfDashboardTargets(models.AbstractModel):
             ],
             'rows': [dict({
                 'id': row['id'],
-                'level': {'company': 'Company', 'department': 'Department', 'team': 'Team'}.get(row['scope'], 'Employee'),
+                'level': {'company': 'Company', 'department': 'Department', 'team': 'Region'}.get(row['scope'], 'Employee'),
                 'employee': row['employee'],
                 'achievement': row['achievement'],
                 'incentive': self._fmt_target(row['incentive']['earned'], True) if row.get('incentive') else '–',

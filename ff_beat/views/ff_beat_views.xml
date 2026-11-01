@@ -119,7 +119,7 @@
                     <filter name="group_type" string="Route Type" context="{'group_by': 'route_type_id'}"/>
                     <filter name="group_state" string="State" context="{'group_by': 'state_id'}"/>
                     <filter name="group_district" string="City / District" context="{'group_by': 'district_id'}"/>
-                    <filter name="group_team" string="Team" context="{'group_by': 'team_id'}"/>
+                    <filter name="group_team" string="Region" context="{'group_by': 'team_id'}"/>
                     <filter name="group_approval" string="Approval" context="{'group_by': 'ff_approval_state'}"/>
                 </group>
                 <searchpanel>

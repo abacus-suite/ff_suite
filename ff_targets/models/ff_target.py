@@ -24,7 +24,7 @@ TARGET_FIELDS = [field for _key, field, _label, _money in METRICS]
 SCOPES = [
     ('company', 'Company'),
     ('department', 'Department'),
-    ('team', 'Team'),
+    ('team', 'Region'),
     ('employee', 'Employee'),
 ]
 
@@ -55,7 +55,7 @@ class FfTarget(models.Model):
                         help='Any day in the month; saved as its first day.')
     scope = fields.Selection(SCOPES, required=True, default='employee', index=True, tracking=True)
     employee_id = fields.Many2one('hr.employee', index=True, ondelete='cascade', tracking=True)
-    team_id = fields.Many2one('ff.team', string='Team', index=True, tracking=True,
+    team_id = fields.Many2one('ff.team', string='Region', index=True, tracking=True,
                               compute='_compute_org', store=True, readonly=False)
     department_id = fields.Many2one('hr.department', string='Department', index=True, tracking=True,
                                     compute='_compute_org', store=True, readonly=False)

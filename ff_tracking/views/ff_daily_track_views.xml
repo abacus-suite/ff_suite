@@ -51,7 +51,7 @@
                 <filter name="date" string="Date" date="date"/>
                 <group>
                     <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
-                    <filter name="group_team" string="Team" context="{'group_by': 'team_id'}"/>
+                    <filter name="group_team" string="Region" context="{'group_by': 'team_id'}"/>
                 </group>
             </search>
         </field>

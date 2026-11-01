@@ -113,7 +113,7 @@
                 <filter name="half_day" string="Half Day" domain="[('day_status', '=', 'half_day')]"/>
                 <group>
                     <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
-                    <filter name="group_team" string="Team" context="{'group_by': 'team_id'}"/>
+                    <filter name="group_team" string="Region" context="{'group_by': 'team_id'}"/>
                     <filter name="group_date" string="Day" context="{'group_by': 'date'}"/>
                     <filter name="group_status" string="Day Status" context="{'group_by': 'day_status'}"/>
                 </group>

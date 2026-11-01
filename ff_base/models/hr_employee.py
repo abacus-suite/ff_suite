@@ -38,7 +38,7 @@ class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
     ff_employee_code = fields.Char(string='Field Employee Code', copy=False, tracking=True)
-    ff_team_id = fields.Many2one('ff.team', string='Field Team', index=True, tracking=True)
+    ff_team_id = fields.Many2one('ff.team', string='Region', index=True, tracking=True)
     ff_designation_id = fields.Many2one('ff.designation', string='Field Designation', tracking=True)
     ff_tracking_enabled = fields.Boolean(
         string='Location Tracking', default=True,

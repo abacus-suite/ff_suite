@@ -36,7 +36,7 @@ class FfApprovalFlow(models.Model):
     # Narrow a flow to part of the organisation; the most specific one wins.
     department_ids = fields.Many2many('hr.department', string='Departments',
                                       help='Leave empty for every department.')
-    team_ids = fields.Many2many('ff.team', string='Teams', help='Leave empty for every team.')
+    team_ids = fields.Many2many('ff.team', string='Regions', help='Leave empty for every region.')
     employee_ids = fields.Many2many('hr.employee', string='Employees',
                                     help='Leave empty for everybody in the scope above.')
     min_amount = fields.Monetary(string='From Amount', help='Use this flow only above this amount. 0 = always.')

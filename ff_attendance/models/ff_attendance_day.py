@@ -25,7 +25,7 @@ class FfAttendanceDay(models.Model):
     _rec_name = 'employee_id'
 
     employee_id = fields.Many2one('hr.employee', string='Employee', readonly=True)
-    team_id = fields.Many2one('ff.team', string='Team', readonly=True)
+    team_id = fields.Many2one('ff.team', string='Region', readonly=True)
     company_id = fields.Many2one('res.company', string='Company', readonly=True)
     date = fields.Date(string='Day', readonly=True)
     first_check_in = fields.Datetime(string='First Check In', readonly=True)

@@ -132,7 +132,7 @@
                             <div class="ff_card h-100">
                                 <div class="ff_card_head">
                                     <div class="ff_card_icon"><i class="fa fa-sitemap"/></div>
-                                    <div class="ff_card_title">Teamwise Attendance</div>
+                                    <div class="ff_card_title">Regionwise Attendance</div>
                                     <button class="btn btn-link btn-sm ms-auto p-0" t-on-click="() => this.openSection('attendance')">
                                         View All
                                     </button>
@@ -149,7 +149,7 @@
                                         </div>
                                         <div class="ff_progress"><div t-attf-style="width: {{team.pct or 0}}%"/></div>
                                     </div>
-                                    <div t-if="!state.data.teams.length" class="text-muted small py-2">No teams yet.</div>
+                                    <div t-if="!state.data.teams.length" class="text-muted small py-2">No regions yet.</div>
                                 </div>
                             </div>
                         </div>
@@ -185,7 +185,7 @@
                                     <div class="ms-auto ff_search_box">
                                         <i class="fa fa-search"/>
                                         <input type="text" class="form-control form-control-sm"
-                                               placeholder="Search employee, code or team..." t-on-input="onSearch"/>
+                                               placeholder="Search employee, code or region..." t-on-input="onSearch"/>
                                     </div>
                                 </div>
                                 <div t-if="state.data.geocode_problem" class="ff_warn mb-2">
@@ -199,7 +199,7 @@
                                             <tr>
                                                 <th style="width: 40px;">#</th>
                                                 <th>Employee</th>
-                                                <th>Team</th>
+                                                <th>Region</th>
                                                 <th>Status</th>
                                                 <th>Last Location</th>
                                                 <th>Battery</th>
@@ -1047,7 +1047,7 @@
                                 t-att-value="row.id" t-att-selected="state.filters.department_id === row.id"
                                 t-esc="row.name"/>
                     </select>
-                    <span class="ff_filter_label ms-2">Team</span>
+                    <span class="ff_filter_label ms-2">Region</span>
                     <select class="form-select form-select-sm ff_mini_select"
                             t-on-change="(ev) => this.setFilter('team_id', ev)">
                         <option value="">All teams</option>

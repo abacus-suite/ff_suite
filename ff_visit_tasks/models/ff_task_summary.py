@@ -232,7 +232,7 @@ class FfTaskSummary(models.AbstractModel):
             sheet.write(0, 0, 'Daily Task Summary: All Employees', fmt['title'])
             sheet.write(1, 0, period, fmt['sub'])
             types = payload[0]['types']
-            heads = ['Employee', 'Team', 'Days worked', 'Total tasks'] + [t.name for t in types] + [
+            heads = ['Employee', 'Region', 'Days worked', 'Total tasks'] + [t.name for t in types] + [
                 'Contacts met', 'Samples taken', 'Samples given', 'Demands', 'Demand value', 'Collected']
             for index, label in enumerate(heads):
                 sheet.write(3, index, label, fmt['head'])
@@ -265,7 +265,7 @@ class FfTaskSummary(models.AbstractModel):
             employee = data['employee']
             sheet = book.add_worksheet(sheet_name(employee.name))
             sheet.write(0, 0, 'Daily Task Summary: %s' % employee.name, fmt['title'])
-            sheet.write(1, 0, '%s%s' % (period, '   |   Team: %s' % employee.ff_team_id.name if employee.ff_team_id else ''),
+            sheet.write(1, 0, '%s%s' % (period, '   |   Region: %s' % employee.ff_team_id.name if employee.ff_team_id else ''),
                         fmt['sub'])
             last, _totals = draw_days(sheet, 3, data)
             draw_tasks(sheet, last + 3, data)
@@ -298,7 +298,7 @@ class FfTaskSummaryWizard(models.TransientModel):
     who = fields.Selection([('all', 'All employees'), ('selected', 'Chosen employees')], default='all', required=True,
                            string='Employees')
     employee_ids = fields.Many2many('hr.employee', string='Choose Employees')
-    team_id = fields.Many2one('ff.team', string='Only This Team')
+    team_id = fields.Many2one('ff.team', string='Only This Region')
 
     @api.onchange('period')
     def _onchange_period(self):

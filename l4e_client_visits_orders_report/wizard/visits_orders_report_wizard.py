@@ -22,8 +22,8 @@ class VisitsOrdersReportWizard(models.TransientModel):
         'visits_orders_report_wizard_team_rel',
         'wizard_id',
         'team_id',
-        string='Teams',
-        help='Optional: Filter visits by field teams. Leave empty for all teams.',
+        string='Regions',
+        help='Optional: Filter visits by region. Leave empty for all regions.',
     )
     employee_ids = fields.Many2many(
         'hr.employee',

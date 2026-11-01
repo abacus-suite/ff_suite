@@ -31,7 +31,7 @@ class ResPartner(models.Model):
     ff_district_ids = fields.Many2many(
         'ff.district', compute='_compute_ff_district_ids', string='All Cities / Districts')
     ff_client_code = fields.Char(string='Client Code', index=True, copy=False)
-    ff_team_ids = fields.Many2many('ff.team', string='Teams', help='Informational grouping of the contact.')
+    ff_team_ids = fields.Many2many('ff.team', string='Regions', help='Informational grouping of the contact.')
     ff_geofence_radius = fields.Integer(string='Geofence Radius (m)',
                                         help='0 = use the default radius from Field Force settings.')
     ff_approval_state = fields.Selection(APPROVAL_STATES, string='Contact Approval',

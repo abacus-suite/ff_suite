@@ -14,7 +14,7 @@ class FfBeat(models.Model):
     name = fields.Char(required=True, tracking=True)
     code = fields.Char()
     route_type_id = fields.Many2one('ff.route.type', string='Route Type', index=True, tracking=True)
-    team_id = fields.Many2one('ff.team', string='Team', tracking=True)
+    team_id = fields.Many2one('ff.team', string='Region', tracking=True)
     country_id = fields.Many2one('res.country', string='Country')
     state_id = fields.Many2one('res.country.state', string='State', domain="[('country_id', '=?', country_id)]")
     district_id = fields.Many2one('ff.district', string='City / District', index=True,

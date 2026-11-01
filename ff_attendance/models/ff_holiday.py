@@ -19,7 +19,7 @@ class FfHoliday(models.Model):
     date = fields.Date(required=True, index=True)
     team_ids = fields.Many2many(
         'ff.team', 'ff_holiday_team_rel', 'holiday_id', 'team_id', string='Regions',
-        help='The teams this holiday applies to, and their sub teams. Leave empty for everybody.')
+        help='The regions this holiday applies to, and their sub regions. Leave empty for everybody.')
     company_id = fields.Many2one('res.company', required=True, default=lambda self: self.env.company)
     active = fields.Boolean(default=True)
 
