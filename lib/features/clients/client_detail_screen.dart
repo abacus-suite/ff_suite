@@ -687,9 +687,10 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
               ],
             ),
             const SizedBox(height: 10),
-            if (asText(c['address']) != null || asText(c['city']) != null)
-              _infoRow(Icons.location_on_rounded, asText(c['city']) ?? '${c['address']}',
-                  asText(c['address']) ?? ''),
+            if (_fullAddress(c) != null)
+              _infoRow(Icons.location_on_rounded, _fullAddress(c)!, 'Address', fullTitle: true),
+            if (_territoryName(c) != null) _infoRow(Icons.map_rounded, _territoryName(c)!, 'Territory'),
+            if (_areaName(c) != null) _infoRow(Icons.pin_drop_rounded, _areaName(c)!, 'Area'),
             if (asText(c['phone']) != null)
               _infoRow(Icons.call_rounded, '${c['phone']}', '',
                   trailing: IconButton(
@@ -811,7 +812,30 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     );
   }
 
-  Widget _infoRow(IconData icon, String title, String subtitle, {Widget? trailing}) => Container(
+  /// The whole address, once: the address if there is one, else the city text; never the same words twice.
+  static String? _fullAddress(Map<String, dynamic> c) {
+    final address = asText(c['address']);
+    final city = asText(c['city']);
+    if (address == null) return city;
+    if (city == null || address.toLowerCase().contains(city.toLowerCase())) return address;
+    return '$address, $city';
+  }
+
+  static String? _territoryName(Map<String, dynamic> c) {
+    final t = c['territory'];
+    return t is Map ? asText(t['name']) : asText(t);
+  }
+
+  /// The Area master when the server sends it, else the area it works out from the district or city.
+  static String? _areaName(Map<String, dynamic> c) {
+    final master = c['area_master'];
+    if (master is Map) return asText(master['name']);
+    if (c.containsKey('area_master')) return null;
+    final area = c['area'];
+    return area is Map ? asText(area['name']) : asText(area) ?? asText(c['city']);
+  }
+
+  Widget _infoRow(IconData icon, String title, String subtitle, {Widget? trailing, bool fullTitle = false}) => Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(14)),
@@ -830,13 +854,13 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: fullTitle ? null : 1,
+                      overflow: fullTitle ? TextOverflow.visible : TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
                   if (subtitle.isNotEmpty)
                     Text(subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: fullTitle ? null : 1,
+                        overflow: fullTitle ? TextOverflow.visible : TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 12, color: AppColors.muted)),
                 ],
               ),
