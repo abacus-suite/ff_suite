@@ -65,7 +65,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   /// An area inside the chosen territory (the outlet's area, else its city).
   String? _area;
-  int? _beatId;
+  final Set<int> _beatIds = {};
+  int? _areaId;
   String _group = 'none';
   List<Map<String, dynamic>> _territories = [];
   List<Map<String, dynamic>> _beats = [];
@@ -178,8 +179,12 @@ class _ClientsScreenState extends State<ClientsScreen> {
     if (_categoryId != null) query['category_id'] = _categoryId;
     if (_neverVisited) query['never_visited'] = 1;
     if (_territoryId != null) query['territory_id'] = _territoryId;
-    if (_area != null) query['area'] = _area;
-    if (_beatId != null) query['beat_id'] = _beatId;
+    if (_areaId != null) {
+      query['area_id'] = _areaId;
+    } else if (_area != null) {
+      query['area'] = _area;
+    }
+    if (_beatIds.isNotEmpty) query['beat_ids'] = _beatIds.join(',');
     if (_member != 'me') query['member'] = _member;
     final catType = widget.categoryType ?? (_kind != 'all' && _kind != 'never' ? _kind : null);
     if (catType != null) {
@@ -477,7 +482,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   /// The filter beside the search: Territory, with Area inside (and beat / group by below them).
   Widget _territoryButton(BoxDecoration box) {
-    final on = _territoryId != null || _area != null || _beatId != null || _group != 'none';
+    final on = _territoryId != null || _area != null || _beatIds.isNotEmpty || _group != 'none';
     final label = _area ?? (_territory == null ? 'Territory' : '${_territory!['name']}');
     return Material(
       color: Colors.transparent,
@@ -526,6 +531,16 @@ class _ClientsScreenState extends State<ClientsScreen> {
     return names.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
   }
 
+  /// The master id of an area the server sent for this territory (null for one worked out from the outlets).
+  int? _areaIdOf(Map<String, dynamic>? territory, String? name) {
+    final sent = territory?['areas'];
+    if (name == null || sent is! List) return null;
+    for (final a in sent) {
+      if (a is Map && asText(a['name']) == name) return (a['id'] as num?)?.toInt();
+    }
+    return null;
+  }
+
   /// The loaded list narrowed to the chosen area, in case the server does not filter by area yet.
   List<Map<String, dynamic>> get _shownClients =>
       _area == null ? _clients : _clients.where((c) => outletArea(c) == _area).toList();
@@ -567,105 +582,245 @@ class _ClientsScreenState extends State<ClientsScreen> {
     }
   }
 
-  /// Narrow the list to a territory (primary or secondary) or a beat, and group it by either.
+  /// Narrow the list to a territory, an area and one or more beats, and group it.
   Future<void> _openFilterSheet() async {
     if (_territories.isEmpty && _beats.isEmpty) await _loadFilterLists();
     if (!mounted) return;
-    var findTerritory = '';
     await showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (sheet) => StatefulBuilder(
         builder: (context, setSheet) {
-          Widget chips<T>(List<(String, T?)> items, T? current, void Function(T?) onPick) => Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  for (final (label, value) in items)
-                    ChoiceChip(
-                      label: Text(label),
-                      selected: current == value,
-                      onSelected: (_) {
-                        onPick(value);
-                        setSheet(() {});
-                      },
-                    ),
-                ],
-              );
           final beats = _beats.where((b) => _territoryId == null || b['territory_id'] == _territoryId).toList();
-          final needle = findTerritory.toLowerCase();
-          final territories = _territories.where((t) => needle.isEmpty || territoryLabel(t).toLowerCase().contains(needle)).toList();
           final areas = _areasOf(_territory);
+
+          Widget heading(IconData icon, String text) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(children: [
+                  Icon(icon, size: 22, color: AppColors.muted),
+                  const SizedBox(width: 12),
+                  Text(text, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                ]),
+              );
+
+          Widget field({required Widget child, VoidCallback? onTap}) => InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: onTap,
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 54),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: child,
+                ),
+              );
+
+          Widget dropdown<T>({
+            required T? value,
+            required List<DropdownMenuItem<T>> items,
+            required String hint,
+            required void Function(T?) onChanged,
+          }) =>
+              field(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<T>(
+                    value: value,
+                    isExpanded: true,
+                    hint: Text(hint, style: const TextStyle(color: AppColors.muted)),
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.muted),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
+                    items: items,
+                    onChanged: items.isEmpty ? null : (v) => setSheet(() => onChanged(v)),
+                  ),
+                ),
+              );
+
+          Widget groupOption(String label, String value) {
+            final on = _group == value;
+            return Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => setSheet(() => _group = value),
+                child: Container(
+                  height: 52,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: on ? AppColors.primary : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: on ? AppColors.primary : AppColors.border),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    if (on) const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.check_rounded, color: Colors.white, size: 20)),
+                    Text(label,
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: on ? Colors.white : Colors.black87)),
+                  ]),
+                ),
+              ),
+            );
+          }
+
           return SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Territory', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                if (_territories.length > 6) ...[
-                  const SizedBox(height: 8),
-                  TextField(
-                    onChanged: (v) => setSheet(() => findTerritory = v.trim()),
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.search_rounded),
-                      hintText: 'Search District / Territory…',
-                      isDense: true,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Container(
+                  color: AppColors.primary.withValues(alpha: 0.05),
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                  child: Column(children: [
+                    Container(
+                      width: 44,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(color: AppColors.muted.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(2)),
                     ),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                chips<int>([
-                  ('All', null),
-                  for (final t in territories)
-                    ('${territoryLabel(t)}${t['kind'] == 'secondary' ? ' (secondary)' : t['kind'] == 'other' ? ' (team / beat)' : ''}', t['id'] as int),
-                ], _territoryId, (v) {
-                  if (v != _territoryId) _area = null;
-                  _territoryId = v;
-                  if (_beatId != null && beats.every((b) => b['id'] != _beatId)) _beatId = null;
-                }),
-                if (_territoryId != null) ...[
-                  const SizedBox(height: 16),
-                  const Text('Area', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                  const SizedBox(height: 8),
-                  if (areas.isEmpty)
-                    const Text('No areas for this territory yet.', style: TextStyle(color: AppColors.muted, fontSize: 12.5))
-                  else
-                    chips<String>([('All', null), for (final a in areas) (a, a)], _area, (v) => _area = v),
-                ],
-                const SizedBox(height: 16),
-                const Text('Beat', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                const SizedBox(height: 8),
-                chips<int>([
-                  ('All', null),
-                  for (final b in beats) ('${b['name']}', b['id'] as int),
-                ], _beatId, (v) => _beatId = v),
-                const SizedBox(height: 16),
-                const Text('Group by', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                const SizedBox(height: 8),
-                chips<String>(const [
-                  ('None', 'none'),
-                  ('Territory', 'territory'),
-                  ('Beat', 'beat'),
-                ], _group, (v) => _group = v ?? 'none'),
-                const SizedBox(height: 18),
-                Row(children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        _territoryId = null;
-                        _area = null;
-                        _beatId = null;
-                        _group = 'none';
-                        setSheet(() {});
+                    Row(children: [
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(15)),
+                        child: const Icon(Icons.filter_alt_rounded, color: AppColors.primary, size: 26),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Filter Clients', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 21)),
+                          Text('Refine the list with your criteria', style: TextStyle(color: AppColors.muted, fontSize: 14)),
+                        ]),
+                      ),
+                      InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => Navigator.pop(sheet),
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                              shape: BoxShape.circle, color: Colors.white, border: Border.all(color: AppColors.border)),
+                          child: const Icon(Icons.close_rounded),
+                        ),
+                      ),
+                    ]),
+                  ]),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    heading(Icons.location_on_outlined, 'Territory'),
+                    dropdown<int>(
+                      value: _territoryId,
+                      hint: 'All territories',
+                      items: [
+                        for (final t in _territories)
+                          DropdownMenuItem(
+                            value: t['id'] as int,
+                            child: Text(
+                                '${territoryLabel(t)}${t['kind'] == 'secondary' ? ' (secondary)' : t['kind'] == 'other' ? ' (team / beat)' : ''}',
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      onChanged: (v) {
+                        if (v != _territoryId) {
+                          _area = null;
+                          _areaId = null;
+                          _beatIds.clear();
+                        }
+                        _territoryId = v;
                       },
-                      child: const Text('Clear'),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(onPressed: () => Navigator.pop(sheet), child: const Text('Apply')),
-                  ),
-                ]),
+                    const SizedBox(height: 22),
+                    heading(Icons.map_outlined, 'Area'),
+                    dropdown<String>(
+                      value: areas.contains(_area) ? _area : null,
+                      hint: _territoryId == null
+                          ? 'Choose a territory first'
+                          : (areas.isEmpty ? 'No areas for this territory yet' : 'All areas'),
+                      items: [for (final a in areas) DropdownMenuItem(value: a, child: Text(a, overflow: TextOverflow.ellipsis))],
+                      onChanged: (v) {
+                        _area = v;
+                        _areaId = _areaIdOf(_territory, v);
+                      },
+                    ),
+                    const SizedBox(height: 22),
+                    heading(Icons.route_outlined, 'Beat'),
+                    field(
+                      onTap: beats.isEmpty ? null : () => _pickBeats(beats, setSheet),
+                      child: Row(children: [
+                        Expanded(
+                          child: _beatIds.isEmpty
+                              ? Text(beats.isEmpty ? 'No beats' : 'All beats',
+                                  style: const TextStyle(color: AppColors.muted, fontSize: 16))
+                              : Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  child: Wrap(spacing: 8, runSpacing: 6, children: [
+                                    for (final id in _beatIds)
+                                      Container(
+                                        padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
+                                        decoration: BoxDecoration(
+                                            color: AppColors.primary.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(10)),
+                                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                          Text(
+                                              '${_beats.firstWhere((b) => b['id'] == id, orElse: () => {'name': '#$id'})['name']}',
+                                              style: const TextStyle(
+                                                  color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 15)),
+                                          const SizedBox(width: 6),
+                                          InkWell(
+                                            onTap: () => setSheet(() => _beatIds.remove(id)),
+                                            child: const Icon(Icons.close_rounded, size: 20, color: AppColors.primary),
+                                          ),
+                                        ]),
+                                      ),
+                                  ]),
+                                ),
+                        ),
+                        const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.muted),
+                      ]),
+                    ),
+                    const SizedBox(height: 22),
+                    heading(Icons.grid_view_rounded, 'Group by'),
+                    Row(children: [
+                      groupOption('None', 'none'),
+                      const SizedBox(width: 10),
+                      groupOption('Territory', 'territory'),
+                      const SizedBox(width: 10),
+                      groupOption('Beat', 'beat'),
+                    ]),
+                  ]),
+                ),
+                const Divider(height: 28),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Row(children: [
+                    Expanded(
+                      flex: 4,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(56),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: () => setSheet(() {
+                          _territoryId = null;
+                          _area = null;
+                          _areaId = null;
+                          _beatIds.clear();
+                          _group = 'none';
+                        }),
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Clear All', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 5,
+                      child: GradientButton(label: 'Apply Filter', icon: Icons.check_rounded, onPressed: () => Navigator.pop(sheet)),
+                    ),
+                  ]),
+                ),
               ]),
             ),
           );
@@ -676,6 +831,35 @@ class _ClientsScreenState extends State<ClientsScreen> {
       setState(() {});
       _load();
     }
+  }
+
+  /// Tick one or more beats.
+  Future<void> _pickBeats(List<Map<String, dynamic>> beats, StateSetter setSheet) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialog) => StatefulBuilder(
+        builder: (context, setDialog) => AlertDialog(
+          title: const Text('Select beats'),
+          contentPadding: const EdgeInsets.only(top: 8),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(shrinkWrap: true, children: [
+              for (final b in beats)
+                CheckboxListTile(
+                  value: _beatIds.contains(b['id']),
+                  title: Text('${b['name']}'),
+                  onChanged: (on) => setDialog(() => on == true ? _beatIds.add(b['id'] as int) : _beatIds.remove(b['id'])),
+                ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => setDialog(_beatIds.clear), child: const Text('Clear')),
+            FilledButton(onPressed: () => Navigator.pop(dialog), child: const Text('Done')),
+          ],
+        ),
+      ),
+    );
+    setSheet(() {});
   }
 
   /// One of the filter choices: a kind of contact, everybody, or those never visited.
