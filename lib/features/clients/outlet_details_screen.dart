@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../orders/commercials.dart';
-import '../tasks/onboard_screen.dart' show schemeLabel;
 
 /// Outlet details, from the "i" on the outlet screen: everything known about the outlet, view only.
 /// Changes are made by the office, so there is no edit here.
@@ -94,8 +93,12 @@ class OutletDetailsScreen extends StatelessWidget {
     final c = client;
     final ob = _ob;
     final comm = Commercials.from(c['commercials']) ?? Commercials.from(c);
-    // Scheme is read as a percentage; the margin too.
-    final scheme = _option(ob['scheme']) != null ? schemeLabel(_option(ob['scheme'])) : (comm?.scheme == null ? null : '${fmtQty(comm!.scheme!)}%');
+    // The scheme is an amount with the company's currency symbol; the margin is a percentage.
+    final symbol = asText(ob['currency_symbol']) ?? '₹';
+    final schemeValue = ob['scheme'] is Map ? (ob['scheme'] as Map)['value'] : null;
+    final scheme = schemeValue is num && schemeValue > 0
+        ? '$symbol${fmtQty(schemeValue)}'
+        : (comm?.scheme == null ? null : '$symbol${fmtQty(comm!.scheme!)}');
     final margin = ob['margin'] is num && (ob['margin'] as num) != 0
         ? '${fmtQty(ob['margin'] as num)}%'
         : (comm?.margin == null ? null : '${fmtQty(comm!.margin!)}%');

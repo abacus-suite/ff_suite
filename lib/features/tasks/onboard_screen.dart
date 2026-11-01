@@ -15,10 +15,14 @@ final _email = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 final _phone = RegExp(r'^[0-9]{10}$');
 final _pin = RegExp(r'\b[0-9]{6}\b');
 
-/// A scheme option as people read it: a plain number is a percentage.
-String schemeLabel(Object? name) {
-  final text = '$name'.trim();
-  return RegExp(r'^\d+(\.\d+)?$').hasMatch(text) ? '$text%' : text;
+/// A scheme as people read it: its amount with the company's currency symbol (₹30). When the option's name
+/// says more than the number, the name follows.
+String schemeText(Map<String, dynamic> option, String symbol) {
+  final value = option['value'];
+  final name = '${option['name']}'.trim();
+  if (value is! num || value <= 0) return name;
+  final amount = '$symbol${fmtQty(value)}';
+  return RegExp(r'^\d+(\.\d+)?$').hasMatch(name) ? amount : '$amount · $name';
 }
 
 /// A lead that said yes becomes an outlet or a distributor, here, in four steps: GST and billing, the delivery
@@ -66,6 +70,9 @@ class _OnboardScreenState extends State<OnboardScreen> {
   // Step 4
   bool? _swiggy;
   bool? _zomato;
+
+  /// The company's currency symbol, sent with the options.
+  String _currency = '₹';
 
   bool _busy = false;
   bool _saved = false;
@@ -169,7 +176,12 @@ class _OnboardScreenState extends State<OnboardScreen> {
     _restore().then((_) => _loadPlaces());
     _startAutosave();
     Services.api.get('/api/v1/onboarding/options').then((d) {
-      if (mounted) setState(() => _options = d as Map<String, dynamic>);
+      if (!mounted) return;
+      setState(() {
+        _options = d as Map<String, dynamic>;
+        final symbol = asText(_options['currency_symbol']);
+        if (symbol != null) _currency = symbol;
+      });
     }).catchError((_) {});
     if (_v('zip').length == 6) _lookupPin();
   }
@@ -224,6 +236,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
       final territory = _idOf(c['territory']);
       if (_territoryId == null && territory != null && _territories.any((t) => t['id'] == territory)) _territoryId = territory;
       _districtId ??= _idOf(c['district']) ?? _districtOfTerritory(_territoryId);
+      _mrp ??= _territoryMrp(_territoryId);
       final area = _idOf(c['area_master']);
       if (_areaId == null && area != null && _areaOptions().any((a) => a['id'] == area)) _areaId = area;
       final region = _idOf(c['region']) ?? mineId;
@@ -234,6 +247,12 @@ class _OnboardScreenState extends State<OnboardScreen> {
 
   int? _districtOfTerritory(int? territoryId) =>
       (_territories.where((t) => t['id'] == territoryId).firstOrNull?['district_id'] as num?)?.toInt();
+
+  /// The MRP set on a territory (its code), so the MRP is chosen by itself when somebody is onboarded there.
+  String? _territoryMrp(int? territoryId) {
+    final mrp = _territories.where((t) => t['id'] == territoryId).firstOrNull?['mrp'];
+    return mrp is Map ? asText(mrp['code']) : null;
+  }
 
   /// The areas of the chosen territory, A to Z.
   List<Map<String, dynamic>> _areaOptions() {
@@ -248,6 +267,8 @@ class _OnboardScreenState extends State<OnboardScreen> {
       _territoryId = id;
       final city = _districtOfTerritory(id);
       if (city != null) _districtId = city;
+      final mrp = _territoryMrp(id);
+      if (mrp != null) _mrp = mrp;
       if (!_areaOptions().any((a) => a['id'] == _areaId)) _areaId = null;
     });
   }
@@ -344,7 +365,9 @@ class _OnboardScreenState extends State<OnboardScreen> {
         if (!_outlet) {
           if (_v('accounts_poc_name').isEmpty) bad.add('Accounts POC name');
           if (!_phone.hasMatch(_v('accounts_poc_phone'))) bad.add('Accounts POC contact number: 10 digits');
-          if (!_email.hasMatch(_v('accounts_poc_email'))) bad.add('Accounts email: enter a valid email');
+          if (_v('accounts_poc_email').isNotEmpty && !_email.hasMatch(_v('accounts_poc_email'))) {
+            bad.add('Accounts email: not a valid email');
+          }
         }
         if (_swiggy == null) bad.add('Swiggy: yes or no');
         if (_zomato == null) bad.add('Zomato: yes or no');
@@ -387,6 +410,9 @@ class _OnboardScreenState extends State<OnboardScreen> {
               'gst_name': _v('gst_name'),
               'billing_address': _v('billing_address'),
               'street': [_v('door'), _v('street_name')].where((e) => e.isNotEmpty).join(', '),
+              'door_no': _v('door'),
+              'street_name': _v('street_name'),
+              'delivery_same': _sameAsBilling,
               'street2': area,
               'city': city,
               'zip': _v('zip'),
@@ -621,7 +647,8 @@ class _OnboardScreenState extends State<OnboardScreen> {
             (v) => setState(() => _category = v)),
         if (_categoryNeedsNote) _field('outlet_category_note', 'Describe the category', required: true),
       ],
-      _drop('MRP', [for (final o in _list('mrp')) ('${o['code']}', '${o['name']}')], _mrp, (v) => setState(() => _mrp = v)),
+      _drop('MRP', [for (final o in _list('mrp')) ('${o['code']}', '${o['name']}')], _mrp, (v) => setState(() => _mrp = v),
+          helper: _mrp != null && _mrp == _territoryMrp(_territoryId) ? 'From the territory' : null),
       if (_outlet)
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
@@ -672,7 +699,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
       _readOnly('Geo location', 'From New Lead creation', tag: 'auto'),
       const SizedBox(height: 4),
       _label('Commercials', required: true),
-      _drop('Scheme', [for (final o in _list('schemes')) ('${o['code']}', schemeLabel(o['name']))], _scheme,
+      _drop('Scheme', [for (final o in _list('schemes')) ('${o['code']}', schemeText(o, _currency))], _scheme,
           (v) => setState(() => _scheme = v)),
       _field('credit_days', 'Credit days', required: true, type: TextInputType.number),
       _field('margin', 'Margin %', required: true, type: const TextInputType.numberWithOptions(decimal: true)),
@@ -696,7 +723,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
         if (!_outlet) ...[
           _field('accounts_poc_name', 'Accounts POC name', required: true),
           _field('accounts_poc_phone', 'Accounts POC contact no.', required: true, type: TextInputType.phone, maxLength: 10),
-          _field('accounts_poc_email', 'Accounts email', required: true, type: TextInputType.emailAddress),
+          _field('accounts_poc_email', 'Accounts email (optional)', type: TextInputType.emailAddress),
         ],
         _label('Swiggy', required: true),
         _yesNo(_swiggy, (v) => setState(() => _swiggy = v)),
