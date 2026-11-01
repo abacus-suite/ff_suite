@@ -284,14 +284,22 @@ class FieldForceClientsApi(http.Controller):
             others = (team.mapped('ff_territory_ids') | team.mapped('ff_secondary_territory') |
                       beats.mapped('territory_id')) - mine
         beats = beats | (mine | others).mapped('beat_ids') if (mine or others) else beats
+        # The Area master of each territory, so the filter lists the real areas (empty ones too).
+        areas = {}
+        if 'ff.area' in request.env:
+            for area in request.env['ff.area'].sudo().search([('territory_id', 'in', (mine | others).ids)]):
+                areas.setdefault(area.territory_id.id, []).append({'id': area.id, 'name': area.name})
+
+        def territory_row(t, kind):
+            return {'id': t.id, 'name': t.name, 'kind': kind, 'areas': areas.get(t.id, [])}
+
         return ok({
-            'territories': [{'id': t.id, 'name': t.name, 'kind': 'primary'} for t in primary.sorted('name')] +
-                           [{'id': t.id, 'name': t.name, 'kind': 'secondary'}
-                            for t in secondary.sorted('name') if t not in primary] +
-                           [{'id': t.id, 'name': t.name, 'kind': 'other'} for t in others.sorted('name')],
+            'territories': [territory_row(t, 'primary') for t in primary.sorted(lambda r: (r.name or '').lower())] +
+                           [territory_row(t, 'secondary') for t in secondary.sorted(lambda r: (r.name or '').lower()) if t not in primary] +
+                           [territory_row(t, 'other') for t in others.sorted(lambda r: (r.name or '').lower())],
             'beats': [{'id': b.id, 'name': b.name,
                        'territory_id': b.territory_id.id if 'territory_id' in b._fields and b.territory_id else None}
-                      for b in beats.sorted('name')],
+                      for b in beats.sorted(lambda r: (r.name or '').lower())],
         })
 
     @api_route('/api/v1/clients', methods=('GET',))
@@ -310,6 +318,8 @@ class FieldForceClientsApi(http.Controller):
                 domain += ['|', ('ff_territory_id', '=', tid), ('ff_beat_line_ids.beat_id.territory_id', '=', tid)]
             else:
                 domain += [('ff_beat_line_ids.beat_id.territory_id', '=', tid)]
+        if kw.get('area_id') and 'ff_area_id' in Partner._fields:
+            domain.append(('ff_area_id', '=', to_int(kw['area_id'])))
         district_id = kw.get('district_id') or kw.get('city_id')
         if district_id:
             did = to_int(district_id)
@@ -321,6 +331,9 @@ class FieldForceClientsApi(http.Controller):
                 domain += ['|', ('ff_district_id', '=', did), ('ff_beat_line_ids.beat_id.district_id', '=', did)]
         if beat_id:
             domain.append(('ff_beat_line_ids.beat_id', '=', to_int(beat_id)))
+        beat_ids = [to_int(x) for x in str(kw.get('beat_ids') or '').split(',') if to_int(x)]
+        if beat_ids:
+            domain.append(('ff_beat_line_ids.beat_id', 'in', beat_ids))
         if never_visited in ('1', 'true', 'True', 1, True):
             domain.append(('ff_last_visit_at', '=', False))
         if q:
@@ -600,7 +613,7 @@ class FieldForceClientsApi(http.Controller):
         # The beats the contact access rule gives this person: the same list planning and check-in use.
         own = employee.sudo().ff_route_ids
         routes = request.env['ff.beat'].ff_beats_for(employee)
-        routes = routes.sorted(lambda route: (route not in own, route.display_name))
+        routes = routes.sorted(lambda route: (route.display_name or '').lower())
         return ok([{
             'id': route.id,
             'name': route.name,

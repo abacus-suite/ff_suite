@@ -7,8 +7,8 @@
               action="ff_beat_plan_action" sequence="10"/>
     <menuitem id="menu_ff_planned_visits" name="Planned Visits" parent="menu_ff_beat"
               action="ff_route_plan_customer_action" sequence="15"/>
-    <menuitem id="menu_ff_beats" name="Routes" parent="ff_base.menu_ff_masters_visits"
-              action="ff_beat_action" sequence="10"/>
+    <menuitem id="menu_ff_beats" name="Routes" parent="ff_base.menu_ff_masters_locations"
+              action="ff_beat_action" sequence="30"/>
     <menuitem id="menu_ff_plan_templates" name="Plan Templates" parent="ff_base.menu_ff_masters_visits"
               action="ff_route_plan_template_action" sequence="20" groups="ff_base.group_ff_manager"/>
     <menuitem id="menu_ff_beat_assign" name="Plan Routes" parent="menu_ff_beat"

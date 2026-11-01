@@ -118,8 +118,9 @@ def client_data(partner, lat=None, lng=None):
         'onboard_pending': getattr(partner, 'ff_status', None) == 'onboard_pending',
         'onboarded': getattr(partner, 'ff_status', None) == 'onboarded',
         'city': partner.city or None,
-        # The area filter of the outlet lists: the contact's City / District, else the city typed on it.
-        'area': (ref(partner.ff_district_id) if partner.ff_district_id else None) or partner.city or None,
+        # The area filter of the outlet lists: the contact's Area, else its City / District, else the city typed on it.
+        'area': (ref(partner.ff_area_id) if 'ff_area_id' in partner._fields and partner.ff_area_id else None)
+                or (ref(partner.ff_district_id) if partner.ff_district_id else None) or partner.city or None,
         'zip': partner.zip or None,
         'street': partner.street or None,
         'distance_m': int(haversine_m(lat, lng, partner.partner_latitude, partner.partner_longitude))

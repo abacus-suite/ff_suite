@@ -4,7 +4,7 @@ from odoo import api, fields, models
 class FfDistrict(models.Model):
     _name = 'ff.district'
     _description = 'City / District'
-    _order = 'country_id, state_id, name'
+    _order = 'name'
 
     name = fields.Char(required=True)
     code = fields.Char()
