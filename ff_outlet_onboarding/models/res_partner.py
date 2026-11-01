@@ -324,6 +324,26 @@ class ResPartner(models.Model):
             limit=1) if data.get('district') else self.env['ff.district']
         if district:
             values['ff_district_id'] = district.id
+        # Where it sits, as chosen in the app (each one a dropdown there): region, territory, city and area.
+        Partner = self.env['res.partner']
+        region = self.env['ff.team'].sudo().browse(int(data.get('region_id') or 0)).exists()
+        if region and 'ff_team_ids' in Partner._fields:
+            values['ff_team_ids'] = [(4, region.id)]
+        territory = self.env['ff.territory'].sudo().browse(int(data.get('territory_id') or 0)).exists() \
+            if 'ff.territory' in self.env else None
+        if territory and 'ff_territory_id' in Partner._fields:
+            values['ff_territory_id'] = territory.id
+        area = self.env['ff.area'].sudo().browse(int(data.get('area_id') or 0)).exists() if 'ff.area' in self.env else None
+        if area and 'ff_area_id' in Partner._fields:
+            values['ff_area_id'] = area.id
+            if not territory and 'ff_territory_id' in Partner._fields:
+                values['ff_territory_id'] = area.territory_id.id
+        city = self.env['ff.district'].sudo().browse(int(data.get('district_id') or 0)).exists()
+        if city:
+            values['ff_district_id'] = city.id
+            values.setdefault('state_id', city.state_id.id)
+            values.setdefault('country_id', city.country_id.id)
+            values['city'] = values.get('city') or city.name
         try:
             values['ff_credit_days'] = int(data.get('credit_days'))
             values['ff_margin'] = float(data.get('margin'))
