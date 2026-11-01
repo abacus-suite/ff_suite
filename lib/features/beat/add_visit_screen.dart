@@ -11,8 +11,9 @@ import '../../widgets/common.dart';
 import 'added_visits.dart';
 import 'create_beat_screen.dart' show outletArea, territoryLabel;
 
-/// "Near" is within this many metres of the phone.
-const _nearMetres = 25000.0;
+/// "Near" starts at this many kilometres from the phone; the person changes it in the filter and it is kept.
+const _defaultRadiusKm = 5.0;
+const _radiusKey = 'add_visit_radius_km';
 
 /// One group of the list: its name and the clients in it.
 class _VGroup {
@@ -24,8 +25,9 @@ class _VGroup {
 }
 
 /// Add a Visit: tick one or more outlets, distributors or leads that are not in today's beat and add them to today.
-/// The list is in two collapsed groups, Within 25 km and Others, each client with its distance; it can be
-/// searched, narrowed to those near, filtered by category, territory, area and beat, and grouped by any of them.
+/// The list is in two collapsed groups, Within 5 km (the distance is the person's to set in the filter) and Others,
+/// each client with its distance; it can be searched, narrowed to those near, filtered by category, territory,
+/// area and beat, and grouped by any of them.
 /// Returns true when something was added.
 class AddVisitScreen extends StatefulWidget {
   const AddVisitScreen({super.key, this.skipIds = const {}});
@@ -59,6 +61,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   String? _area;
   final Set<int> _beatIds = {};
   bool _nearOnly = false;
+  double _radiusKm = _defaultRadiusKm;
   String _group = 'distance';
   final Set<String> _open = {};
 
@@ -69,7 +72,24 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     super.initState();
     _load();
     _loadFilterLists();
+    _loadRadius();
   }
+
+  /// The distance chosen last time: what "near" means for this person.
+  Future<void> _loadRadius() async {
+    try {
+      final saved = double.tryParse(await Services.storage.read(_radiusKey) ?? '');
+      if (saved != null && saved >= 1 && saved <= 100 && mounted) setState(() => _radiusKm = saved);
+    } catch (_) {}
+  }
+
+  Future<void> _saveRadius() async {
+    try {
+      await Services.storage.write(_radiusKey, '$_radiusKm');
+    } catch (_) {}
+  }
+
+  String get _kmText => _radiusKm == _radiusKm.roundToDouble() ? '${_radiusKm.round()} km' : '${_radiusKm.toStringAsFixed(1)} km';
 
   @override
   void dispose() {
@@ -164,11 +184,11 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     final rows = _clients.where((c) => _visitable(c) && !widget.skipIds.contains(c['id'])).toList();
     bool isNear(Map<String, dynamic> c) {
       final m = _metres(c);
-      return m != null && m <= _nearMetres;
+      return m != null && m <= _radiusKm * 1000;
     }
 
     if (_group == 'distance') {
-      final near = _VGroup('near', 'Within 25 km');
+      final near = _VGroup('near', 'Within $_kmText');
       final others = _VGroup('others', 'Others');
       for (final c in rows) {
         (isNear(c) ? near : others).rows.add(c);
@@ -331,7 +351,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
           const SizedBox(width: 8),
           ChoiceChip(
             avatar: const Icon(Icons.near_me_rounded, size: 16),
-            label: const Text('Near me · 25 km'),
+            label: Text('Near me · $_kmText'),
             selected: _nearOnly,
             onSelected: (_) => setState(() => _nearOnly = true),
           ),
@@ -545,6 +565,28 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    heading(Icons.near_me_outlined, 'Near distance'),
+                    Row(children: [
+                      Expanded(
+                        child: Slider(
+                          value: _radiusKm.clamp(1, 100),
+                          min: 1,
+                          max: 100,
+                          divisions: 99,
+                          label: _kmText,
+                          onChanged: (v) => setSheet(() => _radiusKm = v.roundToDouble()),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 64,
+                        child: Text(_kmText, textAlign: TextAlign.end, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                      ),
+                    ]),
+                    Wrap(spacing: 8, runSpacing: 6, children: [
+                      for (final km in const [2.0, 5.0, 10.0, 25.0, 50.0])
+                        chip('${km.round()} km', _radiusKm == km, () => _radiusKm = km),
+                    ]),
+                    const SizedBox(height: 22),
                     heading(Icons.sell_outlined, 'Category'),
                     Wrap(spacing: 8, runSpacing: 6, children: [
                       chip('All', _categoryId == null, () => _categoryId = null),
@@ -625,6 +667,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                           _area = null;
                           _areaId = null;
                           _beatIds.clear();
+                          _radiusKm = _defaultRadiusKm;
                           _group = 'distance';
                         }),
                         icon: const Icon(Icons.refresh_rounded),
@@ -644,6 +687,8 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         },
       ),
     );
+    // Whatever the filter was closed with is kept: the distance stays for the next time too.
+    _saveRadius();
     if (mounted) {
       setState(_open.clear);
       _load();
