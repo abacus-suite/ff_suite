@@ -881,30 +881,38 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     return Column(
       children: [
         StepCard(
-          title: 'Outlet',
+          title: 'Lead',
+          icon: Icons.person_add_alt_1_rounded,
           child: Column(
             children: [
               TextField(
                 controller: _t('name'),
                 textCapitalization: TextCapitalization.words,
                 onChanged: (_) => _refresh(),
-                decoration: const InputDecoration(labelText: 'Name of outlet *', isDense: true),
+                decoration: const InputDecoration(labelText: 'Name of lead *', isDense: true),
               ),
               const SizedBox(height: 10),
-              _autoField('Outlet status', 'New Lead'),
+              _autoField('Lead status', 'New Lead'),
               _autoField('Geo location', 'Captured when you submit'),
               _autoField('Sales Officer', '${Services.auth.profile?.name ?? ''}'),
             ],
           ),
         ),
         StepCard(
-          title: 'Outlet category *',
+          title: 'Lead category *',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Choice(
-                options: _list('outlet_categories'),
-                value: category,
+              // A dropdown, not a row of chips: the list is long and reads the same as the other choices here.
+              DropdownButtonFormField<String>(
+                initialValue: _list('outlet_categories').any((c) => c['code'] == category) ? category : null,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Choose the category', isDense: true),
+                items: [
+                  for (final c in _list('outlet_categories'))
+                    DropdownMenuItem<String>(
+                        value: '${c['code']}', child: Text('${c['name']}', maxLines: 1, overflow: TextOverflow.ellipsis)),
+                ],
                 onChanged: (v) => setState(() => _a['category'] = v),
               ),
               if (category == 'others') ...[
@@ -976,10 +984,10 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       );
 
   String? _checkContact() {
-    if (_s('name').isEmpty) return 'Give the outlet a name.';
+    if (_s('name').isEmpty) return 'Give the lead a name.';
     final category = _a['category'] as String?;
-    if (category == null) return 'Choose the outlet category.';
-    if (category == 'others' && _s('category_note').isEmpty) return 'Describe the outlet category.';
+    if (category == null) return 'Choose the lead category.';
+    if (category == 'others' && _s('category_note').isEmpty) return 'Describe the lead category.';
     if (_p('front').isEmpty) return 'Take the photo of the front and sign board.';
     if (_a['beat_id'] == null) return 'Choose the beat.';
     if (_a['district_id'] == null && _a['territory_id'] == null) return 'Choose the territory.';
