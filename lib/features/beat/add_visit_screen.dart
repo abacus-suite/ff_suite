@@ -23,7 +23,7 @@ class _VGroup {
   final List<Map<String, dynamic>> rows = [];
 }
 
-/// Add a Visit: tick one or more outlets or distributors that are not in today's beat and add them to today.
+/// Add a Visit: tick one or more outlets, distributors or leads that are not in today's beat and add them to today.
 /// The list is in two collapsed groups, Within 25 km and Others, each client with its distance; it can be
 /// searched, narrowed to those near, filtered by category, territory, area and beat, and grouped by any of them.
 /// Returns true when something was added.
@@ -115,7 +115,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         final total = (data['total'] as num?)?.toInt() ?? rows.length;
         if (all.isEmpty) {
           final cats = (((data['counts'] as Map?)?['categories']) as List?) ?? const [];
-          categories = [for (final c in cats.cast<Map<String, dynamic>>()) if (c['type'] != 'lead') c];
+          categories = cats.cast<Map<String, dynamic>>();
         }
         all.addAll(rows);
         // Every page is fetched, so the groups and their counts are complete.
@@ -151,8 +151,8 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     _debounce = Timer(const Duration(milliseconds: 400), _load);
   }
 
-  /// Outlets and distributors only: a lead is not visited from here.
-  static bool _visitable(Map<String, dynamic> c) => '${c['category_type'] ?? ''}'.toLowerCase() != 'lead';
+  /// Outlets, distributors and leads can all be added to today's visits.
+  static bool _visitable(Map<String, dynamic> c) => true;
 
   double? _metres(Map<String, dynamic> c) => metresTo(_here, c);
 
@@ -268,7 +268,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                 onChanged: _onSearch,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search_rounded),
-                  hintText: 'Search outlet / distributor…',
+                  hintText: 'Search outlet / distributor / lead…',
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.border)),

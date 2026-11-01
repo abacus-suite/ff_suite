@@ -419,12 +419,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
 
   Widget _planCard(Map<String, dynamic> plan) {
     final pct = ((plan['completion_pct'] as num?) ?? 0).toDouble();
-    final status = switch (plan['status']) {
-      'done' => 'visited',
-      'in_progress' => 'ongoing',
-      'missed' => 'missed',
-      _ => 'planned',
-    };
+    final beatName = asText((plan['beat'] as Map?)?['name']);
     Widget count(IconData icon, Color color, String text) => Row(
           mainAxisSize: MainAxisSize.min,
           children: [Icon(icon, size: 16, color: color), const SizedBox(width: 4), Text(text)],
@@ -435,16 +430,11 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text('${(plan['beat'] as Map?)?['name'] ?? ''}',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                ),
-                StatusBadge(status, label: status == 'ongoing' ? 'In progress' : null),
-              ],
-            ),
-            const SizedBox(height: 10),
+            // The beat's name only: a status badge here read "Visited" for a day whose only customer was cancelled.
+            if (beatName != null) ...[
+              Text(beatName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              const SizedBox(height: 10),
+            ],
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
