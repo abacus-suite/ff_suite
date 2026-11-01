@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/format.dart';
@@ -7,6 +8,7 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/busy.dart';
 import '../../widgets/common.dart';
+import '../../widgets/location_picker.dart';
 import '../../widgets/skeleton.dart';
 import 'event_reports_screen.dart';
 
@@ -481,16 +483,46 @@ class _NewEventScreenState extends State<NewEventScreen> {
   bool _busy = false;
   Position? _pos;
 
+  // Where the event is: the pin on the map, the address written from it (editable), and what that place falls in.
+  LatLng? _pin;
+  final _location = TextEditingController();
+  int? _districtId;
+  bool _locationFailed = false;
+
   @override
   void initState() {
     super.initState();
     _loadOptions();
+    _startLocation();
   }
 
   @override
   void dispose() {
     _name.dispose();
+    _location.dispose();
     super.dispose();
+  }
+
+  /// The phone's position puts the pin down first; the person moves it from there.
+  Future<void> _startLocation() async {
+    setState(() => _locationFailed = false);
+    final pos = await _here(context);
+    if (!mounted) return;
+    setState(() {
+      _pos = pos;
+      _pin = pos == null ? null : LatLng(pos.latitude, pos.longitude);
+      _locationFailed = pos == null;
+    });
+  }
+
+  /// The pin settled somewhere: the territory and district of the office's lists that it falls in (if any).
+  void _onPlace(LatLng point, Map<String, dynamic> place) {
+    final territoryId = (place['territory'] is Map ? (place['territory'] as Map)['id'] as num? : null)?.toInt();
+    setState(() {
+      _pin = point;
+      _territory = territoryId == null ? null : _list(_options?['territories']).where((t) => t['id'] == territoryId).firstOrNull;
+      _districtId = (place['district'] is Map ? (place['district'] as Map)['id'] as num? : null)?.toInt();
+    });
   }
 
   Future<void> _loadOptions() async {
@@ -513,12 +545,16 @@ class _NewEventScreenState extends State<NewEventScreen> {
 
   List<Map<String, dynamic>> get _products => _list(_options?['products']);
 
-  /// The territory's distributors, then Kumbayah Foods.
+  /// The distributors of the people conducting the event (their primary and secondary territories, or only the
+  /// ones allocated to them), then Kumbayah Foods.
   List<Map<String, dynamic>> get _distributors {
     final all = _list(_options?['distributors']);
-    final local = ((_territory?['distributor_ids'] as List?) ?? []).toSet();
+    final allowed = <Object?>{
+      for (final person in _list(_options?['staff']))
+        if (_staff.contains(person['id'])) ...((person['distributor_ids'] as List?) ?? const []),
+    };
     final company = all.where((d) => d['company'] == true);
-    final chosen = all.where((d) => d['company'] != true && (local.isEmpty || local.contains(d['id'])));
+    final chosen = all.where((d) => d['company'] != true && allowed.contains(d['id']));
     return [...chosen, ...company];
   }
 
@@ -560,6 +596,11 @@ class _NewEventScreenState extends State<NewEventScreen> {
       _staff
         ..clear()
         ..addAll(picked);
+      // A distributor that the people now chosen may not use is taken off.
+      final allowed = _distributors.map((d) => d['id']).toSet();
+      for (final b in _blocks) {
+        if (b.distributor != null && !allowed.contains(b.distributor)) b.distributor = null;
+      }
     });
   }
 
@@ -579,10 +620,9 @@ class _NewEventScreenState extends State<NewEventScreen> {
     if (_step == 1) {
       if (_name.text.trim().isEmpty) return showProblem(context, 'Enter the event name.');
       if (_staff.isEmpty) return showProblem(context, 'Select who conducts the event.');
-      if (_territory == null) return showProblem(context, 'Select the location.');
+      if (_pin == null) return showProblem(context, 'Turn on location so the event can be placed on the map.');
+      if (_location.text.trim().isEmpty) return showProblem(context, 'Enter the location.');
       if (_category == null) return showProblem(context, 'Select the price category.');
-      _pos ??= await withBusy(context, 'Getting your location…', () => _here(context));
-      if (_pos == null || !mounted) return;
     }
     if (_step == 2) {
       if (_stockRows().isEmpty) return showProblem(context, 'Enter the opening stock for at least one distributor.');
@@ -603,15 +643,15 @@ class _NewEventScreenState extends State<NewEventScreen> {
   Future<void> _confirm() async {
     setState(() => _busy = true);
     try {
-      final district = _territory?['district_id'];
+      final district = _districtId ?? _territory?['district_id'];
       await Services.api.post('/api/v1/events', {
         'name': _name.text.trim(),
         'staff_ids': _staff.toList(),
         'district_id': district,
-        'territory_id': _territory!['id'],
-        'location': '${_territory!['name']}',
-        'latitude': _pos?.latitude,
-        'longitude': _pos?.longitude,
+        if (_territory != null) 'territory_id': _territory!['id'],
+        'location': _location.text.trim(),
+        'latitude': _pin?.latitude ?? _pos?.latitude,
+        'longitude': _pin?.longitude ?? _pos?.longitude,
         'price_category_id': _category!['id'],
         'has_offer': _offer,
         if (_offer) 'offer_price': _coupon,
@@ -667,7 +707,6 @@ class _NewEventScreenState extends State<NewEventScreen> {
   }
 
   Widget _details() {
-    final territories = _list(_options?['territories']);
     final staffNames = _list(_options?['staff']).where((s) => _staff.contains(s['id'])).map((s) => s['name']).join(', ');
     return _Frame(
       subtitle: 'Step 1 of 3 – Event Details',
@@ -687,25 +726,21 @@ class _NewEventScreenState extends State<NewEventScreen> {
                 style: TextStyle(color: staffNames.isEmpty ? AppColors.muted : AppColors.text)),
           ),
         ),
-        _label('Location (assigned territories only)', required: true),
-        DropdownButtonFormField<int>(
-          initialValue: _territory?['id'] as int?,
-          isExpanded: true,
-          decoration: _field('Select territory'),
-          items: [
-            for (final t in territories)
-              DropdownMenuItem(
-                  value: t['id'] as int,
-                  child: Text(t['district'] != null ? '${t['district']} · ${t['name']}' : '${t['name']}',
-                      overflow: TextOverflow.ellipsis)),
-          ],
-          onChanged: (v) => setState(() {
-            _territory = territories.firstWhere((t) => t['id'] == v);
-            for (final b in _blocks) {
-              b.distributor = null;
-            }
-          }),
-        ),
+        _label('Location', required: true),
+        if (_pin != null)
+          LocationPicker(start: _pin!, controller: _location, onPlace: _onPlace, onRefresh: _startLocation)
+        else
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFD5DEEE))),
+            child: Row(children: [
+              Expanded(
+                child: Text(_locationFailed ? 'Turn on location to place the event on the map.' : 'Getting your location…',
+                    style: const TextStyle(color: AppColors.muted)),
+              ),
+              if (_locationFailed) TextButton(onPressed: _startLocation, child: const Text('Try again')),
+            ]),
+          ),
         _label('Price category', required: true),
         Container(
           height: 42,
