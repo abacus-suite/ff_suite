@@ -51,6 +51,82 @@ class FfGeoSuggest(models.AbstractModel):
                 result['provider'] = provider
         return result
 
+    @api.model
+    def ff_place(self, employee, latitude, longitude):
+        """The place at a point, in parts: street, area, city, district, state and PIN code, and the territory and
+        district of the office's lists that it falls in. Google while this month's free lookups last, then free."""
+        Usage = self.env['ff.map.usage']
+        parts, provider = {}, None
+        if geocode_provider(self.env) == 'google' and Usage.ff_google_allowed('geocode'):
+            parts, billed = self._ff_google_parts(latitude, longitude)
+            if billed:
+                Usage.ff_record('geocode', 1, employee=employee)
+            provider = 'google' if parts else None
+        if not parts:
+            parts, provider = self._ff_open_parts(latitude, longitude), 'open'
+        order = ('street', 'area', 'city', 'state')
+        line = ', '.join(parts[key] for key in order if parts.get(key))
+        if parts.get('pincode'):
+            line = '%s - %s' % (line, parts['pincode']) if line else parts['pincode']
+        near = self._ff_from_contacts(latitude, longitude)
+        district = self._ff_match_district([parts.get(k) for k in ('city', 'district') if parts.get(k)])
+        return dict(parts, formatted=line or None, provider=provider,
+                    territory=near.get('territory'), district=_ref(district) or near.get('district'))
+
+    @api.model
+    def _ff_google_parts(self, latitude, longitude):
+        key = google_maps_key(self.env)
+        if not key:
+            return {}, False
+        try:
+            payload = requests.get(GEOCODE_URL, timeout=TIMEOUT, params={
+                'latlng': '%s,%s' % (latitude, longitude), 'key': key}).json()
+        except (requests.RequestException, ValueError) as error:
+            _logger.warning('Field Force: Google place lookup failed (%s)', error)
+            return {}, False
+        status = payload.get('status')
+        billed = status in ('OK', 'ZERO_RESULTS')
+        if status != 'OK' or not payload.get('results'):
+            return {}, billed
+        found = {}
+        for component in payload['results'][0].get('address_components', []):
+            for kind in component.get('types', []):
+                found.setdefault(kind, component['long_name'])
+        street = ', '.join(x for x in (found.get('street_number'), found.get('route')) if x)
+        return {
+            'street': street or None,
+            'area': found.get('sublocality_level_1') or found.get('sublocality') or found.get('neighborhood'),
+            'city': found.get('locality') or found.get('administrative_area_level_3'),
+            'district': found.get('administrative_area_level_2'),
+            'state': found.get('administrative_area_level_1'),
+            'pincode': found.get('postal_code'),
+        }, billed
+
+    @api.model
+    def _ff_open_parts(self, latitude, longitude):
+        base = self.env['ir.config_parameter'].sudo().get_param('web.base.url') or 'odoo'
+        try:
+            payload = requests.get(NOMINATIM_URL, timeout=TIMEOUT, params={
+                'lat': latitude, 'lon': longitude, 'format': 'jsonv2', 'zoom': 18, 'addressdetails': 1,
+            }, headers={'User-Agent': 'Field Force app (%s)' % base, 'Accept-Language': 'en'}).json()
+        except (requests.RequestException, ValueError) as error:
+            _logger.warning('Field Force: OpenStreetMap place lookup failed (%s)', error)
+            return {}
+        address = payload.get('address') or {}
+
+        def first(*keys):
+            return next((address[k] for k in keys if address.get(k)), None)
+
+        street = ', '.join(x for x in (address.get('house_number'), address.get('road')) if x)
+        return {
+            'street': street or None,
+            'area': first('neighbourhood', 'suburb', 'quarter', 'hamlet'),
+            'city': first('city', 'town', 'village', 'municipality'),
+            'district': first('state_district', 'county'),
+            'state': address.get('state'),
+            'pincode': address.get('postcode'),
+        }
+
     # ------------------------------------------------------------------ from the contacts around
     @api.model
     def _ff_from_contacts(self, latitude, longitude):

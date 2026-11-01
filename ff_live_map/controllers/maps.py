@@ -7,6 +7,15 @@ from odoo.addons.ff_mobile_api.controllers.common import ApiError, api_route, bo
 
 class FieldForceMapUsageApi(http.Controller):
 
+    @api_route('/api/v1/geo/place', methods=('GET',))
+    def place(self, employee, lat=None, lng=None, **kw):
+        """The street, area, city, district, state and PIN code at a point, and the territory it falls in."""
+        try:
+            latitude, longitude = float(lat), float(lng)
+        except (TypeError, ValueError):
+            raise ApiError('lat and lng are required.')
+        return ok(request.env['ff.geo.suggest'].ff_place(employee, latitude, longitude))
+
     @api_route('/api/v1/geo/address', methods=('GET',))
     def address(self, employee, lat=None, lng=None, **kw):
         """The place at a point, so the app can stamp photos with it."""

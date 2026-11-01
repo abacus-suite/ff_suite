@@ -53,6 +53,28 @@ def event_mrp(event, template):
     return template.ff_mrp if 'ff_mrp' in template._fields else template.list_price
 
 
+def _allowed_distributors(env, employee):
+    """The distributors a person may stock an event from: those of their primary and secondary territories, or,
+    when "Allocated Distributors" is on for them, only the ones with their name on them."""
+    Partner = env['res.partner'].sudo()
+    employee = employee.sudo()
+    base = [('ff_category_type', '=', 'distributor'), ('active', '=', True)]
+    if getattr(employee, 'ff_allocated_distributors', False):
+        return Partner.search(base + [('ff_employee_ids', 'in', [employee.id])], order='name')
+    territories = env['ff.territory']
+    if 'ff_territory_ids' in employee._fields:
+        territories |= employee.ff_territory_ids
+    if 'ff_secondary_territory' in employee._fields:
+        territories |= employee.ff_secondary_territory
+    if not territories:
+        return Partner.browse()
+    where = ['|', ('ff_territory_id', 'in', territories.ids),
+             ('ff_beat_line_ids.beat_id.territory_id', 'in', territories.ids)]
+    if 'ff_secondary_territory_ids' in Partner._fields:
+        where = ['|'] + where + [('ff_secondary_territory_ids', 'in', territories.ids)]
+    return Partner.search(base + where, order='name')
+
+
 def _code(template):
     return getattr(template, 'ff_sku_code', False) or template.default_code or template.name
 
@@ -339,7 +361,8 @@ class FieldForceEventsApi(http.Controller):
                 'id': c.id, 'name': c.name,
                 'mrp': {str(l.product_id.id): l.mrp for l in c.line_ids}}
                 for c in env['ff.event.price.category'].sudo().search([])],
-            'staff': [ref(s) for s in staff.sorted('name')],
+            # Each person with the distributors they may use, so the app limits the list to the people chosen.
+            'staff': [dict(ref(s), distributor_ids=_allowed_distributors(env, s).ids) for s in staff.sorted('name')],
             'offers': [20, 30, 50],
         })
 
