@@ -13,8 +13,8 @@ class FfBeatAccess(models.Model):
     @api.model
     def _ff_beat_usable(self, beats, employee):
         """Approved beats, and the pending ones this employee drew themselves; turned-down ones for nobody."""
-        return beats.filtered(lambda b: b.ff_approval_state == 'approved' or (
-            b.ff_approval_state == 'pending' and b.ff_created_by_employee_id == employee))
+        return beats.filtered(lambda b: b.active and (b.ff_approval_state == 'approved' or (
+            b.ff_approval_state == 'pending' and b.ff_created_by_employee_id == employee)))
 
     @api.model
     def ff_beats_for(self, employee, date=None):

@@ -38,6 +38,11 @@ class FfBeatApp(models.Model):
         help='How a route drawn in the app is meant to be used.')
     ff_weekdays = fields.Char(string='Weekdays', help='Comma separated, Monday is 0. For a recurrent route.')
     ff_one_time_date = fields.Date(string='Date', help='The day a one time route is for.')
+    ff_delete_requested = fields.Boolean(
+        string='Deletion Requested', copy=False, index=True,
+        help='The person who drew this beat asked to delete it; the manager decides. Approved: the beat is '
+             'archived (its past plans and reports stay) and its upcoming plans are removed.')
+    ff_delete_note = fields.Text(string='Upcoming Days When Deletion Was Asked', copy=False)
     ff_plan_dates = fields.Char(
         string='Planned Days', copy=False,
         help='The days a route without fixed weekdays is planned on, as dates separated by commas.')
@@ -186,6 +191,83 @@ class FfBeatApp(models.Model):
             beat._ff_send_back_for_approval(employee)
         return added
 
+    # ------------------------------------------------------------------
+    # Delete (asked, decided, archived) and unplan
+    # ------------------------------------------------------------------
+    def _ff_upcoming_plans(self, employee=None):
+        """The days from today on that this beat is planned and nothing has happened on yet."""
+        today = fields.Date.context_today(self)
+        domain = [('beat_id', 'in', self.ids), ('date', '>=', today)]
+        if employee:
+            domain.append(('employee_id', '=', employee.id))
+        plans = self.env['ff.beat.plan'].sudo().search(domain, order='date')
+        return plans.filtered(lambda plan: not plan.visit_ids and plan.status != 'done')
+
+    @api.model
+    def ff_request_delete_from_app(self, employee, beat):
+        """Ask to delete a beat I drew. With a manager the request waits for them (with the upcoming days it
+        would take away); without one the beat is archived at once."""
+        beat = beat.sudo()
+        if beat.ff_created_by_employee_id != employee:
+            raise AccessError(self.env._('Only the person who drew %s can delete it.', beat.display_name))
+        if beat.ff_delete_requested:
+            raise UserError(self.env._('%s is already waiting to be deleted.', beat.display_name))
+        upcoming = beat._ff_upcoming_plans()
+        note = ', '.join(day.isoformat() for day in sorted(set(upcoming.mapped('date')))) or False
+        manager = employee.parent_id
+        if not manager:
+            beat._ff_archive()
+            return beat, 'archived'
+        beat.write({'ff_delete_requested': True, 'ff_delete_note': note})
+        if 'ff.notification' in self.env:
+            body = self.env._('%(who)s wants to delete %(beat)s.', who=employee.name, beat=beat.name)
+            if note:
+                body = '%s %s' % (body, self.env._('Planned days that go with it: %s.', note))
+            self.env['ff.notification'].sudo().ff_push(
+                title=self.env._('Beat Deletion to Approve'), body=body, kind='approval', employee=manager, record=beat)
+        return beat, 'requested'
+
+    def _ff_decide_delete(self, approve):
+        for beat in self:
+            who = beat.ff_created_by_employee_id
+            if approve:
+                beat._ff_archive()
+            else:
+                beat.sudo().write({'ff_delete_requested': False, 'ff_delete_note': False})
+            if who and 'ff.notification' in self.env:
+                self.env['ff.notification'].sudo().ff_push(
+                    title=self.env._('Beat Deleted') if approve else self.env._('Beat Deletion Rejected'),
+                    body=self.env._('%(name)s was %(status)s.', name=beat.display_name,
+                                    status=self.env._('deleted') if approve else self.env._('kept')),
+                    kind='decision', employee=who, record=beat)
+
+    def _ff_archive(self):
+        """Archive: it can no longer be used, its past plans and reports stay, its upcoming plans go."""
+        self.sudo().write({'active': False, 'ff_delete_requested': False})
+
+    def _ff_remove_upcoming_plans(self):
+        self._ff_upcoming_plans().unlink()
+
+    def write(self, vals):
+        if vals.get('active') is False:
+            # Whatever way a beat is archived, the days still ahead of it come off.
+            self.filtered('active')._ff_remove_upcoming_plans()
+        return super().write(vals)
+
+    @api.model
+    def ff_unplan_from_app(self, employee, beat, dates=None, everything=False):
+        """Take days off a beat's plan, one, several or all of those still ahead. Needs no approval."""
+        beat = beat.sudo()
+        if beat.ff_created_by_employee_id != employee:
+            raise AccessError(self.env._('%s was assigned to you, so its days cannot be taken off.', beat.display_name))
+        plans = beat._ff_upcoming_plans(employee)
+        if not everything:
+            wanted = {fields.Date.to_date(d) for d in (dates or []) if d}
+            plans = plans.filtered(lambda plan: plan.date in wanted)
+        count = len(plans)
+        plans.unlink()
+        return count
+
     @api.model
     def ff_update_from_app(self, employee, beat, data):
         """The person who drew a beat changes its customers (add and take off) and its repeat weekdays.
@@ -197,6 +279,8 @@ class FfBeatApp(models.Model):
             raise UserError(self.env._('%s was rejected; it cannot be changed.', beat.display_name))
         if beat.ff_created_by_employee_id != employee:
             raise AccessError(self.env._('Only the person who drew %s can change it.', beat.display_name))
+        if beat.ff_delete_requested:
+            raise UserError(self.env._('%s is waiting to be deleted; it cannot be changed.', beat.display_name))
         changed = False
 
         if data.get('partner_ids') is not None:
@@ -270,6 +354,8 @@ class FfBeatApp(models.Model):
             'weekdays': [int(d) for d in (self.ff_weekdays or '').split(',') if d],
             'date': self.ff_one_time_date.isoformat() if self.ff_one_time_date else None,
             'plan_dates': [d for d in (self.ff_plan_dates or '').split(',') if d],
+            'delete_requested': bool(self.ff_delete_requested),
+            'delete_note': self.ff_delete_note or None,
             'mine': self.ff_created_by_employee_id.id or None,
         }
 
@@ -283,6 +369,12 @@ class FfBeatApp(models.Model):
         self._ff_decide(False)
 
     def _ff_decide(self, approve):
+        deletions = self.filtered('ff_delete_requested')
+        if deletions:
+            deletions._ff_decide_delete(approve)
+            self -= deletions
+            if not self:
+                return
         for beat in self:
             if beat.ff_approval_state != 'pending':
                 raise UserError(self.env._('%s is not waiting for a decision.', beat.display_name))

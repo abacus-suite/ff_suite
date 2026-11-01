@@ -34,6 +34,7 @@ class FieldForceRoutePlanApi(http.Controller):
             'schedule': route.ff_schedule or None,
             'weekdays': [int(d) for d in (route.ff_weekdays or '').split(',') if d],
             'plan_dates': [d for d in (route.ff_plan_dates or '').split(',') if d],
+            'delete_requested': bool(route.ff_delete_requested),
         } for route in routes])
 
     @api_route('/api/v1/route-plan/customers', methods=('GET',))
@@ -185,6 +186,26 @@ class FieldForceRoutePlanApi(http.Controller):
         beat = request.env['ff.beat'].ff_update_from_app(employee, beat, body())
         return ok(beat.ff_app_payload())
 
+    @api_route('/api/v1/beats/<int:beat_id>/delete', methods=('POST',))
+    def delete_beat(self, employee, beat_id, **kw):
+        """Ask to delete a beat I drew: the manager decides, then it is archived."""
+        beat = request.env['ff.beat'].sudo().browse(beat_id).exists()
+        if not beat:
+            raise ApiError('Route not found.', 404, 'not_found')
+        beat, outcome = request.env['ff.beat'].ff_request_delete_from_app(employee, beat)
+        return ok(dict(beat.ff_app_payload(), outcome=outcome))
+
+    @api_route('/api/v1/beats/<int:beat_id>/unplan', methods=('POST',))
+    def unplan_beat(self, employee, beat_id, **kw):
+        """Take days off a beat's plan - some of them or all that are ahead. No approval is needed."""
+        beat = request.env['ff.beat'].sudo().browse(beat_id).exists()
+        if not beat:
+            raise ApiError('Route not found.', 404, 'not_found')
+        data = body()
+        removed = request.env['ff.beat'].ff_unplan_from_app(
+            employee, beat, dates=data.get('dates'), everything=bool(data.get('all')))
+        return ok({'removed': removed})
+
     @api_route('/api/v1/beats/<int:beat_id>/plans', methods=('GET',))
     def beat_plans(self, employee, beat_id, member=None, **kw):
         """The days a beat was planned on for this person - upcoming, done and missed - and the days asked for
@@ -224,7 +245,8 @@ class FieldForceRoutePlanApi(http.Controller):
     def beats_to_approve(self, employee, **kw):
         """Beats the team drew in the app that wait for a manager."""
         beats = request.env['ff.beat'].sudo().search([
-            ('ff_approval_state', '=', 'pending'), ('ff_created_by_employee_id', 'in', employee._ff_subordinates().ids)])
+            '|', ('ff_approval_state', '=', 'pending'), ('ff_delete_requested', '=', True),
+            ('ff_created_by_employee_id', 'in', employee._ff_subordinates().ids)])
         return ok([dict(beat.ff_app_payload(), added_by=ref(beat.ff_created_by_employee_id)) for beat in beats])
 
     @api_route('/api/v1/beats/<int:beat_id>/decide', methods=('POST',))
