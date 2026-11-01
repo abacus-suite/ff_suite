@@ -372,6 +372,20 @@ class FieldForceClientsApi(http.Controller):
             raise ApiError('limit and offset must be numbers.')
         lat, lng = to_float(lat), to_float(lng)
 
+        if lat is not None and lng is not None and kw.get('by_distance') in ('1', 'true', 'True', 1, True):
+            # Everybody, nearest first, with no radius: the ones too far or without a position come after.
+            def metres(p):
+                if not (p.partner_latitude or p.partner_longitude):
+                    return None
+                return haversine_m(lat, lng, p.partner_latitude, p.partner_longitude)
+
+            ranked = sorted(((metres(p), p) for p in Partner.search(domain)),
+                            key=lambda row: (row[0] is None, row[0] or 0, (row[1].name or '').lower()))
+            page = [p for _, p in ranked[offset:offset + limit]]
+            return ok({'total': len(ranked),
+                       'counts': _category_counts(employee, member, category_type=category_type, extra=location),
+                       'clients': [client_data(p, lat, lng) for p in page]})
+
         if lat is not None and lng is not None:
             radius = to_float(radius_km) or DEFAULT_RADIUS_KM
             dlat = radius / 111.0
