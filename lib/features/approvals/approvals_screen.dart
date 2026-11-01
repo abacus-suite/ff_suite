@@ -392,13 +392,14 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           for (final b in rows)
             _card(
               kind: 'beat',
-              detail: _Detail(title: '${b['name']}', status: 'Waiting for you', amount: null, facts: [('Drawn by', '${(b['added_by'] as Map?)?['name'] ?? '-'}'), ('City', '${b['city'] ?? '-'}'), ('Type', '${b['route_type'] ?? '-'}'), ('Customers', '${b['customer_count']}'), ('Code', '${b['code'] ?? '-'}')], lineHead: const [], lines: const [], note: null, steps: const []),
+              detail: _Detail(title: b['delete_requested'] == true ? 'Delete ${b['name']}' : '${b['name']}', status: 'Waiting for you', amount: null, facts: [if (b['delete_requested'] == true) ('Request', 'Delete this beat'), if (b['delete_requested'] == true) ('Planned days that go with it', '${b['delete_note'] ?? 'None'}'), ('Drawn by', '${(b['added_by'] as Map?)?['name'] ?? '-'}'), ('City', '${b['city'] ?? '-'}'), ('Type', '${b['route_type'] ?? '-'}'), ('Customers', '${b['customer_count']}'), ('Code', '${b['code'] ?? '-'}')], lineHead: const [], lines: const [], note: null, steps: const []),
               id: b['id'] as int,
-              icon: Icons.route_rounded,
+              icon: b['delete_requested'] == true ? Icons.delete_outline_rounded : Icons.route_rounded,
               color: color,
-              title: '${b['name']}',
+              title: b['delete_requested'] == true ? 'Delete: ${b['name']}' : '${b['name']}',
               lines: [
                 'Drawn by ${(b['added_by'] as Map?)?['name'] ?? ''}',
+                if (b['delete_requested'] == true) 'Upcoming planned days: ${b['delete_note'] ?? 'none'}',
                 '${b['customer_count']} customers${b['city'] != null ? ' · ${b['city']}' : ''}',
               ],
               onDecide: (a) => _decide('beat', b['id'] as int, a, path: '/api/v1/beats/${b['id']}/decide', payload: {'approve': a}),

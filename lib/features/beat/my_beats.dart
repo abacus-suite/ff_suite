@@ -33,6 +33,75 @@ class _EditedBeats {
   }
 }
 
+const _wdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/// "Mon, 2 Nov 2026" from a saved yyyy-mm-dd day.
+String _niceDay(String iso) {
+  final d = DateTime.tryParse(iso);
+  return d == null ? iso : '${_wdays[d.weekday - 1]}, ${d.day} ${monthNames[d.month - 1].substring(0, 3)} ${d.year}';
+}
+
+/// Delete a beat I drew: the warning lists the days still planned on it, the request goes to the manager with
+/// them, and once approved the beat is archived (its past plans and reports stay). True when something was sent.
+Future<bool> deleteBeatFlow(BuildContext context, Map<String, dynamic> beat) async {
+  final today = fmtDate(DateTime.now());
+  var upcoming = <String>[];
+  try {
+    final data = await Services.api.get('/api/v1/beats/${beat['id']}/plans') as Map<String, dynamic>;
+    upcoming = [
+      for (final d in ((data['days'] as List?) ?? []).cast<Map<String, dynamic>>())
+        if (d['status'] != 'done' && '${d['date']}'.compareTo(today) >= 0) '${d['date']}',
+      for (final d in ((data['requested'] as List?) ?? [])) '$d',
+    ]..sort();
+  } catch (_) {}
+  if (!context.mounted) return false;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialog) => AlertDialog(
+      title: Text('Delete ${beat['name']}?'),
+      content: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (upcoming.isEmpty)
+            const Text('No upcoming day is planned on this beat.')
+          else ...[
+            Text('${upcoming.length} upcoming planned day${upcoming.length == 1 ? '' : 's'} will be removed once this is approved:',
+                style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            for (final d in upcoming.take(12))
+              Padding(padding: const EdgeInsets.only(bottom: 3), child: Text('•  ${_niceDay(d)}')),
+            if (upcoming.length > 12) Text('…and ${upcoming.length - 12} more'),
+          ],
+          const SizedBox(height: 12),
+          const Text(
+              'Your request goes to your manager with these days. Once approved the beat is archived: you cannot use it '
+              'again, but its past plans and reports stay.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Keep it')),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+          onPressed: () => Navigator.pop(dialog, true),
+          child: const Text('Send for approval'),
+        ),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return false;
+  try {
+    final data = await Services.api.post('/api/v1/beats/${beat['id']}/delete', {}) as Map<String, dynamic>;
+    settleAndRefresh();
+    if (context.mounted) {
+      showSnack(context, data['outcome'] == 'archived' ? '${beat['name']} deleted' : 'Sent to your manager for approval');
+    }
+    return true;
+  } catch (e) {
+    if (context.mounted) showProblem(context, e.toString());
+    return false;
+  }
+}
+
 /// "19 Oct" from a saved yyyy-mm-dd day.
 String _shortDay(String day) {
   final d = DateTime.tryParse(day);
@@ -86,6 +155,10 @@ class _MyBeatsListState extends State<MyBeatsList> {
     if (changed == true) _changed();
   }
 
+  Future<void> _delete(Map<String, dynamic> beat) async {
+    if (await deleteBeatFlow(context, beat)) _changed();
+  }
+
   Future<void> _changed() async {
     final ids = await _EditedBeats.read();
     if (mounted) setState(() => _edited = ids);
@@ -105,6 +178,7 @@ class _MyBeatsListState extends State<MyBeatsList> {
     final pending = '${b['approval_state']}' == 'pending';
     final editedOn = _edited[b['id']];
     final reapproval = pending && editedOn != null;
+    final deleting = b['delete_requested'] == true;
     final count = (b['customer_count'] as num?)?.toInt();
     final line = [
       if (count != null) '$count outlet${count == 1 ? '' : 's'}',
@@ -141,19 +215,27 @@ class _MyBeatsListState extends State<MyBeatsList> {
               // Capped, so a long status never squeezes the name off a small phone.
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 128),
-                child: FittedBox(fit: BoxFit.scaleDown, child: _status(pending, reapproval)),
+                child: FittedBox(fit: BoxFit.scaleDown, child: _status(pending, reapproval, deleting: deleting)),
               ),
             ]),
             const SizedBox(height: 4),
             Row(children: [
               Expanded(child: Text(line, style: const TextStyle(fontSize: 12, color: AppColors.muted))),
-              if (mine)
+              if (mine && !deleting) ...[
                 IconButton(
                   tooltip: 'Edit',
                   visualDensity: VisualDensity.compact,
                   onPressed: () => _edit(b),
                   icon: const Icon(Icons.edit_rounded, size: 19, color: AppColors.primary),
-                )
+                ),
+                IconButton(
+                  tooltip: 'Delete',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _delete(b),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.danger),
+                ),
+              ] else if (mine)
+                const SizedBox.shrink()
               else
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
@@ -170,12 +252,12 @@ class _MyBeatsListState extends State<MyBeatsList> {
     );
   }
 
-  Widget _status(bool pending, bool reapproval) {
-    final colour = pending ? AppColors.warning : AppColors.success;
+  Widget _status(bool pending, bool reapproval, {bool deleting = false}) {
+    final colour = pending || deleting ? AppColors.warning : AppColors.success;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: colour.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)),
-      child: Text(reapproval ? 'Pending re-approval' : (pending ? 'Pending approval' : 'Approved'),
+      child: Text(deleting ? 'Deletion pending' : (reapproval ? 'Pending re-approval' : (pending ? 'Pending approval' : 'Approved')),
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: colour)),
     );
   }
@@ -225,14 +307,12 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
     }
   }
 
-  static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  /// Completed, Planned or Missed on the Plan dates tab.
+  int _planTab = 1;
 
-  String _nice(String iso) {
-    final d = DateTime.tryParse(iso);
-    if (d == null) return iso;
-    return '${_weekdays[d.weekday - 1]}, ${d.day} ${_months[d.month - 1]} ${d.year}';
-  }
+  /// Planned days ticked to be taken off the plan.
+  final Set<String> _unplanSel = {};
+  bool _unplanning = false;
 
   Widget _tabs() {
     Widget half(String text, int index) {
@@ -270,62 +350,171 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
     );
   }
 
-  /// The completed, upcoming and missed days of this beat, and the days still waiting for approval.
+  /// Take planned days off the plan: no approval needed.
+  Future<void> _unplan({List<String>? dates}) async {
+    final all = dates == null;
+    final count = dates?.length ?? _plannedDays().length;
+    if (count == 0) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(all ? 'Unplan all $count days?' : 'Unplan $count day${count == 1 ? '' : 's'}?'),
+        content: const Text('These days are taken off the plan now. No approval is needed, and the beat itself stays.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Unplan')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _unplanning = true);
+    try {
+      await Services.api.post('/api/v1/beats/${widget.beat['id']}/unplan', {if (all) 'all': true else 'dates': dates});
+      _changed = true;
+      _unplanSel.clear();
+      settleAndRefresh();
+      await _loadPlans();
+      if (mounted) showSnack(context, 'Taken off the plan');
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _unplanning = false);
+    }
+  }
+
+  List<Map<String, dynamic>> _daysOf(bool Function(Map<String, dynamic> d, String today) test) {
+    final today = fmtDate(DateTime.now());
+    final days = ((_plans?['days'] as List?) ?? []).cast<Map<String, dynamic>>();
+    return [for (final d in days) if (test(d, today)) d];
+  }
+
+  List<Map<String, dynamic>> _plannedDays() => _daysOf((d, today) => d['status'] != 'done' && '${d['date']}'.compareTo(today) >= 0)
+    ..sort((a, b) => '${a['date']}'.compareTo('${b['date']}'));
+
+  /// The plan dates of this beat in three tabs: Completed, Planned (days can be taken off) and Missed.
   List<Widget> _planRows() {
     final data = _plans;
     if (data == null) return const [];
-    final today = DateTime.now();
-    final todayIso = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    final days = ((data['days'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final done = _daysOf((d, today) => d['status'] == 'done');
+    final planned = _plannedDays();
+    final missed = _daysOf((d, today) => d['status'] != 'done' && '${d['date']}'.compareTo(today) < 0);
     final requested = ((data['requested'] as List?) ?? []).map((e) => '$e').toList();
-    final done = [for (final d in days) if (d['status'] == 'done') d];
-    final upcoming = [for (final d in days) if (d['status'] != 'done' && '${d['date']}'.compareTo(todayIso) >= 0) d]
-      ..sort((a, b) => '${a['date']}'.compareTo('${b['date']}'));
-    final missed = [for (final d in days) if (d['status'] != 'done' && '${d['date']}'.compareTo(todayIso) < 0) d];
+    final canUnplan = beatIsMine(widget.beat) && widget.beat['delete_requested'] != true;
 
-    Widget group(String title, Color colour, List<Widget> rows) => rows.isEmpty
-        ? const SizedBox.shrink()
-        : Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 6),
-                child: Text('$title (${rows.length})', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: colour)),
-              ),
-              ...rows,
+    String counts(Map<String, dynamic> d) => '${d['completed_count'] ?? 0} of ${d['planned_count'] ?? 0} outlets visited';
+
+    Widget chip(String text, int index, int n, Color colour) {
+      final on = _planTab == index;
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => setState(() => _planTab = index),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            decoration: BoxDecoration(
+              color: on ? colour.withValues(alpha: 0.14) : Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: on ? colour : AppColors.border),
+            ),
+            child: Column(children: [
+              Text('$n', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: colour)),
+              Text(text, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: on ? colour : AppColors.muted)),
             ]),
-          );
+          ),
+        ),
+      );
+    }
 
     Widget row(Map<String, dynamic> d, String note, Color colour, IconData icon) => Card(
           margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(
             dense: true,
             leading: Icon(icon, color: colour),
-            title: Text(_nice('${d['date']}'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+            title: Text(_niceDay('${d['date']}'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
             subtitle: Text(note, style: const TextStyle(fontSize: 12)),
           ),
         );
 
-    String counts(Map<String, dynamic> d) =>
-        '${d['completed_count'] ?? 0} of ${d['planned_count'] ?? 0} outlets visited';
-
-    final rows = <Widget>[
-      group('Completed', AppColors.success, [for (final d in done) row(d, counts(d), AppColors.success, Icons.check_circle_rounded)]),
-      group('Planned', AppColors.primary, [
-        for (final d in upcoming)
-          row(d, d['status'] == 'in_progress' ? 'In progress · ${counts(d)}' : '${d['planned_count'] ?? 0} outlets planned',
-              AppColors.primary, Icons.event_rounded),
-      ]),
-      group('Waiting for approval', AppColors.warning, [
-        for (final iso in requested)
-          row({'date': iso}, 'Will be planned once approved', AppColors.warning, Icons.hourglass_top_rounded),
-      ]),
-      group('Missed', AppColors.danger, [for (final d in missed) row(d, counts(d), AppColors.danger, Icons.event_busy_rounded)]),
-    ];
-    if (days.isEmpty && requested.isEmpty) {
-      return const [EmptyView(icon: Icons.event_rounded, text: 'This beat has not been planned on any day yet.')];
+    final body = <Widget>[];
+    if (_planTab == 0) {
+      body.addAll([for (final d in done) row(d, counts(d), AppColors.success, Icons.check_circle_rounded)]);
+      if (done.isEmpty) body.add(const EmptyView(icon: Icons.check_circle_outline_rounded, text: 'Nothing completed on this beat yet.'));
+    } else if (_planTab == 2) {
+      body.addAll([for (final d in missed) row(d, counts(d), AppColors.danger, Icons.event_busy_rounded)]);
+      if (missed.isEmpty) body.add(const EmptyView(icon: Icons.event_available_rounded, text: 'No missed days.'));
+    } else {
+      final dates = [for (final d in planned) '${d['date']}'];
+      final picked = _unplanSel.where(dates.contains).toList();
+      if (canUnplan && planned.isNotEmpty) {
+        body.add(Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(children: [
+            TextButton(
+              onPressed: () => setState(() {
+                if (picked.length == dates.length) {
+                  _unplanSel.clear();
+                } else {
+                  _unplanSel
+                    ..clear()
+                    ..addAll(dates);
+                }
+              }),
+              child: Text(picked.length == dates.length ? 'Clear' : 'Select all'),
+            ),
+            const Spacer(),
+            if (picked.isNotEmpty)
+              FilledButton.icon(
+                style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+                onPressed: _unplanning ? null : () => _unplan(dates: picked),
+                icon: const Icon(Icons.event_busy_rounded, size: 18),
+                label: Text('Unplan (${picked.length})'),
+              ),
+            if (picked.isEmpty)
+              OutlinedButton.icon(
+                onPressed: _unplanning ? null : () => _unplan(),
+                icon: const Icon(Icons.event_busy_rounded, size: 18),
+                label: const Text('Unplan all'),
+              ),
+          ]),
+        ));
+      }
+      for (final d in planned) {
+        final date = '${d['date']}';
+        final note = d['status'] == 'in_progress' ? 'In progress · ${counts(d)}' : '${d['planned_count'] ?? 0} outlets planned';
+        body.add(canUnplan
+            ? Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: CheckboxListTile(
+                  dense: true,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: _unplanSel.contains(date),
+                  onChanged: (v) => setState(() => v == true ? _unplanSel.add(date) : _unplanSel.remove(date)),
+                  title: Text(_niceDay(date), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                  subtitle: Text(note, style: const TextStyle(fontSize: 12)),
+                ),
+              )
+            : row(d, note, AppColors.primary, Icons.event_rounded));
+      }
+      for (final iso in requested) {
+        body.add(row({'date': iso}, 'Waiting for approval · planned once approved', AppColors.warning, Icons.hourglass_top_rounded));
+      }
+      if (planned.isEmpty && requested.isEmpty) {
+        body.add(const EmptyView(icon: Icons.event_rounded, text: 'No upcoming day is planned on this beat.'));
+      }
     }
-    return rows;
+
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(children: [
+          chip('Completed', 0, done.length, AppColors.success),
+          chip('Planned', 1, planned.length + requested.length, AppColors.primary),
+          chip('Missed', 2, missed.length, AppColors.danger),
+        ]),
+      ),
+      ...body,
+    ];
   }
 
   Future<void> _load() async {
@@ -342,6 +531,10 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _delete() async {
+    if (await deleteBeatFlow(context, widget.beat) && mounted) Navigator.of(context).pop(true);
   }
 
   Future<void> _edit() async {
@@ -375,8 +568,14 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
             Text(sub, style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
           ]),
           actions: [
-            if (beatIsMine(b))
+            if (beatIsMine(b) && b['delete_requested'] != true) ...[
               IconButton(tooltip: 'Edit', onPressed: _edit, icon: const Icon(Icons.edit_rounded, color: AppColors.primary)),
+              IconButton(
+                tooltip: 'Delete',
+                onPressed: _delete,
+                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+              ),
+            ],
           ],
         ),
         body: RefreshIndicator(
