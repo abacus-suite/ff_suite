@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../orders/commercials.dart';
+import '../tasks/onboard_screen.dart' show schemeLabel;
 
 /// Outlet details, from the "i" on the outlet screen: everything known about the outlet, view only.
 /// Changes are made by the office, so there is no edit here.
@@ -69,17 +70,42 @@ class OutletDetailsScreen extends StatelessWidget {
     return '${swiggy ?? '—'} · ${zomato ?? '—'}';
   }
 
+  /// What was taken at onboarding (the server sends it with the contact), as a map; empty before onboarding.
+  Map<String, dynamic> get _ob => (client['onboarding'] as Map?)?.cast<String, dynamic>() ?? const {};
+
+  static const _statusNames = {
+    'new_lead': 'New Lead',
+    'onboard_pending': 'Confirmed – details pending',
+    'onboarded': 'Onboarded',
+    'stopped': 'Stopped',
+    'not_interested': 'Not interested',
+  };
+
+  String? get _onboardedOn {
+    final day = DateTime.tryParse('${_ob['onboarded_date'] ?? ''}');
+    return day == null ? null : '${day.day} ${monthNames[day.month - 1].substring(0, 3)} ${day.year}';
+  }
+
+  /// A name from one of the onboarding options ({code, name}), or null.
+  static String? _option(dynamic v) => v is Map ? asText(v['name']) : null;
+
   @override
   Widget build(BuildContext context) {
     final c = client;
+    final ob = _ob;
     final comm = Commercials.from(c['commercials']) ?? Commercials.from(c);
+    // Scheme is read as a percentage; the margin too.
+    final scheme = _option(ob['scheme']) != null ? schemeLabel(_option(ob['scheme'])) : (comm?.scheme == null ? null : '${fmtQty(comm!.scheme!)}%');
+    final margin = ob['margin'] is num && (ob['margin'] as num) != 0
+        ? '${fmtQty(ob['margin'] as num)}%'
+        : (comm?.margin == null ? null : '${fmtQty(comm!.margin!)}%');
     String? schemeMargin;
-    if (comm?.scheme != null || comm?.margin != null) {
-      schemeMargin = [
-        comm?.scheme == null ? '—' : '₹${fmtQty(comm!.scheme!)}',
-        comm?.margin == null ? '—' : '${fmtQty(comm!.margin!)}%',
-      ].join(' · ');
-    }
+    if (scheme != null || margin != null) schemeMargin = [scheme ?? '—', margin ?? '—'].join(' · ');
+    final mrp = _option(ob['mrp']);
+    final mrpText = mrp != null ? (RegExp(r'^\d+(\.\d+)?$').hasMatch(mrp.trim()) ? '₹${mrp.trim()}' : mrp) : (comm?.category == null ? null : '₹${comm!.category}');
+    final poc = [asText(ob['poc_name']), asText(ob['poc_phone'])].whereType<String>();
+    final yes = (dynamic v) => v == true ? 'Yes' : 'No';
+    final apps = ob.containsKey('swiggy') ? '${yes(ob['swiggy'])} · ${yes(ob['zomato'])}' : _swiggyZomato;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -91,20 +117,21 @@ class OutletDetailsScreen extends StatelessWidget {
       ),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 6, 16, 32), children: [
         _Section(title: 'Outlet', rows: [
-          ('Status', _status),
-          ('Category', _first(c, ['category', 'category_name'])),
-          ('Name as per GST', _first(c, ['gst_name', 'legal_name', 'company_registry_name', 'trade_name'])),
-          ('GSTIN', _first(c, ['gst', 'gstin', 'vat'])),
-          ('Region', _first(c, ['region', 'region_name', 'state', 'state_id'])),
+          ('Status', _statusNames['${ob['status']}'] ?? _status),
+          ('Category', _option(ob['outlet_category']) ?? _first(c, ['category', 'category_name'])),
+          ('Name as per GST', asText(ob['gst_name']) ?? _first(c, ['gst_name', 'legal_name', 'company_registry_name', 'trade_name'])),
+          ('GSTIN', ob['has_gst'] == false ? 'No GST' : _first(c, ['gst', 'gstin', 'vat'])),
+          ('Region', _first(c, ['region', 'region_name'])),
           ('District / Territory', _districtTerritory),
+          if (_onboardedOn != null) ('Onboarded on', _onboardedOn),
         ]),
         _Section(title: 'Contact & commercials', rows: [
-          ('POC', _poc),
-          ('MRP category', comm?.category == null ? null : '₹${comm!.category}'),
+          ('POC', poc.isEmpty ? _poc : poc.join(' · ')),
+          ('MRP category', mrpText),
           ('Scheme · Margin', schemeMargin),
-          ('Credit days', _creditDays),
-          ('Distributor', _first(c, ['distributor', 'distributor_name'])),
-          ('Swiggy · Zomato', _swiggyZomato),
+          ('Credit days', ob['credit_days'] is num ? fmtQty(ob['credit_days'] as num) : _creditDays),
+          ('Distributor', _option(ob['distributor']) ?? _first(c, ['distributor', 'distributor_name'])),
+          ('Swiggy · Zomato', apps),
         ]),
       ]),
     );
