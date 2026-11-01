@@ -29,9 +29,13 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
   bool _repeat = true;
   DateTime _date = DateTime.now();
 
-  /// Recurrent with Repeat on? No: the one day the beat is planned for. It follows the Day field until changed.
-  DateTime? _plannedPick;
-  DateTime get _planned => _plannedPick ?? _date;
+  /// Recurrent with Repeat on? No: the days the beat is planned for (one or many). Until the person picks,
+  /// it is the Day field's date.
+  Set<DateTime>? _plannedPicks;
+  List<DateTime> get _plannedDays {
+    final days = (_plannedPicks ?? {DateUtils.dateOnly(_date)}).toList()..sort();
+    return days;
+  }
   final Set<int> _days = {0, 3}; // Monday and Thursday default, as in mockup
   bool _busy = false;
 
@@ -124,16 +128,24 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
     }
   }
 
-  Future<void> _pickPlanned() async {
+  /// Add one more planned day (today or later); the same day twice is kept once.
+  Future<void> _addPlanned() async {
     final today = DateUtils.dateOnly(DateTime.now());
-    final current = DateUtils.dateOnly(_planned);
+    final last = _plannedDays.isEmpty ? today : _plannedDays.last;
     final picked = await showDatePicker(
       context: context,
-      initialDate: current.isBefore(today) ? today : current,
+      initialDate: last.isBefore(today) ? today : last,
       firstDate: today,
       lastDate: today.add(const Duration(days: 365)),
+      helpText: 'Add a planned day',
     );
-    if (picked != null && mounted) setState(() => _plannedPick = picked);
+    if (picked != null && mounted) {
+      setState(() => _plannedPicks = {..._plannedDays, DateUtils.dateOnly(picked)});
+    }
+  }
+
+  void _removePlanned(DateTime day) {
+    setState(() => _plannedPicks = {..._plannedDays}..remove(day));
   }
 
   Future<void> _pickOutlets() async {
@@ -203,9 +215,10 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
       showProblem(context, 'Please choose at least one day for repeat, or choose No.');
       return;
     }
-    final planOneDay = _schedule == 'recurrent' && !_repeat;
-    if (planOneDay && DateUtils.dateOnly(_planned).isBefore(DateUtils.dateOnly(DateTime.now()))) {
-      showProblem(context, 'Choose today or an upcoming day as the planned day.');
+    final planDays = _schedule == 'recurrent' && !_repeat;
+    final today = DateUtils.dateOnly(DateTime.now());
+    if (planDays && (_plannedDays.isEmpty || _plannedDays.any((d) => d.isBefore(today)))) {
+      showProblem(context, 'Choose at least one planned day, today or later.');
       return;
     }
 
@@ -219,8 +232,9 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
         if (_territory!['district_id'] != null) 'district_id': _territory!['district_id'],
         'partner_ids': _outlets.toList(),
         'schedule': _schedule,
-        // Repeat off: the date is the planned day, not the Day field.
-        'date': fmtDate(planOneDay ? _planned : _date),
+        // Repeat off: the planned days, not the Day field.
+        'date': fmtDate(planDays ? _plannedDays.first : _date),
+        if (planDays) 'dates': [for (final d in _plannedDays) fmtDate(d)],
         // Recurrent with "Repeat on? No": kept in my beat list without fixed days.
         if (_schedule == 'recurrent') 'repeat': _repeat,
         if (_schedule == 'recurrent') 'weekdays': _repeat ? (_days.toList()..sort()) : <int>[],
@@ -441,30 +455,33 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           ],
           if (_schedule == 'recurrent' && !_repeat) ...[
             const SizedBox(height: 16),
-            _label('Planned day'),
-            InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: _pickPlanned,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(children: [
-                  Expanded(
-                    child: Text(_formatDay(_planned),
-                        style: const TextStyle(fontSize: 14, color: Color(0xFF0F1B3D), fontWeight: FontWeight.w500)),
-                  ),
-                  const Icon(Icons.calendar_today_outlined, size: 20, color: Color(0xFF64748B)),
-                ]),
+            _label('Planned days'),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
+              child: Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                for (final d in _plannedDays)
+                  InputChip(
+                    label: Text(_formatDay(d), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    onDeleted: _plannedDays.length > 1 ? () => _removePlanned(d) : null,
+                  ),
+                ActionChip(
+                  avatar: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Add a day', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  onPressed: _addPlanned,
+                ),
+              ]),
             ),
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
-                  'Planned for this day only, then sent for approval. The beat stays in your beat list without fixed days.',
+                  'Pick one or more days (today or later), for example a Sunday and next Friday. The beat is planned on '
+                  'those days after approval and stays in your beat list without fixed weekdays.',
                   style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
             ),
           ],

@@ -197,10 +197,134 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
   String? _error;
   bool _changed = false;
 
+  /// Outlets (0) or the plan dates of the beat (1).
+  int _tab = 0;
+  Map<String, dynamic>? _plans;
+  bool _plansLoading = false;
+  String? _plansError;
+
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  Future<void> _loadPlans() async {
+    setState(() {
+      _plansLoading = true;
+      _plansError = null;
+    });
+    try {
+      final data = await Services.api.get('/api/v1/beats/${widget.beat['id']}/plans') as Map<String, dynamic>;
+      if (mounted) setState(() => _plans = data);
+    } catch (e) {
+      if (mounted) setState(() => _plansError = e.toString());
+    } finally {
+      if (mounted) setState(() => _plansLoading = false);
+    }
+  }
+
+  static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  String _nice(String iso) {
+    final d = DateTime.tryParse(iso);
+    if (d == null) return iso;
+    return '${_weekdays[d.weekday - 1]}, ${d.day} ${_months[d.month - 1]} ${d.year}';
+  }
+
+  Widget _tabs() {
+    Widget half(String text, int index) {
+      final on = _tab == index;
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            setState(() => _tab = index);
+            if (index == 1 && _plans == null && !_plansLoading) _loadPlans();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: on ? AppColors.primary.withValues(alpha: 0.12) : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(text,
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: on ? AppColors.primary : AppColors.text)),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(23),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(children: [half('Outlets', 0), half('Plan dates', 1)]),
+    );
+  }
+
+  /// The completed, upcoming and missed days of this beat, and the days still waiting for approval.
+  List<Widget> _planRows() {
+    final data = _plans;
+    if (data == null) return const [];
+    final today = DateTime.now();
+    final todayIso = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final days = ((data['days'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final requested = ((data['requested'] as List?) ?? []).map((e) => '$e').toList();
+    final done = [for (final d in days) if (d['status'] == 'done') d];
+    final upcoming = [for (final d in days) if (d['status'] != 'done' && '${d['date']}'.compareTo(todayIso) >= 0) d]
+      ..sort((a, b) => '${a['date']}'.compareTo('${b['date']}'));
+    final missed = [for (final d in days) if (d['status'] != 'done' && '${d['date']}'.compareTo(todayIso) < 0) d];
+
+    Widget group(String title, Color colour, List<Widget> rows) => rows.isEmpty
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 6),
+                child: Text('$title (${rows.length})', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: colour)),
+              ),
+              ...rows,
+            ]),
+          );
+
+    Widget row(Map<String, dynamic> d, String note, Color colour, IconData icon) => Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            dense: true,
+            leading: Icon(icon, color: colour),
+            title: Text(_nice('${d['date']}'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+            subtitle: Text(note, style: const TextStyle(fontSize: 12)),
+          ),
+        );
+
+    String counts(Map<String, dynamic> d) =>
+        '${d['completed_count'] ?? 0} of ${d['planned_count'] ?? 0} outlets visited';
+
+    final rows = <Widget>[
+      group('Completed', AppColors.success, [for (final d in done) row(d, counts(d), AppColors.success, Icons.check_circle_rounded)]),
+      group('Planned', AppColors.primary, [
+        for (final d in upcoming)
+          row(d, d['status'] == 'in_progress' ? 'In progress · ${counts(d)}' : '${d['planned_count'] ?? 0} outlets planned',
+              AppColors.primary, Icons.event_rounded),
+      ]),
+      group('Waiting for approval', AppColors.warning, [
+        for (final iso in requested)
+          row({'date': iso}, 'Will be planned once approved', AppColors.warning, Icons.hourglass_top_rounded),
+      ]),
+      group('Missed', AppColors.danger, [for (final d in missed) row(d, counts(d), AppColors.danger, Icons.event_busy_rounded)]),
+    ];
+    if (days.isEmpty && requested.isEmpty) {
+      return const [EmptyView(icon: Icons.event_rounded, text: 'This beat has not been planned on any day yet.')];
+    }
+    return rows;
   }
 
   Future<void> _load() async {
@@ -255,8 +379,18 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
           ],
         ),
         body: RefreshIndicator(
-          onRefresh: _load,
+          onRefresh: () async {
+            await _load();
+            if (_tab == 1) await _loadPlans();
+          },
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
+            _tabs(),
+            if (_tab == 1) ...[
+              if (_plansLoading) const LinearProgressIndicator(minHeight: 2),
+              if (_plansError != null) ErrorView(message: _plansError!, onRetry: _loadPlans),
+              ..._planRows(),
+            ],
+            if (_tab == 0) ...[
             if (_loading) const LinearProgressIndicator(minHeight: 2),
             if (_error != null) ErrorView(message: _error!, onRetry: _load),
             if (!_loading && _error == null && _outlets.isEmpty)
@@ -277,6 +411,7 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
                   ),
                 ),
               ),
+            ],
           ]),
         ),
       ),
