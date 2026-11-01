@@ -38,6 +38,14 @@ class ResPartner(models.Model):
 
     @api.model
     def _ff_visible_domain(self, employee):
+        """By the access rule, then narrowed by the employee's "Allocated Outlets / Distributors" switches."""
+        from odoo.fields import Domain
+        domain = self._ff_visible_domain_by_rule(employee)
+        allocation = self._ff_allocation_domain(employee)
+        return list(Domain(domain) & Domain(allocation)) if allocation else domain
+
+    @api.model
+    def _ff_visible_domain_by_rule(self, employee):
         # A rule given to an employee comes first: it decides for that person, whatever the setting says.
         rule_first = self._ff_access_rule(employee)
         if rule_first and rule_first.mode == 'open':

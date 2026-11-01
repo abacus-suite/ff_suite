@@ -5,6 +5,10 @@
         <field name="model">hr.employee</field>
         <field name="inherit_id" ref="hr.view_employee_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//group[@name='ff_tracking']" position="inside">
+                <field name="ff_allocated_outlets" groups="ff_base.group_ff_admin"/>
+                <field name="ff_allocated_distributors" groups="ff_base.group_ff_admin"/>
+            </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_ff_app_contacts" type="object" class="oe_stat_button"
                         icon="fa-mobile"

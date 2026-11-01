@@ -121,6 +121,36 @@ class ResPartner(models.Model):
         return value not in ('False', 'false', '0')
 
     @api.model
+    def _ff_allocation_domain(self, employee):
+        """The extra limit of "Allocated Outlets" / "Allocated Distributors" on the employee.
+
+        With a switch on, that kind of contact (outlets, or distributors) is only theirs when their name is on it
+        (Field Employees). Everything else, and a person with both switches off, follows the usual rule. A
+        lead is never touched here.
+        """
+        from odoo.fields import Domain
+        employee = employee.sudo()
+        outlets_only = employee.ff_allocated_outlets
+        distributors_only = employee.ff_allocated_distributors
+        if not (outlets_only or distributors_only):
+            return []
+        distributor = ['|', ('ff_category_type', '=', 'distributor'), ('ff_is_distributor', '=', True)]
+        outlet = ['|', ('ff_category_type', '=', False), ('ff_category_type', 'not in', ('distributor', 'lead')),
+                  ('ff_is_distributor', '!=', True)]
+        if 'is_distributor' in self._fields:
+            distributor = ['|'] + distributor + [('is_distributor', '=', True)]
+            outlet.append(('is_distributor', '!=', True))
+        lead = [('ff_category_type', '=', 'lead')]
+        mine = [('ff_employee_ids', 'in', [employee.id])]
+        parts = []
+        if outlets_only:
+            # Anything that is not an outlet stays as it was; an outlet only when it is theirs.
+            parts.append(Domain.OR([Domain(distributor), Domain(lead), Domain(mine)]))
+        if distributors_only:
+            parts.append(Domain.OR([Domain(outlet), Domain(lead), Domain(mine)]))
+        return list(Domain.AND(parts))
+
+    @api.model
     def _ff_visible_domain(self, employee):
         """Contacts an employee may see in the app.
 

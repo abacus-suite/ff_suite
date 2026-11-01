@@ -67,11 +67,14 @@ def client_domain(employee, member=None):
     """The contacts the app may show: ``_client_domain`` less any category hidden from the app."""
     base = _client_domain(employee, member)
     shown = ['|', ('ff_category_id', '=', False), ('ff_category_id.show_in_app', '=', True)]
+    # "Allocated Outlets / Distributors" on the employee: only those with their name on them.
+    Partner = request.env['res.partner']
+    allocation = Partner._ff_allocation_domain(employee) if hasattr(Partner, '_ff_allocation_domain') else []
     try:
         from odoo.fields import Domain
-        return list(Domain(base) & Domain(shown))
+        return list(Domain(base) & Domain(shown) & Domain(allocation))
     except Exception:
-        return base + shown
+        return base + shown + allocation
 
 
 def _client_domain(employee, member=None):

@@ -4,11 +4,20 @@
 the quickest honest answer is to open that very domain in Odoo. The button on
 the employee form does that: the same rule the app uses, nothing else.
 """
-from odoo import models
+from odoo import fields, models
 
 
 class HrEmployeeAppContacts(models.Model):
     _inherit = 'hr.employee'
+
+    ff_allocated_outlets = fields.Boolean(
+        string='Allocated Outlets', tracking=True,
+        help='On: this person sees, in the app, only the outlets that have their name on them (Field Employees '
+             'on the contact). Off: the usual rule decides (shared, or by territory, beat or city).')
+    ff_allocated_distributors = fields.Boolean(
+        string='Allocated Distributors', tracking=True,
+        help='On: this person sees, in the app, only the distributors that have their name on them (Field Employees '
+             'on the contact). Off: the usual rule decides (shared, or by territory, beat or city).')
 
     def action_ff_app_contacts(self):
         """Open the contacts this employee sees in the app, by the app's own rule."""
