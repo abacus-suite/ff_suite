@@ -114,8 +114,8 @@ class FieldForceRoutePlanApi(http.Controller):
                 for p in unassigned:
                     by_territory.setdefault(territory.id, {})[p.id] = p
         out = []
-        for territory in mine.sorted('name'):
-            partners = sorted(by_territory.get(territory.id, {}).values(), key=lambda p: p.name or '')
+        for territory in mine.sorted(lambda r: (r.name or '').lower()):
+            partners = sorted(by_territory.get(territory.id, {}).values(), key=lambda p: (p.name or '').lower())
             is_sec = territory.id in secondary_ids
             out.append({
                 'id': territory.id,

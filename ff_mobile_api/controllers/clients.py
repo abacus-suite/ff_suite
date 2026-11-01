@@ -294,12 +294,12 @@ class FieldForceClientsApi(http.Controller):
             return {'id': t.id, 'name': t.name, 'kind': kind, 'areas': areas.get(t.id, [])}
 
         return ok({
-            'territories': [territory_row(t, 'primary') for t in primary.sorted('name')] +
-                           [territory_row(t, 'secondary') for t in secondary.sorted('name') if t not in primary] +
-                           [territory_row(t, 'other') for t in others.sorted('name')],
+            'territories': [territory_row(t, 'primary') for t in primary.sorted(lambda r: (r.name or '').lower())] +
+                           [territory_row(t, 'secondary') for t in secondary.sorted(lambda r: (r.name or '').lower()) if t not in primary] +
+                           [territory_row(t, 'other') for t in others.sorted(lambda r: (r.name or '').lower())],
             'beats': [{'id': b.id, 'name': b.name,
                        'territory_id': b.territory_id.id if 'territory_id' in b._fields and b.territory_id else None}
-                      for b in beats.sorted('name')],
+                      for b in beats.sorted(lambda r: (r.name or '').lower())],
         })
 
     @api_route('/api/v1/clients', methods=('GET',))
@@ -613,7 +613,7 @@ class FieldForceClientsApi(http.Controller):
         # The beats the contact access rule gives this person: the same list planning and check-in use.
         own = employee.sudo().ff_route_ids
         routes = request.env['ff.beat'].ff_beats_for(employee)
-        routes = routes.sorted(lambda route: (route not in own, route.display_name))
+        routes = routes.sorted(lambda route: (route.display_name or '').lower())
         return ok([{
             'id': route.id,
             'name': route.name,
