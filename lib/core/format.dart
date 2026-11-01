@@ -55,9 +55,12 @@ String? whatsAppNumber(String? phone) {
 String flavourName(Map p) =>
     (asText(p['name']) ?? '').replaceFirst(RegExp(r'^\[[^\]]*\]\s*'), '');
 
+/// The Product Code of a product: the one short code the office keeps on the product master.
+String? productCode(Map p) => asText(p['code']) ?? asText(p['sku']) ?? asText(p['default_code']);
+
 /// A flavour as every list shows it: the full name with its code, "Mango Saffron (MS)".
 String flavourLabel(Map p) {
-  final code = asText(p['code']) ?? asText(p['default_code']);
+  final code = productCode(p);
   final name = flavourName(p);
   if (code == null) return name;
   if (name.isEmpty) return code;

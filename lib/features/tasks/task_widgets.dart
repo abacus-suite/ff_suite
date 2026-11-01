@@ -508,7 +508,7 @@ class _QtyGridState extends State<QtyGrid> {
     final p = widget.products[index];
     final id = p['id'] as int;
     final filled = widget.values.containsKey(id);
-    final code = asText(p['code']);
+    final code = productCode(p);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
@@ -519,24 +519,27 @@ class _QtyGridState extends State<QtyGrid> {
       ),
       child: Row(
         children: [
+          // The box: the Product Code only (a name's first letters when the product has no code).
           Container(
-            width: 44,
+            constraints: const BoxConstraints(minWidth: 44, maxWidth: 78),
             height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: AppColors.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(code ?? flavourName(p).characters.take(2).toString().toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: AppColors.primary)),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(code ?? flavourName(p).characters.take(2).toString().toUpperCase(),
+                  maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: AppColors.primary)),
+            ),
           ),
           const SizedBox(width: 10),
-          // The full name, never cut: it wraps instead (the code sits in the chip beside it).
+          // The product's name, never cut: it wraps instead. The code is in the box beside it, so not repeated here.
           Expanded(
             child: Builder(builder: (_) {
-              final name = Text(code == null ? flavourName(p) : flavourLabel(p),
+              final name = Text(flavourName(p),
                   softWrap: true, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600));
               final sub = widget.subtitleOf?.call(p);
               if (sub == null) return name;
