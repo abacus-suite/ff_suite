@@ -47,7 +47,8 @@ class FfBeatPlanApp(models.Model):
             customers.append({
                 'partner': partner,
                 'sequence': line.sequence,
-                'selected': existing.selected if existing else True,
+                # On a day that is already planned, an outlet with no line is simply not part of the plan.
+                'selected': existing.selected if existing else not day,
                 'status': existing.status if existing else False,
                 'visited': bool(existing and existing.visit_id),
             })
