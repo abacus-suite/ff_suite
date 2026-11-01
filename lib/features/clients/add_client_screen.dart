@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:geolocator/geolocator.dart';
@@ -30,6 +32,16 @@ class _AddClientScreenState extends State<AddClientScreen> {
   int? _routeId;
   List<Map<String, dynamic>> _routes = [];
   Position? _pos;
+
+  // Territory and Area: suggested from where the person stands, and theirs to change.
+  List<Map<String, dynamic>> _territories = [];
+  int? _territoryId;
+  int? _areaId;
+  int? _districtId;
+  bool _territoryTouched = false;
+  bool _areaTouched = false;
+  bool _cityAuto = false;
+  bool _suggested = false;
   String? _locError;
   bool _locating = false;
   bool _busy = false;
@@ -42,6 +54,76 @@ class _AddClientScreenState extends State<AddClientScreen> {
     _locate();
     _loadCategories();
     _loadRoutes();
+    _loadTerritories();
+  }
+
+  /// The territories this person works in, each with its areas.
+  Future<void> _loadTerritories() async {
+    try {
+      final data = await Services.api.get('/api/v1/clients/filters') as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _territories = ((data['territories'] as List?) ?? []).cast<Map<String, dynamic>>()
+          ..sort((a, b) => territoryLabel(a).toLowerCase().compareTo(territoryLabel(b).toLowerCase()));
+      });
+      _applySuggestion();
+    } catch (_) {
+      // Without them the territory and area simply stay empty.
+    }
+  }
+
+  Map<String, dynamic>? _suggestion;
+
+  /// Ask the server where this is: territory and area from the contacts around, the city from a lookup.
+  Future<void> _suggest() async {
+    final pos = _pos;
+    if (pos == null) return;
+    try {
+      final data = await Services.api.post('/api/v1/geo/suggest', {'lat': pos.latitude, 'lng': pos.longitude})
+          as Map<String, dynamic>;
+      if (!mounted) return;
+      _suggestion = data;
+      _applySuggestion();
+    } catch (_) {
+      // An older server, or no network: the person fills the fields in.
+    }
+  }
+
+  /// Fill what the person has not touched: territory and area when they are theirs to use, the city when empty.
+  void _applySuggestion() {
+    final data = _suggestion;
+    if (data == null || !mounted) return;
+    int? idOf(Object? ref) => ref is Map ? (ref['id'] as num?)?.toInt() : null;
+    final territory = idOf(data['territory']);
+    final area = idOf(data['area']);
+    final district = idOf(data['district']);
+    final city = asText(data['city']);
+    var changed = false;
+    setState(() {
+      if (!_territoryTouched && territory != null && _territories.any((t) => t['id'] == territory)) {
+        _territoryId = territory;
+        changed = true;
+      }
+      final areas = _areasOf(_territoryId);
+      if (!_areaTouched && area != null && areas.any((a) => a['id'] == area)) {
+        _areaId = area;
+        changed = true;
+      }
+      if (district != null) _districtId = district;
+      if (city != null && (_city.text.trim().isEmpty || _cityAuto)) {
+        _city.text = city;
+        _cityAuto = true;
+        changed = true;
+      }
+      if (changed) _suggested = true;
+    });
+  }
+
+  List<Map<String, dynamic>> _areasOf(int? territoryId) {
+    final t = _territories.where((t) => t['id'] == territoryId).firstOrNull;
+    final list = ((t?['areas'] as List?) ?? const []).cast<Map<String, dynamic>>().toList()
+      ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+    return list;
   }
 
   @override
@@ -109,6 +191,8 @@ class _AddClientScreenState extends State<AddClientScreen> {
     try {
       final pos = await currentPosition();
       if (mounted) setState(() => (_pos = pos, _locError = null));
+      // Where is this? Territory, area and city come from the position.
+      unawaited(_suggest());
     } catch (e) {
       if (mounted) setState(() => _locError = e.toString());
     } finally {
@@ -126,7 +210,11 @@ class _AddClientScreenState extends State<AddClientScreen> {
         'category_id': _categoryId,
         if (_routeId != null) 'route_id': _routeId,
         if (_routes.where((r) => r['id'] == _routeId).firstOrNull?['district'] case {'id': final int district})
-          'district_id': district,
+          'district_id': district
+        else if (_districtId != null)
+          'district_id': _districtId,
+        if (_territoryId != null) 'territory_id': _territoryId,
+        if (_areaId != null) 'area_id': _areaId,
         'phone': _phone.text.trim(),
         'email': _email.text.trim(),
         'street': _street.text.trim(),
@@ -162,6 +250,58 @@ class _AddClientScreenState extends State<AddClientScreen> {
         decoration: InputDecoration(labelText: required ? '$label *' : label),
         validator: required ? (v) => (v == null || v.trim().isEmpty) ? 'Required' : null : null,
       ),
+    );
+  }
+
+  /// Territory and Area, with a note while they were filled in from the location.
+  Widget _territoryAreaFields() {
+    final areas = _areasOf(_territoryId);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        DropdownButtonFormField<int?>(
+          initialValue: _territories.any((t) => t['id'] == _territoryId) ? _territoryId : null,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'Territory'),
+          items: [
+            const DropdownMenuItem<int?>(value: null, child: Text('No territory')),
+            for (final t in _territories)
+              DropdownMenuItem<int?>(value: t['id'] as int, child: Text(territoryLabel(t), overflow: TextOverflow.ellipsis)),
+          ],
+          onChanged: (v) => setState(() {
+            _territoryTouched = true;
+            if (v != _territoryId) {
+              _areaId = null;
+              _areaTouched = false;
+            }
+            _territoryId = v;
+          }),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int?>(
+          initialValue: areas.any((a) => a['id'] == _areaId) ? _areaId : null,
+          isExpanded: true,
+          decoration: InputDecoration(
+              labelText: 'Area',
+              helperText: _territoryId == null ? 'Choose a territory first' : (areas.isEmpty ? 'No areas in this territory yet' : null)),
+          items: [
+            const DropdownMenuItem<int?>(value: null, child: Text('No area')),
+            for (final a in areas) DropdownMenuItem<int?>(value: a['id'] as int, child: Text('${a['name']}', overflow: TextOverflow.ellipsis)),
+          ],
+          onChanged: areas.isEmpty
+              ? null
+              : (v) => setState(() {
+                    _areaTouched = true;
+                    _areaId = v;
+                  }),
+        ),
+        if (_suggested)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text('Suggested from your location. Change it if it is not right.',
+                style: TextStyle(fontSize: 12, color: AppColors.muted)),
+          ),
+      ]),
     );
   }
 
@@ -241,10 +381,18 @@ class _AddClientScreenState extends State<AddClientScreen> {
                 ],
               ),
             ),
+            _territoryAreaFields(),
             _field(_phone, 'Phone', type: TextInputType.phone),
             _field(_email, 'Email', type: TextInputType.emailAddress),
             _field(_street, 'Street / area'),
-            _field(_city, 'City'),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TextFormField(
+                controller: _city,
+                onChanged: (_) => _cityAuto = false,
+                decoration: const InputDecoration(labelText: 'City'),
+              ),
+            ),
             _field(_zip, 'PIN code', type: TextInputType.number),
             _field(_note, 'Notes', maxLines: 3),
             const SizedBox(height: 8),
