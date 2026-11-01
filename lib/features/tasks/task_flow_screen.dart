@@ -115,6 +115,9 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
   Map<String, dynamic>? _ledger;
   List<Map<String, dynamic>> _routes = [];
   List<Map<String, dynamic>> _cities = [];
+
+  /// The person's own primary and secondary territories, each with its areas.
+  List<Map<String, dynamic>> _territories = [];
   int _index = 0;
   bool _busy = false;
 
@@ -348,14 +351,86 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     try {
       final routes = (await Services.api.get('/api/v1/my-routes') as List).cast<Map<String, dynamic>>();
       final cities = (await Services.api.get('/api/v1/districts') as List).cast<Map<String, dynamic>>();
+      var territories = <Map<String, dynamic>>[];
+      try {
+        territories = [
+          for (final t in (await Services.api.get('/api/v1/territories') as List).cast<Map<String, dynamic>>())
+            if (t['kind'] == null || t['kind'] == 'primary' || t['kind'] == 'secondary') t,
+        ]..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+      } catch (_) {
+        // An older server has no territory list: the district list below still works.
+      }
       if (mounted) {
         setState(() {
-          _routes = routes;
+          _routes = routes..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
           _cities = cities;
+          _territories = territories;
         });
       }
     } catch (_) {}
   }
+
+  int? _idOf(Object? ref) => ref is Map ? (ref['id'] as num?)?.toInt() : null;
+
+  /// Areas to choose from: those of the chosen territory, else those of every territory of the person.
+  List<Map<String, dynamic>> _areaOptions() {
+    final chosen = _a['territory_id'] as int?;
+    final rows = <Map<String, dynamic>>[];
+    for (final t in _territories) {
+      if (chosen != null && t['id'] != chosen) continue;
+      for (final area in ((t['areas'] as List?) ?? const []).cast<Map<String, dynamic>>()) {
+        rows.add({
+          'id': area['id'],
+          'name': chosen == null ? '${area['name']} · ${t['name']}' : '${area['name']}',
+          'plain': '${area['name']}',
+          'territory_id': t['id'],
+        });
+      }
+    }
+    return rows..sort((a, b) => '${a['plain']}'.toLowerCase().compareTo('${b['plain']}'.toLowerCase()));
+  }
+
+  /// A beat knows its territory and its usual area: both are filled in from it.
+  void _pickBeat(int? id) {
+    setState(() {
+      _a['beat_id'] = id;
+      final route = _routes.where((r) => r['id'] == id).firstOrNull;
+      if (route == null) return;
+      final territory = (route['territory_id'] as num?)?.toInt();
+      if (territory != null && _territories.any((t) => t['id'] == territory)) {
+        if (_a['territory_id'] != territory) _a['area_id'] = null;
+        _a['territory_id'] = territory;
+        _a['district_id'] = _districtOf(territory) ?? _a['district_id'];
+      }
+      final area = _idOf(route['area']);
+      if (area != null && _areaOptions().any((a) => a['id'] == area)) _a['area_id'] = area;
+    });
+  }
+
+  /// An area knows its territory.
+  void _pickArea(int? id) {
+    setState(() {
+      _a['area_id'] = id;
+      if (id == null) return;
+      final owner = _territories.where((t) => ((t['areas'] as List?) ?? const []).any((a) => a is Map && a['id'] == id)).firstOrNull;
+      if (owner != null) {
+        _a['territory_id'] = owner['id'];
+        _a['district_id'] = _districtOf(owner['id'] as int) ?? _a['district_id'];
+      }
+    });
+  }
+
+  void _pickTerritory(int? id) {
+    setState(() {
+      _a['territory_id'] = id;
+      // An area of another territory no longer applies.
+      if (!_areaOptions().any((a) => a['id'] == _a['area_id'])) _a['area_id'] = null;
+      if (id != null) _a['district_id'] = _districtOf(id) ?? _a['district_id'];
+    });
+  }
+
+  int? _districtOf(int territoryId) =>
+      (_territories.where((t) => t['id'] == territoryId).firstOrNull?['district_id'] as num?)?.toInt();
 
   // ------------------------------------------------------------------ the steps
   List<_Step> _steps() {
@@ -818,7 +893,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
               const SizedBox(height: 10),
               _autoField('Outlet status', 'New Lead'),
               _autoField('Geo location', 'Captured when you submit'),
-              _autoField('Team', '${Services.auth.profile?.name ?? ''}'),
+              _autoField('Sales Officer', '${Services.auth.profile?.name ?? ''}'),
             ],
           ),
         ),
@@ -847,10 +922,22 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
           title: 'Where it sits',
           child: Column(
             children: [
-              _dropdown('Beat *', _routes, _a['beat_id'] as int?, (v) => setState(() => _a['beat_id'] = v)),
+              _dropdown('Beat *', _routes, _a['beat_id'] as int?, _pickBeat),
               const SizedBox(height: 10),
-              _dropdown('Territory *', _cities, _a['district_id'] as int?,
-                  (v) => setState(() => _a['district_id'] = v)),
+              _dropdown('Area', _areaOptions(), _a['area_id'] as int?, _pickArea),
+              const SizedBox(height: 10),
+              // Their own territories; without the territory list (an older server) the districts stand in.
+              _territories.isNotEmpty
+                  ? _dropdown(
+                      'Territory *',
+                      [
+                        for (final t in _territories)
+                          {'id': t['id'], 'name': '${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}'},
+                      ],
+                      _a['territory_id'] as int?,
+                      _pickTerritory)
+                  : _dropdown('Territory *', _cities, _a['district_id'] as int?,
+                      (v) => setState(() => _a['district_id'] = v)),
             ],
           ),
         ),
@@ -895,7 +982,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     if (category == 'others' && _s('category_note').isEmpty) return 'Describe the outlet category.';
     if (_p('front').isEmpty) return 'Take the photo of the front and sign board.';
     if (_a['beat_id'] == null) return 'Choose the beat.';
-    if (_a['district_id'] == null) return 'Choose the territory.';
+    if (_a['district_id'] == null && _a['territory_id'] == null) return 'Choose the territory.';
     return null;
   }
 
@@ -1343,7 +1430,10 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
             'category_note': _s('category_note'),
             'beat_id': _a['beat_id'],
             'district_id': _a['district_id'],
-            'territory': _cities.where((c) => c['id'] == _a['district_id']).map((c) => c['name']).firstOrNull,
+            if (_a['territory_id'] != null) 'territory_id': _a['territory_id'],
+            if (_a['area_id'] != null) 'area_id': _a['area_id'],
+            'territory': _territories.where((t) => t['id'] == _a['territory_id']).map((t) => t['name']).firstOrNull ??
+                _cities.where((c) => c['id'] == _a['district_id']).map((c) => c['name']).firstOrNull,
           },
           ..._meetingPayload(),
         };

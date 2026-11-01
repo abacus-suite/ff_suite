@@ -50,6 +50,8 @@ class StepCard extends StatelessWidget {
     final required = title?.trimRight().endsWith('*') ?? false;
     final clean = required ? title!.trimRight().substring(0, title!.trimRight().length - 1).trimRight() : title;
     return Container(
+      // Full width, whatever is inside: a card with only a picture used to shrink to the picture.
+      width: double.infinity,
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.fromLTRB(15, 14, 15, 15),
       decoration: BoxDecoration(
