@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../widgets/powered_by.dart';
 import '../../widgets/common.dart';
 import '../shell/app_shell.dart';
+import 'password_screens.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, this.message});
@@ -126,7 +127,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 14),
                       Text(_error!, style: const TextStyle(color: AppColors.danger)),
                     ],
-                    const SizedBox(height: 24),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => ForgotPasswordScreen(login: _login.text.trim()))),
+                        child: const Text('Forgot password?'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     GradientButton(label: 'Log in', icon: Icons.login_rounded, busy: _busy, onPressed: _submit),
                     TextButton(
                       onPressed: () => setState(() => _showServer = !_showServer),

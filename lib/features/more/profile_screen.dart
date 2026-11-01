@@ -16,6 +16,7 @@ import '../../widgets/common.dart';
 import '../../widgets/sdk_map.dart';
 import '../../widgets/sync_status.dart';
 import '../auth/login_screen.dart';
+import '../auth/password_screens.dart';
 
 /// Role-based gradient colours as requested by client:
 /// 1. Stock & Despatch Coordinator [Nesto], Sales Representative & Merchandiser,
@@ -211,7 +212,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 12),
           _settingsEntry(profile),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ChangePasswordScreen())),
+            icon: const Icon(Icons.lock_reset_rounded),
+            label: const Text('Change password'),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+          ),
+          const SizedBox(height: 12),
           GradientButton(
             label: 'Log out',
             icon: Icons.logout_rounded,
