@@ -248,9 +248,17 @@ class _EventCompletedScreenState extends State<EventCompletedScreen> {
     }
   }
 
-  /// A distributor's item is done once its report is shared and, except Kumbayah, its debit note requested.
-  bool _rowDone(Map<String, dynamic> r) =>
-      _shared.contains('d${(r['distributor'] as Map)['id']}') && (r['is_company'] == true || r['debit_requested'] == true);
+  /// A distributor's item is done once its report is shared and, except Kumbayah, the debit note is requested (when
+  /// it supplied more than it got back) and the invoice raised (when it got back more than it supplied).
+  bool _rowDone(Map<String, dynamic> r) {
+    final t = (r['totals'] as Map).cast<String, dynamic>();
+    final company = r['is_company'] == true;
+    final needsDebit = !company && (t.containsKey('debit_qty') ? _n(t['debit_qty']) > 0 : true);
+    final needsInvoice = !company && r['invoice_needed'] == true;
+    return _shared.contains('d${(r['distributor'] as Map)['id']}') &&
+        (!needsDebit || r['debit_requested'] == true) &&
+        (!needsInvoice || r['invoice_requested'] == true);
+  }
 
   bool get _allDone =>
       _rows(_data?['distributors']).every(_rowDone) && _shared.contains('final');
@@ -392,23 +400,70 @@ class _EventCompletedScreenState extends State<EventCompletedScreen> {
                                 ]));
                               }),
                               if (locked)
-                                Text(
-                                    _rowDone(r)
-                                        ? (r['is_company'] == true ? 'WhatsApp shared' : 'WhatsApp shared · Debit Note requested')
-                                        : (r['is_company'] == true
-                                            ? 'Share report on WhatsApp'
-                                            : 'Share report on WhatsApp + Request Debit Note'),
-                                    style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                                Builder(builder: (_) {
+                                  final t = (r['totals'] as Map).cast<String, dynamic>();
+                                  final company = r['is_company'] == true;
+                                  final debit = !company && (t.containsKey('debit_qty') ? _n(t['debit_qty']) > 0 : true);
+                                  final invoice = !company && r['invoice_needed'] == true;
+                                  final todo = [
+                                    'Share report on WhatsApp',
+                                    if (debit) 'Request Debit Note',
+                                    if (invoice) 'Raise Invoice',
+                                  ].join(' + ');
+                                  final done = [
+                                    'WhatsApp shared',
+                                    if (debit) 'Debit Note requested',
+                                    if (invoice) 'Invoice raised',
+                                  ].join(' · ');
+                                  return Text(_rowDone(r) ? done : todo,
+                                      style: const TextStyle(fontSize: 11.5, color: AppColors.muted));
+                                }),
                             ]),
                           ),
                           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                            // A minus is a distributor that got back more than it supplied: it is invoiced for that.
                             Text('${_q(_n((r['totals'] as Map)['net']))} btl',
-                                style: const TextStyle(fontWeight: FontWeight.w900)),
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    color: _n((r['totals'] as Map)['net']) < 0 ? AppColors.danger : null)),
+                            if (r['invoice_needed'] == true)
+                              const Text('to invoice', style: TextStyle(fontSize: 10.5, color: AppColors.danger)),
                             if (locked) ...[const SizedBox(height: 4), _status(_rowDone(r))],
                           ]),
                         ]),
                       ),
                     ),
+                  if (_rows(_data?['invoices']).isNotEmpty) ...[
+                    Container(
+                      margin: const EdgeInsets.only(top: 4, bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Invoice summary', style: TextStyle(fontWeight: FontWeight.w900)),
+                        const Text('Distributors that got back more than they supplied',
+                            style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                        const SizedBox(height: 8),
+                        for (final i in _rows(_data?['invoices']))
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(children: [
+                              Expanded(
+                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Text('${(i['distributor'] as Map)['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  Text(i['raised'] == true ? '${i['number'] ?? 'Invoice raised'}' : 'Not raised yet',
+                                      style: TextStyle(fontSize: 11.5, color: i['raised'] == true ? AppColors.success : AppColors.danger)),
+                                ]),
+                              ),
+                              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                                Text('${_q(_n(i['quantity']))} btl', style: const TextStyle(fontWeight: FontWeight.w800)),
+                                if (i['amount'] != null)
+                                  Text(fmtMoney(_n(i['amount']), 'INR'), style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                              ]),
+                            ]),
+                          ),
+                      ]),
+                    ),
+                  ],
                   const SizedBox(height: 4),
                   InkWell(
                     onTap: () => Navigator.of(context)
@@ -473,6 +528,8 @@ class DistributorReportScreen extends StatefulWidget {
 
 class _DistributorReportScreenState extends State<DistributorReportScreen> {
   late bool _requested = widget.row['debit_requested'] == true;
+  late bool _invoiced = widget.row['invoice_requested'] == true;
+  late String? _invoiceNumber = asText(widget.row['invoice_number']);
   bool _busy = false;
   bool _shared = false;
 
@@ -493,6 +550,26 @@ class _DistributorReportScreenState extends State<DistributorReportScreen> {
     if (!ok) return;
     await _Shared.mark(widget.eventId, 'd${_d['id']}');
     if (mounted) setState(() => _shared = true);
+  }
+
+  /// The invoice for what this distributor got back beyond what it supplied.
+  Future<void> _raiseInvoice() async {
+    final d = widget.row['distributor'] as Map;
+    setState(() => _busy = true);
+    try {
+      final result = await Services.api.post('/api/v1/events/${widget.eventId}/invoice', {'distributor_id': d['id']})
+          as Map<String, dynamic>;
+      if (mounted) {
+        setState(() {
+          _invoiced = true;
+          _invoiceNumber = asText(result['number']);
+        });
+      }
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _request() async {
@@ -516,6 +593,10 @@ class _DistributorReportScreenState extends State<DistributorReportScreen> {
     final totals = (r['totals'] as Map).cast<String, dynamic>();
     // Kumbayah Foods Pvt Ltd: the WhatsApp share only, no debit note.
     final company = r['is_company'] == true;
+    // A debit note for what it supplied beyond what came back; an invoice for what came back beyond what it supplied.
+    final needsDebit = !company && (totals.containsKey('debit_qty') ? _n(totals['debit_qty']) > 0 : true);
+    final needsInvoice = !company && r['invoice_needed'] == true;
+    Color netColour(Object? v) => _n(v) < 0 ? AppColors.danger : _green;
     Widget cell(String t, {bool head = false, bool bold = false, Color? colour, TextAlign align = TextAlign.right}) =>
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 5),
@@ -542,16 +623,30 @@ class _DistributorReportScreenState extends State<DistributorReportScreen> {
               TableRow(children: [
                 cell(flavourLabel(f), bold: true, align: TextAlign.left),
                 for (final k in ['open', 'add', 'ret']) cell(_q(_n(f[k]))),
-                // Net = Opening + Added - Returned, by flavour.
-                cell(_q(_n(f['net'])), bold: true, colour: _green),
+                // Net = Opening + Added - Returned, by flavour. A minus: it got back more than it supplied.
+                cell(_q(_n(f['net'])), bold: true, colour: netColour(f['net'])),
               ]),
             TableRow(decoration: const BoxDecoration(color: Color(0xFFEEF3FB)), children: [
               cell('Total', bold: true, align: TextAlign.left),
               for (final k in ['open', 'add', 'ret']) cell(_q(_n(totals[k])), bold: true),
-              cell(_q(_n(totals['net'])), bold: true, colour: _green),
+              cell(_q(_n(totals['net'])), bold: true, colour: netColour(totals['net'])),
             ]),
           ]),
         ),
+        if (needsInvoice)
+          Container(
+            margin: const EdgeInsets.only(top: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.danger.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
+            ),
+            child: Text(
+                '${d['name']} got back ${_q(_n(totals['invoice_qty']))} bottles more than it supplied: invoice it for them.'
+                '${needsDebit ? ' It also supplied ${_q(_n(totals['debit_qty']))} bottles that did not come back: a debit note.' : ''}',
+                style: const TextStyle(fontSize: 12.5, color: Color(0xFF9A1B1B))),
+          ),
         // What became of the stock the event took from this distributor, flavour by flavour, with its sales and coupons.
         if (totals.containsKey('sold')) ...[
           const SizedBox(height: 12),
@@ -602,37 +697,46 @@ class _DistributorReportScreenState extends State<DistributorReportScreen> {
           ),
         ],
         const SizedBox(height: 14),
-        // What is still to do: share on WhatsApp, and except Kumbayah, request the debit note.
-        if (!_shared || (!company && !_requested))
-          Row(children: [
+        // What is still to do: share on WhatsApp, the debit note, and the invoice when it is owed.
+        if (!_shared || (needsDebit && !_requested) || (needsInvoice && !_invoiced))
+          Column(children: [
             if (!_shared)
-              Expanded(
+              SizedBox(
+                width: double.infinity,
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(backgroundColor: _whatsApp, minimumSize: const Size.fromHeight(48)),
                   onPressed: _share,
                   icon: const Icon(Icons.chat_rounded, size: 20),
-                  // Side by side with the debit note button: the words shrink on a narrow phone rather than overflow.
-                  label: const FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text('Share on WhatsApp', style: TextStyle(fontWeight: FontWeight.w800))),
+                  label: const Text('Share on WhatsApp', style: TextStyle(fontWeight: FontWeight.w800)),
                 ),
               ),
-            if (!_shared && !company && !_requested) const SizedBox(width: 10),
-            if (!company && !_requested)
-              Expanded(
+            if (needsDebit && !_requested) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
                 child: FilledButton(
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                   onPressed: _busy ? null : _request,
                   child: _busy
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text('Request Debit Note', style: TextStyle(fontWeight: FontWeight.w800))),
+                      : const Text('Request Debit Note', style: TextStyle(fontWeight: FontWeight.w800)),
                 ),
               ),
+            ],
+            if (needsInvoice && !_invoiced) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(backgroundColor: AppColors.danger, minimumSize: const Size.fromHeight(48)),
+                  onPressed: _busy ? null : _raiseInvoice,
+                  icon: const Icon(Icons.receipt_long_rounded, size: 20),
+                  label: const Text('Raise Invoice', style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ],
           ]),
-        if (_shared) _sharedCard(),
-        if (_requested) ...[
+        if (_invoiced)
           Container(
             margin: const EdgeInsets.only(top: 12),
             padding: const EdgeInsets.all(12),
@@ -642,7 +746,21 @@ class _DistributorReportScreenState extends State<DistributorReportScreen> {
               border: Border.all(color: _green.withValues(alpha: 0.35)),
             ),
             child: Text(
-                'Debit note request sent to ${d['name']} for ${_q(_n(totals['net']))} bottles – ${widget.name}.',
+                'Invoice ${_invoiceNumber ?? ''} raised to ${d['name']} for ${_q(_n(totals['invoice_qty']))} bottles – ${widget.name}.',
+                style: const TextStyle(fontSize: 12.5, color: Color(0xFF166534))),
+          ),
+        if (_shared) _sharedCard(),
+        if (_requested && needsDebit) ...[
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _green.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _green.withValues(alpha: 0.35)),
+            ),
+            child: Text(
+                'Debit note request sent to ${d['name']} for ${_q(_n(totals.containsKey('debit_qty') ? totals['debit_qty'] : totals['net']))} bottles – ${widget.name}.',
                 style: const TextStyle(fontSize: 12.5, color: Color(0xFF166534))),
           ),
           _debitCard('${d['name']}'),

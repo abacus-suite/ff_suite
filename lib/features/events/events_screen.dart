@@ -1279,7 +1279,6 @@ class _EndScreenState extends State<_EndScreen> {
   final _coupons = TextEditingController();
   final _cash = TextEditingController();
   List<Map<String, dynamic>> _distributors = [];
-  bool _returnIt = false;
   bool _busy = false;
 
   late final Map<int, num> _available = {
@@ -1289,7 +1288,6 @@ class _EndScreenState extends State<_EndScreen> {
   @override
   void initState() {
     super.initState();
-    _returnIt = widget.last;
     // Stock can only go back to a distributor this event took stock from.
     _distributors = _list(widget.event['distributors']);
   }
@@ -1318,20 +1316,21 @@ class _EndScreenState extends State<_EndScreen> {
     setState(() => _step = 2);
   }
 
-  /// What staff counted as gone back (or left at the event) for a flavour.
-  num _counted(int pid) {
-    if (_returnIt) {
-      num total = 0;
-      for (final b in _returns) {
-        total += num.tryParse(b.qty[pid]?.text.trim() ?? '') ?? 0;
-      }
-      return total;
+  /// What staff sent back to distributors, for a flavour (all distributors together).
+  num _returned(int pid) {
+    num total = 0;
+    for (final b in _returns) {
+      total += num.tryParse(b.qty[pid]?.text.trim() ?? '') ?? 0;
     }
-    return num.tryParse(_closing[pid]!.text.trim()) ?? 0;
+    return total;
   }
 
-  /// Sales = opening + added - samples - damage - returned - closing, worked out by the app.
-  num _sold(int pid) => _left(pid) - _counted(pid);
+  /// What staff left at the event, for a flavour. On the last day nothing stays.
+  num _stays(int pid) => widget.last ? 0 : (num.tryParse(_closing[pid]!.text.trim()) ?? 0);
+
+  /// Sales = opening + added - samples - damage - returned - closing, worked out by the app. Whatever is neither
+  /// sent back nor left at the event has been sold.
+  num _sold(int pid) => _left(pid) - _returned(pid) - _stays(pid);
 
   void _toStepThree() {
     for (final p in _products) {
@@ -1340,10 +1339,6 @@ class _EndScreenState extends State<_EndScreen> {
         showProblem(context, '${p['name']}: returned or closing stock is more than what is left (${_q(_left(pid))}).');
         return;
       }
-    }
-    if (_returnIt && _stockRows(_returns).isEmpty && _products.any((p) => _left(p['id'] as int) > 0)) {
-      showProblem(context, 'Choose the distributor the stock goes back to and enter the quantity returned.');
-      return;
     }
     setState(() => _step = 3);
   }
@@ -1355,10 +1350,6 @@ class _EndScreenState extends State<_EndScreen> {
         showProblem(context, '${p['name']}: returned or closing stock is more than what is left (${_q(_left(pid))}).');
         return;
       }
-    }
-    if (_returnIt && _stockRows(_returns).isEmpty && _products.any((p) => _left(p['id'] as int) > 0)) {
-      showProblem(context, 'Choose the distributor the stock goes back to and enter the quantity returned.');
-      return;
     }
     if (widget.event['has_offer'] == true && (int.tryParse(_coupons.text.trim()) == null)) {
       showProblem(context, 'Enter the number of coupons used today.');
@@ -1373,9 +1364,9 @@ class _EndScreenState extends State<_EndScreen> {
       final result = await Services.api.post('/api/v1/events/${widget.event['id']}/${widget.last ? 'end' : 'day'}', {
         'samples': _map(_samples),
         'damage': _map(_damage),
-        'action': _returnIt ? 'return' : 'stays',
-        'closing': _returnIt ? <String, dynamic>{} : _map(_closing),
-        'returns': _returnIt ? _stockRows(_returns) : [],
+        // Some can go back and some can stay, on the same day; anything else is sold.
+        'closing': widget.last ? <String, dynamic>{} : _map(_closing),
+        'returns': _stockRows(_returns),
         'coupons_used': int.tryParse(_coupons.text.trim()) ?? 0,
         'cash_received': num.tryParse(_cash.text.trim().replaceAll(',', '')) ?? 0,
       }) as Map<String, dynamic>;
@@ -1385,7 +1376,7 @@ class _EndScreenState extends State<_EndScreen> {
             builder: (_) => EventCashSummaryScreen(
                 eventId: widget.event['id'] as int, name: '${widget.event['name']}')));
       } else {
-        final returned = _products.fold<num>(0, (a, p) => a + (_returnIt ? _counted(p['id'] as int) : 0));
+        final returned = _products.fold<num>(0, (a, p) => a + _returned(p['id'] as int));
         await Navigator.of(context).pushReplacement(MaterialPageRoute(
           builder: (_) => _DayClosedScreen(
             name: '${widget.event['name']}',
@@ -1456,52 +1447,27 @@ class _EndScreenState extends State<_EndScreen> {
       onBack: () => setState(() => _step = 1),
       bottom: GradientButton(label: 'Next', onPressed: _toStepThree),
       children: [
+        // Return some of it to the distributors, keep some at the event, or both: what is neither is counted as sold.
+        _StockEditor(
+          products: _products,
+          distributors: _distributors,
+          blocks: _returns,
+          first: widget.last ? 'Return remaining stock to' : 'Return to',
+          heading: 'Qty returned',
+          addLabel: 'Return to another distributor',
+          addSubtitle: 'Optional: leave it empty if nothing goes back',
+          onChanged: () => setState(() {}),
+        ),
         if (!widget.last) ...[
-          _sectionTitle('Closing stock'),
-          Container(
-            height: 42,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(21),
-              border: Border.all(color: const Color(0xFFD5DEEE)),
-            ),
-            child: Row(children: [
-              for (final back in [false, true])
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _returnIt = back),
-                    child: Container(
-                      margin: const EdgeInsets.all(3),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: _returnIt == back ? const Color(0xFFDCE7FB) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Text(back ? (_returnIt ? '\u2713 Return to distributor' : 'Return to distributor')
-                          : (!_returnIt ? '\u2713 Stays at the event' : 'Stays at the event'),
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5,
-                              color: _returnIt == back ? AppColors.primary : AppColors.muted)),
-                    ),
-                  ),
-                ),
-            ]),
-          ),
-        ],
-        if (_returnIt)
-          _StockEditor(
-            products: _products,
-            distributors: _distributors,
-            blocks: _returns,
-            first: widget.last ? 'Return remaining stock to' : 'Return to',
-            heading: 'Qty returned',
-            addLabel: 'Return to another distributor',
-            addSubtitle: null,
-            onChanged: () => setState(() {}),
-          )
-        else ...[
           _sectionTitle('Stays at the event', trailing: 'count the bottles left'),
           _Grid(products: _products, controllers: _closing, onChanged: () => setState(() {})),
         ],
+        if (_products.any((p) => _sold(p['id'] as int) > 0))
+          const Padding(
+            padding: EdgeInsets.only(top: 4, bottom: 2),
+            child: Text('Stock that is neither returned nor left at the event is counted as sold.',
+                style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+          ),
         _sectionTitle('Sales (auto)', trailing: 'calculated by the app'),
         _Grid(products: _products, values: {for (final p in _products) p['id'] as int: _sold(p['id'] as int)}),
       ],
