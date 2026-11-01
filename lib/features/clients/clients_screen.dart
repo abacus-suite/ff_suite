@@ -594,7 +594,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (sheet) => StatefulBuilder(
         builder: (context, setSheet) {
-          final beats = _beats.where((b) => _territoryId == null || b['territory_id'] == _territoryId).toList();
+          final beats = _beats.where((b) => _territoryId == null || b['territory_id'] == _territoryId).toList()
+            ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
           final areas = _areasOf(_territory);
 
           Widget heading(IconData icon, String text) => Padding(
@@ -714,22 +715,15 @@ class _ClientsScreenState extends State<ClientsScreen> {
                     dropdown<int>(
                       value: _territoryId,
                       hint: 'All territories',
-                      items: [
-                        for (final t in _territories)
-                          DropdownMenuItem(
-                            value: t['id'] as int,
-                            child: Text(
-                                '${territoryLabel(t)}${t['kind'] == 'secondary' ? ' (secondary)' : t['kind'] == 'other' ? ' (team / beat)' : ''}',
-                                overflow: TextOverflow.ellipsis),
-                          ),
-                      ],
+                      items: _territoryItems(),
                       onChanged: (v) {
-                        if (v != _territoryId) {
+                        final picked = (v == null || v <= 0) ? null : v;
+                        if (picked != _territoryId) {
                           _area = null;
                           _areaId = null;
                           _beatIds.clear();
                         }
-                        _territoryId = v;
+                        _territoryId = picked;
                       },
                     ),
                     const SizedBox(height: 22),
@@ -831,6 +825,38 @@ class _ClientsScreenState extends State<ClientsScreen> {
       setState(() {});
       _load();
     }
+  }
+
+  /// The territory dropdown: "All", then Primary, Secondary and Other under their own labels,
+  /// each in alphabetical order. A label is a disabled row (its value is negative, so no territory clashes with it).
+  List<DropdownMenuItem<int>> _territoryItems() {
+    int byName(Map<String, dynamic> a, Map<String, dynamic> b) =>
+        territoryLabel(a).toLowerCase().compareTo(territoryLabel(b).toLowerCase());
+    Widget label(String text) => Text(text.toUpperCase(),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.6, color: AppColors.muted));
+    final items = <DropdownMenuItem<int>>[
+      const DropdownMenuItem(value: 0, child: Text('All territories')),
+    ];
+    var header = -1;
+    for (final (kind, title) in const [
+      ('primary', 'Primary Territory'),
+      ('secondary', 'Secondary Territory'),
+      ('other', 'Other (team / beat)'),
+    ]) {
+      final rows = _territories.where((t) => (t['kind'] ?? 'primary') == kind).toList()..sort(byName);
+      if (rows.isEmpty) continue;
+      items.add(DropdownMenuItem(value: header--, enabled: false, child: label(title)));
+      for (final t in rows) {
+        items.add(DropdownMenuItem(
+          value: t['id'] as int,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Text(territoryLabel(t), overflow: TextOverflow.ellipsis),
+          ),
+        ));
+      }
+    }
+    return items;
   }
 
   /// Tick one or more beats.
