@@ -73,6 +73,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
   int _total = 0;
   bool _loadingMore = false;
   final ScrollController _scroll = ScrollController();
+
+  /// Groups opened by tapping their header; when grouping is on, every group starts closed.
+  final Set<String> _openGroups = {};
   Map<String, dynamic> _counts = const {};
   String _sort = 'latest';
   LatLng? _me;
@@ -830,7 +833,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
       ),
     );
     if (mounted) {
-      setState(() {});
+      setState(_openGroups.clear);
       _load();
     }
   }
@@ -1201,6 +1204,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
             ])
           : Builder(builder: (context) {
               final rows = _groupedRows();
+              if (_group != 'none' && _clients.length < _total) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _loadMore();
+                });
+              }
               return ListView.builder(
               controller: _scroll,
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
@@ -1213,10 +1221,38 @@ class _ClientsScreenState extends State<ClientsScreen> {
                   );
                 }
                 final row = rows[i];
-                if (row is String) {
+                if (row is MapEntry<String, int>) {
+                  final open = _openGroups.contains(row.key);
                   return Padding(
-                    padding: const EdgeInsets.fromLTRB(2, 14, 2, 6),
-                    child: Text(row, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: AppColors.primary)),
+                    padding: const EdgeInsets.only(top: 8, bottom: 2),
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => setState(() => open ? _openGroups.remove(row.key) : _openGroups.add(row.key)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          child: Row(children: [
+                            Expanded(
+                              child: Text(row.key,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5, color: AppColors.primary)),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                              child: Text('${row.value}',
+                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: AppColors.primary)),
+                            ),
+                            Icon(open ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                color: AppColors.muted),
+                          ]),
+                        ),
+                      ),
+                    ),
                   );
                 }
                 final c = row as Map<String, dynamic>;
@@ -1241,15 +1277,19 @@ class _ClientsScreenState extends State<ClientsScreen> {
         final byGroup = keyOf(a).toLowerCase().compareTo(keyOf(b).toLowerCase());
         return byGroup != 0 ? byGroup : '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase());
       });
+    final counts = <String, int>{};
+    for (final c in sorted) {
+      counts.update(keyOf(c), (n) => n + 1, ifAbsent: () => 1);
+    }
     final rows = <Object>[];
     String? last;
     for (final c in sorted) {
       final key = keyOf(c);
       if (key != last) {
-        rows.add(key);
+        rows.add(MapEntry(key, counts[key] ?? 0));
         last = key;
       }
-      rows.add(c);
+      if (_openGroups.contains(key)) rows.add(c);
     }
     return rows;
   }
