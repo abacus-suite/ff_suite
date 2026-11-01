@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 
 import '../../core/format.dart';
@@ -425,8 +426,8 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
   }
 }
 
-/// Edit Beat: the territory, and more outlets added to it. After saving, the beat goes to the manager
-/// for approval again.
+/// Edit Beat: the weekdays it repeats on, and its outlets (any can be taken off, more can be added).
+/// After saving, the beat goes to the manager for approval again.
 class EditBeatScreen extends StatefulWidget {
   const EditBeatScreen({super.key, required this.beat, this.outlets});
 
@@ -440,11 +441,24 @@ class EditBeatScreen extends StatefulWidget {
 }
 
 class _EditBeatScreenState extends State<EditBeatScreen> {
+  static const _dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  /// The outlets on the beat as saved, and as ticked now.
   Set<int> _onBeat = {};
-  final Set<int> _added = {};
+  Set<int> _chosen = {};
   List<Map<String, dynamic>> _candidates = [];
   bool _loading = true;
   bool _busy = false;
+
+  /// Repeat on: as saved (with its days), and as set now.
+  late final List<int> _days0 = [for (final d in (widget.beat['weekdays'] as List?) ?? const []) (d as num).toInt()];
+  late final bool _repeat0 = _days0.isNotEmpty;
+  late bool _repeat = _repeat0;
+  late final Set<int> _days = {..._days0};
+
+  bool get _canRepeat => '${widget.beat['schedule']}' != 'one_time';
+  bool get _repeatChanged => _repeat != _repeat0 || (_repeat && !setEquals(_days, {..._days0}));
+  bool get _dirty => !setEquals(_chosen, _onBeat) || _repeatChanged;
 
   @override
   void initState() {
@@ -465,11 +479,12 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
       if (!mounted) return;
       setState(() {
         _onBeat = {for (final o in outlets!) o['id'] as int};
+        _chosen = {..._onBeat};
         _candidates = [
           ...outlets,
           for (final c in list.cast<Map<String, dynamic>>())
             if (!outlets.any((o) => o['id'] == c['id']) && '${c['category_type'] ?? ''}'.toLowerCase() != 'lead') c,
-        ];
+        ]..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
       });
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
@@ -478,10 +493,9 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
     }
   }
 
-  int get _selected => _onBeat.length + _added.length;
-
+  /// Tick the outlets that stay and tick new ones: one list, with the beat's own outlets already ticked.
   Future<void> _pickOutlets() async {
-    final picked = Set<int>.from(_added);
+    final picked = Set<int>.from(_chosen);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -512,14 +526,12 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
                     itemBuilder: (_, i) {
                       final c = rows[i];
                       final id = c['id'] as int;
-                      final already = _onBeat.contains(id);
-                      // Outlets already on the beat stay: they are removed by the office, not from here.
                       return CheckboxListTile(
-                        value: already || picked.contains(id),
-                        onChanged: already ? null : (v) => setSheet(() => v == true ? picked.add(id) : picked.remove(id)),
+                        value: picked.contains(id),
+                        onChanged: (v) => setSheet(() => v == true ? picked.add(id) : picked.remove(id)),
                         controlAffinity: ListTileControlAffinity.leading,
                         title: Text('${c['name']}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                        subtitle: Text(already ? 'On this beat' : '${c['city'] ?? c['address'] ?? ''}',
+                        subtitle: Text(_onBeat.contains(id) ? 'On this beat' : '${c['city'] ?? c['address'] ?? ''}',
                             style: const TextStyle(fontSize: 12)),
                       );
                     },
@@ -529,7 +541,7 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                   child: SizedBox(
                     width: double.infinity,
-                    child: FilledButton(onPressed: () => Navigator.pop(sheet), child: const Text('Done')),
+                    child: FilledButton(onPressed: () => Navigator.pop(sheet), child: Text('Done (${picked.length} selected)')),
                   ),
                 ),
               ]),
@@ -538,21 +550,43 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
         });
       },
     );
-    if (mounted) {
-      setState(() => _added
-        ..clear()
-        ..addAll(picked));
-    }
+    if (mounted) setState(() => _chosen = picked);
+  }
+
+  /// Repeat on with no day left ticked: the repeat will be switched off, so ask first.
+  Future<bool> _confirmRepeatOff() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Switch repeat off?'),
+        content: const Text(
+            'No day is selected, so this beat will stop repeating (repeat mode off). You can switch it on again later by '
+            'opening the beat and choosing days. Do you want to continue?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('No, choose days')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Yes, switch off')),
+        ],
+      ),
+    );
+    return ok == true;
   }
 
   Future<void> _save() async {
-    if (_added.isEmpty) {
-      showProblem(context, 'Add at least one outlet to save.');
+    if (_chosen.isEmpty) {
+      showProblem(context, 'Keep at least one outlet on the beat.');
       return;
+    }
+    if (_repeat && _days.isEmpty) {
+      if (!await _confirmRepeatOff() || !mounted) return;
+      setState(() => _repeat = false);
     }
     setState(() => _busy = true);
     try {
-      await Services.api.post('/api/v1/beats/${widget.beat['id']}/customers', {'partner_ids': _added.toList()});
+      await Services.api.post('/api/v1/beats/${widget.beat['id']}/update', {
+        'partner_ids': _chosen.toList(),
+        if (_repeatChanged) 'repeat': _repeat,
+        if (_repeatChanged) 'weekdays': _repeat ? (_days.toList()..sort()) : <int>[],
+      });
       await _EditedBeats.add(widget.beat['id'] as int);
       settleAndRefresh();
       if (!mounted) return;
@@ -569,6 +603,8 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
   Widget build(BuildContext context) {
     final b = widget.beat;
     final territory = asText(b['city']) ?? asText((b['territory'] as Map?)?['name']) ?? '—';
+    final added = _chosen.difference(_onBeat).length;
+    final removed = _onBeat.difference(_chosen).length;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -584,7 +620,7 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
           child: GradientButton(
             label: 'Save – send for approval',
             busy: _busy,
-            onPressed: _loading || _busy || _added.isEmpty ? null : _save,
+            onPressed: _loading || _busy || !_dirty ? null : _save,
           ),
         ),
       ),
@@ -592,11 +628,61 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
         _label('District / Territory'),
         _field(territory, locked: true),
         const SizedBox(height: 16),
+        if (_canRepeat) ...[
+          _label('Repeat on?'),
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(children: [
+              for (final (text, on) in const [('Yes', true), ('No', false)])
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(21),
+                    onTap: () => setState(() => _repeat = on),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _repeat == on ? AppColors.primary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(21),
+                      ),
+                      child: Text(text,
+                          style: TextStyle(fontWeight: FontWeight.w800, color: _repeat == on ? Colors.white : AppColors.text)),
+                    ),
+                  ),
+                ),
+            ]),
+          ),
+          if (_repeat) ...[
+            const SizedBox(height: 14),
+            Text('Repeat on', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (var i = 0; i < 7; i++)
+                FilterChip(
+                  label: Text(_dayNames[i], style: const TextStyle(fontWeight: FontWeight.w700)),
+                  selected: _days.contains(i),
+                  onSelected: (on) => setState(() => on ? _days.add(i) : _days.remove(i)),
+                ),
+            ]),
+          ] else
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('Repeat is off: the beat stays in your list without fixed days.',
+                  style: TextStyle(fontSize: 12, color: AppColors.muted)),
+            ),
+          const SizedBox(height: 16),
+        ],
         _label('Outlets'),
         _field(
           _loading
               ? 'Loading outlets…'
-              : '$_selected outlet${_selected == 1 ? '' : 's'} selected${_added.isEmpty ? '' : ' (${_added.length} added)'}',
+              : '${_chosen.length} outlet${_chosen.length == 1 ? '' : 's'} selected'
+                  '${added == 0 && removed == 0 ? '' : ' ($added added, $removed removed)'}',
           onTap: _loading ? null : _pickOutlets,
         ),
         const SizedBox(height: 16),

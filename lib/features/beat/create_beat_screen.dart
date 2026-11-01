@@ -181,6 +181,8 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
         outlets: allOutlets,
         selected: _outlets,
         title: territoryLabel(_territory!),
+        areas: ((_territory!['areas'] as List?) ?? const []).cast<Map<String, dynamic>>(),
+        noAreaCount: (_territory!['no_area_count'] as num?)?.toInt(),
       ),
     ));
     if (picked != null && mounted) {
@@ -723,10 +725,15 @@ String? outletArea(Map<String, dynamic> o) {
 /// Choose outlets: a search by name, the Area filter (tick one or more areas so the list stays short),
 /// and a tick per outlet. Returns the chosen outlet ids.
 class ChooseOutletsScreen extends StatefulWidget {
-  const ChooseOutletsScreen({super.key, required this.outlets, required this.selected, this.title});
+  const ChooseOutletsScreen({super.key, required this.outlets, required this.selected, this.title, this.areas, this.noAreaCount});
 
   final List<Map<String, dynamic>> outlets;
   final Set<int> selected;
+
+  /// The territory's Area master with how many outlets each has (from the server). Without it, the areas
+  /// are worked out from the outlets' cities, as before.
+  final List<Map<String, dynamic>>? areas;
+  final int? noAreaCount;
 
   /// The District / Territory, under the title.
   final String? title;
@@ -741,17 +748,37 @@ class _ChooseOutletsScreenState extends State<ChooseOutletsScreen> {
   final Set<String> _areas = {};
   bool _areaOpen = false;
 
-  /// Every area with how many outlets it has, in name order.
-  late final Map<String, int> _areaCounts = _countAreas();
+  bool get _master => (widget.areas ?? const []).isNotEmpty;
 
-  Map<String, int> _countAreas() {
+  /// What an outlet is filed under: its Area (master) or, without the master, its city.
+  String? _areaKey(Map<String, dynamic> o) {
+    if (_master) {
+      final a = o['area'];
+      return a is Map && a['id'] != null ? 'a${a['id']}' : 'none';
+    }
+    return outletArea(o);
+  }
+
+  /// Every area with how many outlets it has, in name order: the territory's own Area master (counts from the
+  /// server, an empty one shows 0) and "No area" for outlets without one.
+  late final List<({String key, String label, int count})> _areaOpts = _buildAreaOpts();
+
+  List<({String key, String label, int count})> _buildAreaOpts() {
+    if (_master) {
+      final opts = [
+        for (final a in widget.areas!) (key: 'a${a['id']}', label: '${a['name']}', count: (a['count'] as num?)?.toInt() ?? 0),
+      ]..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+      final none = widget.noAreaCount ?? widget.outlets.where((o) => _areaKey(o) == 'none').length;
+      if (none > 0) opts.add((key: 'none', label: 'No area', count: none));
+      return opts;
+    }
     final counts = <String, int>{};
     for (final o in widget.outlets) {
       final area = outletArea(o);
       if (area != null) counts[area] = (counts[area] ?? 0) + 1;
     }
     final sorted = counts.entries.toList()..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
-    return Map.fromEntries(sorted);
+    return [for (final e in sorted) (key: e.key, label: e.key, count: e.value)];
   }
 
   @override
@@ -766,7 +793,7 @@ class _ChooseOutletsScreenState extends State<ChooseOutletsScreen> {
     return [
       for (final o in widget.outlets)
         if ((needle.isEmpty || '${o['name']}'.toLowerCase().contains(needle)) &&
-            (_areas.isEmpty || _areas.contains(outletArea(o))))
+            (_areas.isEmpty || _areas.contains(_areaKey(o))))
           o,
     ];
   }
@@ -828,7 +855,7 @@ class _ChooseOutletsScreenState extends State<ChooseOutletsScreen> {
               ),
             ),
           ),
-          if (_areaCounts.isNotEmpty) ...[
+          if (_areaOpts.isNotEmpty) ...[
             const SizedBox(width: 8),
             _areaButton(),
           ],
@@ -883,23 +910,24 @@ class _ChooseOutletsScreenState extends State<ChooseOutletsScreen> {
             padding: EdgeInsets.fromLTRB(10, 0, 0, 2),
             child: Text('Area', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF1E5BE3))),
           ),
-          for (final entry in _areaCounts.entries)
+          for (final opt in _areaOpts)
             CheckboxListTile(
               dense: true,
               visualDensity: VisualDensity.compact,
               controlAffinity: ListTileControlAffinity.leading,
-              value: _areas.contains(entry.key),
-              onChanged: (v) => setState(() => v == true ? _areas.add(entry.key) : _areas.remove(entry.key)),
-              title: Text(entry.key,
-                  style: TextStyle(fontSize: 13, fontWeight: _areas.contains(entry.key) ? FontWeight.w800 : FontWeight.w500)),
-              secondary: Text('${entry.value}', style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+              value: _areas.contains(opt.key),
+              onChanged: (v) => setState(() => v == true ? _areas.add(opt.key) : _areas.remove(opt.key)),
+              title: Text(opt.label,
+                  style: TextStyle(fontSize: 13, fontWeight: _areas.contains(opt.key) ? FontWeight.w800 : FontWeight.w500)),
+              secondary: Text('${opt.count}', style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
             ),
           ]),
         ),
       );
 
   Widget _outletRow(Map<String, dynamic> o) {
-    final where = asText(o['address']) ?? outletArea(o);
+    final masterArea = o['area'] is Map ? asText((o['area'] as Map)['name']) : null;
+    final where = asText(o['address']) ?? (_master ? masterArea : outletArea(o));
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: CheckboxListTile(
