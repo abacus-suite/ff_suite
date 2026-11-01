@@ -30,6 +30,16 @@ Future<void> main() async {
   runApp(const FieldForceApp());
 }
 
+/// Every list can be pulled down to refresh, even a short or empty one: without this, Android ignores the pull
+/// when the content does not fill the screen, and the refresh only worked from its icon.
+class _PullToRefreshBehavior extends MaterialScrollBehavior {
+  const _PullToRefreshBehavior();
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) =>
+      const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics());
+}
+
 class FieldForceApp extends StatelessWidget {
   const FieldForceApp({super.key});
 
@@ -39,6 +49,7 @@ class FieldForceApp extends StatelessWidget {
       title: 'Field Force',
       debugShowCheckedModeBanner: false,
       navigatorKey: Services.navigatorKey,
+      scrollBehavior: const _PullToRefreshBehavior(),
       theme: appTheme(),
       // Above every screen, so a page that pushed another over itself cannot hide
       // the sign that something is still being fetched.
