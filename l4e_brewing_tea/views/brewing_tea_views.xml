@@ -134,8 +134,8 @@
                 <separator/>
                 <filter name="filter_pass" string="Pass" domain="[('status', '=', 'pass')]"/>
                 <filter name="filter_fail" string="Fail" domain="[('status', '=', 'fail')]"/>
-                <group expand="1" string="Group By">
-                    <filter name="group_brewing_id" string="Group by SI No (Expandable)"
+                <group>
+                    <filter name="group_brewing_id" string="SI No"
                             context="{'group_by': 'brewing_id'}"/>
                 </group>
             </search>
