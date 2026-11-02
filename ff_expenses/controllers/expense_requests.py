@@ -21,6 +21,7 @@ def request_data(rec):
         'date': to_iso(rec.date),
         'paid_on': to_iso(rec.paid_on),
         'invoice_due': to_iso(rec.invoice_due),
+        'invoice_uploaded': bool(rec.invoice_uploaded) or rec.state == 'completed',
         'reason': rec.reject_reason or None,
     }
 

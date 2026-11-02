@@ -41,6 +41,9 @@ class FfExpenseRequest(models.Model):
     reject_reason = fields.Text(copy=False)
     note = fields.Text()
     last_reminder = fields.Date(readonly=True, copy=False)
+    invoice_uploaded = fields.Boolean(
+        string='Tax Invoice Received', readonly=True, copy=False, tracking=True,
+        help='The tax invoice of a quotation is in. It can come before accounts pay.')
     company_id = fields.Many2one(related='employee_id.company_id', store=True)
     currency_id = fields.Many2one(related='company_id.currency_id')
     client_uuid = fields.Char(copy=False, index=True)
@@ -91,7 +94,11 @@ class FfExpenseRequest(models.Model):
         for rec in self:
             if rec.state != 'requested':
                 raise UserError(self.env._('%s is not waiting for payment.', rec.name))
-            if rec.document == 'quotation':
+            if rec.document == 'quotation' and rec.invoice_uploaded:
+                # The tax invoice came before the payment: nothing is left to wait for.
+                rec.write({'state': 'completed', 'paid_on': fields.Date.context_today(rec)})
+                rec._ff_notify(self.env._('Payment Request Paid'), self.env._('%s was paid.', rec.name))
+            elif rec.document == 'quotation':
                 due = rec.invoice_due or fields.Date.context_today(rec) + timedelta(days=7)
                 rec.write({'state': 'invoice_pending', 'paid_on': fields.Date.context_today(rec),
                            'invoice_due': due})
@@ -116,12 +123,16 @@ class FfExpenseRequest(models.Model):
 
     # ------------------------------------------------------------------ salesperson
     def ff_upload_invoice(self, photo):
-        """The tax invoice for a quotation that was paid: this completes the request."""
+        """The tax invoice of a quotation. It can be uploaded as soon as the request is sent: before accounts pay it
+        waits with them; once paid, this completes the request."""
         self.ensure_one()
-        if self.state != 'invoice_pending':
+        if self.document != 'quotation' or self.state not in ('requested', 'invoice_pending') or self.invoice_uploaded:
             raise UserError(self.env._('This request is not waiting for a tax invoice.'))
         self._ff_attach(photo, 'tax invoice')
-        self.write({'state': 'completed'})
+        if self.state == 'invoice_pending':
+            self.write({'state': 'completed', 'invoice_uploaded': True})
+        else:
+            self.write({'invoice_uploaded': True})
         return self
 
     @api.model
