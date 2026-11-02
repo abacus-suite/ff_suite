@@ -231,19 +231,30 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
     }
   }
 
-  /// One rate breakdown per MRP and rate: flavours that share them share one card
-  /// ("Alphonso Mango (AM), Berry Mix (BM)"), so a long order stays short.
-  List<({String title, num mrp, num rate, num tax})> _rateGroups() {
-    final groups = <(num, num, num), List<String>>{};
-    for (final l in widget.lines) {
-      final mrp = l['mrp'] as num?;
-      final rate = l['price'] as num?;
-      if (mrp == null || rate == null) continue;
-      groups.putIfAbsent((mrp, rate, (l['tax_percent'] as num?) ?? 0), () => []).add(flavourLabel(l));
-    }
-    return [
-      for (final e in groups.entries) (title: e.value.join(', '), mrp: e.key.$1, rate: e.key.$2, tax: e.key.$3)
-    ];
+  /// The outlet's commercials and how this product's rate comes about, in a sheet.
+  void _showRate(Map<String, dynamic> l) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (sheet) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            CommercialsCard(commercials: widget.commercials!),
+            RateBreakdown(
+              title: flavourLabel(l),
+              mrp: l['mrp'] as num,
+              rate: l['price'] as num,
+              tax: (l['tax_percent'] as num?) ?? 0,
+              commercials: widget.commercials!,
+            ),
+          ]),
+        ),
+      ),
+    );
   }
 
   /// The outlet's rate already has the GST in it: nothing is added on top of the lines.
@@ -331,14 +342,6 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
             title: Text(widget.client['name'] as String, style: theme.textTheme.titleMedium),
           ),
           if (widget.client['is_company_location'] != true && _distributors.isNotEmpty) _distributorCard(),
-          // The rate follows the outlet's commercials: the card, then how each rate is made.
-          if (widget.commercials != null) ...[
-            const SizedBox(height: 6),
-            CommercialsCard(commercials: widget.commercials!),
-            for (final group in _rateGroups())
-              RateBreakdown(
-                  title: group.title, mrp: group.mrp, rate: group.rate, tax: group.tax, commercials: widget.commercials!),
-          ],
           const Divider(),
           for (final l in widget.lines)
             ListTile(
@@ -346,7 +349,17 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
               title: Text(flavourLabel(l)),
               subtitle: Text('${fmtQty(l['qty'] as num)} × ${fmtMoney(l['price'] as num?)}'
                   '${((l['tax_percent'] as num?) ?? 0) > 0 ? (_rateHasGst ? '  ·  incl. ${fmtQty(l['tax_percent'] as num)}% GST' : '  ·  + ${fmtQty(l['tax_percent'] as num)}% tax') : ''}'),
-              trailing: Text(fmtMoney(((l['price'] as num?) ?? 0) * (l['qty'] as num))),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                // How this product's rate is made, only when asked for: it takes a lot of room.
+                if (widget.commercials != null && l['mrp'] != null && l['price'] != null)
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'How the rate is calculated',
+                    icon: const Icon(Icons.calculate_rounded, color: AppColors.primary),
+                    onPressed: () => _showRate(l),
+                  ),
+                Text(fmtMoney(((l['price'] as num?) ?? 0) * (l['qty'] as num))),
+              ]),
             ),
           if (_free.isNotEmpty || _manual.isNotEmpty || _manualAllowed || !_freeChecked) ...[
             const Divider(),
