@@ -372,7 +372,8 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
                             child: InkWell(
                               borderRadius: BorderRadius.circular(16),
                               onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                                  builder: (_) => InvoiceDetailScreen(id: inv['id'] as int, number: '${inv['number']}'))),
+                                  builder: (_) => InvoiceDetailScreen(
+                                  id: inv['id'] as int, number: '${inv['number']}', source: '${inv['source'] ?? 'move'}'))),
                               child: Padding(
                                 padding: const EdgeInsets.all(12),
                                 child: Row(
@@ -668,10 +669,13 @@ class _StatementScreenState extends State<StatementScreen> {
 
 /// One invoice: who it is to, the dates and payment terms, every item, the taxes, and what has been paid.
 class InvoiceDetailScreen extends StatefulWidget {
-  const InvoiceDetailScreen({super.key, required this.id, required this.number});
+  const InvoiceDetailScreen({super.key, required this.id, required this.number, this.source = 'move'});
 
   final int id;
   final String number;
+
+  /// 'move' for an accounting invoice, 'outlet' for an invoice an outlet owes through the demand flow.
+  final String source;
 
   @override
   State<InvoiceDetailScreen> createState() => _InvoiceDetailScreenState();
@@ -689,7 +693,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
 
   Future<void> _load() async {
     try {
-      final d = await Services.api.get('/api/v1/receivables/invoice/${widget.id}') as Map<String, dynamic>;
+      final d = await Services.api.get(
+          widget.source == 'outlet' ? '/api/v1/receivables/outlet-invoice/${widget.id}' : '/api/v1/receivables/invoice/${widget.id}') as Map<String, dynamic>;
       if (mounted) setState(() => _data = d);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
