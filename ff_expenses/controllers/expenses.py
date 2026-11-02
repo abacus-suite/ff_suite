@@ -106,6 +106,49 @@ class FieldForceExpensesApi(http.Controller):
             'claims': [claim_data(c, employee) for c in every.sorted(lambda c: (c.date, c.id), reverse=True)],
         })
 
+    @api_route('/api/v1/expenses/summary', methods=('GET',))
+    def summary(self, employee, month=None, **kw):
+        """What the month holds in every category - travel and daily allowance, OLA, expense claims, company card
+        expenses and payment requests - with what was claimed and what was approved, and the totals of all of them."""
+        env = request.env
+        first, last = month_bounds(employee, month)
+        in_month = [('employee_id', '=', employee.id), ('date', '>=', first), ('date', '<=', last)]
+        out = {}
+
+        def put(key, claimed, approved, count):
+            out[key] = {'claimed': round(claimed, 2), 'approved': round(approved, 2), 'count': count}
+
+        claims = env['ff.expense.claim'].sudo().search(in_month + [('kind', '=', 'claim')])
+        counted = claims.filtered(lambda c: c.state != 'rejected')
+        put('claim', sum(counted.mapped('amount')),
+            sum(c.approved_amount for c in claims if c.state in ('approved', 'partial')), len(claims))
+        cards = env['ff.expense.claim'].sudo().search(in_month + [('kind', '=', 'card')])
+        put('card', sum(cards.filtered(lambda c: c.state != 'rejected').mapped('amount')), 0.0, len(cards))
+        if 'ff.allowance.claim' in env:
+            rows = env['ff.allowance.claim'].sudo().search(in_month)
+            put('ta', sum(r.amount for r in rows if r.state != 'rejected'),
+                sum(r.amount for r in rows if r.state == 'approved'), len(rows))
+        if 'ff.da.claim' in env:
+            rows = env['ff.da.claim'].sudo().search(in_month)
+            put('da', sum(r.amount for r in rows if r.state in ('submitted', 'approved')),
+                sum(r.amount for r in rows if r.state == 'approved'), len(rows))
+        if 'ff.ola.claim' in env:
+            # OLA is paid by the hours worked: there is no approval step to wait for.
+            rows = env['ff.ola.claim'].sudo().search(in_month)
+            put('ola', sum(rows.mapped('amount')), sum(rows.mapped('amount')), len(rows))
+        requests = env['ff.expense.request'].sudo().search(in_month)
+        put('request', sum(r.amount for r in requests if r.state != 'rejected'),
+            sum(r.amount for r in requests if r.state in ('invoice_pending', 'completed')), len(requests))
+        # The company card is the company's own spending: it is shown, but not added to what is claimed.
+        summed = [v for k, v in out.items() if k != 'card']
+        return ok({
+            'month': first.strftime('%Y-%m'),
+            'currency': employee.company_id.currency_id.name,
+            'total_amount': round(sum(v['claimed'] for v in summed), 2),
+            'approved_amount': round(sum(v['approved'] for v in summed), 2),
+            'categories': out,
+        })
+
     @api_route('/api/v1/expenses', methods=('POST',))
     def create_expense(self, employee, **kw):
         try:
