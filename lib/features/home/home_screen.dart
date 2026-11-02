@@ -244,7 +244,67 @@ class _HomeScreenState extends State<HomeScreen> {
     _punch(true);
   }
 
+  /// An approved leave covers today: ask whether to cancel it to work. True when the check-in may go on.
+  Future<bool> _askLeave() async {
+    Map<String, dynamic> today;
+    try {
+      today = await Services.api.get('/api/v1/leaves/today') as Map<String, dynamic>;
+    } catch (_) {
+      return true; // offline, or an older server: no question
+    }
+    final leave = today['leave'] as Map<String, dynamic>?;
+    if (leave == null || today['cancel_requested'] == true || !mounted) return true;
+    final needsApproval = today['needs_approval'] == true;
+    final levels = (today['levels'] as num?)?.toInt() ?? 1;
+    final days = ((leave['days'] as num?) ?? 1).toDouble();
+    final cancel = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.beach_access_rounded, color: AppColors.primary, size: 40),
+        title: const Text('Your leave is approved for today'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${(leave['type'] as Map?)?['name'] ?? 'Leave'} · ${leave['from']}${leave['to'] != leave['from'] ? ' to ${leave['to']}' : ''}',
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          const Text('If you want to work today, cancel the leave.'),
+          if (days > 1)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text('This cancels the whole leave. Ask for the days you still want off again.',
+                  style: TextStyle(fontSize: 12.5, color: AppColors.warning, fontWeight: FontWeight.w600)),
+            ),
+          if (needsApproval)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                  levels == 2
+                      ? 'The cancellation goes to your manager and then HR. You can check in and work meanwhile.'
+                      : 'The cancellation goes to your manager. You can check in and work meanwhile.',
+                  style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+            ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep my leave')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Cancel leave & work')),
+        ],
+      ),
+    );
+    if (cancel != true) return false;
+    try {
+      final result = await Services.api.post('/api/v1/leaves/${leave['id']}/cancel-approved',
+          {'reason': 'Came to work'}) as Map<String, dynamic>;
+      if (mounted) {
+        showSnack(context, result['cancelled'] == true ? 'Leave cancelled' : 'Cancellation sent for approval');
+      }
+      return true;
+    } catch (e) {
+      if (mounted) await showProblem(context, e.toString());
+      return false;
+    }
+  }
+
   Future<void> _punch(bool punchIn) async {
+    if (punchIn && !await _askLeave()) return;
     setState(() => _punching = true);
     try {
       final permissionError = await PermissionsHelper.ensureLocation();
