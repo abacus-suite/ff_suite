@@ -1152,7 +1152,9 @@ class _NextDayStockScreenState extends State<_NextDayStockScreen> {
   int _step = 2;
   List<Map<String, dynamic>> _distributors = [];
   late final List<Map<String, dynamic>> _products = _list(widget.event['products']);
-  late final List<_Block> _blocks = [_Block(_products)];
+  // Opening stock can be entered for any product, not only the ones used the day before.
+  late List<Map<String, dynamic>> _allProducts = _products;
+  late List<_Block> _blocks = [_Block(_allProducts)];
   bool _busy = false;
 
   bool get _returned => widget.event['returned_yesterday'] == true;
@@ -1167,7 +1169,26 @@ class _NextDayStockScreenState extends State<_NextDayStockScreen> {
     try {
       final data = await _Options.get();
       final all = _list(data['distributors']);
-      if (mounted) setState(() => _distributors = [...all.where((d) => d['company'] != true), ...all.where((d) => d['company'] == true)]);
+      // Only the distributors of the people conducting the event (as on Day 1), then Kumbayah Foods.
+      final staffIds = {for (final s in _list(widget.event['staff'])) s['id']};
+      final allowed = <Object?>{
+        for (final person in _list(data['staff']))
+          if (staffIds.contains(person['id'])) ...((person['distributor_ids'] as List?) ?? const []),
+        for (final d in _list(widget.event['distributors'])) d['id'],
+      };
+      final everything = _list(data['products']);
+      if (mounted) {
+        setState(() {
+          _distributors = [
+            ...all.where((d) => d['company'] != true && allowed.contains(d['id'])),
+            ...all.where((d) => d['company'] == true),
+          ];
+          if (everything.isNotEmpty) {
+            _allProducts = everything;
+            _blocks = [_Block(everything)];
+          }
+        });
+      }
     } catch (_) {}
   }
 
@@ -1198,10 +1219,10 @@ class _NextDayStockScreenState extends State<_NextDayStockScreen> {
         onBack: () => setState(() => _step = 2),
         children: [
           _sectionTitle('Total opening stock', trailing: 'all distributors'),
-          if (_products.every((p) => (totals[p['id']] ?? 0) <= 0))
+          if (_allProducts.every((p) => (totals[p['id']] ?? 0) <= 0))
             const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No stock entered.', style: TextStyle(color: AppColors.muted)))
           else
-            _Grid(products: _products.where((p) => (totals[p['id']] ?? 0) > 0).toList(), values: totals),
+            _Grid(products: _allProducts.where((p) => (totals[p['id']] ?? 0) > 0).toList(), values: totals),
           const SizedBox(height: 16),
           Row(children: [
             Expanded(
@@ -1245,7 +1266,7 @@ class _NextDayStockScreenState extends State<_NextDayStockScreen> {
           const SizedBox(height: 14),
         ],
         _StockEditor(
-          products: _products,
+          products: _allProducts,
           distributors: _distributors,
           blocks: _blocks,
           heading: _returned ? 'Opening stock (bottles)' : 'Stock to add (bottles)',
