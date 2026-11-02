@@ -1,8 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- ======================================================== -->
-    <!-- MASTER: BREWING TEA (Batch Form & List)                  -->
-    <!-- ======================================================== -->
+    <!-- Master List View (Strictly: SI No, Preparation Date, Quantity, QC Status) -->
+    <record id="view_brewing_tea_list" model="ir.ui.view">
+        <field name="name">brewing.tea.list</field>
+        <field name="model">brewing.tea</field>
+        <field name="arch" type="xml">
+            <list string="Brewing Tea"
+                  decoration-success="qc_status == 'pass'"
+                  decoration-danger="qc_status == 'fail'">
+                <field name="name" string="SI No"/>
+                <field name="preparation_date" string="Preparation Date"/>
+                <field name="quantity" string="Quantity" sum="Total Quantity"/>
+                <field name="qc_status" string="QC Status" widget="badge"
+                       decoration-success="qc_status == 'pass'"
+                       decoration-danger="qc_status == 'fail'"/>
+            </list>
+        </field>
+    </record>
 
     <!-- Master Form View -->
     <record id="view_brewing_tea_form" model="ir.ui.view">
@@ -47,24 +61,6 @@
         </field>
     </record>
 
-    <!-- Master List View -->
-    <record id="view_brewing_tea_list" model="ir.ui.view">
-        <field name="name">brewing.tea.list</field>
-        <field name="model">brewing.tea</field>
-        <field name="arch" type="xml">
-            <list string="Brewing Tea"
-                  decoration-success="qc_status == 'pass'"
-                  decoration-danger="qc_status == 'fail'">
-                <field name="name" string="SI No"/>
-                <field name="preparation_date" string="Preparation Date"/>
-                <field name="quantity" string="Quantity" sum="Total Quantity"/>
-                <field name="qc_status" string="QC Status" widget="badge"
-                       decoration-success="qc_status == 'pass'"
-                       decoration-danger="qc_status == 'fail'"/>
-            </list>
-        </field>
-    </record>
-
     <!-- Master Search View -->
     <record id="view_brewing_tea_search" model="ir.ui.view">
         <field name="name">brewing.tea.search</field>
@@ -88,7 +84,7 @@
 
     <!-- Master Window Action -->
     <record id="action_brewing_tea" model="ir.actions.act_window">
-        <field name="name">Brewing Tea Batches</field>
+        <field name="name">BREWING TEA</field>
         <field name="res_model">brewing.tea</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_brewing_tea_search"/>
@@ -97,93 +93,7 @@
                 No Brewing Tea batches found. Let's create one!
             </p>
             <p>
-                Track tea brewing batches, preparation dates, quantities, and quality checks.
-            </p>
-        </field>
-    </record>
-
-    <!-- ======================================================== -->
-    <!-- ACCORDION VIEW: QC ORDER LINES (Tapping extends lines)    -->
-    <!-- ======================================================== -->
-
-    <!-- QC Lines List View (The Accordion View) -->
-    <record id="view_brewing_tea_qc_line_list" model="ir.ui.view">
-        <field name="name">brewing.tea.qc.line.list</field>
-        <field name="model">brewing.tea.qc.line</field>
-        <field name="arch" type="xml">
-            <list string="BREWING TEA"
-                  decoration-success="status == 'pass'"
-                  decoration-danger="status == 'fail'">
-                <field name="brewing_id" string="SI No" column_invisible="True"/>
-                <field name="sl_no" string="SI No"/>
-                <field name="description" string="Description"/>
-                <field name="preparation_date" string="Preparation Date"/>
-                <field name="quantity" string="Quantity"/>
-                <field name="status" string="QC Status" widget="badge"
-                       decoration-success="status == 'pass'"
-                       decoration-danger="status == 'fail'"/>
-            </list>
-        </field>
-    </record>
-
-    <!-- QC Lines Form View -->
-    <record id="view_brewing_tea_qc_line_form" model="ir.ui.view">
-        <field name="name">brewing.tea.qc.line.form</field>
-        <field name="model">brewing.tea.qc.line</field>
-        <field name="arch" type="xml">
-            <form string="Quality Check Line">
-                <sheet>
-                    <group>
-                        <group>
-                            <field name="brewing_id" string="SI No / Batch"/>
-                            <field name="sl_no" string="SI No"/>
-                            <field name="description"/>
-                        </group>
-                        <group>
-                            <field name="status" widget="badge"
-                                   decoration-success="status == 'pass'"
-                                   decoration-danger="status == 'fail'"/>
-                            <field name="preparation_date"/>
-                            <field name="quantity"/>
-                        </group>
-                    </group>
-                </sheet>
-            </form>
-        </field>
-    </record>
-
-    <!-- QC Lines Search View (Grouped by SI No / Batch) -->
-    <record id="view_brewing_tea_qc_line_search" model="ir.ui.view">
-        <field name="name">brewing.tea.qc.line.search</field>
-        <field name="model">brewing.tea.qc.line</field>
-        <field name="arch" type="xml">
-            <search string="Search QC Lines">
-                <field name="brewing_id" string="SI No"/>
-                <field name="description" string="Description"/>
-                <separator/>
-                <filter name="filter_pass" string="Pass" domain="[('status', '=', 'pass')]"/>
-                <filter name="filter_fail" string="Fail" domain="[('status', '=', 'fail')]"/>
-                <group>
-                    <filter name="group_brewing_id" string="SI No"
-                            context="{'group_by': 'brewing_id'}"/>
-                </group>
-            </search>
-        </field>
-    </record>
-
-    <!-- Primary Action: Opens the Accordion Dropdown by Default -->
-    <record id="action_brewing_tea_accordion" model="ir.actions.act_window">
-        <field name="name">BREWING TEA</field>
-        <field name="res_model">brewing.tea.qc.line</field>
-        <field name="view_mode">list,form</field>
-        <field name="search_view_id" ref="view_brewing_tea_qc_line_search"/>
-        <field name="context">{'search_default_group_brewing_id': 1}</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                No Brewing Tea quality checks found.
-            </p>
-            <p>
-                Quality check order lines grouped by SI No in an accordion view.
+                Track tea brewing batches, preparation dates, quantities, and record quality check parameter results.
             </p>
         </field>
     </record>

@@ -24,22 +24,12 @@ class BrewingTeaQcLine(models.Model):
         required=True,
         help="Parameter or test description.",
     )
-    preparation_date = fields.Date(
-        related='brewing_id.preparation_date',
-        string='Preparation Date',
-        store=True,
-    )
-    quantity = fields.Float(
-        related='brewing_id.quantity',
-        string='Quantity',
-        store=True,
-    )
     status = fields.Selection(
         [
             ('pass', 'Pass'),
             ('fail', 'Fail'),
         ],
-        string='QC Status',
+        string='Pass / Fail',
         required=True,
         default='pass',
         help="Select Pass or Fail for this quality check parameter.",
@@ -56,9 +46,3 @@ class BrewingTeaQcLine(models.Model):
                 )
                 vals['sl_no'] = (last_line.sl_no + 1) if last_line else 1
         return super().create(vals_list)
-
-    def get_formview_action(self, access_uid=None):
-        """Clicking on a line in the list view opens the parent Brewing Tea batch form."""
-        if self.brewing_id:
-            return self.brewing_id.get_formview_action(access_uid=access_uid)
-        return super().get_formview_action(access_uid=access_uid)
