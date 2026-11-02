@@ -269,18 +269,30 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
     );
   }
 
+  static double _round2(double v) => (v * 100).roundToDouble() / 100;
+
+  /// The unit price without its GST: 97.30 at 5% is 92.67. This is what the demand or order carries as its price.
+  double _unitEx(Map<String, dynamic> l) {
+    final rate = ((l['price'] as num?) ?? 0).toDouble();
+    final gst = ((l['tax_percent'] as num?) ?? 0).toDouble();
+    return gst > 0 ? _round2(rate / (1 + gst / 100)) : rate;
+  }
+
+  double _lineBase(Map<String, dynamic> l) => _round2(_unitEx(l) * ((l['qty'] as num?) ?? 0).toDouble());
+
+  double _lineTax(Map<String, dynamic> l) =>
+      _round2(_lineBase(l) * ((l['tax_percent'] as num?) ?? 0).toDouble() / 100);
+
+  double _lineTotal(Map<String, dynamic> l) => _lineBase(l) + _lineTax(l);
+
   /// The whole PO in three figures: what is charged before tax, the tax, and the final amount (the rates already
   /// include GST).
   Widget _finalCard() {
     double untaxed = 0, tax = 0;
     for (final l in widget.lines) {
-      final qty = ((l['qty'] as num?) ?? 0).toDouble();
-      final rate = ((l['price'] as num?) ?? 0).toDouble();
-      final gst = ((l['tax_percent'] as num?) ?? 0).toDouble();
-      final line = rate * qty;
-      final base = gst > 0 ? line / (1 + gst / 100) : line;
+      final base = _lineBase(l);
       untaxed += base;
-      tax += line - base;
+      tax += _lineTax(l);
     }
     Widget row(String label, double value) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
@@ -306,7 +318,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
           ),
           child: Row(children: [
             const Expanded(child: Text('FINAL AMOUNT', style: TextStyle(fontWeight: FontWeight.w900))),
-            Text(fmtMoney(_total),
+            Text(fmtMoney(untaxed + tax),
                 style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: AppColors.success)),
           ]),
         ),
@@ -412,10 +424,12 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(flavourLabel(l)),
-              subtitle: Text('${fmtQty(l['qty'] as num)} × ${fmtMoney(l['price'] as num?)}'
-                  '${((l['tax_percent'] as num?) ?? 0) > 0 ? (_rateHasGst ? '  ·  incl. ${fmtQty(l['tax_percent'] as num)}% GST' : '  ·  + ${fmtQty(l['tax_percent'] as num)}% tax') : ''}'),
+              // With commercials the unit price is the rate without its GST, and the GST is added on the line: the
+              // same figures the demand or order is saved with.
+              subtitle: Text('${fmtQty(l['qty'] as num)} × ${fmtMoney(_rateHasGst ? _unitEx(l) : l['price'] as num?)}'
+                  '${((l['tax_percent'] as num?) ?? 0) > 0 ? '  ·  + ${fmtQty(l['tax_percent'] as num)}% ${_rateHasGst ? 'GST' : 'tax'}' : ''}'),
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(fmtMoney(((l['price'] as num?) ?? 0) * (l['qty'] as num))),
+                Text(fmtMoney(_rateHasGst ? _lineTotal(l) : ((l['price'] as num?) ?? 0) * (l['qty'] as num))),
               ]),
             ),
           if (_free.isNotEmpty || _manual.isNotEmpty || _manualAllowed || !_freeChecked) ...[
