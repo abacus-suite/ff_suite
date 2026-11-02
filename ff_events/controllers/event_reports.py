@@ -204,6 +204,33 @@ def _final(event, day=None):
     }
 
 
+def _final_distributor(event, distributor_id):
+    """The same figures as ``_final`` (all days) for the stock one distributor supplied. Samples, damage, sales and coupons
+    are that distributor's share (see ``_distributor_ledger``); the cash received is shared in proportion to net sales."""
+    rows = [r for r in _distributor_rows(event) if r['distributor']['id'] == distributor_id]
+    if not rows:
+        raise ApiError('That distributor has no stock in this event.', 404, 'not_found')
+    row = rows[0]
+    value = int(event.offer_price or 0) if event.has_offer else 0
+    flavours = [{
+        'product': f['product'], 'code': f['code'], 'opening': f['open'], 'added': f['add'], 'samples': f['samples'],
+        'damage': f['damage'], 'returned': f['ret'], 'sold': f['sold'], 'mrp': f['mrp'], 'sales': f['sales'],
+    } for f in row['flavours']]
+    totals = {k: sum(f[k] for f in flavours) for k in ('opening', 'added', 'samples', 'damage', 'returned', 'sold')}
+    everything = _final(event)
+    cash = 0.0
+    if everything['net_sales']:
+        cash = round(everything['cash'] * row['totals']['net_sales'] / everything['net_sales'], 2)
+    net = row['totals']['net_sales']
+    data = dict(everything)
+    data.update({
+        'distributor': row['distributor'], 'rows': flavours, 'totals': totals,
+        'sales': row['totals']['sales'], 'coupons': row['totals']['coupons'], 'coupon_value': value,
+        'coupon_amount': row['totals']['coupon_amount'], 'net_sales': net, 'cash': cash, 'upi': round(net - cash, 2),
+    })
+    return data
+
+
 def _day_table(event):
     out = []
     for d in event.day_ids.sorted('date'):
@@ -363,10 +390,15 @@ class FieldForceEventReportsApi(http.Controller):
         return ok({'requested': True, 'note': note.name or None})
 
     @api_route('/api/v1/events/<int:event_id>/final', methods=('GET',))
-    def final(self, employee, event_id, day=None, **kw):
+    def final(self, employee, event_id, day=None, distributor_id=None, **kw):
         event = _mine(employee, event_id)
-        data = _final(event, day)
-        data['day_table'] = _day_table(event)
+        if distributor_id:
+            data = _final_distributor(event, int(distributor_id))
+            data['day_table'] = []
+        else:
+            data = _final(event, day)
+            data['day_table'] = _day_table(event)
+        data['distributors'] = [r['distributor'] for r in _distributor_rows(event)]
         return ok(data)
 
     # ---- PDFs: the phone's browser cannot send the app's token, so the link carries a signed one
@@ -407,8 +439,12 @@ class FieldForceEventReportsApi(http.Controller):
                     row['totals']['net_sales']) % (row['totals']['coupons'], row['totals']['coupon_amount']))
             name = 'Event_%s_%s.pdf' % (event.name.replace(' ', '_'), row['distributor']['name'].replace(' ', '_'))
         else:
-            f = _final(event)
-            day_table = _day_table(event)
+            who = payload.get('d') or 0
+            try:
+                f = _final_distributor(event, who) if who else _final(event)
+            except ApiError:
+                return request.not_found()
+            day_table = [] if who else _day_table(event)
 
             def _table_html(head, rows, foot=None):
                 def cell(v, tag='td', bold=False, bg=None):
@@ -479,17 +515,19 @@ class FieldForceEventReportsApi(http.Controller):
                 '<div style="color:#555;margin-bottom:16px;">%s  |  %s</div>'
                 '<h3 style="margin:0 0 6px 0;font-size:13px;">Flavour-wise Sales</h3>'
                 '%s%s'
-                '<h3 style="margin:16px 0 6px 0;font-size:13px;">Day-wise Reconciliation</h3>'
                 '%s%s%s'
                 '</body></html>' % (
-                    event.name,
+                    event.name + (' (%s)' % f['distributor']['name'] if who else ''),
                     event.price_category_id.name or '',
                     period,
                     t1_html, note1,
-                    t2_html, note2, summary_html
+                    ('<h3 style="margin:16px 0 6px 0;font-size:13px;">Day-wise Reconciliation</h3>' + t2_html + note2)
+                    if day_table else '',
+                    '', summary_html
                 )
             )
-            name = 'Event_%s_final_report.pdf' % event.name.replace(' ', '_')
+            name = 'Event_%s_final_report%s.pdf' % (
+                event.name.replace(' ', '_'), '_' + f['distributor']['name'].replace(' ', '_') if who else '')
         try:
             content = _pdf(html)
         except ApiError as error:
