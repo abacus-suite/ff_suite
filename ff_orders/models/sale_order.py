@@ -54,7 +54,8 @@ class SaleOrder(models.Model):
             if discount:
                 vals['discount'] = max(0.0, min(discount, 100.0))
             line_vals.append((0, 0, vals))
-        if not line_vals:
+        free_only = any((_num(f.get('qty')) > 0) for f in (data.get('foc') or []))
+        if not line_vals and not free_only:
             raise UserError(self.env._('Add at least one product to the order.'))
 
         visit = self.env['ff.visit'].sudo().search([

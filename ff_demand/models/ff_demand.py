@@ -183,7 +183,9 @@ class FfDemand(models.Model):
                 'quantity': quantity,
                 'price_unit': float(line.get('price_unit') or 0) or product.ff_field_price(partner),
             }))
-        if not lines:
+        # Free goods alone are a valid demand: the free lines are added by ff_foc.
+        free_only = any(float(f.get('qty') or 0) > 0 for f in (data.get('foc') or []) if isinstance(f, dict))
+        if not lines and not free_only:
             raise UserError(self.env._('Add at least one product.'))
 
         visit = self.env['ff.visit'].sudo().search([
