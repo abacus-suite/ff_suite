@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -227,6 +228,7 @@ Future<bool> decideOvertime(BuildContext context, Map<String, dynamic> r) async 
   final sent = (r['overtime_minutes'] as num).toInt();
   var minutes = sent;
   final why = TextEditingController();
+  final typed = TextEditingController(text: '$sent');
   final result = await showModalBottomSheet<(int, String)>(
     context: context,
     isScrollControlled: true,
@@ -248,18 +250,21 @@ Future<bool> decideOvertime(BuildContext context, Map<String, dynamic> r) async 
                 Text('Sent: ${_mins(sent)}', style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 const Text('Approve', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
-                Row(children: [
-                  IconButton.filledTonal(
-                      onPressed: minutes <= 0 ? null : () => setSheet(() => minutes = (minutes - 15).clamp(0, sent)),
-                      icon: const Icon(Icons.remove_rounded)),
-                  Expanded(
-                      child: Center(
-                          child: Text(_mins(minutes),
-                              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: changed ? AppColors.warning : AppColors.primary)))),
-                  IconButton.filledTonal(
-                      onPressed: minutes >= sent ? null : () => setSheet(() => minutes = (minutes + 15).clamp(0, sent)),
-                      icon: const Icon(Icons.add_rounded)),
-                ]),
+                // Tap the number and type the minutes to approve: less than what was sent, never more.
+                TextField(
+                  controller: typed,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 28, color: changed ? AppColors.warning : AppColors.primary),
+                  onChanged: (v) => setSheet(() => minutes = int.tryParse(v) ?? 0),
+                  decoration: InputDecoration(
+                    suffixText: 'min',
+                    helperText: _mins(minutes <= sent ? minutes : sent),
+                    helperStyle: const TextStyle(fontSize: 12.5),
+                    errorText: minutes > sent ? 'More than the ${_mins(sent)} sent: enter $sent or less' : null,
+                  ),
+                ),
                 if (changed) ...[
                   const SizedBox(height: 8),
                   TextField(
@@ -276,15 +281,25 @@ Future<bool> decideOvertime(BuildContext context, Map<String, dynamic> r) async 
                   Expanded(
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), foregroundColor: AppColors.danger),
-                      onPressed: why.text.trim().isEmpty ? () => setSheet(() => minutes = 0) : () => Navigator.pop(sheet, (0, why.text.trim())),
-                      child: Text(why.text.trim().isEmpty && minutes != 0 ? 'Reject' : 'Reject'),
+                      onPressed: () {
+                        if (why.text.trim().isEmpty) {
+                          // A rejection needs a reason: show the field first.
+                          setSheet(() {
+                            minutes = 0;
+                            typed.text = '0';
+                          });
+                        } else {
+                          Navigator.pop(sheet, (0, why.text.trim()));
+                        }
+                      },
+                      child: const Text('Reject'),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton(
                       style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                      onPressed: minutes <= 0 || (needReason && why.text.trim().isEmpty)
+                      onPressed: minutes <= 0 || minutes > sent || (needReason && why.text.trim().isEmpty)
                           ? null
                           : () => Navigator.pop(sheet, (minutes, why.text.trim())),
                       child: Text('Approve ${_mins(minutes)}'),
@@ -305,6 +320,7 @@ Future<bool> decideOvertime(BuildContext context, Map<String, dynamic> r) async 
     ),
   );
   why.dispose();
+  typed.dispose();
   if (result == null || !context.mounted) return false;
   try {
     await Services.api.post('/api/v1/overtime/${r['id']}/decide',
