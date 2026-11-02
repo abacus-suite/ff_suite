@@ -278,10 +278,7 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
 
 // ==================================================================== My Expense · Payment requests
 class PaymentRequestsScreen extends StatefulWidget {
-  const PaymentRequestsScreen({super.key, this.embedded = false});
-
-  /// Inside a tab of My Expense: no bar of its own.
-  final bool embedded;
+  const PaymentRequestsScreen({super.key});
 
   @override
   State<PaymentRequestsScreen> createState() => _PaymentRequestsScreenState();
@@ -331,12 +328,12 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
     final rows = _rows;
     final pending = (rows ?? const []).where((r) => r['state'] == 'invoice_pending' && !_hidden.contains(r['id']));
     return Scaffold(
-      backgroundColor: widget.embedded ? Colors.transparent : AppColors.background,
-      appBar: widget.embedded ? null : AppBar(title: _pageTitle('My Expense', 'Payment requests')),
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'New payment request',
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: _pageTitle('My Expense', 'Payment requests')),
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _new,
-        child: const Icon(Icons.add_rounded),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('New request'),
       ),
       body: rows == null
           ? const LoadingView()

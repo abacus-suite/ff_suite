@@ -13,53 +13,29 @@ import '../allowance/allowance_screen.dart';
 /// My Expenses: what was claimed and approved, the claims not sent yet (tick
 /// and send them), and how each sent one fared.
 class ExpensesScreen extends StatefulWidget {
-  const ExpensesScreen({super.key, this.initialTab});
-
-  /// 'claim', 'request' or 'card': the tab to open on.
-  final String? initialTab;
+  const ExpensesScreen({super.key});
 
   @override
   State<ExpensesScreen> createState() => _ExpensesScreenState();
 }
 
-class _ExpensesScreenState extends State<ExpensesScreen> with SingleTickerProviderStateMixin {
+class _ExpensesScreenState extends State<ExpensesScreen> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   Map<String, dynamic>? _data;
-  Map<String, dynamic>? _cardData;
-  late final TabController _tabs;
-  bool get _hasCard => Services.auth.profile?.expenseCard ?? false;
-
-  /// The tabs: travel and daily allowance, OLA, expense claiming, payment request and - when the company has
-  /// them - company card expenses.
-  List<(String, String)> get _tabList => [
-        ('ta', 'Travel Allowance'),
-        ('da', 'Daily Allowance'),
-        ('ola', 'OLA'),
-        ('claim', 'Expense Claiming'),
-        ('request', 'Payment Request'),
-        if (_hasCard) ('card', 'Company Card'),
-      ];
-  String get _tab => _tabList[_tabs.index].$1;
   bool _loading = true;
   bool _sending = false;
   String? _error;
   final Set<int> _picked = {};
+
+  /// The + at the bottom right is open: the kinds of expense to create are shown as small cards above it.
+  bool _dial = false;
 
   String get _monthKey => '${_month.year}-${_month.month.toString().padLeft(2, '0')}';
 
   @override
   void initState() {
     super.initState();
-    final start = _tabList.indexWhere((t) => t.$1 == widget.initialTab);
-    _tabs = TabController(length: _tabList.length, vsync: this, initialIndex: start < 0 ? 0 : start)
-      ..addListener(() => setState(() {}));
     _load();
-  }
-
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -67,15 +43,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> with SingleTickerProvid
     setState(() => _loading = true);
     try {
       final data = await Services.api.get('/api/v1/expenses', query: {'month': key}) as Map<String, dynamic>;
-      final card = _hasCard
-          ? await Services.api.get('/api/v1/expenses', query: {'month': key, 'kind': 'card'}) as Map<String, dynamic>
-          : null;
       if (mounted && key == _monthKey) {
         setState(() {
           _data = data;
-          _cardData = card;
           _error = null;
-          final ids = [..._claims, ..._cardClaims].where((c) => c['can_send'] == true).map((c) => c['id'] as int).toSet();
+          final ids = _claims.where((c) => c['can_send'] == true).map((c) => c['id'] as int).toSet();
           _picked.retainAll(ids);
         });
       }
@@ -87,8 +59,6 @@ class _ExpensesScreenState extends State<ExpensesScreen> with SingleTickerProvid
   }
 
   List<Map<String, dynamic>> get _claims => ((_data?['claims'] as List?) ?? []).cast<Map<String, dynamic>>();
-  List<Map<String, dynamic>> get _cardClaims =>
-      ((_cardData?['claims'] as List?) ?? []).cast<Map<String, dynamic>>();
 
   void _shiftMonth(int months) {
     setState(() {
@@ -107,8 +77,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> with SingleTickerProvid
 
   Future<void> _open(Map<String, dynamic> claim) async {
     if (claim['editable'] == true) {
-      final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
-          builder: (_) => ExpenseFormScreen(kind: '${claim['kind'] ?? 'claim'}', existing: claim)));
+      final saved = await Navigator.of(context)
+          .push<bool>(MaterialPageRoute(builder: (_) => ExpenseFormScreen(kind: 'claim', existing: claim)));
       if (saved == true) _load();
       return;
     }
@@ -237,51 +207,17 @@ class _ExpensesScreenState extends State<ExpensesScreen> with SingleTickerProvid
     );
   }
 
-  /// One kind of expense: the sent ones and the ones still to send, with the week's deadline above them.
-  Widget _expenseList(List<Map<String, dynamic>> claims, String? currency, String empty, {bool deadlines = true}) {
-    final deadline = deadlines ? _deadline : null;
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
-        children: [
-          if (_error != null) ErrorView(message: _error!, onRetry: _load),
-          if (deadline != null)
-            Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: AppColors.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(16)),
-              child: Row(children: [
-                const Icon(Icons.schedule_rounded, color: AppColors.warning),
-                const SizedBox(width: 10),
-                Expanded(child: Text(deadline, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600))),
-              ]),
-            ),
-          if (claims.isEmpty && !_loading) EmptyView(icon: Icons.receipt_rounded, text: empty),
-          for (final c in claims) _tile(c, currency),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final data = _data;
     final currency = data?['currency'] as String?;
     final now = DateTime.now();
     final isCurrent = _month.year == now.year && _month.month == now.month;
-    final listTab = _tab == 'claim' || _tab == 'card';
+    final deadline = _deadline;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('My Expense')),
-      // The + of the two lists that are this screen's own; the other tabs carry their own.
-      floatingActionButton: listTab && _picked.isEmpty
-          ? FloatingActionButton(
-              tooltip: _tab == 'card' ? 'New company card expense' : 'New expense claim',
-              onPressed: () => _new(_tab),
-              child: const Icon(Icons.add_rounded),
-            )
-          : null,
+      floatingActionButton: _dialButton(),
       bottomNavigationBar: _picked.isEmpty
           ? null
           : SafeArea(
@@ -295,70 +231,141 @@ class _ExpensesScreenState extends State<ExpensesScreen> with SingleTickerProvid
                 ),
               ),
             ),
-      body: Column(children: [
-        // The month and what was claimed and approved come first, for the expenses below them.
-        if (listTab)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-            child: Column(children: [
-              Card(
-                margin: EdgeInsets.zero,
-                child: Row(children: [
-                  IconButton(onPressed: () => _shiftMonth(-1), icon: const Icon(Icons.chevron_left_rounded)),
-                  Expanded(
-                    child: Center(
-                      child: Text('${monthNames[_month.month - 1]} ${_month.year}',
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
-                    ),
+      body: Stack(children: [
+        RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
+          children: [
+            Card(
+              child: Row(children: [
+                IconButton(onPressed: () => _shiftMonth(-1), icon: const Icon(Icons.chevron_left_rounded)),
+                Expanded(
+                  child: Center(
+                    child: Text('${monthNames[_month.month - 1]} ${_month.year}',
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
                   ),
-                  IconButton(
-                      onPressed: isCurrent ? null : () => _shiftMonth(1), icon: const Icon(Icons.chevron_right_rounded)),
+                ),
+                IconButton(
+                    onPressed: isCurrent ? null : () => _shiftMonth(1), icon: const Icon(Icons.chevron_right_rounded)),
+              ]),
+            ),
+            if (_loading) const LinearProgressIndicator(),
+            if (_error != null) ErrorView(message: _error!, onRetry: _load),
+            if (data != null)
+              Row(children: [
+                Expanded(child: _total('Claimed', data['total_amount'] as num?, currency, AppColors.primary)),
+                const SizedBox(width: 10),
+                Expanded(child: _total('Approved', data['approved_amount'] as num?, currency, AppColors.success)),
+              ]),
+            if (deadline != null)
+              Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 4),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(16)),
+                child: Row(children: [
+                  const Icon(Icons.schedule_rounded, color: AppColors.warning),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(deadline, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  ),
                 ]),
               ),
-              if (_loading) const LinearProgressIndicator(),
-              Row(children: [
-                Expanded(
-                    child: _total('Claimed', ((_tab == 'card' ? _cardData : data)?['total_amount']) as num?, currency,
-                        AppColors.primary)),
-                const SizedBox(width: 10),
-                Expanded(
-                    child: _total('Approved', ((_tab == 'card' ? _cardData : data)?['approved_amount']) as num?, currency,
-                        AppColors.success)),
-              ]),
-            ]),
+            const SizedBox(height: 10),
+            if (_claims.isEmpty && !_loading) const EmptyView(icon: Icons.receipt_rounded, text: 'No expenses this month'),
+            for (final c in _claims) _tile(c, currency),
+            const SizedBox(height: 14),
+            // TA and DA sit on the same page, below the expenses.
+            _allowanceCard(Icons.local_gas_station_rounded, 'Travel Allowance (TA)',
+                'Claims for the kilometres travelled', AppColors.purple,
+                () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllowanceScreen()))),
+            _allowanceCard(Icons.restaurant_rounded, 'Daily Allowance (DA)', 'Daily allowance claims', AppColors.teal,
+                () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DailyAllowanceScreen()))),
+            _allowanceCard(Icons.timer_rounded, 'OLA', 'Monthly allowance by the hours worked', AppColors.warning,
+                () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OlaScreen()))),
+            _allowanceCard(Icons.request_quote_rounded, 'Payment requests', 'Paid directly by accounts · tax invoices',
+                const Color(0xFF7C3AED),
+                () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaymentRequestsScreen()))),
+          ],
+        ),
+        ),
+        if (_dial)
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => setState(() => _dial = false),
+              child: Container(color: Colors.black.withValues(alpha: 0.28)),
+            ),
           ),
-        const SizedBox(height: 8),
-        TabBar(
-          controller: _tabs,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          dividerColor: Colors.transparent,
-          indicatorSize: TabBarIndicatorSize.tab,
-          indicator: BoxDecoration(gradient: AppColors.brandGradient, borderRadius: BorderRadius.circular(22)),
-          labelColor: Colors.white,
-          unselectedLabelColor: AppColors.text,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-          labelPadding: const EdgeInsets.symmetric(horizontal: 16),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          tabs: [for (final t in _tabList) Tab(height: 38, text: t.$2)],
-        ),
-        const SizedBox(height: 4),
-        Expanded(
-          child: TabBarView(controller: _tabs, children: [
-            for (final t in _tabList)
-              switch (t.$1) {
-                'ta' => const AllowanceScreen(embedded: true),
-                'da' => const DailyAllowanceScreen(embedded: true),
-                'ola' => const OlaScreen(embedded: true),
-                'request' => const PaymentRequestsScreen(embedded: true),
-                'card' => _expenseList(_cardClaims, _cardData?['currency'] as String? ?? currency, 'No company card expenses this month', deadlines: false),
-                _ => _expenseList(_claims, currency, 'No expenses this month'),
-              },
-          ]),
-        ),
       ]),
     );
   }
+
+  /// One small card above the +: the kind of expense it creates.
+  Widget _dialOption(IconData icon, Color tint, String label, VoidCallback onTap) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Material(
+          color: Colors.white,
+          elevation: 4,
+          shadowColor: const Color(0xFF1B3A7A).withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () {
+              setState(() => _dial = false);
+              onTap();
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 22, 10),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(color: tint.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(13)),
+                  child: Icon(icon, color: tint, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+              ]),
+            ),
+          ),
+        ),
+      );
+
+  Widget _dialButton() => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+        if (_dial) ...[
+          _dialOption(Icons.receipt_long_rounded, const Color(0xFF7C3AED), 'Expense Claim', () => _new('claim')),
+          if (Services.auth.profile?.expenseCard ?? false)
+            _dialOption(Icons.credit_card_rounded, AppColors.primary, 'Company Card', () => _new('card')),
+          _dialOption(Icons.request_quote_rounded, const Color(0xFF2563EB), 'Payment Request', () async {
+            final sent = await Navigator.of(context)
+                .push<bool>(MaterialPageRoute(builder: (_) => const PaymentRequestFormScreen()));
+            if (sent == true && mounted) {
+              await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaymentRequestsScreen()));
+            }
+          }),
+        ],
+        FloatingActionButton(
+          tooltip: 'New expense',
+          onPressed: () => setState(() => _dial = !_dial),
+          child: AnimatedRotation(
+              turns: _dial ? 0.125 : 0, duration: const Duration(milliseconds: 180), child: const Icon(Icons.add_rounded, size: 30)),
+        ),
+      ]);
+
+  Widget _allowanceCard(IconData icon, String title, String subtitle, Color tint, VoidCallback onTap) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: tint.withValues(alpha: 0.12),
+            child: Icon(icon, color: tint),
+          ),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: Text(subtitle),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: onTap,
+        ),
+      );
 
   Widget _total(String label, num? v, String? currency, Color tint) => Container(
         margin: const EdgeInsets.only(top: 10),
@@ -409,6 +416,36 @@ class _Detail extends StatelessWidget {
           const SizedBox(height: 6),
           const Text('A sent expense cannot be edited.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
         ]),
+      ),
+    );
+  }
+}
+
+/// Daily allowance: the screen is in place; the claim rules are still to be given.
+class _DailyAllowanceScreen extends StatelessWidget {
+  const _DailyAllowanceScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('Daily Allowance (DA)')),
+      body: const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.restaurant_rounded, size: 48, color: AppColors.teal),
+              SizedBox(height: 12),
+              Text('Daily allowance claims',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              SizedBox(height: 6),
+              Text('Your daily allowance claims will be listed here once they are switched on.',
+                  textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
+            ],
+          ),
+        ),
       ),
     );
   }

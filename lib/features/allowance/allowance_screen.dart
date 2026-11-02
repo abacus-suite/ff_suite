@@ -17,10 +17,7 @@ const _basisLabels = {
 
 /// Daily travel allowance calculated by the server, with the journey legs.
 class AllowanceScreen extends StatefulWidget {
-  const AllowanceScreen({super.key, this.embedded = false});
-
-  /// Inside a tab of My Expense: no bar of its own, and a + button for a new claim.
-  final bool embedded;
+  const AllowanceScreen({super.key});
 
   @override
   State<AllowanceScreen> createState() => _AllowanceScreenState();
@@ -119,21 +116,7 @@ class _AllowanceScreenState extends State<AllowanceScreen> {
     final now = DateTime.now();
     final isCurrent = _month.year == now.year && _month.month == now.month;
     return Scaffold(
-      backgroundColor: widget.embedded ? Colors.transparent : null,
-      floatingActionButton: widget.embedded
-          ? FloatingActionButton(
-              tooltip: 'New travel allowance',
-              onPressed: () async {
-                final saved = await Navigator.of(context)
-                    .push<bool>(MaterialPageRoute(builder: (_) => const TravelFormScreen()));
-                if (saved == true) _load();
-              },
-              child: const Icon(Icons.add_rounded),
-            )
-          : null,
-      appBar: widget.embedded
-          ? null
-          : AppBar(
+      appBar: AppBar(
         title: const Text('Travel Allowance'),
         actions: [
           IconButton(
