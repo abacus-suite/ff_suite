@@ -77,9 +77,10 @@ class FieldForceReceivablesApi(http.Controller):
             elif filter == 'due_soon':
                 move_domain += [('invoice_date_due', '>=', today),
                                 ('invoice_date_due', '<=', today + timedelta(days=7))]
+            # The totals and the ageing are of every open invoice; only the list on screen is cut to ``limit``.
             moves = env['account.move'].sudo().search(
-                move_domain, order='invoice_date_due asc, id asc',
-                limit=min(to_int(limit) or 200, 500))
+                move_domain, order='invoice_date_due asc, id asc', limit=5000)
+        shown = min(to_int(limit) or 200, 500)
         ageing = {key: 0.0 for key, _label in BUCKETS}
         rows, total, overdue = [], 0.0, 0.0
         for move in moves:
@@ -90,6 +91,8 @@ class FieldForceReceivablesApi(http.Controller):
             total += residual
             if late_days > 0 and residual > 0:
                 overdue += residual
+            if len(rows) >= shown:
+                continue
             rows.append({
                 'id': move.id,
                 'number': move.name,
@@ -107,18 +110,20 @@ class FieldForceReceivablesApi(http.Controller):
         # draft is another, and it is the usual reason somebody says their
         # receivables are missing. Count them so the app can say so.
         drafts = 0
-        if not rows and families:
-            drafts = env['account.move'].sudo().search_count([
-                ('partner_id', 'child_of', families.ids),
+        if not rows and reach:
+            draft_domain = [
                 ('move_type', 'in', ('out_invoice', 'out_refund')),
                 ('state', '=', 'draft'), ('company_id', '=', company.id),
-            ])
+            ] + ['|'] * (len(reach) - 1) + [term for branch in reach for term in branch]
+            if kind in ('outlet', 'distributor'):
+                draft_domain.append(('partner_id.commercial_partner_id.ff_category_type', '=', kind))
+            drafts = env['account.move'].sudo().search_count(draft_domain)
         return ok({
             'currency': company.currency_id.name,
             'filter': filter,
             'total': round(total, 2),
             'overdue': round(overdue, 2),
-            'count': len(rows),
+            'count': len(moves),
             'draft_count': drafts,
             'ageing': [{'key': key, 'label': label, 'amount': round(ageing[key], 2)} for key, label in BUCKETS],
             'invoices': rows,
