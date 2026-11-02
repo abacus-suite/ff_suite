@@ -269,6 +269,67 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
     );
   }
 
+  /// The whole PO in five figures: what is charged before tax, the tax, the scheme and the margin given off the MRP, and
+  /// the final amount (the rates already include GST).
+  Widget _finalCard() {
+    final c = widget.commercials!;
+    double untaxed = 0, tax = 0, scheme = 0, margin = 0;
+    for (final l in widget.lines) {
+      final qty = ((l['qty'] as num?) ?? 0).toDouble();
+      final rate = ((l['price'] as num?) ?? 0).toDouble();
+      final mrp = ((l['mrp'] as num?) ?? 0).toDouble();
+      final gst = ((l['tax_percent'] as num?) ?? 0).toDouble();
+      final line = rate * qty;
+      final base = gst > 0 ? line / (1 + gst / 100) : line;
+      untaxed += base;
+      tax += line - base;
+      final perBottleScheme = (c.scheme ?? 0).toDouble();
+      scheme += perBottleScheme * qty;
+      margin += (mrp - perBottleScheme) * ((c.margin ?? 0).toDouble()) / 100 * qty;
+    }
+    Widget row(String label, double value, {Color? colour, bool minus = false}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(children: [
+            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600))),
+            Text('${minus ? '− ' : ''}${fmtMoney(value)}',
+                style: TextStyle(fontWeight: FontWeight.w800, color: colour)),
+          ]),
+        );
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+      child: Column(children: [
+        row('Amount without tax', untaxed),
+        row('Total tax amount', tax),
+        row('Total scheme amount', scheme, colour: AppColors.danger, minus: true),
+        row('Total margin discount', margin, colour: AppColors.danger, minus: true),
+        const Padding(
+          padding: EdgeInsets.only(top: 2, bottom: 4),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Scheme and margin are the discounts off the MRP that are already in the rate.',
+                style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+          ),
+        ),
+        const Divider(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.success.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.success.withValues(alpha: 0.35)),
+          ),
+          child: Row(children: [
+            const Expanded(child: Text('FINAL AMOUNT', style: TextStyle(fontWeight: FontWeight.w900))),
+            Text(fmtMoney(_total),
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: AppColors.success)),
+          ]),
+        ),
+      ]),
+    );
+  }
+
   /// The outlet's rate already has the GST in it: nothing is added on top of the lines.
   bool get _rateHasGst => widget.commercials != null;
 
@@ -425,11 +486,14 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
               trailing: Text(fmtMoney(_tax)),
             ),
           ],
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(_rateHasGst ? 'Total (incl. GST)' : 'Total', style: const TextStyle(fontWeight: FontWeight.w800)),
-            trailing: Text(fmtMoney(_rateHasGst ? _total : _total + _tax), style: theme.textTheme.titleMedium),
-          ),
+          if (_rateHasGst)
+            _finalCard()
+          else
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Total', style: TextStyle(fontWeight: FontWeight.w800)),
+              trailing: Text(fmtMoney(_total + _tax), style: theme.textTheme.titleMedium),
+            ),
           Text(_rateHasGst ? 'The rate already includes GST. Free goods carry no tax.' : 'Free goods carry no tax. The server works out the final taxes.',
               style: theme.textTheme.bodySmall),
           ],
