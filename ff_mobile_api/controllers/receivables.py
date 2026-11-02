@@ -29,6 +29,13 @@ def _bucket(days_overdue):
     return '90_plus'
 
 
+def _due(move):
+    """The due date receivables go by: the contact's credit days, else the default of the settings, else the
+    payment terms of the invoice itself."""
+    effective = getattr(move, '_ff_effective_due', None)
+    return effective() if effective else move.invoice_date_due
+
+
 def _check_accounting():
     if 'account.move' not in request.env:
         raise ApiError('Invoicing is not installed.', 404, 'not_found')
@@ -82,6 +89,7 @@ class FieldForceReceivablesApi(http.Controller):
         Order = env.get('sale.order')
         if not partner_id and Order is not None and 'ff_employee_id' in Order._fields:
             reach.append([('invoice_line_ids.sale_line_ids.order_id.ff_employee_id', 'in', mine)])
+        dues = {}
         if not reach:
             moves = env['account.move']
         else:
@@ -89,21 +97,23 @@ class FieldForceReceivablesApi(http.Controller):
             # Outlets or distributors only, when one of the two buttons is chosen.
             if kind in ('outlet', 'distributor'):
                 move_domain.append(('partner_id.commercial_partner_id.ff_category_type', '=', kind))
-            if filter == 'overdue':
-                move_domain.append(('invoice_date_due', '<', today))
-            elif filter == 'due_soon':
-                move_domain += [('invoice_date_due', '>=', today),
-                                ('invoice_date_due', '<=', today + timedelta(days=7))]
             # The totals and the ageing are of every open invoice; only the list on screen is cut to ``limit``.
-            moves = env['account.move'].sudo().search(
-                move_domain, order='invoice_date_due asc, id asc', limit=5000)
+            moves = env['account.move'].sudo().search(move_domain, order='invoice_date_due asc, id asc', limit=5000)
+            # The due date is worked out per invoice, so overdue and due-soon are filtered here, not in the query.
+            dues = {m.id: _due(m) for m in moves}
+            if filter == 'overdue':
+                moves = moves.filtered(lambda m: dues[m.id] and dues[m.id] < today)
+            elif filter == 'due_soon':
+                moves = moves.filtered(lambda m: dues[m.id] and today <= dues[m.id] <= today + timedelta(days=7))
+            moves = moves.sorted(lambda m: (dues[m.id] or today, m.id))
         shown = min(to_int(limit) or 200, 500)
         ageing = {key: 0.0 for key, _label in BUCKETS}
         rows, total, overdue = [], 0.0, 0.0
         customers = {}
         for move in moves:
             residual = move.amount_residual_signed
-            late_days = (today - move.invoice_date_due).days if move.invoice_date_due else 0
+            due = dues.get(move.id)
+            late_days = (today - due).days if due else 0
             bucket = _bucket(late_days)
             ageing[bucket] += residual
             total += residual
@@ -125,7 +135,7 @@ class FieldForceReceivablesApi(http.Controller):
                 'number': move.name,
                 'customer': ref(move.partner_id.commercial_partner_id),
                 'date': to_iso(move.invoice_date),
-                'due_date': to_iso(move.invoice_date_due),
+                'due_date': to_iso(due),
                 'amount': round(move.amount_total_signed, 2),
                 'residual': round(residual, 2),
                 'days_overdue': max(late_days, 0),
@@ -174,7 +184,8 @@ class FieldForceReceivablesApi(http.Controller):
         if not move:
             raise ApiError('Invoice not found.', 404, 'not_found')
         today = employee._ff_today()
-        late = (today - move.invoice_date_due).days if move.invoice_date_due else 0
+        due = _due(move)
+        late = (today - due).days if due else 0
         lines = []
         for line in move.invoice_line_ids.filtered(lambda l: l.display_type == 'product'):
             lines.append({
@@ -194,7 +205,7 @@ class FieldForceReceivablesApi(http.Controller):
             'id': move.id, 'number': move.name, 'is_refund': move.move_type == 'out_refund',
             'customer': ref(move.partner_id.commercial_partner_id),
             'billed_to': ref(move.partner_id),
-            'date': to_iso(move.invoice_date), 'due_date': to_iso(move.invoice_date_due),
+            'date': to_iso(move.invoice_date), 'due_date': to_iso(due),
             'days_overdue': max(late, 0), 'bucket': _bucket(late),
             'payment_terms': move.invoice_payment_term_id.name or None,
             'payment_state': move.payment_state, 'reference': move.ref or None,
