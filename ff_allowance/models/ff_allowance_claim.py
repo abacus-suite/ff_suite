@@ -201,7 +201,7 @@ class FfAllowanceClaim(models.Model):
                     title=self.env._('TA Claim to Approve'),
                     body=self.env._('%(employee)s submitted TA claim %(name)s for %(symbol)s%(amount).2f',
                                     employee=claim.employee_id.name,
-                                    name=claim.name or '',
+                                    name=claim.display_name,
                                     symbol=claim.currency_id.symbol or '₹',
                                     amount=claim.amount),
                     kind='approval',
@@ -230,7 +230,7 @@ class FfAllowanceClaim(models.Model):
             if 'ff.notification' in self.env and claim.employee_id:
                 title = self.env._('Allowance Approved') if approve else self.env._('Allowance Rejected')
                 body = self.env._('Your allowance claim %(name)s for %(symbol)s%(amount).2f was %(status)s.',
-                                  name=claim.name,
+                                  name=claim.display_name,
                                   symbol=claim.currency_id.symbol or '₹',
                                   amount=claim.amount,
                                   status=self.env._('approved') if approve else self.env._('rejected'))
