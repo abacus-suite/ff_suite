@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_ff_leaves" model="ir.ui.view">
+        <field name="name">res.config.settings.form.ff_leaves</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="ff_base.res_config_settings_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='ff_feature_settings']" position="after">
+                <block title="Leave Cancellation" name="ff_leave_cancel_settings">
+                    <setting string="Cancelling an approved leave needs approval"
+                             help="An employee who comes to work on a day of approved leave is asked to cancel it. Tick to send that cancellation for approval; the employee can check in and work meanwhile.">
+                        <field name="ff_leave_cancel_approval"/>
+                        <div class="mt-2" invisible="not ff_leave_cancel_approval">
+                            <label for="ff_leave_cancel_levels" string="Approvals"/>
+                            <field name="ff_leave_cancel_levels" widget="radio"/>
+                        </div>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="ff_leave_cancel_view_list" model="ir.ui.view">
+        <field name="name">ff.leave.cancel.list</field>
+        <field name="model">ff.leave.cancel</field>
+        <field name="arch" type="xml">
+            <list decoration-info="state in ('manager', 'hr')" decoration-muted="state == 'rejected'">
+                <field name="employee_id"/>
+                <field name="leave_id"/>
+                <field name="reason"/>
+                <field name="levels"/>
+                <field name="state" widget="badge"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_leave_cancel_view_form" model="ir.ui.view">
+        <field name="name">ff.leave.cancel.form</field>
+        <field name="model">ff.leave.cancel</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_approve" type="object" string="Approve" class="btn-primary"
+                            invisible="state not in ('manager', 'hr')"/>
+                    <button name="action_reject" type="object" string="Reject" invisible="state not in ('manager', 'hr')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="manager,hr,done"/>
+                </header>
+                <sheet>
+                    <group>
+                        <field name="employee_id"/>
+                        <field name="leave_id"/>
+                        <field name="reason"/>
+                        <field name="levels"/>
+                        <field name="manager_user_id"/>
+                        <field name="hr_user_id"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_leave_cancel_action" model="ir.actions.act_window">
+        <field name="name">Leave Cancellations</field>
+        <field name="res_model">ff.leave.cancel</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_ff_leave_cancel" name="Leave Cancellations" parent="ff_attendance.menu_ff_attendance"
+              action="ff_leave_cancel_action" sequence="31"/>
+</odoo>

@@ -282,12 +282,18 @@ class HrLeave(models.Model):
     def ff_to_approve(self, employee):
         """What this manager has waiting, inside their data access."""
         team = employee._ff_subordinates()
-        if not team:
-            return []
         leaves = self.sudo().search([
             ('employee_id', 'in', team.ids), ('state', 'in', ('confirm', 'validate1')),
-        ], order='request_date_from')
-        return [leave.ff_app_payload() for leave in leaves]
+        ], order='request_date_from') if team else self.browse()
+        rows = [leave.ff_app_payload() for leave in leaves]
+        # Approved leaves the employee wants cancelled, waiting for this person.
+        for cancel in self.env['ff.leave.cancel'].sudo().search([('state', 'in', ('manager', 'hr'))]):
+            if cancel._ff_awaits(employee):
+                payload = cancel.leave_id.ff_app_payload()
+                payload.update({'cancel_request': True, 'state_label': 'Cancellation requested',
+                                'reason': cancel.reason or payload.get('reason')})
+                rows.append(payload)
+        return rows
 
     def ff_decide_as(self, employee, approve, reason=''):
         """Approve or refuse, with the manager's own rights checked first."""

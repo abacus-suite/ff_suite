@@ -2,6 +2,7 @@
 from datetime import timedelta
 
 from odoo import fields, http
+from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
 from odoo.addons.ff_mobile_api.controllers.clients import to_int
@@ -87,6 +88,34 @@ class FieldForceLeavesApi(http.Controller):
     def to_approve(self, employee, **kw):
         return ok(request.env['hr.leave'].ff_to_approve(employee))
 
+    @api_route('/api/v1/leaves/today', methods=('GET',))
+    def today_leave(self, employee, **kw):
+        """The approved leave that covers today, asked at check-in: the employee may cancel it to work."""
+        today = employee._ff_today()
+        leave = request.env['hr.leave'].sudo().search([
+            ('employee_id', '=', employee.id), ('state', '=', 'validate'),
+            ('request_date_from', '<=', today), ('request_date_to', '>=', today)], limit=1)
+        Cancel = request.env['ff.leave.cancel'].sudo()
+        waiting = bool(leave and Cancel.search_count([('leave_id', '=', leave.id), ('state', 'in', ('manager', 'hr'))]))
+        return ok({
+            'leave': leave.ff_app_payload() if leave else None,
+            'cancel_requested': waiting,
+            'needs_approval': Cancel._ff_needs_approval(),
+            'levels': int(Cancel._ff_levels()),
+        })
+
+    @api_route('/api/v1/leaves/<int:leave_id>/cancel-approved', methods=('POST',))
+    def cancel_approved(self, employee, leave_id, **kw):
+        leave = request.env['hr.leave'].sudo().browse(leave_id).exists()
+        if not leave:
+            raise ApiError('Request not found.', 404, 'not_found')
+        try:
+            rec = request.env['ff.leave.cancel'].ff_request(employee, leave, (body().get('reason') or '').strip())
+        except (UserError, AccessError) as error:
+            request.env.cr.rollback()
+            raise ApiError(str(error), 400, 'invalid')
+        return ok({'state': rec.state, 'cancelled': rec.state == 'done'})
+
     @api_route('/api/v1/approvals/leave/<int:leave_id>/<string:decision>', methods=('POST',), manager=True)
     def decide(self, employee, leave_id, decision, **kw):
         if decision not in ('approve', 'reject'):
@@ -94,6 +123,15 @@ class FieldForceLeavesApi(http.Controller):
         leave = request.env['hr.leave'].sudo().browse(leave_id).exists()
         if not leave:
             raise ApiError('Request not found.', 404, 'not_found')
+        # A cancellation of an approved leave that is waiting for this person.
+        cancel = request.env['ff.leave.cancel'].ff_pending_for(leave, employee)
+        if cancel:
+            try:
+                cancel.ff_decide(employee, decision == 'approve', (body().get('reason') or '').strip())
+            except (UserError, AccessError) as error:
+                request.env.cr.rollback()
+                raise ApiError(str(error), 400, 'invalid')
+            return ok(leave.ff_app_payload())
         leave.ff_decide_as(employee, decision == 'approve', (body().get('reason') or '').strip())
         note_rejection(leave, decision == 'approve', employee)
         return ok(leave.ff_app_payload())

@@ -7,7 +7,9 @@
     'depends': ['ff_mobile_api', 'hr_holidays'],
     'data': [
         'views/hr_leave_type_views.xml',
+        'security/ir.model.access.csv',
         'views/ff_leaves_menus.xml',
+        'views/res_config_settings_views.xml',
     ],
     'installable': True,
     'license': 'LGPL-3',
