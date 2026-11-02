@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../leaves/leaves_screen.dart';
+import 'overtime_screen.dart';
 import 'regularisation_screen.dart';
 
 const _statusStyle = <String, (String, Color)>{
@@ -141,6 +142,13 @@ class _MonthScreenState extends State<MonthScreen> {
             ),
         ],
         const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OvertimeScreen())),
+          style: OutlinedButton.styleFrom(fixedSize: const Size.fromHeight(52)),
+          icon: const Icon(Icons.more_time_rounded),
+          label: const Text('Overtime'),
+        ),
+        const SizedBox(height: 10),
         // Below the calendar there are only two ways on.
         Row(
           children: [

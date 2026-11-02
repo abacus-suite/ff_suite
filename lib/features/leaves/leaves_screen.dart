@@ -376,7 +376,7 @@ class _LeavesScreenState extends State<LeavesScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(children: [
                 cell(
-                    Text('${t['name']}',
+                    Text('${t['name']}${t['unit'] == 'hour' ? ' (h)' : ''}',
                         maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                     5,
                     Alignment.centerLeft),
@@ -719,10 +719,28 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
 
   double get _days => _halfDay ? 0.5 : (_to.difference(_from).inDays + 1).toDouble();
 
+  /// A type asked for by the hour (Compensatory Off from overtime): one day, from a time to a time.
+  bool get _isHour => _type?['unit'] == 'hour';
+  double _hourFrom = 9.0;
+  double _hourTo = 10.0;
+  double get _hours => _hourTo - _hourFrom;
+
+  /// What is being asked for, in the unit of the type: hours, or days.
+  double get _amount => _isHour ? _hours : _days;
+  String get _unit => _isHour ? 'h' : 'days';
+
+  static String _clock(double h) {
+    final hh = h.floor();
+    final mm = ((h - hh) * 60).round();
+    final suffix = hh >= 12 ? 'PM' : 'AM';
+    final shown = hh % 12 == 0 ? 12 : hh % 12;
+    return '$shown:${mm.toString().padLeft(2, '0')} $suffix';
+  }
+
   double? get _remaining =>
       _type?['requires_allocation'] == true ? ((_type!['remaining'] as num?) ?? 0).toDouble() : null;
 
-  bool get _overBalance => _remaining != null && _days > _remaining!;
+  bool get _overBalance => _remaining != null && _amount > _remaining!;
 
   Future<void> _pickRange() async {
     final now = DateTime.now();
@@ -775,8 +793,12 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       showProblem(context, 'Describe the reason: it is mandatory for Others.');
       return;
     }
+    if (_isHour && _hours <= 0) {
+      showProblem(context, 'The end time must be after the start time.');
+      return;
+    }
     if (_overBalance) {
-      showProblem(context, 'You are asking for ${fmtQty(_days)} days and have ${fmtQty(_remaining!)} left of ${_type!['name']}.');
+      showProblem(context, 'You are asking for ${fmtQty(_amount)} $_unit and have ${fmtQty(_remaining!)} left of ${_type!['name']}.');
       return;
     }
     setState(() => _busy = true);
@@ -808,8 +830,9 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
         'type_id': _type!['id'],
         'from': fmtDate(_from),
         'to': fmtDate(_halfDay ? _from : _to),
-        'half_day': _halfDay,
+        'half_day': _halfDay && !_isHour,
         'half_day_period': _halfPeriod,
+        if (_isHour) ...{'hour_from': _hourFrom, 'hour_to': _hourTo},
         'reason': _reason.text.trim(),
         if (_needsCertificate && _certificate.isNotEmpty) 'medical_certificate': base64Encode(_certificate.first),
       });
@@ -839,7 +862,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
   @override
   Widget build(BuildContext context) {
     final remaining = _remaining;
-    final after = remaining == null ? null : remaining - _days;
+    final after = remaining == null ? null : remaining - _amount;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Leave Request')),
@@ -870,7 +893,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                       child: Text(
                         remaining == null
                             ? 'No limit for this type'
-                            : '${fmtQty(remaining)} days available · used ${fmtQty((_type!['used'] as num?) ?? 0)} of ${fmtQty((_type!['allocated'] as num?) ?? 0)}'
+                            : '${fmtQty(remaining)} ${_isHour ? 'hours' : 'days'} available · used ${fmtQty((_type!['used'] as num?) ?? 0)} of ${fmtQty((_type!['allocated'] as num?) ?? 0)}'
                                 '${((_type!['pending'] as num?) ?? 0) > 0 ? ' · ${fmtQty(_type!['pending'] as num)} waiting' : ''}',
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                       ),
@@ -887,8 +910,68 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
           ),
           _card(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Which days', style: TextStyle(fontWeight: FontWeight.w900)),
+              Text(_isHour ? 'Which day and time' : 'Which days', style: const TextStyle(fontWeight: FontWeight.w900)),
               const SizedBox(height: 10),
+              if (_isHour) ...[
+                InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () async {
+                    final now = DateTime.now();
+                    final d = await showDatePicker(
+                        context: context,
+                        initialDate: _from,
+                        firstDate: now.subtract(const Duration(days: 30)),
+                        lastDate: now.add(const Duration(days: 365)));
+                    if (d == null) return;
+                    setState(() => (_from = d, _to = d));
+                    _checkBusy();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(16)),
+                    child: Row(children: [
+                      const Icon(Icons.event_rounded, color: AppColors.primary),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(_short(_from), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                            color: (_overBalance ? AppColors.danger : AppColors.primary).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(14)),
+                        child: Text('${fmtQty(_hours)} h',
+                            style: TextStyle(fontWeight: FontWeight.w900, color: _overBalance ? AppColors.danger : AppColors.primary)),
+                      ),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(children: [
+                  for (final (label, value, isFrom) in [('From', _hourFrom, true), ('To', _hourTo, false)])
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(right: isFrom ? 8 : 0),
+                        child: DropdownButtonFormField<double>(
+                          initialValue: value,
+                          isExpanded: true,
+                          decoration: InputDecoration(labelText: label),
+                          items: [
+                            for (var i = 0; i < 48; i++)
+                              DropdownMenuItem(value: i / 2, child: Text(_clock(i / 2))),
+                          ],
+                          onChanged: (v) => setState(() {
+                            if (v == null) return;
+                            if (isFrom) {
+                              _hourFrom = v;
+                              if (_hourTo <= v) _hourTo = (v + 1).clamp(0.5, 23.5);
+                            } else {
+                              _hourTo = v;
+                            }
+                          }),
+                        ),
+                      ),
+                    ),
+                ]),
+              ] else
               InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: _halfDay ? null : _pickRange,
@@ -914,6 +997,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                   ]),
                 ),
               ),
+              if (!_isHour)
               SwitchListTile(
                 value: _halfDay,
                 onChanged: (value) {
@@ -926,7 +1010,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                 title: const Text('Half day'),
                 contentPadding: EdgeInsets.zero,
               ),
-              if (_halfDay)
+              if (_halfDay && !_isHour)
                 SegmentedButton<String>(
                   segments: const [
                     ButtonSegment(value: 'am', label: Text('Morning'), icon: Icon(Icons.wb_sunny_outlined)),
@@ -939,7 +1023,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: Text(
-                    after < 0 ? 'This is ${fmtQty(-after)} more than you have.' : 'You will have ${fmtQty(after)} days left after this.',
+                    after < 0 ? 'This is ${fmtQty(-after)} more than you have.' : 'You will have ${fmtQty(after)} $_unit left after this.',
                     style: TextStyle(fontWeight: FontWeight.w700, color: after < 0 ? AppColors.danger : AppColors.success),
                   ),
                 ),
