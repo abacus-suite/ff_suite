@@ -231,8 +231,16 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
     }
   }
 
-  /// The outlet's commercials and how this product's rate comes about, in a sheet.
-  void _showRate(Map<String, dynamic> l) {
+  /// The outlet's commercials and how each selected product's rate comes about, in a sheet. Flavours that share
+  /// the MRP, rate and GST share one card ("Alphonso Mango (AM), Berry Mix (BM)").
+  void _showRates() {
+    final groups = <(num, num, num), List<String>>{};
+    for (final l in widget.lines) {
+      final mrp = l['mrp'] as num?;
+      final rate = l['price'] as num?;
+      if (mrp == null || rate == null) continue;
+      groups.putIfAbsent((mrp, rate, (l['tax_percent'] as num?) ?? 0), () => []).add(flavourLabel(l));
+    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -240,18 +248,22 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
       backgroundColor: AppColors.background,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (sheet) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            CommercialsCard(commercials: widget.commercials!),
-            RateBreakdown(
-              title: flavourLabel(l),
-              mrp: l['mrp'] as num,
-              rate: l['price'] as num,
-              tax: (l['tax_percent'] as num?) ?? 0,
-              commercials: widget.commercials!,
-            ),
-          ]),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              CommercialsCard(commercials: widget.commercials!),
+              for (final e in groups.entries)
+                RateBreakdown(
+                  title: e.value.join(', '),
+                  mrp: e.key.$1,
+                  rate: e.key.$2,
+                  tax: e.key.$3,
+                  commercials: widget.commercials!,
+                ),
+            ]),
+          ),
         ),
       ),
     );
@@ -332,7 +344,15 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('PO Summary')),
+      appBar: AppBar(title: const Text('PO Summary'), actions: [
+        // How every selected product's rate is made, only when asked for: it takes a lot of room.
+        if (widget.commercials != null && widget.lines.isNotEmpty)
+          IconButton(
+            tooltip: 'How the rates are calculated',
+            icon: const Icon(Icons.calculate_rounded),
+            onPressed: _showRates,
+          ),
+      ]),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -350,14 +370,6 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
               subtitle: Text('${fmtQty(l['qty'] as num)} × ${fmtMoney(l['price'] as num?)}'
                   '${((l['tax_percent'] as num?) ?? 0) > 0 ? (_rateHasGst ? '  ·  incl. ${fmtQty(l['tax_percent'] as num)}% GST' : '  ·  + ${fmtQty(l['tax_percent'] as num)}% tax') : ''}'),
               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                // How this product's rate is made, only when asked for: it takes a lot of room.
-                if (widget.commercials != null && l['mrp'] != null && l['price'] != null)
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    tooltip: 'How the rate is calculated',
-                    icon: const Icon(Icons.calculate_rounded, color: AppColors.primary),
-                    onPressed: () => _showRate(l),
-                  ),
                 Text(fmtMoney(((l['price'] as num?) ?? 0) * (l['qty'] as num))),
               ]),
             ),

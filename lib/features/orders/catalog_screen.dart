@@ -32,6 +32,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
   num? _mrpTab;
   final Map<int, double> _cart = {};
   final Map<int, double> _freeQ = {};
+  // Which of the two quantity tabs is open: false is Order Qty, true is Free Qty.
+  bool _freeTab = false;
   String? _freeReason;
   final _freeNote = TextEditingController();
   static const _freeReasons = ['Sample', 'Display', 'Damage cover', 'Festival offer', 'Other'];
@@ -448,44 +450,93 @@ class _CatalogScreenState extends State<CatalogScreen> {
         ]),
       );
 
-  /// Quantities for the whole range on one screen: what is ordered, and what is given free.
+  /// One of the two tabs: its name, how many products have a quantity, and whether it is the open one.
+  Widget _tab(String label, IconData icon, int count, bool open, VoidCallback onTap) => Expanded(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 11),
+            decoration: BoxDecoration(
+              gradient: open ? AppColors.brandGradient : null,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(icon, size: 18, color: open ? Colors.white : AppColors.muted),
+              const SizedBox(width: 7),
+              Text(label,
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: open ? Colors.white : AppColors.text)),
+              if (count > 0) ...[
+                const SizedBox(width: 7),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                  decoration: BoxDecoration(
+                      color: open ? Colors.white : AppColors.primary, borderRadius: BorderRadius.circular(10)),
+                  child: Text('$count',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5, color: open ? AppColors.primary : Colors.white)),
+                ),
+              ],
+            ]),
+          ),
+        ),
+      );
+
+  /// Quantities for the whole range: two tabs, what is ordered and what is given free.
   Widget _quantities() {
+    final ordered = _cart.values.where((v) => v > 0).length;
+    final free = _freeQ.values.where((v) => v > 0).length;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
       children: [
-        _section(Icons.shopping_cart_rounded, 'Order quantity', 'What the customer is ordering, at the customer price.',
-            // Each flavour with its MRP and the outlet's rate: "MRP ₹149 · rate ₹95.20".
-            QtyGrid(products: _products, values: _cart, onChanged: () => setState(() {}), subtitleOf: mrpRateLine)),
-        _section(
-          Icons.redeem_rounded,
-          'Free quantity',
-          'Kept apart from the order. Goes with an order.',
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            QtyGrid(products: _products, values: _freeQ, onChanged: () => setState(() {})),
-            if (_anyFree) ...[
-              const SizedBox(height: 12),
-              const Text('Free reason *', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final reason in _freeReasons)
-                  ChoiceChip(
-                    label: Text(reason),
-                    selected: _freeReason == reason,
-                    onSelected: (_) => setState(() => _freeReason = reason),
-                  ),
-              ]),
-              if (_freeReason == 'Other') ...[
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _freeNote,
-                  maxLines: 2,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(hintText: 'Describe the free reason'),
-                ),
-              ],
-            ],
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(children: [
+            _tab('Order Qty', Icons.shopping_cart_rounded, ordered, !_freeTab, () => setState(() => _freeTab = false)),
+            _tab('Free Qty', Icons.redeem_rounded, free, _freeTab, () => setState(() => _freeTab = true)),
           ]),
         ),
+        if (!_freeTab)
+          _section(Icons.shopping_cart_rounded, 'Order quantity', 'What the customer is ordering, at the customer price.',
+              // Each flavour with its MRP and the outlet's rate: "MRP ₹149 · rate ₹95.20".
+              QtyGrid(products: _products, values: _cart, onChanged: () => setState(() {}), subtitleOf: mrpRateLine))
+        else
+          _section(
+            Icons.redeem_rounded,
+            'Free quantity',
+            'Kept apart from the order. Can go with an order or be the whole PO.',
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              QtyGrid(products: _products, values: _freeQ, onChanged: () => setState(() {})),
+              if (_anyFree) ...[
+                const SizedBox(height: 12),
+                const Text('Free reason *', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  for (final reason in _freeReasons)
+                    ChoiceChip(
+                      label: Text(reason),
+                      selected: _freeReason == reason,
+                      onSelected: (_) => setState(() => _freeReason = reason),
+                    ),
+                ]),
+                if (_freeReason == 'Other') ...[
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _freeNote,
+                    maxLines: 2,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(hintText: 'Describe the free reason'),
+                  ),
+                ],
+              ],
+            ]),
+          ),
       ],
     );
   }
