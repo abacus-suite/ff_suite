@@ -5,7 +5,7 @@
     'summary': 'Leave requests walk the same first/second approver chain as expenses, when a flow is set',
     'author': 'Field Force Suite',
     'depends': ['ff_leaves', 'ff_approvals'],
-    'data': [],
+    'data': ['data/ff_approval_flow_data.xml'],
     'installable': True,
     'auto_install': True,
     'license': 'LGPL-3',

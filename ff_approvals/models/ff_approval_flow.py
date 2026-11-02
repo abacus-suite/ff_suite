@@ -17,6 +17,7 @@ APPROVER_KINDS = [
     ('manager', 'Reporting manager'),
     ('department_manager', 'Department manager'),
     ('team_manager', 'Team manager'),
+    ('leave_manager', 'Time Off approver (HR)'),
     ('user', 'A specific person'),
 ]
 
@@ -121,6 +122,9 @@ class FfApprovalStep(models.Model):
             return self.user_id
         if self.approver_kind == 'manager':
             return employee.parent_id.user_id
+        if self.approver_kind == 'leave_manager':
+            # The person chosen under "Time Off" in the Approvers of the employee: the HR approver.
+            return employee.leave_manager_id
         if self.approver_kind == 'department_manager':
             return employee.department_id.manager_id.user_id
         if self.approver_kind == 'team_manager':

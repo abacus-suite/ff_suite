@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- A leave request goes to the reporting manager first, then to the HR person chosen under "Time Off" in the
+         employee's Approvers. Only the second approval makes the leave approved. Change or switch it off under
+         Approvals > Flows; it is created once and never overwritten. -->
+    <data noupdate="1">
+        <record id="ff_flow_time_off" model="ff.approval.flow">
+            <field name="name">Time Off: manager, then HR</field>
+            <field name="document">hr.leave</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+        <record id="ff_flow_time_off_step_manager" model="ff.approval.step">
+            <field name="flow_id" ref="ff_flow_time_off"/>
+            <field name="sequence">10</field>
+            <field name="name">Manager approval</field>
+            <field name="approver_kind">manager</field>
+        </record>
+        <record id="ff_flow_time_off_step_hr" model="ff.approval.step">
+            <field name="flow_id" ref="ff_flow_time_off"/>
+            <field name="sequence">20</field>
+            <field name="name">HR approval</field>
+            <field name="approver_kind">leave_manager</field>
+        </record>
+    </data>
+</odoo>
