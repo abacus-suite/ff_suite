@@ -329,7 +329,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
     final pending = (rows ?? const []).where((r) => r['state'] == 'invoice_pending' && !_hidden.contains(r['id']));
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: _pageTitle('My Expense', 'Payment requests')),
+      appBar: AppBar(title: const Text('Payment Request', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22))),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _new,
         icon: const Icon(Icons.add_rounded),
