@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- 1. Storage (Godown) Location -->
+        <record id="location_storage_godown" model="stock.location">
+            <field name="name">Storage (Godown)</field>
+            <field name="usage">internal</field>
+            <field name="location_id" ref="stock.stock_location_stock"/>
+        </record>
+
+        <!-- 2. Fermentation Location -->
+        <record id="location_fermentation" model="stock.location">
+            <field name="name">Fermentation</field>
+            <field name="usage">internal</field>
+            <field name="location_id" ref="stock.stock_location_stock"/>
+        </record>
+
+        <!-- 3. Bottling Location -->
+        <record id="location_bottling" model="stock.location">
+            <field name="name">Bottling</field>
+            <field name="usage">internal</field>
+            <field name="location_id" ref="stock.stock_location_stock"/>
+        </record>
+
+        <!-- 4. Packing Location -->
+        <record id="location_packing" model="stock.location">
+            <field name="name">Packing</field>
+            <field name="usage">internal</field>
+            <field name="location_id" ref="stock.stock_location_stock"/>
+        </record>
+    </data>
+</odoo>
