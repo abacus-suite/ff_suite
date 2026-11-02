@@ -23,8 +23,8 @@ class FfRegularisation(models.Model):
         default=lambda self: self.env.user.employee_id)
     manager_id = fields.Many2one(related='employee_id.parent_id', string='Manager')
     date = fields.Date(required=True, default=fields.Date.context_today, tracking=True)
-    check_in = fields.Datetime(required=True, tracking=True)
-    check_out = fields.Datetime(required=True, tracking=True)
+    check_in = fields.Datetime(tracking=True)
+    check_out = fields.Datetime(tracking=True)
     which = fields.Selection([('in', 'Punch in'), ('out', 'Punch out'), ('both', 'Both')], default='both',
                              string='Corrected Punch',
                              help='The app corrects one punch at a time; the other stays as it was recorded.')
@@ -48,6 +48,14 @@ class FfRegularisation(models.Model):
     @api.constrains('check_in', 'check_out')
     def _check_times(self):
         for rec in self:
+            if rec.which == 'in' and not rec.check_in:
+                raise ValidationError(self.env._('Enter the punch-in time.'))
+            if rec.which == 'out' and not rec.check_out:
+                raise ValidationError(self.env._('Enter the punch-out time.'))
+            if rec.which in ('both', False) and not (rec.check_in and rec.check_out):
+                raise ValidationError(self.env._('Enter the punch-in and the punch-out time.'))
+            if not (rec.check_in and rec.check_out):
+                continue
             if rec.check_out <= rec.check_in:
                 raise ValidationError(self.env._('Punch-out must be after punch-in.'))
             if rec.check_out - rec.check_in > timedelta(hours=24):
@@ -133,8 +141,37 @@ class FfRegularisation(models.Model):
     def action_reset_draft(self):
         self.filtered(lambda r: r.state == 'rejected').write({'state': 'draft'})
 
+    def _ff_apply_one(self):
+        """One punch only: the punch-in opens the day (or moves its punch-in), the punch-out closes it."""
+        self.ensure_one()
+        Attendance = self.env['hr.attendance'].sudo()
+        start, end = self.employee_id.sudo()._ff_day_bounds(self.date)
+        day_rows = Attendance.search([('employee_id', '=', self.employee_id.id),
+                                      ('check_in', '>=', start), ('check_in', '<', end)], order='check_in')
+        if self.which == 'in':
+            if day_rows:
+                first = day_rows[0]
+                if first.check_out and first.check_out <= self.check_in:
+                    raise UserError(self.env._('The punch-in must be before the recorded punch-out.'))
+                first.write({'check_in': self.check_in, 'ff_source': 'regularisation'})
+                self.attendance_id = first
+            else:
+                self.attendance_id = Attendance.create({
+                    'employee_id': self.employee_id.id, 'check_in': self.check_in, 'ff_source': 'regularisation'})
+            return
+        target = day_rows.filtered(lambda r: not r.check_out)[:1] or day_rows[-1:]
+        if not target:
+            raise UserError(self.env._(
+                'There is no punch-in on %s yet. Approve the punch-in request for that day first.', self.date))
+        if self.check_out <= target.check_in:
+            raise UserError(self.env._('The punch-out must be after the punch-in (%s).', target.check_in))
+        target.write({'check_out': self.check_out, 'ff_source': 'regularisation'})
+        self.attendance_id = target
+
     def _ff_apply(self):
         self.ensure_one()
+        if self.which in ('in', 'out'):
+            return self._ff_apply_one()
         Attendance = self.env['hr.attendance'].sudo()
         overlapping = Attendance.search([
             ('employee_id', '=', self.employee_id.id),

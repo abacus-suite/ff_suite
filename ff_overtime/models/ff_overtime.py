@@ -45,9 +45,6 @@ class FfOvertime(models.Model):
         Days not sent yet are kept up to date; sent and decided days are left as they are.
         """
         employee = employee.sudo()
-        shift = employee.ff_shift_id
-        if not shift:
-            return
         start, _dummy = employee._ff_day_bounds(first)
         _dummy, end = employee._ff_day_bounds(last)
         worked = {}
@@ -62,8 +59,8 @@ class FfOvertime(models.Model):
             rec = existing.get(day)
             if rec and rec.state != 'draft':
                 continue
-            off = shift._ff_is_week_off(day) or bool(self.env['ff.holiday']._ff_for(employee, day))
-            expected = 0 if off else int(round((shift.end_time - shift.start_time) * 60))
+            off = bool(self.env['ff.holiday']._ff_for(employee, day))
+            expected = 0 if off else int(round(employee._ff_expected_hours(day) * 60))
             extra = int(worked.get(day, 0.0) - expected)
             if extra < MIN_OVERTIME_MINUTES:
                 if rec:

@@ -116,19 +116,14 @@ class FieldForceAttendanceApi(http.Controller):
                 check_in = parse_client_dt(data.get('check_in'))
                 check_out = parse_client_dt(data.get('check_out'))
             else:
-                # One punch is corrected; the other stays as it was recorded.
+                # One punch only: it is sent as its own request; the other punch of the day can be a request of its own.
                 corrected = parse_client_dt(data.get('time'))
                 if not corrected:
                     raise ApiError('Enter the correct time.')
-                recorded_in, recorded_out = self._recorded_day(employee, day)
-                check_in, check_out = (corrected, recorded_out) if which == 'in' else (recorded_in, corrected)
-                if not (check_in and check_out):
-                    raise ApiError('There is no %s recorded on this day to keep, so both punches cannot be '
-                                   'worked out. Ask your manager to add the day.' % ('punch-out' if which == 'in'
-                                                                                 else 'punch-in'))
+                check_in, check_out = (corrected, False) if which == 'in' else (False, corrected)
         except (TypeError, ValueError):
             raise ApiError('date and the time must be valid ISO dates.')
-        if not (day and check_in and check_out):
+        if not day or not (check_in or check_out) or (which == 'both' and not (check_in and check_out)):
             raise ApiError('date, check_in and check_out are required.')
         note = (data.get('note') or '').strip()
         if which != 'both' and not note:

@@ -246,6 +246,21 @@ class HrEmployee(models.Model):
             self.env['ff.daily.track']._ff_compute(employee, employee._ff_to_local(now).date())
         return attendance
 
+    def _ff_expected_hours(self, day):
+        """The hours the working schedule expects on ``day``: the employee's working hours (Work tab), else the shift.
+        Zero is a week off."""
+        self.ensure_one()
+        employee = self.sudo()
+        lines = employee.resource_calendar_id.attendance_ids.filtered(
+            lambda a: getattr(a, 'day_period', '') != 'lunch' and not getattr(a, 'display_type', False)
+        ) if employee.resource_calendar_id else employee.env['resource.calendar.attendance']
+        if lines:
+            return round(sum(a.hour_to - a.hour_from for a in lines if int(a.dayofweek) == day.weekday()), 2)
+        shift = employee.ff_shift_id
+        if shift:
+            return 0.0 if shift._ff_is_week_off(day) else round(shift.end_time - shift.start_time, 2)
+        return 0.0 if day.weekday() == 6 else 8.0
+
     def _ff_attendance_month(self, year, month):
         """Day-by-day attendance summary of a month, for the app calendar."""
         self.ensure_one()
@@ -288,9 +303,11 @@ class HrEmployee(models.Model):
         today = employee._ff_today()
         shift = employee.ff_shift_id
         days, summary = [], {}
+        total_worked = total_expected = total_extra = 0.0
         for number in range(1, last.day + 1):
             day = date(year, month, number)
             entry = by_day.get(day)
+            expected = employee._ff_expected_hours(day)
             if entry:
                 status = entry['status']
                 half_day_hours = entry['shift'].half_day_hours if entry['shift'] else 0
@@ -301,21 +318,39 @@ class HrEmployee(models.Model):
             elif self.env['ff.holiday']._ff_for(employee, day):
                 # Before "upcoming", so a holiday still to come is shown as one.
                 status = 'holiday'
+            elif expected == 0:
+                # A week off of the working schedule (shown for the days to come as well).
+                status = 'week_off'
             elif day > today:
                 status = 'upcoming'
-            elif shift._ff_is_week_off(day) if shift else day.weekday() == 6:
-                status = 'week_off'
             elif day == today:
                 status = 'not_punched'
             else:
                 status = 'absent'
             summary[status] = summary.get(status, 0) + 1
+            worked = round(entry['worked_hours'], 2) if entry else 0.0
+            finished = bool(entry) and not entry['open']
+            extra = round(max(worked - expected, 0.0), 2) if finished else 0.0
+            if day <= today:
+                if entry or (status not in ('holiday', 'leave', 'week_off')):
+                    # Till today: the hours the schedule expects of a working day (today only once punched in).
+                    if day < today or entry:
+                        total_expected += expected
+                total_worked += worked
+                total_extra += extra
             days.append({
                 'date': day.isoformat(),
                 'status': status,
-                'worked_hours': round(entry['worked_hours'], 2) if entry else 0.0,
+                'worked_hours': worked,
+                'expected_hours': expected,
+                'overtime_hours': extra,
                 'first_in': to_iso(entry['first_in']) if entry else None,
                 'last_out': to_iso(entry['last_out']) if entry else None,
                 'holiday': self.env['ff.holiday']._ff_for(employee, day).name or None if status == 'holiday' else None,
             })
-        return {'year': year, 'month': month, 'days': days, 'summary': summary}
+        return {
+            'year': year, 'month': month, 'days': days, 'summary': summary,
+            # The month so far, by the working schedule.
+            'worked_hours': round(total_worked, 2), 'expected_hours': round(total_expected, 2),
+            'overtime_hours': round(total_extra, 2),
+        }
