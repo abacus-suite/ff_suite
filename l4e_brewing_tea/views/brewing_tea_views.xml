@@ -53,7 +53,7 @@
                                     <field name="sl_no" string="SI No"/>
                                     <field name="description" string="Description"
                                            placeholder="e.g. Temperature, Color, Taste, pH"/>
-                                    <field name="status" string="Pass / Fail" widget="badge"
+                                    <field name="status" string="Pass / Fail"
                                            decoration-success="status == 'pass'"
                                            decoration-danger="status == 'fail'"/>
                                 </list>
