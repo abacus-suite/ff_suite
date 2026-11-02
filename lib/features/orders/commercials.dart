@@ -63,12 +63,16 @@ class CommercialsCard extends StatelessWidget {
 /// "Rate – Alphonso Mango (AM)": MRP, less scheme, after scheme, less margin, then the rate incl. GST.
 /// The rate is the server's; the lines above it show how it comes about.
 class RateBreakdown extends StatelessWidget {
-  const RateBreakdown({super.key, required this.title, required this.mrp, required this.rate, required this.commercials});
+  const RateBreakdown(
+      {super.key, required this.title, required this.mrp, required this.rate, required this.commercials, this.tax});
 
   final String title;
   final num mrp;
   final num rate;
   final Commercials commercials;
+
+  /// The GST percentage that is inside the rate.
+  final num? tax;
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +84,7 @@ class RateBreakdown extends StatelessWidget {
       if (scheme > 0) ('Less scheme', '− ${_rupees(scheme)}', AppColors.danger),
       if (scheme > 0) ('After scheme', _rupees(after), AppColors.text),
       if (margin != null && margin > 0) ('Less margin ${fmtQty(margin)}%', '− ${_rupees(after * margin / 100)}', AppColors.danger),
-    ], footer: (label: 'Rate incl. GST', value: _rupees(rate)));
+    ], footer: (label: tax != null && tax! > 0 ? 'Rate incl. GST ${fmtQty(tax!)}%' : 'Rate incl. GST', value: _rupees(rate)));
   }
 }
 

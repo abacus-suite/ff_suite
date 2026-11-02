@@ -223,16 +223,21 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
 
   /// One rate breakdown per MRP and rate: flavours that share them share one card
   /// ("Alphonso Mango (AM), Berry Mix (BM)"), so a long order stays short.
-  List<({String title, num mrp, num rate})> _rateGroups() {
-    final groups = <(num, num), List<String>>{};
+  List<({String title, num mrp, num rate, num tax})> _rateGroups() {
+    final groups = <(num, num, num), List<String>>{};
     for (final l in widget.lines) {
       final mrp = l['mrp'] as num?;
       final rate = l['price'] as num?;
       if (mrp == null || rate == null) continue;
-      groups.putIfAbsent((mrp, rate), () => []).add(flavourLabel(l));
+      groups.putIfAbsent((mrp, rate, (l['tax_percent'] as num?) ?? 0), () => []).add(flavourLabel(l));
     }
-    return [for (final e in groups.entries) (title: e.value.join(', '), mrp: e.key.$1, rate: e.key.$2)];
+    return [
+      for (final e in groups.entries) (title: e.value.join(', '), mrp: e.key.$1, rate: e.key.$2, tax: e.key.$3)
+    ];
   }
+
+  /// The outlet's rate already has the GST in it: nothing is added on top of the lines.
+  bool get _rateHasGst => widget.commercials != null;
 
   /// Who supplies the order: the field picks, the office sees it on the record.
   Widget _distributorCard() {
@@ -321,7 +326,8 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
             const SizedBox(height: 6),
             CommercialsCard(commercials: widget.commercials!),
             for (final group in _rateGroups())
-              RateBreakdown(title: group.title, mrp: group.mrp, rate: group.rate, commercials: widget.commercials!),
+              RateBreakdown(
+                  title: group.title, mrp: group.mrp, rate: group.rate, tax: group.tax, commercials: widget.commercials!),
           ],
           const Divider(),
           for (final l in widget.lines)
@@ -329,7 +335,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
               contentPadding: EdgeInsets.zero,
               title: Text(flavourLabel(l)),
               subtitle: Text('${fmtQty(l['qty'] as num)} × ${fmtMoney(l['price'] as num?)}'
-                  '${((l['tax_percent'] as num?) ?? 0) > 0 ? '  ·  + ${fmtQty(l['tax_percent'] as num)}% tax' : ''}'),
+                  '${((l['tax_percent'] as num?) ?? 0) > 0 ? (_rateHasGst ? '  ·  incl. ${fmtQty(l['tax_percent'] as num)}% GST' : '  ·  + ${fmtQty(l['tax_percent'] as num)}% tax') : ''}'),
               trailing: Text(fmtMoney(((l['price'] as num?) ?? 0) * (l['qty'] as num))),
             ),
           if (_free.isNotEmpty || _manual.isNotEmpty || _manualAllowed || !_freeChecked) ...[
@@ -364,24 +370,27 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
               const Text('No scheme applies to this cart.', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
           ],
           const Divider(),
+          if (!_rateHasGst) ...[
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(demandFlow ? 'Untaxed (at PTR)' : 'Untaxed'),
+              trailing: Text(fmtMoney(_total)),
+            ),
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Taxes'),
+              trailing: Text(fmtMoney(_tax)),
+            ),
+          ],
           ListTile(
-            dense: true,
             contentPadding: EdgeInsets.zero,
-            title: Text(demandFlow ? 'Untaxed (at PTR)' : 'Untaxed'),
-            trailing: Text(fmtMoney(_total)),
+            title: Text(_rateHasGst ? 'Total (incl. GST)' : 'Total', style: const TextStyle(fontWeight: FontWeight.w800)),
+            trailing: Text(fmtMoney(_rateHasGst ? _total : _total + _tax), style: theme.textTheme.titleMedium),
           ),
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Taxes'),
-            trailing: Text(fmtMoney(_tax)),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Total', style: TextStyle(fontWeight: FontWeight.w800)),
-            trailing: Text(fmtMoney(_total + _tax), style: theme.textTheme.titleMedium),
-          ),
-          Text('Free goods carry no tax. The server works out the final taxes.', style: theme.textTheme.bodySmall),
+          Text(_rateHasGst ? 'The rate already includes GST. Free goods carry no tax.' : 'Free goods carry no tax. The server works out the final taxes.',
+              style: theme.textTheme.bodySmall),
           const SizedBox(height: 16),
           TextField(
             controller: _note,
