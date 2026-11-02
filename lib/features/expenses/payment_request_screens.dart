@@ -330,10 +330,10 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Payment Request', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22))),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'New payment request',
         onPressed: _new,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('New request'),
+        child: const Icon(Icons.add_rounded),
       ),
       body: rows == null
           ? const LoadingView()

@@ -116,19 +116,15 @@ class _AllowanceScreenState extends State<AllowanceScreen> {
     final now = DateTime.now();
     final isCurrent = _month.year == now.year && _month.month == now.month;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Travel Allowance'),
-        actions: [
-          IconButton(
-            tooltip: 'New travel allowance',
-            icon: const Icon(Icons.add_circle_rounded),
-            onPressed: () async {
-              final saved = await Navigator.of(context)
-                  .push<bool>(MaterialPageRoute(builder: (_) => const TravelFormScreen()));
-              if (saved == true) _load();
-            },
-          ),
-        ],
+      appBar: AppBar(title: const Text('Travel Allowance')),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'New travel allowance',
+        onPressed: () async {
+          final saved =
+              await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const TravelFormScreen()));
+          if (saved == true) _load();
+        },
+        child: const Icon(Icons.add_rounded),
       ),
       body: RefreshIndicator(
         onRefresh: _load,

@@ -10,25 +10,26 @@ import 'expense_form_screen.dart';
 import 'payment_request_screens.dart';
 import '../allowance/allowance_screen.dart';
 
-/// My Expenses: what was claimed and approved, the claims not sent yet (tick
-/// and send them), and how each sent one fared.
-class ExpensesScreen extends StatefulWidget {
-  const ExpensesScreen({super.key});
+/// The expenses of one kind - claims, or company card expenses: the ones not sent yet (tick and send them) and how
+/// each sent one fared, with a + at the bottom right for a new one.
+class ExpenseListScreen extends StatefulWidget {
+  const ExpenseListScreen({super.key, this.kind = 'claim', this.month});
+
+  /// 'claim' (paid from own money) or 'card' (paid with a company card).
+  final String kind;
+  final DateTime? month;
 
   @override
-  State<ExpensesScreen> createState() => _ExpensesScreenState();
+  State<ExpenseListScreen> createState() => _ExpenseListScreenState();
 }
 
-class _ExpensesScreenState extends State<ExpensesScreen> {
-  DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+class _ExpenseListScreenState extends State<ExpenseListScreen> {
+  late DateTime _month = widget.month ?? DateTime(DateTime.now().year, DateTime.now().month);
   Map<String, dynamic>? _data;
   bool _loading = true;
   bool _sending = false;
   String? _error;
   final Set<int> _picked = {};
-
-  /// The + at the bottom right is open: the kinds of expense to create are shown as small cards above it.
-  bool _dial = false;
 
   String get _monthKey => '${_month.year}-${_month.month.toString().padLeft(2, '0')}';
 
@@ -42,7 +43,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final key = _monthKey;
     setState(() => _loading = true);
     try {
-      final data = await Services.api.get('/api/v1/expenses', query: {'month': key}) as Map<String, dynamic>;
+      final data = await Services.api.get('/api/v1/expenses', query: {'month': key, 'kind': widget.kind}) as Map<String, dynamic>;
       if (mounted && key == _monthKey) {
         setState(() {
           _data = data;
@@ -69,16 +70,17 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     _load();
   }
 
-  /// A new claim, straight to its form: the other kinds have their own rows on this page.
-  Future<void> _new([String kind = 'claim']) async {
-    final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => ExpenseFormScreen(kind: kind)));
+  /// A new expense of this kind, straight to its form.
+  Future<void> _new() async {
+    final saved =
+        await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => ExpenseFormScreen(kind: widget.kind)));
     if (saved == true) _load();
   }
 
   Future<void> _open(Map<String, dynamic> claim) async {
     if (claim['editable'] == true) {
       final saved = await Navigator.of(context)
-          .push<bool>(MaterialPageRoute(builder: (_) => ExpenseFormScreen(kind: 'claim', existing: claim)));
+          .push<bool>(MaterialPageRoute(builder: (_) => ExpenseFormScreen(kind: widget.kind, existing: claim)));
       if (saved == true) _load();
       return;
     }
@@ -213,11 +215,19 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final currency = data?['currency'] as String?;
     final now = DateTime.now();
     final isCurrent = _month.year == now.year && _month.month == now.month;
-    final deadline = _deadline;
+    final deadline = widget.kind == 'claim' ? _deadline : null;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('My Expense')),
-      floatingActionButton: _dialButton(),
+      appBar: AppBar(
+          title: Text(widget.kind == 'card' ? 'Expense Submission' : 'Expense Claiming',
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22))),
+      floatingActionButton: _picked.isEmpty
+          ? FloatingActionButton(
+              tooltip: widget.kind == 'card' ? 'New company card expense' : 'New expense claim',
+              onPressed: _new,
+              child: const Icon(Icons.add_rounded),
+            )
+          : null,
       bottomNavigationBar: _picked.isEmpty
           ? null
           : SafeArea(
@@ -231,8 +241,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 ),
               ),
             ),
-      body: Stack(children: [
-        RefreshIndicator(
+      body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
@@ -273,75 +282,14 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 ]),
               ),
             const SizedBox(height: 10),
-            if (_claims.isEmpty && !_loading) const EmptyView(icon: Icons.receipt_rounded, text: 'No expenses this month'),
+            if (_claims.isEmpty && !_loading)
+              EmptyView(icon: Icons.receipt_rounded, text: widget.kind == 'card' ? 'No company card expenses this month' : 'No expenses this month'),
             for (final c in _claims) _tile(c, currency),
           ],
         ),
-        ),
-        if (_dial)
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () => setState(() => _dial = false),
-              child: Container(color: Colors.black.withValues(alpha: 0.28)),
-            ),
-          ),
-      ]),
+      ),
     );
   }
-
-  /// One small card above the +: the kind of expense it creates.
-  Widget _dialOption(IconData icon, Color tint, String label, VoidCallback onTap) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Material(
-          color: Colors.white,
-          elevation: 4,
-          shadowColor: const Color(0xFF1B3A7A).withValues(alpha: 0.25),
-          borderRadius: BorderRadius.circular(18),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () {
-              setState(() => _dial = false);
-              onTap();
-            },
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 22, 10),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(color: tint.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(13)),
-                  child: Icon(icon, color: tint, size: 22),
-                ),
-                const SizedBox(width: 14),
-                Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-              ]),
-            ),
-          ),
-        ),
-      );
-
-  Widget _dialButton() => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
-        if (_dial) ...[
-          _dialOption(Icons.local_gas_station_rounded, AppColors.purple, 'Travel Allowance (TA)',
-              () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllowanceScreen()))),
-          _dialOption(Icons.restaurant_rounded, AppColors.teal, 'Daily Allowance (DA)',
-              () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DailyAllowanceScreen()))),
-          _dialOption(Icons.timer_rounded, AppColors.warning, 'OLA',
-              () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OlaScreen()))),
-          _dialOption(Icons.receipt_long_rounded, const Color(0xFF7C3AED), 'Expense Claim', () => _new('claim')),
-          if (Services.auth.profile?.expenseCard ?? false)
-            _dialOption(Icons.credit_card_rounded, AppColors.primary, 'Company Card', () => _new('card')),
-          // The requests with their invoices to upload, and a button there for a new one.
-          _dialOption(Icons.request_quote_rounded, const Color(0xFF2563EB), 'Payment Request',
-              () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaymentRequestsScreen()))),
-        ],
-        FloatingActionButton(
-          tooltip: 'New expense',
-          onPressed: () => setState(() => _dial = !_dial),
-          child: AnimatedRotation(
-              turns: _dial ? 0.125 : 0, duration: const Duration(milliseconds: 180), child: const Icon(Icons.add_rounded, size: 30)),
-        ),
-      ]);
 
   Widget _total(String label, num? v, String? currency, Color tint) => Container(
         margin: const EdgeInsets.only(top: 10),
@@ -392,6 +340,132 @@ class _Detail extends StatelessWidget {
           const SizedBox(height: 6),
           const Text('A sent expense cannot be edited.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
         ]),
+      ),
+    );
+  }
+}
+
+/// My Expense: the month, what was claimed and approved, and a button for each category. A category opens its records,
+/// and a + at the bottom right makes a new one.
+class ExpensesScreen extends StatefulWidget {
+  const ExpensesScreen({super.key});
+
+  @override
+  State<ExpensesScreen> createState() => _ExpensesScreenState();
+}
+
+class _ExpensesScreenState extends State<ExpensesScreen> {
+  DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+  Map<String, dynamic>? _data;
+  bool _loading = true;
+  String? _error;
+
+  String get _monthKey => '${_month.year}-${_month.month.toString().padLeft(2, '0')}';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final key = _monthKey;
+    setState(() => _loading = true);
+    try {
+      final data = await Services.api.get('/api/v1/expenses', query: {'month': key}) as Map<String, dynamic>;
+      if (mounted && key == _monthKey) setState(() => (_data = data, _error = null));
+    } catch (e) {
+      if (mounted && key == _monthKey) setState(() => _error = e.toString());
+    } finally {
+      if (mounted && key == _monthKey) setState(() => _loading = false);
+    }
+  }
+
+  void _shiftMonth(int months) {
+    setState(() {
+      _month = DateTime(_month.year, _month.month + months);
+      _data = null;
+    });
+    _load();
+  }
+
+  Future<void> _go(Widget screen) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    if (mounted) _load();
+  }
+
+  Widget _category(IconData icon, String title, String subtitle, Color tint, Widget screen) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: ListTile(
+          leading: CircleAvatar(backgroundColor: tint.withValues(alpha: 0.12), child: Icon(icon, color: tint)),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: Text(subtitle),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => _go(screen),
+        ),
+      );
+
+  Widget _total(String label, num? v, String? currency, Color tint) => Container(
+        margin: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(fmtMoney(v, currency), style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: tint)),
+          Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+        ]),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _data;
+    final currency = data?['currency'] as String?;
+    final now = DateTime.now();
+    final isCurrent = _month.year == now.year && _month.month == now.month;
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(title: const Text('My Expense')),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+          children: [
+            Card(
+              child: Row(children: [
+                IconButton(onPressed: () => _shiftMonth(-1), icon: const Icon(Icons.chevron_left_rounded)),
+                Expanded(
+                  child: Center(
+                    child: Text('${monthNames[_month.month - 1]} ${_month.year}',
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                IconButton(
+                    onPressed: isCurrent ? null : () => _shiftMonth(1), icon: const Icon(Icons.chevron_right_rounded)),
+              ]),
+            ),
+            if (_loading) const LinearProgressIndicator(),
+            if (_error != null) ErrorView(message: _error!, onRetry: _load),
+            if (data != null)
+              Row(children: [
+                Expanded(child: _total('Claimed', data['total_amount'] as num?, currency, AppColors.primary)),
+                const SizedBox(width: 10),
+                Expanded(child: _total('Approved', data['approved_amount'] as num?, currency, AppColors.success)),
+              ]),
+            const SizedBox(height: 16),
+            _category(Icons.local_gas_station_rounded, 'Travel Allowance (TA)', 'Claims for the kilometres travelled',
+                AppColors.purple, const AllowanceScreen()),
+            _category(Icons.restaurant_rounded, 'Daily Allowance (DA)', 'Daily allowance claims', AppColors.teal,
+                const DailyAllowanceScreen()),
+            _category(Icons.timer_rounded, 'OLA', 'Monthly allowance by the hours worked', AppColors.warning,
+                const OlaScreen()),
+            _category(Icons.account_balance_wallet_rounded, 'Expense Claiming', 'I paid from my own money · claim it',
+                AppColors.warning, ExpenseListScreen(kind: 'claim', month: _month)),
+            if (Services.auth.profile?.expenseCard ?? false)
+              _category(Icons.credit_card_rounded, 'Expense Submission', 'Paid with a company card · record it',
+                  AppColors.primary, ExpenseListScreen(kind: 'card', month: _month)),
+            _category(Icons.request_quote_rounded, 'Payment requests', 'Paid directly by accounts · tax invoices',
+                const Color(0xFF7C3AED), const PaymentRequestsScreen()),
+          ],
+        ),
       ),
     );
   }
