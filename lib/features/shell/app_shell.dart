@@ -9,7 +9,6 @@ import '../../widgets/sync_status.dart';
 import '../collections/collect_payment_screen.dart';
 import '../leaves/leaves_screen.dart';
 import '../orders/catalog_screen.dart';
-import '../chat/chat_screen.dart';
 import '../tasks/tasks_screen.dart';
 import '../beat/plan_beat_screen.dart';
 import '../tasks/task_start.dart';
@@ -49,7 +48,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    ChatBadge.start();
     Services.goHome.addListener(_goHome);
     Services.managerMode.addListener(_modeChanged);
     WidgetsBinding.instance.addObserver(this);
@@ -62,7 +60,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    ChatBadge.stop();
     Services.goHome.removeListener(_goHome);
     Services.managerMode.removeListener(_modeChanged);
     super.dispose();
@@ -331,13 +328,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         child: Stack(
           children: [
             IndexedStack(index: index, children: [for (final tab in tabs) tab.screen]),
-            // Pull-up chat, tucked against the bottom bar so it never covers content.
-            if (!typing)
-              Positioned(
-                right: 14,
-                bottom: MediaQuery.of(context).padding.bottom + 66,
-                child: const ChatDock(),
-              ),
           ],
         ),
       ),
