@@ -162,9 +162,19 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
     final data = _data;
     final currency = data?['currency'] as String?;
     final invoices = ((data?['invoices'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final customers = ((data?['customers'] as List?) ?? []).cast<Map<String, dynamic>>();
     final ageing = ((data?['ageing'] as List?) ?? []).cast<Map<String, dynamic>>();
     return Scaffold(
       appBar: AppBar(
+        actions: [
+          if (widget.partnerId != null)
+            IconButton(
+              tooltip: 'Statement of account',
+              icon: const Icon(Icons.receipt_long_rounded),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => StatementScreen(partnerId: widget.partnerId!, name: widget.partnerName ?? ''))),
+            ),
+        ],
         title: widget.partnerName != null
             ? Text('Invoices \u00B7 ${widget.partnerName}')
             : Row(
@@ -288,6 +298,52 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
                       children: [
+                        // First the contacts and what each owes; a contact opens its invoices.
+                        if (widget.partnerId == null)
+                          for (final c in customers)
+                            Card(
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(16),
+                                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                                    builder: (_) => ReceivablesScreen(
+                                        partnerId: (c['customer'] as Map)['id'] as int,
+                                        partnerName: '${(c['customer'] as Map)['name']}'))),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(children: [
+                                    Container(
+                                      width: 4,
+                                      height: 46,
+                                      decoration: BoxDecoration(
+                                          color: _bucketColours[c['bucket']], borderRadius: BorderRadius.circular(4)),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                        Text('${(c['customer'] as Map)['name']}',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(fontWeight: FontWeight.w700)),
+                                        Text('${c['count']} invoice${c['count'] == 1 ? '' : 's'}',
+                                            style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                                      ]),
+                                    ),
+                                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                                      Text(fmtMoney(c['total'] as num?, currency),
+                                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                                      if ((c['overdue'] as num? ?? 0) > 0)
+                                        Text('${fmtMoney(c['overdue'] as num?, currency)} overdue',
+                                            style: TextStyle(
+                                                fontSize: 12, fontWeight: FontWeight.w700, color: _bucketColours[c['bucket']]))
+                                      else
+                                        const Text('Not due',
+                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.success)),
+                                    ]),
+                                    const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                                  ]),
+                                ),
+                              ),
+                            ),
                         if (data != null && invoices.isEmpty)
                           Padding(
                             padding: const EdgeInsets.all(40),
@@ -310,16 +366,13 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
                               ],
                             ),
                           ),
+                        if (widget.partnerId != null)
                         for (final inv in invoices)
                           Card(
                             child: InkWell(
                               borderRadius: BorderRadius.circular(16),
-                              onTap: widget.partnerId != null
-                                  ? null
-                                  : () => Navigator.of(context).push(MaterialPageRoute(
-                                      builder: (_) => StatementScreen(
-                                          partnerId: (inv['customer'] as Map)['id'] as int,
-                                          name: '${(inv['customer'] as Map)['name']}'))),
+                              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                                  builder: (_) => InvoiceDetailScreen(id: inv['id'] as int, number: '${inv['number']}'))),
                               child: Padding(
                                 padding: const EdgeInsets.all(12),
                                 child: Row(
@@ -609,4 +662,117 @@ class _StatementScreenState extends State<StatementScreen> {
               child: Text(value, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: colour))),
         ],
       );
+}
+
+
+/// One invoice: who it is to, the dates and payment terms, every item, the taxes, and what has been paid.
+class InvoiceDetailScreen extends StatefulWidget {
+  const InvoiceDetailScreen({super.key, required this.id, required this.number});
+
+  final int id;
+  final String number;
+
+  @override
+  State<InvoiceDetailScreen> createState() => _InvoiceDetailScreenState();
+}
+
+class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
+  Map<String, dynamic>? _data;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final d = await Services.api.get('/api/v1/receivables/invoice/${widget.id}') as Map<String, dynamic>;
+      if (mounted) setState(() => _data = d);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = _data;
+    final currency = d?['currency'] as String?;
+    String money(Object? v) => fmtMoney(v as num?, currency);
+    Widget line(String label, String value, {bool bold = false, Color? colour}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: Text(label, style: TextStyle(color: bold ? AppColors.text : AppColors.muted, fontWeight: bold ? FontWeight.w800 : FontWeight.w500))),
+            const SizedBox(width: 12),
+            Flexible(child: Text(value, textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w800, color: colour))),
+          ]),
+        );
+    Widget box(List<Widget> children) => Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+        );
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.number)),
+      body: _error != null
+          ? ErrorView(message: _error!, onRetry: _load)
+          : d == null
+              ? const Center(child: CircularProgressIndicator())
+              : ListView(padding: const EdgeInsets.all(12), children: [
+                  box([
+                    Text('${(d['customer'] as Map)['name']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                    if ((d['billed_to'] as Map)['id'] != (d['customer'] as Map)['id'])
+                      line('Billed to', '${(d['billed_to'] as Map)['name']}'),
+                    line('Invoice date', _prettyDate(d['date'] as String?)),
+                    line('Due date', _prettyDate(d['due_date'] as String?)),
+                    line('Payment terms', '${d['payment_terms'] ?? 'Immediate payment'}'),
+                    if ((d['days_overdue'] as num? ?? 0) > 0)
+                      line('Overdue', '${d['days_overdue']} days', colour: AppColors.danger),
+                    if (d['order'] != null) line('Order', '${d['order']}'),
+                    if (d['reference'] != null) line('Reference', '${d['reference']}'),
+                    if (d['salesperson'] != null) line('Salesperson', '${d['salesperson']}'),
+                  ]),
+                  box([
+                    const Text('Items', style: TextStyle(fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 6),
+                    for (final l in ((d['lines'] as List?) ?? []).cast<Map<String, dynamic>>())
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text('${l['product']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                              Text(
+                                  [
+                                    '${fmtQty(l['qty'] as num)}${l['uom'] != null ? ' ${l['uom']}' : ''} × ${money(l['price_unit'])}',
+                                    if ((l['discount'] as num? ?? 0) > 0) '${fmtQty(l['discount'] as num)}% off',
+                                    if (((l['taxes'] as List?) ?? []).isNotEmpty) (l['taxes'] as List).join(', '),
+                                  ].join(' · '),
+                                  style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                            ]),
+                          ),
+                          Text(money(l['subtotal']), style: const TextStyle(fontWeight: FontWeight.w800)),
+                        ]),
+                      ),
+                  ]),
+                  box([
+                    line('Untaxed amount', money(d['untaxed'])),
+                    line('Tax', money(d['tax'])),
+                    line('Total', money(d['total']), bold: true),
+                    if ((d['paid'] as num? ?? 0) != 0) line('Paid', '− ${money(d['paid'])}', colour: AppColors.success),
+                    const Divider(),
+                    line('Amount due', money(d['residual']), bold: true, colour: AppColors.danger),
+                  ]),
+                  if (((d['payments'] as List?) ?? []).isNotEmpty)
+                    box([
+                      const Text('Payments', style: TextStyle(fontWeight: FontWeight.w900)),
+                      for (final p in ((d['payments'] as List).cast<Map<String, dynamic>>()))
+                        line([_prettyDate(p['date'] as String?), if (p['name'] != null) '${p['name']}'].join(' · '), money(p['amount'])),
+                    ]),
+                ]),
+    );
+  }
 }
