@@ -950,14 +950,19 @@ class _MessageScreen extends StatelessWidget {
 
 // ====================================================================== the card on Home
 class ActiveEventCard extends StatefulWidget {
-  const ActiveEventCard({super.key});
+  /// The card only shows once the person has checked in for the day.
+  const ActiveEventCard({super.key, this.checkedIn = true});
+
+  final bool checkedIn;
 
   @override
   State<ActiveEventCard> createState() => _ActiveEventCardState();
 }
 
 class _ActiveEventCardState extends State<ActiveEventCard> {
-  Map<String, dynamic>? _event;
+  List<Map<String, dynamic>> _events = [];
+  int _index = 0;
+  final _pager = PageController();
 
   @override
   void initState() {
@@ -969,6 +974,7 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
   @override
   void dispose() {
     Services.refresh.removeListener(_load);
+    _pager.dispose();
     super.dispose();
   }
 
@@ -976,7 +982,12 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
     try {
       final data = await Services.api.get('/api/v1/events', query: {'active': '1'}) as Map<String, dynamic>;
       final events = _list(data['events']);
-      if (mounted) setState(() => _event = events.isEmpty ? null : events.first);
+      if (mounted) {
+        setState(() {
+          _events = events;
+          if (_index >= events.length) _index = 0;
+        });
+      }
     } catch (_) {
       // Offline or the module is not on the server: the card is simply not shown.
     }
@@ -984,18 +995,18 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
 
   bool _opening = false;
 
-  Future<void> _continue() async {
+  Future<void> _continue(Map<String, dynamic> event) async {
     if (_opening) return;
     setState(() => _opening = true);
     try {
-      await _continueEvent();
+      await _continueEvent(event);
     } finally {
       if (mounted) setState(() => _opening = false);
     }
   }
 
-  Future<void> _continueEvent() async {
-    Map<String, dynamic> e = _event!;
+  Future<void> _continueEvent(Map<String, dynamic> event) async {
+    Map<String, dynamic> e = event;
     final pos = await withBusy(context, 'Checking your location…', () => _here(context));
     if (pos == null || !mounted) return;
     final lat = (e['latitude'] as num?)?.toDouble();
@@ -1070,11 +1081,38 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
     _load();
   }
 
+  /// Every running event, one under the other, each with its own button to continue or close it.
+  void _showList() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheet) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+          child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children: [
+            Text('${_events.length} events running', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            const SizedBox(height: 10),
+            for (final e in _events)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _card(e, onOpen: () {
+                  Navigator.pop(sheet);
+                  _continue(e);
+                }),
+              ),
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final e = _event;
-    // No event running: where its card was, the one finished today says it is closed.
-    if (e == null) {
+    // Nobody who has not checked in sees the events of the day.
+    if (!widget.checkedIn) return const SizedBox.shrink();
+    if (_events.isEmpty) {
+      // No event running: where its card was, the one finished today says it is closed.
       return ValueListenableBuilder(
         valueListenable: eventJustCompleted,
         builder: (context, done, _) {
@@ -1093,6 +1131,44 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
         },
       );
     }
+    if (_events.length == 1) return _card(_events.first, onOpen: () => _continue(_events.first));
+    // Several events: swipe left or right between them; the count at the top right opens the whole list.
+    return Column(children: [
+      Align(
+        alignment: Alignment.centerRight,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: _showList,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: _orange, borderRadius: BorderRadius.circular(14)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.celebration_rounded, size: 14, color: Colors.white),
+              const SizedBox(width: 5),
+              Text('${_index + 1}/${_events.length}',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+              const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Colors.white),
+            ]),
+          ),
+        ),
+      ),
+      SizedBox(
+        height: 134,
+        child: PageView.builder(
+          controller: _pager,
+          itemCount: _events.length,
+          onPageChanged: (i) => setState(() => _index = i),
+          itemBuilder: (_, i) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: _card(_events[i], onOpen: () => _continue(_events[i])),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _card(Map<String, dynamic> e, {required VoidCallback onOpen}) {
     final staff = (e['staff'] as List?)?.length ?? 0;
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1101,7 +1177,7 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _orange, width: 1.6),
       ),
-      child: Column(children: [
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
         Row(children: [
           const CircleAvatar(backgroundColor: _orange, child: Icon(Icons.celebration_rounded, color: Colors.white)),
           const SizedBox(width: 10),
@@ -1112,6 +1188,7 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
               Text(e['state'] == 'on_hold'
                   ? '${(e['territory'] as Map?)?['name'] ?? ''} · Day ${e['days']} closed · $staff staff'
                   : '${(e['territory'] as Map?)?['name'] ?? ''} · ${_day(e)} · $staff staff',
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12, color: AppColors.muted)),
             ]),
           ),
@@ -1127,7 +1204,7 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
           width: double.infinity,
           child: FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(44)),
-            onPressed: _opening ? null : _continue,
+            onPressed: _opening ? null : onOpen,
             child: _opening
                 ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : Text(e['state'] == 'on_hold' ? 'Start Day ${((e['days'] as num?) ?? 0).toInt() + 1} ›' : 'Continue event ›'),

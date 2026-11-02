@@ -405,7 +405,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _push(profile.feature('routes') ? const BeatTodayScreen() : const ClientsScreen()),
         ),
       // A running event sits right under the check-in card (Select your Beat Plan, My Day).
-      const ActiveEventCard(),
+      ActiveEventCard(checkedIn: _day?['punched_in'] == true),
       if (_visit != null) _ongoingVisitCard(_visit!),
       _todaySummary(),
       if (_day?['punched_in'] == true && profile.feature('visits'))
