@@ -400,6 +400,7 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
                                                 if (widget.partnerId == null) inv['number'],
                                                 'Invoiced ${_prettyDate(inv['date'] as String?)}',
                                                 'Due ${_prettyDate(inv['due_date'] as String?)}',
+                                                if (inv['salesperson'] != null) '${inv['salesperson']}',
                                               ].join(' · '),
                                               style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
                                         ],
@@ -739,7 +740,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                       line('Overdue', '${d['days_overdue']} days', colour: AppColors.danger),
                     if (d['order'] != null) line('Order', '${d['order']}'),
                     if (d['reference'] != null) line('Reference', '${d['reference']}'),
-                    if (d['salesperson'] != null) line('Salesperson', '${d['salesperson']}'),
+                    if (d['salesperson'] != null) line('Sales employee', '${d['salesperson']}'),
                   ]),
                   box([
                     const Text('Items', style: TextStyle(fontWeight: FontWeight.w900)),
