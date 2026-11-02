@@ -837,6 +837,10 @@ class _FinalReportScreenState extends State<FinalReportScreen> {
   Map<String, dynamic>? _data;
   String? _day;
   String? _error;
+  // Overall summary, or the same figures for one distributor's stock.
+  bool _byDistributor = false;
+  int? _distributorId;
+  List<Map<String, dynamic>> _distributors = [];
 
   @override
   void initState() {
@@ -846,9 +850,22 @@ class _FinalReportScreenState extends State<FinalReportScreen> {
 
   Future<void> _load() async {
     try {
-      final d = await Services.api.get('/api/v1/events/${widget.eventId}/final',
-          query: {if (_day != null) 'day': _day!}) as Map<String, dynamic>;
-      if (mounted) setState(() => _data = d);
+      final d = await Services.api.get('/api/v1/events/${widget.eventId}/final', query: {
+        if (_day != null && !_byDistributor) 'day': _day!,
+        if (_byDistributor && _distributorId != null) 'distributor_id': '$_distributorId',
+      }) as Map<String, dynamic>;
+      if (!mounted) return;
+      final list = _rows(d['distributors']);
+      setState(() {
+        _data = d;
+        if (list.isNotEmpty) _distributors = list;
+        if (_byDistributor && _distributorId == null && list.isNotEmpty) {
+          // First time on the tab: show the first distributor.
+          _distributorId = (list.first['id'] as num).toInt();
+          _data = null;
+        }
+      });
+      if (_data == null) _load();
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     }
@@ -884,6 +901,38 @@ class _FinalReportScreenState extends State<FinalReportScreen> {
           : d == null
               ? const LoadingView()
               : ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 28), children: [
+                  SegmentedButton<bool>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: false, label: Text('Overall summary')),
+                      ButtonSegment(value: true, label: Text('Distributor wise')),
+                    ],
+                    selected: {_byDistributor},
+                    onSelectionChanged: (v) {
+                      setState(() {
+                        _byDistributor = v.first;
+                        _data = null;
+                      });
+                      _load();
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  if (_byDistributor)
+                    Wrap(spacing: 8, runSpacing: 4, children: [
+                      for (final x in _distributors)
+                        ChoiceChip(
+                          label: Text('${x['name']}'),
+                          selected: _distributorId == x['id'],
+                          onSelected: (_) {
+                            setState(() {
+                              _distributorId = (x['id'] as num).toInt();
+                              _data = null;
+                            });
+                            _load();
+                          },
+                        ),
+                    ])
+                  else
                   Wrap(spacing: 8, children: [
                     for (var i = 0; i < days.length; i++)
                       ChoiceChip(
@@ -910,6 +959,13 @@ class _FinalReportScreenState extends State<FinalReportScreen> {
                     ),
                   ]),
                   const SizedBox(height: 12),
+                  if (_byDistributor)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text(
+                          'All days. Samples, damage, sales and coupons are this distributor\'s share of the event; the cash received is shared in proportion to net sales.',
+                          style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                    ),
                   const Text('Flavour-wise sales', style: TextStyle(fontWeight: FontWeight.w900)),
                   const SizedBox(height: 8),
                   Container(
@@ -1009,13 +1065,19 @@ class _FinalReportScreenState extends State<FinalReportScreen> {
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                     onPressed: () async {
-                      if (await _sharePdf(context, widget.eventId, 'final', title: 'Final report - ${widget.name}')) {
-                        await _Shared.mark(widget.eventId, 'final');
+                      final who = _byDistributor ? _distributorId : null;
+                      final label = _byDistributor
+                          ? ' - ${_distributors.where((x) => x['id'] == who).map((x) => x['name']).firstOrNull ?? ''}'
+                          : '';
+                      if (await _sharePdf(context, widget.eventId, 'final',
+                          distributorId: who, title: 'Final report - ${widget.name}$label')) {
+                        if (who == null) await _Shared.mark(widget.eventId, 'final');
                       }
                     },
                     icon: const Icon(Icons.chat_rounded),
                     label: const Text('Share on WhatsApp'),
                   ),
+                  if (!_byDistributor) ...[
                   const SizedBox(height: 18),
                   const Text('Day-wise reconciliation', style: TextStyle(fontWeight: FontWeight.w900)),
                   const SizedBox(height: 8),
@@ -1077,6 +1139,7 @@ class _FinalReportScreenState extends State<FinalReportScreen> {
                   const SizedBox(height: 6),
                   const Text('UPI ₹ for each day should match the bank credit for that day.',
                       style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                  ],
                 ]),
     );
   }
