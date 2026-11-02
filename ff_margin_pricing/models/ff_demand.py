@@ -26,6 +26,18 @@ class FfDemand(models.Model):
             demand.distributor_profit = round(mrp_value * (demand.margin_total - demand.margin_distributor) / 100.0, 2)
             demand.outlet_profit = round(mrp_value * (demand.margin_distributor - demand.margin_outlet) / 100.0, 2)
 
+    @api.model
+    def ff_create_from_app(self, employee, partner, data):
+        """The outlet's rate from the margin formula already includes the GST: the demand takes the tax out of
+        it instead of adding it on top (what the PO Summary showed is what the demand totals)."""
+        demand = super().ff_create_from_app(employee, partner, data)
+        if price_basis(self.env) == 'margin' and not demand.partner_id.sudo().ff_is_distributor:
+            lines = demand.sudo().line_ids.filtered(
+                lambda l: l.price_unit > 0 and not getattr(l, 'is_foc', False) and not l.price_incl_tax)
+            if lines:
+                lines.write({'price_incl_tax': True})
+        return demand
+
     @api.model_create_multi
     def create(self, vals_list):
         demands = super().create(vals_list)

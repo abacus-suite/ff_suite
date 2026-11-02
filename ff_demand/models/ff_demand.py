@@ -443,6 +443,10 @@ class FfDemandLine(models.Model):
                                       help='What has actually reached the outlet. The outlet pays for this.')
     uom_id = fields.Many2one(related='product_id.uom_id', string='Unit')
     price_unit = fields.Monetary(string='PTR')
+    price_incl_tax = fields.Boolean(
+        string='Rate Includes Tax', copy=False,
+        help='The rate already has the GST in it (an outlet rate from the app): the tax is taken out of it, '
+             'not added on top.')
     currency_id = fields.Many2one(related='demand_id.currency_id')
     subtotal = fields.Monetary(compute='_compute_subtotal', store=True, string='Untaxed')
     tax_ids = fields.Many2many('account.tax', 'ff_demand_line_tax_rel', 'line_id', 'tax_id', string='Taxes',
@@ -451,12 +455,19 @@ class FfDemandLine(models.Model):
     price_total = fields.Monetary(compute='_compute_subtotal', store=True, string='Total')
     tax_percent = fields.Float(compute='_compute_tax_percent', string='Tax %', digits=(5, 2))
 
-    @api.depends('quantity', 'price_unit', 'tax_ids')
+    @api.depends('quantity', 'price_unit', 'tax_ids', 'price_incl_tax')
     def _compute_subtotal(self):
         for line in self:
             untaxed = line.quantity * line.price_unit
             tax = 0.0
-            if line.tax_ids and untaxed:
+            percent_only = line.tax_ids and all(t.amount_type == 'percent' for t in line.tax_ids)
+            if line.price_incl_tax and untaxed and percent_only:
+                # The rate carries the GST: 97.30 with 5% is 92.67 and 4.63 tax, and 10 of them are 973.00 in all.
+                rate = sum(line.tax_ids.mapped('amount'))
+                total = line.currency_id.round(untaxed)
+                untaxed = line.currency_id.round(total / (1.0 + rate / 100.0))
+                tax = total - untaxed
+            elif line.tax_ids and untaxed:
                 result = line.tax_ids.compute_all(
                     line.price_unit, currency=line.currency_id, quantity=line.quantity,
                     product=line.product_id, partner=line.partner_id)
