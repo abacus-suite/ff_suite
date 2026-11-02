@@ -397,6 +397,7 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
                                           Text(
                                               [
                                                 if (widget.partnerId == null) inv['number'],
+                                                'Invoiced ${_prettyDate(inv['date'] as String?)}',
                                                 'Due ${_prettyDate(inv['due_date'] as String?)}',
                                               ].join(' · '),
                                               style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
