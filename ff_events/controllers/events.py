@@ -157,6 +157,15 @@ def _day_number(event, day):
     return len(event.day_ids.filtered(lambda d: d.date < day)) + 1
 
 
+def _access(event):
+    """What the person asking can do with this event: work on it, or (a manager) only look and change its people."""
+    viewer = getattr(request, '_ff_viewer', None)
+    if viewer is None:
+        return {}
+    works = _works_on(viewer, event)
+    return {'can_act': works, 'can_edit_staff': (works or _manages(viewer, event)) and event.state != 'done'}
+
+
 def _event_data(event, detail=False):
     env = request.env
     _repair_after_midnight_days(event)
@@ -176,6 +185,7 @@ def _event_data(event, detail=False):
         'district': ref(event.district_id) if event.district_id else None,
         'territory': ref(event.territory_id) if event.territory_id else None,
         'staff': [ref(s) for s in event.staff_ids], 'created_by': ref(event.employee_id),
+        **_access(event),
         'coupons_used': event.coupons_used, 'days': len(event.day_ids),
         'day_no': _day_number(event, today),
         # The date of the event day being worked on (a day closed after midnight is still yesterday's).
@@ -247,11 +257,38 @@ def _geofence_m():
     return (task.geofence_radius or 200) if task.geofence_required else 0
 
 
+def _works_on(employee, event):
+    """Only the organiser and the people conducting the event work on it (stock, end of day, end of event)."""
+    return employee == event.employee_id or employee in event.staff_ids
+
+
+def _manages(employee, event):
+    """A manager can look at the events of their team, and change who conducts them."""
+    return event.employee_id in employee._ff_subordinates() or any(
+        s in employee._ff_subordinates() for s in event.staff_ids)
+
+
+def _pool(employee, event):
+    """The people that can conduct the event: the asker's team, the organiser's team and those already on it."""
+    return (employee | employee._ff_subordinates() | event.employee_id | event.employee_id._ff_subordinates()
+            | event.staff_ids)
+
+
 def _mine(employee, event_id):
+    """The event, for someone who works on it."""
     event = request.env['ff.event'].sudo().browse(event_id).exists()
-    team = employee | employee._ff_subordinates()
-    if not event or (event.employee_id not in team and employee not in event.staff_ids):
+    if not event or not _works_on(employee, event):
         raise ApiError('Event not found.', 404, 'not_found')
+    request._ff_viewer = employee
+    return event
+
+
+def _viewable(employee, event_id):
+    """The event, for someone who works on it or manages the people who do (read-only for the manager)."""
+    event = request.env['ff.event'].sudo().browse(event_id).exists()
+    if not event or not (_works_on(employee, event) or _manages(employee, event)):
+        raise ApiError('Event not found.', 404, 'not_found')
+    request._ff_viewer = employee
     return event
 
 
@@ -453,10 +490,14 @@ class FieldForceEventsApi(http.Controller):
 
     @api_route('/api/v1/events', methods=('GET',))
     def listing(self, employee, active=None, **kw):
-        team = employee | employee._ff_subordinates()
-        domain = ['|', ('employee_id', 'in', team.ids), ('staff_ids', 'in', employee.ids)]
+        request._ff_viewer = employee
+        team = employee._ff_subordinates()
+        domain = ['|', ('employee_id', '=', employee.id), ('staff_ids', 'in', employee.ids)]
         if active:
+            # The home card is only for the events the person works on, never a team member's.
             domain.append(('state', 'in', ('running', 'on_hold')))
+        else:
+            domain = ['|'] + domain + ['|', ('employee_id', 'in', team.ids), ('staff_ids', 'in', team.ids)]
         events = request.env['ff.event'].sudo().search(domain, limit=100)
         return ok({'events': [_event_data(e, detail='card' if active else False) for e in events]})
 
@@ -494,6 +535,27 @@ class FieldForceEventsApi(http.Controller):
     @api_route('/api/v1/events/<int:event_id>', methods=('GET',))
     def detail(self, employee, event_id, **kw):
         return ok(_event_data(_mine(employee, event_id), detail=True))
+
+    @api_route('/api/v1/events/<int:event_id>/staff', methods=('GET',))
+    def staff_options(self, employee, event_id, **kw):
+        """Who conducts the event, and who could be added."""
+        event = _viewable(employee, event_id)
+        return ok({'staff': [ref(s) for s in event.staff_ids], 'candidates': [ref(s) for s in _pool(employee, event)],
+                   'created_by': ref(event.employee_id), **_access(event)})
+
+    @api_route('/api/v1/events/<int:event_id>/staff', methods=('POST',))
+    def set_staff(self, employee, event_id, **kw):
+        """Add or remove the people who conduct the event (the organiser, the people on it, or their manager)."""
+        event = _viewable(employee, event_id)
+        if event.state == 'done':
+            raise ApiError('This event has ended.', 400, 'invalid')
+        wanted = request.env['hr.employee'].sudo().browse([int(i) for i in (body().get('staff_ids') or [])]).exists()
+        if not wanted:
+            raise ApiError('An event needs at least one person conducting it.', 400, 'invalid')
+        if wanted - _pool(employee, event):
+            raise ApiError('You can only choose people from your team.', 400, 'invalid')
+        event.write({'staff_ids': [(6, 0, wanted.ids)]})
+        return ok({'staff': [ref(s) for s in event.staff_ids]})
 
     @api_route('/api/v1/events/<int:event_id>/stock', methods=('POST',))
     def stock(self, employee, event_id, **kw):
@@ -564,6 +626,7 @@ class FieldForceEventsApi(http.Controller):
         else:
             entry = Day.create({'event_id': event.id, 'date': day})
         entry.write({
+            'captured_by_id': employee.id,
             'is_final': final, 'closing_action': action, 'line_ids': lines,
             'coupons_used': int(coupons or 0), 'cash_received': _num(cash),
             'return_ids': [(0, 0, {'distributor_id': int(r['distributor_id']), 'product_id': int(r['product_id']),
@@ -588,11 +651,11 @@ class FieldForceEventsApi(http.Controller):
 
     @api_route('/api/v1/events/<int:event_id>/report', methods=('GET',))
     def report(self, employee, event_id, day=None, **kw):
-        return ok(_report(_mine(employee, event_id), day))
+        return ok(_report(_viewable(employee, event_id), day))
 
     @api_route('/api/v1/events/<int:event_id>/export', methods=('POST',))
     def export(self, employee, event_id, **kw):
-        event = _mine(employee, event_id)
+        event = _viewable(employee, event_id)
         token = _sign({'e': employee.id, 'ev': event.id, 'x': int(clock.time()) + LINK_SECONDS})
         return ok({'path': '/api/v1/events/download?t=%s' % token, 'expires_in': LINK_SECONDS})
 

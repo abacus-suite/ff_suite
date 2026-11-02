@@ -8,7 +8,7 @@ from odoo.http import request
 from odoo.addons.ff_app_reports.controllers.reports import LINK_SECONDS, _sign, _unsign
 from odoo.addons.ff_mobile_api.controllers.common import ApiError, api_route, body, ok, ref
 
-from .events import EPS, _code, _event_data, _mine, _report, event_mrp
+from .events import EPS, _code, _event_data, _mine, _report, _viewable, event_mrp
 
 
 def _first_day(event):
@@ -267,7 +267,7 @@ class FieldForceEventReportsApi(http.Controller):
     @api_route('/api/v1/events/<int:event_id>/summary', methods=('GET',))
     def summary(self, employee, event_id, **kw):
         """Cash received and coupons used, day by day and till now."""
-        event = _mine(employee, event_id)
+        event = _viewable(employee, event_id)
         value = int(event.offer_price or 0) if event.has_offer else 0
         days = event.day_ids.sorted('date')
         return ok({
@@ -294,7 +294,7 @@ class FieldForceEventReportsApi(http.Controller):
 
     @api_route('/api/v1/events/<int:event_id>/distributors', methods=('GET',))
     def distributors(self, employee, event_id, **kw):
-        event = _mine(employee, event_id)
+        event = _viewable(employee, event_id)
         debits = {d.distributor_id.id: d for d in request.env['ff.event.debit'].sudo().search([
             ('event_id', '=', event.id)])}
         invoices = {i.distributor_id.id: i for i in request.env['ff.event.invoice'].sudo().search([
@@ -391,7 +391,7 @@ class FieldForceEventReportsApi(http.Controller):
 
     @api_route('/api/v1/events/<int:event_id>/final', methods=('GET',))
     def final(self, employee, event_id, day=None, distributor_id=None, **kw):
-        event = _mine(employee, event_id)
+        event = _viewable(employee, event_id)
         if distributor_id:
             data = _final_distributor(event, int(distributor_id))
             data['day_table'] = []
@@ -404,7 +404,7 @@ class FieldForceEventReportsApi(http.Controller):
     # ---- PDFs: the phone's browser cannot send the app's token, so the link carries a signed one
     @api_route('/api/v1/events/<int:event_id>/pdf', methods=('POST',))
     def pdf_link(self, employee, event_id, **kw):
-        event = _mine(employee, event_id)
+        event = _viewable(employee, event_id)
         data = body()
         kind = data.get('kind') if data.get('kind') in ('final', 'distributor') else 'final'
         token = _sign({'e': employee.id, 'ev': event.id, 'pdf': kind, 'd': int(data.get('distributor_id') or 0),

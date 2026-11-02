@@ -50,6 +50,7 @@ class FfEventDay(models.Model):
 
     event_id = fields.Many2one('ff.event', required=True, ondelete='cascade', index=True)
     date = fields.Date(required=True)
+    captured_by_id = fields.Many2one('hr.employee', string='Captured By')
     is_final = fields.Boolean(string='End of Event')
     closing_action = fields.Selection([('stays', 'Stays at the event'), ('return', 'Returned')], default='stays')
     coupons_used = fields.Integer(string='Coupons Used')
