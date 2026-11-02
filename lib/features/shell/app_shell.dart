@@ -111,7 +111,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             'orders',
             Icons.receipt_long_outlined,
             Icons.receipt_long_rounded,
-            '${profile.label('order', 'Order')}s',
+            'PO',
             const OrdersScreen(embedded: true)),
       const _ShellTab('more', Icons.more_horiz_rounded,
           Icons.more_horiz_rounded, 'More', MoreScreen()),

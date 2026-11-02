@@ -653,10 +653,10 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('My Orders',
+                        Text('My PO',
                             style: const TextStyle(
                                 fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.text)),
-                        const Text('Track your orders',
+                        const Text('Track your POs',
                             style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
                       ],
                     ),
