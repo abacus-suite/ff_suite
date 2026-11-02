@@ -194,6 +194,13 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                       if (r['state'] == 'approved')
                         Text('Approved ${_mins(r['approved_minutes'] as num?)} of ${_mins(r['overtime_minutes'] as num?)}',
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.success)),
+                      // What the manager changed, and why.
+                      if (r['state'] == 'approved' && (r['approved_minutes'] as num) < (r['overtime_minutes'] as num) && asText(r['note']) != null)
+                        Text('Adjusted by your manager: ${r['note']}',
+                            style: const TextStyle(fontSize: 12, color: AppColors.warning, fontWeight: FontWeight.w600)),
+                      if (r['state'] == 'rejected' && asText(r['note']) != null)
+                        Text('Reason: ${r['note']}',
+                            style: const TextStyle(fontSize: 12, color: AppColors.danger, fontWeight: FontWeight.w600)),
                     ]),
                   ),
                   Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -214,8 +221,103 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
   }
 }
 
-/// The manager: the overtime sent by the team. The time can be changed before it is approved - 1 hour sent can be
-/// approved as 30 minutes, or as none.
+/// The manager decides on one overtime: the time can be changed (1 hour sent can be approved as 30 minutes, or as none),
+/// and a change or a rejection needs a reason. True when it was decided.
+Future<bool> decideOvertime(BuildContext context, Map<String, dynamic> r) async {
+  final sent = (r['overtime_minutes'] as num).toInt();
+  var minutes = sent;
+  final why = TextEditingController();
+  final result = await showModalBottomSheet<(int, String)>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (sheet) => StatefulBuilder(
+      builder: (context, setSheet) {
+        final changed = minutes < sent;
+        final needReason = changed;
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${(r['employee'] as Map?)?['name'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                Text('${_day(r['date'] as String?)} · worked ${_mins(r['worked_minutes'] as num?)}, shift ${_mins(r['expected_minutes'] as num?)}',
+                    style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                const SizedBox(height: 14),
+                Text('Sent: ${_mins(sent)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                const Text('Approve', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                Row(children: [
+                  IconButton.filledTonal(
+                      onPressed: minutes <= 0 ? null : () => setSheet(() => minutes = (minutes - 15).clamp(0, sent)),
+                      icon: const Icon(Icons.remove_rounded)),
+                  Expanded(
+                      child: Center(
+                          child: Text(_mins(minutes),
+                              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: changed ? AppColors.warning : AppColors.primary)))),
+                  IconButton.filledTonal(
+                      onPressed: minutes >= sent ? null : () => setSheet(() => minutes = (minutes + 15).clamp(0, sent)),
+                      icon: const Icon(Icons.add_rounded)),
+                ]),
+                if (changed) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: why,
+                    minLines: 2,
+                    maxLines: 4,
+                    onChanged: (_) => setSheet(() {}),
+                    decoration: const InputDecoration(
+                        labelText: 'Reason for changing it *', hintText: 'The employee will see this'),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), foregroundColor: AppColors.danger),
+                      onPressed: why.text.trim().isEmpty ? () => setSheet(() => minutes = 0) : () => Navigator.pop(sheet, (0, why.text.trim())),
+                      child: Text(why.text.trim().isEmpty && minutes != 0 ? 'Reject' : 'Reject'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                      onPressed: minutes <= 0 || (needReason && why.text.trim().isEmpty)
+                          ? null
+                          : () => Navigator.pop(sheet, (minutes, why.text.trim())),
+                      child: Text('Approve ${_mins(minutes)}'),
+                    ),
+                  ),
+                ]),
+                if (needReason && why.text.trim().isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text('Say why the time is changed, then approve (or reject).',
+                        style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                  ),
+              ]),
+            ),
+          ),
+        );
+      },
+    ),
+  );
+  why.dispose();
+  if (result == null || !context.mounted) return false;
+  try {
+    await Services.api.post('/api/v1/overtime/${r['id']}/decide',
+        {'minutes': result.$1, 'reject': result.$1 == 0, 'reason': result.$2});
+    if (context.mounted) showSnack(context, result.$1 == 0 ? 'Not approved' : 'Approved ${_mins(result.$1)}');
+    return true;
+  } catch (e) {
+    if (context.mounted) await showProblem(context, e.toString());
+    return false;
+  }
+}
+
+/// The manager: the overtime sent by the team (also in Approvals, as a category).
 class OvertimeApprovalScreen extends StatefulWidget {
   const OvertimeApprovalScreen({super.key});
 
@@ -242,69 +344,6 @@ class _OvertimeApprovalScreenState extends State<OvertimeApprovalScreen> {
     }
   }
 
-  Future<void> _decide(Map<String, dynamic> r) async {
-    final sent = (r['overtime_minutes'] as num).toInt();
-    var minutes = sent;
-    final result = await showModalBottomSheet<int>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheet) => StatefulBuilder(
-        builder: (context, setSheet) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('${(r['employee'] as Map)['name']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-              Text('${_day(r['date'] as String?)} · worked ${_mins(r['worked_minutes'] as num?)}, shift ${_mins(r['expected_minutes'] as num?)}',
-                  style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
-              const SizedBox(height: 14),
-              Text('Sent: ${_mins(sent)}', style: const TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              const Text('Approve', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
-              Row(children: [
-                IconButton.filledTonal(
-                    onPressed: minutes <= 0 ? null : () => setSheet(() => minutes = (minutes - 15).clamp(0, sent)),
-                    icon: const Icon(Icons.remove_rounded)),
-                Expanded(
-                    child: Center(
-                        child: Text(_mins(minutes),
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: AppColors.primary)))),
-                IconButton.filledTonal(
-                    onPressed: minutes >= sent ? null : () => setSheet(() => minutes = (minutes + 15).clamp(0, sent)),
-                    icon: const Icon(Icons.add_rounded)),
-              ]),
-              const SizedBox(height: 14),
-              Row(children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), foregroundColor: AppColors.danger),
-                    onPressed: () => Navigator.pop(sheet, 0),
-                    child: const Text('Reject'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                    onPressed: minutes <= 0 ? null : () => Navigator.pop(sheet, minutes),
-                    child: Text('Approve ${_mins(minutes)}'),
-                  ),
-                ),
-              ]),
-            ]),
-          ),
-        ),
-      ),
-    );
-    if (result == null || !mounted) return;
-    try {
-      await Services.api.post('/api/v1/overtime/${r['id']}/decide', {'minutes': result, 'reject': result == 0});
-      if (mounted) showSnack(context, result == 0 ? 'Not approved' : 'Approved ${_mins(result)}');
-      _load();
-    } catch (e) {
-      if (mounted) await showProblem(context, e.toString());
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final rows = _rows;
@@ -319,20 +358,25 @@ class _OvertimeApprovalScreenState extends State<OvertimeApprovalScreen> {
                   onRefresh: _load,
                   child: ListView(padding: const EdgeInsets.all(16), children: [
                     if (rows.isEmpty) const EmptyView(icon: Icons.more_time_rounded, text: 'Nothing waiting for you'),
-                    for (final r in rows)
-                      Card(
-                        child: ListTile(
-                          onTap: () => _decide(r),
-                          title: Text('${(r['employee'] as Map)['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                          subtitle: Text('${_day(r['date'] as String?)} · worked ${_mins(r['worked_minutes'] as num?)}'),
-                          trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                            Text(_mins(r['overtime_minutes'] as num?), style: const TextStyle(fontWeight: FontWeight.w900)),
-                            const Text('Tap to decide', style: TextStyle(fontSize: 10.5, color: AppColors.primary)),
-                          ]),
-                        ),
-                      ),
+                    for (final r in rows) overtimeCard(context, r, () async {
+                      if (await decideOvertime(context, r)) _load();
+                    }),
                   ]),
                 ),
     );
   }
 }
+
+/// One overtime waiting for the manager: who, the day, the time sent; tap to decide.
+Widget overtimeCard(BuildContext context, Map<String, dynamic> r, VoidCallback onTap) => Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        onTap: onTap,
+        title: Text('${(r['employee'] as Map?)?['name'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w800)),
+        subtitle: Text('${_day(r['date'] as String?)} · worked ${_mins(r['worked_minutes'] as num?)} · shift ${_mins(r['expected_minutes'] as num?)}'),
+        trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text(_mins(r['overtime_minutes'] as num?), style: const TextStyle(fontWeight: FontWeight.w900)),
+          const Text('Tap to decide', style: TextStyle(fontSize: 10.5, color: AppColors.primary)),
+        ]),
+      ),
+    );

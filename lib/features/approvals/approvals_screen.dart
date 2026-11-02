@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../attendance/overtime_screen.dart' show decideOvertime, overtimeCard;
 import '../attendance/regularisation_screen.dart' show reasons;
 import '../../widgets/skeleton.dart';
 
@@ -33,6 +34,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     ('notes', 'Debit / Credit Notes', 'Samples, free goods, damage, margin', Icons.request_quote_rounded, Color(0xFFD97706)),
     ('returns', 'Returns', 'Damaged and returned stock', Icons.assignment_return_rounded, Color(0xFFDC2626)),
     ('leaves', 'Leave', 'Leave requests', Icons.beach_access_rounded, Color(0xFF0284C7)),
+    ('overtime', 'Overtime', 'Hours beyond the shift: approve or change them', Icons.more_time_rounded, Color(0xFFEA580C)),
     ('regularisation', 'Attendance Fixes', 'Corrections to check-in and out', Icons.edit_calendar_rounded, Color(0xFF4F46E5)),
     ('expenses', 'Expenses', 'Claims and card expenses', Icons.receipt_long_rounded, Color(0xFFEA580C)),
     ('allowances', 'TA', 'Travel allowance claims', Icons.local_gas_station_rounded, Color(0xFF7C3AED)),
@@ -67,6 +69,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         _optional(Services.api.get('/api/v1/notes/to-approve')),
         _optional(Services.api.get('/api/v1/beats/to-approve')),
         _optional(Services.api.get('/api/v1/da/to-approve')),
+        _optional(Services.api.get('/api/v1/overtime/to-approve')),
       ]);
       final base = results[0] as Map<String, dynamic>;
       if (!mounted) return;
@@ -83,6 +86,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         _items['notes'] = _list(results[8]);
         _items['beats'] = _list(results[9]);
         _items['da'] = _list(results[10]);
+        _items['overtime'] = _list((results[11] as Map?)?['rows']);
         _error = null;
       });
     } catch (e) {
@@ -305,6 +309,16 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     final rows = _items[key] ?? const [];
     final color = _kinds.firstWhere((k) => k.$1 == key).$5;
     switch (key) {
+      case 'overtime':
+        return [
+          for (final r in rows)
+            overtimeCard(context, r, () async {
+              if (await decideOvertime(context, r)) {
+                settleAndRefresh();
+                await _load();
+              }
+            }),
+        ];
       case 'handovers':
         return [
           for (final h in rows)
