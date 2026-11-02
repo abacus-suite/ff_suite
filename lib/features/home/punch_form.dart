@@ -354,6 +354,7 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
             missing: _tried && _odometerPhoto == null,
             onTap: () => _shoot(selfie: false),
           ),
+          _meterReference(),
           Card(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
@@ -365,15 +366,71 @@ class _PunchFormScreenState extends State<PunchFormScreen> {
                 decoration: InputDecoration(
                   labelText: 'Odometer reading (km) *',
                   suffixText: 'km',
-                  errorText: _meterProblem ?? (_tried && (_odometer ?? 0) <= 0 ? 'Type the number on the meter.' : null),
-                  helperText: _meterKm != null
-                      ? 'Distance today by the meter: ${_meterKm!.toStringAsFixed(1)} km (check-in ${fmtQty(widget.odometerIn!)})'
-                      : 'Only asked when you ride your own two- or four-wheeler.',
+                  // The full message is in the card above; here the box only turns red.
+                  errorText: _meterProblem != null
+                      ? ''
+                      : (_tried && (_odometer ?? 0) <= 0 ? 'Type the number on the meter.' : null),
+                  errorStyle: _meterProblem != null ? const TextStyle(fontSize: 0, height: 0) : null,
+                  helperText: _meterKm != null ? null : 'Only asked when you ride your own two- or four-wheeler.',
                 ),
               ),
             ),
           ),
         ]);
+
+  /// The reading to go by, shown in full: the last one on record at check-in, the check-in one at check-out, with the
+  /// distance so far, and a clear red note when the typed reading is lower than it.
+  Widget _meterReference() {
+    final floor = _floor;
+    final problem = _meterProblem;
+    if (floor == null || floor <= 0) return const SizedBox.shrink();
+    final bad = problem != null;
+    final colour = bad ? AppColors.danger : AppColors.primary;
+    final km = _meterKm;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colour.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colour.withValues(alpha: 0.35)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        CircleAvatar(
+          radius: 20,
+          backgroundColor: colour.withValues(alpha: 0.14),
+          child: Icon(bad ? Icons.error_outline_rounded : Icons.speed_rounded, color: colour),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(widget.punchIn ? 'Last odometer reading on record' : 'Your check-in odometer reading',
+                style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
+            Text('${fmtQty(floor)} km', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: colour)),
+            if (bad)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                    widget.punchIn
+                        ? 'The reading you typed is lower. The meter cannot go backwards: enter the correct reading.'
+                        : 'The reading you typed is lower than at check-in. Enter the correct reading.',
+                    style: TextStyle(fontSize: 12.5, color: colour, fontWeight: FontWeight.w600)),
+              )
+            else if (km != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('Distance today by the meter: ${km.toStringAsFixed(1)} km',
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+              )
+            else
+              Text(widget.punchIn ? 'Enter a reading at or above this.' : 'Enter the reading now on the meter.',
+                  style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+          ]),
+        ),
+      ]),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
