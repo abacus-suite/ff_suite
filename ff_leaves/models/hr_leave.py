@@ -36,6 +36,15 @@ class HrLeaveType(models.Model):
 class HrLeave(models.Model):
     _inherit = 'hr.leave'
 
+    def _ff_hour(self, name):
+        """The start or end time of a request made by the hour, or None (the field differs between versions)."""
+        if name not in self._fields or not getattr(self, 'request_unit_hours', False):
+            return None
+        try:
+            return float(self[name]) if self[name] else None
+        except (TypeError, ValueError):
+            return None
+
     def ff_app_payload(self):
         self.ensure_one()
         return {
@@ -45,8 +54,8 @@ class HrLeave(models.Model):
             'to': self.request_date_to and self.request_date_to.isoformat(),
             'days': self.number_of_days,
             'hours': round(self.number_of_hours or 0.0, 2) if 'number_of_hours' in self._fields else None,
-            'hour_from': float(self.request_hour_from) if self.request_unit_hours and self.request_hour_from else None,
-            'hour_to': float(self.request_hour_to) if self.request_unit_hours and self.request_hour_to else None,
+            'hour_from': self._ff_hour('request_hour_from'),
+            'hour_to': self._ff_hour('request_hour_to'),
             'half_day': self.request_unit_half,
             'half_day_period': (self.request_date_from_period or None)
             if self.request_unit_half and 'request_date_from_period' in self._fields else None,
@@ -287,12 +296,17 @@ class HrLeave(models.Model):
         ], order='request_date_from') if team else self.browse()
         rows = [leave.ff_app_payload() for leave in leaves]
         # Approved leaves the employee wants cancelled, waiting for this person.
-        for cancel in self.env['ff.leave.cancel'].sudo().search([('state', 'in', ('manager', 'hr'))]):
-            if cancel._ff_awaits(employee):
-                payload = cancel.leave_id.ff_app_payload()
-                payload.update({'cancel_request': True, 'state_label': 'Cancellation requested',
-                                'reason': cancel.reason or payload.get('reason')})
-                rows.append(payload)
+        if 'ff.leave.cancel' in self.env:
+            try:
+                with self.env.cr.savepoint():
+                    for cancel in self.env['ff.leave.cancel'].sudo().search([('state', 'in', ('manager', 'hr'))]):
+                        if cancel._ff_awaits(employee):
+                            payload = cancel.leave_id.ff_app_payload()
+                            payload.update({'cancel_request': True, 'state_label': 'Cancellation requested',
+                                            'reason': cancel.reason or payload.get('reason')})
+                            rows.append(payload)
+            except Exception:  # noqa: BLE001 - never let the cancellations hide the leaves to approve
+                pass
         return rows
 
     def ff_decide_as(self, employee, approve, reason=''):

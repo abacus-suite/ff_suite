@@ -124,7 +124,13 @@ class FieldForceLeavesApi(http.Controller):
         if not leave:
             raise ApiError('Request not found.', 404, 'not_found')
         # A cancellation of an approved leave that is waiting for this person.
-        cancel = request.env['ff.leave.cancel'].ff_pending_for(leave, employee)
+        cancel = request.env['ff.leave.cancel'].browse()
+        if 'ff.leave.cancel' in request.env:
+            try:
+                with request.env.cr.savepoint():
+                    cancel = request.env['ff.leave.cancel'].ff_pending_for(leave, employee)
+            except Exception:  # noqa: BLE001 - an old database without the table: decide the leave as before
+                cancel = request.env['ff.leave.cancel'].browse()
         if cancel:
             try:
                 cancel.ff_decide(employee, decision == 'approve', (body().get('reason') or '').strip())
