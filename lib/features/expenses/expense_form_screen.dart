@@ -85,28 +85,61 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
     }
   }
 
+  /// A bill from the camera (stamped with the place and time) or from the gallery, where several can be chosen at once.
   Future<void> _addPicture(ImageSource source) async {
-    if (_pictures.length + _have >= _maxPictures) return;
-    final bytes = await takePhoto(source, stamp: source == ImageSource.camera);
+    final room = _maxPictures - _pictures.length - _have;
+    if (room <= 0) return;
+    if (source == ImageSource.gallery) {
+      final chosen = await ImagePicker().pickMultiImage(
+          maxWidth: 1600, maxHeight: 1600, imageQuality: 80, limit: room < 2 ? 2 : room, requestFullMetadata: false);
+      final bytes = [for (final image in chosen.take(room)) await image.readAsBytes()];
+      if (bytes.isNotEmpty && mounted) setState(() => _pictures.addAll(bytes));
+      return;
+    }
+    final bytes = await takePhoto(source, stamp: true);
     if (bytes == null) return;
     setState(() => _pictures.add(bytes));
   }
+
+  Widget _sourceTile(BuildContext sheet, ImageSource source, IconData icon, String title, String note) => Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => Navigator.pop(sheet, source),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+            ),
+            child: Column(children: [
+              CircleAvatar(radius: 24, backgroundColor: AppColors.primary.withValues(alpha: 0.12), child: Icon(icon, color: AppColors.primary)),
+              const SizedBox(height: 10),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+              const SizedBox(height: 2),
+              Text(note, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+            ]),
+          ),
+        ),
+      );
 
   Future<void> _picturePicker() async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       showDragHandle: true,
       builder: (sheet) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(
-              leading: const Icon(Icons.photo_camera_rounded),
-              title: const Text('Camera'),
-              onTap: () => Navigator.pop(sheet, ImageSource.camera)),
-          ListTile(
-              leading: const Icon(Icons.photo_library_rounded),
-              title: const Text('Gallery'),
-              onTap: () => Navigator.pop(sheet, ImageSource.gallery)),
-        ]),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Add the bill', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+            const SizedBox(height: 12),
+            Row(children: [
+              _sourceTile(sheet, ImageSource.camera, Icons.photo_camera_rounded, 'Take a photo', 'Stamped with place and time'),
+              const SizedBox(width: 12),
+              _sourceTile(sheet, ImageSource.gallery, Icons.photo_library_rounded, 'From gallery', 'Choose one or more'),
+            ]),
+          ]),
+        ),
       ),
     );
     if (source != null) await _addPicture(source);
