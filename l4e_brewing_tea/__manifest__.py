@@ -11,14 +11,11 @@ Custom master for Brewing Tea operations in the Manufacturing module:
 * SI No (Serial / Batch sequence number: BT/YYYY/XXXX)
 * Preparation Date tracking
 * Quantity produced / brewed
-* QC Status with color badges (Draft, Pending QC, Pass, Fail)
-* Quality Check notebook tab with customizable checklist lines:
+* Quality Check tab with customizable checklist lines:
   - SI No
   - Description
-  - Pass / Fail selection with color status badge
-  - Remarks / Observations
-* One-click checklist pre-filler ("Load QC Checklist")
-* Automatic QC status computation based on check results
+  - Pass / Fail selection with color badge widget (Pass = Green, Fail = Red)
+* Automatic QC Status determination (Pass / Fail) based on check results
 * Full chatter and audit trail integration
     """,
     'author': 'Kumbayah Foods',

@@ -7,16 +7,13 @@
         <field name="arch" type="xml">
             <list string="Brewing Tea"
                   decoration-success="qc_status == 'pass'"
-                  decoration-danger="qc_status == 'fail'"
-                  decoration-warning="qc_status == 'pending'">
+                  decoration-danger="qc_status == 'fail'">
                 <field name="name" string="SI No"/>
                 <field name="preparation_date" string="Preparation Date"/>
                 <field name="quantity" string="Quantity" sum="Total Quantity"/>
                 <field name="qc_status" string="QC Status" widget="badge"
                        decoration-success="qc_status == 'pass'"
-                       decoration-danger="qc_status == 'fail'"
-                       decoration-warning="qc_status == 'pending'"
-                       decoration-muted="qc_status == 'draft'"/>
+                       decoration-danger="qc_status == 'fail'"/>
                 <field name="user_id" string="Prepared By" optional="show" widget="many2one_avatar_user"/>
                 <field name="company_id" groups="base.group_multi_company" optional="hide"/>
             </list>
@@ -29,22 +26,6 @@
         <field name="model">brewing.tea</field>
         <field name="arch" type="xml">
             <form string="Brewing Tea">
-                <header>
-                    <button name="action_load_default_qc_lines" string="Load QC Checklist"
-                            type="object" class="btn-outline-primary"
-                            invisible="qc_status not in ('draft', 'pending')"/>
-                    <button name="action_mark_pass" string="Mark as Passed"
-                            type="object" class="btn-success"
-                            invisible="qc_status == 'pass'"/>
-                    <button name="action_mark_fail" string="Mark as Failed"
-                            type="object" class="btn-danger"
-                            invisible="qc_status == 'fail'"/>
-                    <button name="action_reset_draft" string="Reset to Draft"
-                            type="object" class="btn-secondary"
-                            invisible="qc_status == 'draft'"/>
-                    <field name="qc_status" widget="statusbar"
-                           statusbar_visible="draft,pending,pass,fail"/>
-                </header>
                 <sheet>
                     <div class="oe_title">
                         <label for="name" string="SI No"/>
@@ -58,6 +39,9 @@
                             <field name="quantity"/>
                         </group>
                         <group>
+                            <field name="qc_status" widget="badge"
+                                   decoration-success="qc_status == 'pass'"
+                                   decoration-danger="qc_status == 'fail'"/>
                             <field name="user_id" widget="many2one_avatar_user"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                         </group>
@@ -68,22 +52,12 @@
                                 <list editable="bottom" string="Quality Checks">
                                     <field name="sl_no" string="SI No"/>
                                     <field name="description" string="Description"
-                                           placeholder="e.g. Temperature, Color, Taste, Brix, pH"/>
+                                           placeholder="e.g. Temperature, Color, Taste, pH"/>
                                     <field name="status" string="Pass / Fail" widget="badge"
                                            decoration-success="status == 'pass'"
-                                           decoration-danger="status == 'fail'"
-                                           decoration-warning="status == 'pending'"/>
-                                    <field name="remarks" string="Remarks / Observation" optional="show"/>
+                                           decoration-danger="status == 'fail'"/>
                                 </list>
                             </field>
-                            <group class="oe_subtotal_footer">
-                                <field name="qc_count_total" string="Total Checks" readonly="1"/>
-                                <field name="qc_count_pass" string="Passed" readonly="1"/>
-                                <field name="qc_count_fail" string="Failed" readonly="1"/>
-                            </group>
-                        </page>
-                        <page string="Process Notes" name="notes">
-                            <field name="notes" placeholder="Add additional preparation notes, batch details, or process observations..."/>
                         </page>
                     </notebook>
                 </sheet>
@@ -102,10 +76,8 @@
                 <field name="user_id" string="Prepared By"/>
                 <field name="preparation_date"/>
                 <separator/>
-                <filter name="filter_pass" string="QC Passed" domain="[('qc_status', '=', 'pass')]"/>
-                <filter name="filter_fail" string="QC Failed" domain="[('qc_status', '=', 'fail')]"/>
-                <filter name="filter_pending" string="QC In Progress" domain="[('qc_status', '=', 'pending')]"/>
-                <filter name="filter_draft" string="Draft" domain="[('qc_status', '=', 'draft')]"/>
+                <filter name="filter_pass" string="QC Pass" domain="[('qc_status', '=', 'pass')]"/>
+                <filter name="filter_fail" string="QC Fail" domain="[('qc_status', '=', 'fail')]"/>
                 <separator/>
                 <filter name="filter_prep_date" string="Preparation Date" date="preparation_date"/>
                 <group>

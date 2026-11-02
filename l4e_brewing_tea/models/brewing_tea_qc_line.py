@@ -22,22 +22,17 @@ class BrewingTeaQcLine(models.Model):
     description = fields.Char(
         string='Description',
         required=True,
-        help="Parameter or test description (e.g. Temperature, Color, Taste, pH).",
+        help="Parameter or test description.",
     )
     status = fields.Selection(
         [
-            ('pending', 'Pending'),
             ('pass', 'Pass'),
             ('fail', 'Fail'),
         ],
         string='Pass / Fail',
-        default='pending',
         required=True,
-        help="Result of this quality check parameter.",
-    )
-    remarks = fields.Char(
-        string='Remarks',
-        help="Specific observations, values recorded, or rejection notes.",
+        default='pass',
+        help="Select Pass or Fail for this quality check parameter.",
     )
 
     @api.model_create_multi
