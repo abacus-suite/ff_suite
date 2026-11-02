@@ -262,6 +262,12 @@ class _RegularisationFormState extends State<_RegularisationForm> {
             ),
             child: Row(children: [_half('in', 'Punch in'), _half('out', 'Punch out')]),
           ),
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text(
+                'Send only the punch you need. If both are wrong, send two requests for the same day: one for the punch-in and one for the punch-out.',
+                style: TextStyle(fontSize: 12, color: AppColors.muted)),
+          ),
           const SizedBox(height: 16),
           Text.rich(TextSpan(children: [
             TextSpan(text: 'Correct $label time', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
+import '../../core/theme.dart';
 import '../leaves/leaves_screen.dart';
 import 'overtime_screen.dart';
 import 'regularisation_screen.dart';
@@ -109,7 +110,33 @@ class _MonthScreenState extends State<MonthScreen> {
             for (final day in days) _DayCell(day: day, dim: _selected != null && day['status'] != _selected),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
+        // The month so far, by the working schedule: hours worked against the hours expected, and the overtime.
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+          child: Row(children: [
+            for (final (label, value, tint) in [
+              ('Worked', data['worked_hours'], AppColors.primary),
+              ('Expected', data['expected_hours'], AppColors.text),
+              ('Overtime', data['overtime_hours'], Colors.deepOrange),
+            ])
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(_hrs(((value as num?) ?? 0).toDouble()),
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: tint)),
+                  Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                ]),
+              ),
+          ]),
+        ),
+        const SizedBox(height: 4),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(2, 2, 2, 6),
+          child: Text('This month till today, by your working schedule. Week offs, holidays and leave are not expected.',
+              style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+        ),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -191,6 +218,8 @@ class _DayCell extends StatelessWidget {
     final status = day['status'] as String;
     final style = _statusStyle[status] ?? ('', Colors.grey);
     final number = int.parse((day['date'] as String).substring(8));
+    final worked = ((day['worked_hours'] as num?) ?? 0).toDouble();
+    final extra = ((day['overtime_hours'] as num?) ?? 0).toDouble();
     return Opacity(
       opacity: dim ? 0.3 : 1,
       child: InkWell(
@@ -205,11 +234,31 @@ class _DayCell extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         alignment: Alignment.center,
-        child: Text('$number'),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('$number'),
+            // The hours worked that day, and what was beyond the working schedule.
+            if (worked > 0)
+              Text(_hrs(worked), style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, height: 1.1)),
+            if (extra > 0)
+              Text('+${_hrs(extra)}',
+                  style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Colors.deepOrange, height: 1.1)),
+          ]),
+        ),
       ),
       ),
     );
   }
+}
+
+/// 8.5 -> "8h30", 9 -> "9h", 0.25 -> "15m".
+String _hrs(double hours) {
+  final minutes = (hours * 60).round();
+  final h = minutes ~/ 60;
+  final m = minutes % 60;
+  if (h == 0) return '${m}m';
+  return m == 0 ? '${h}h' : '${h}h${m.toString().padLeft(2, '0')}';
 }
 
 String _longDate(String iso) {
