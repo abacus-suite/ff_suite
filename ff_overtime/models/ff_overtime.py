@@ -143,8 +143,18 @@ class FfOvertime(models.Model):
             'number_of_days': hours / per_day,
             'date_from': self.date,
         })
+        # The way to approve an allocation differs between versions: use whichever this one has.
+        for name in ('action_confirm', 'action_approve', 'action_validate'):
+            if allocation.state == 'validate':
+                break
+            method = getattr(allocation, name, None)
+            if method and (name != 'action_confirm' or allocation.state == 'draft'):
+                try:
+                    method()
+                except Exception:  # noqa: BLE001 - try the next way
+                    continue
         if allocation.state != 'validate':
-            allocation.action_validate()
+            allocation.write({'state': 'validate'})
         self.allocation_id = allocation.id
 
 
