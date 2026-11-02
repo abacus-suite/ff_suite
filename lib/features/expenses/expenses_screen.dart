@@ -372,7 +372,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final key = _monthKey;
     setState(() => _loading = true);
     try {
-      final data = await Services.api.get('/api/v1/expenses', query: {'month': key}) as Map<String, dynamic>;
+      final data = await Services.api.get('/api/v1/expenses/summary', query: {'month': key}) as Map<String, dynamic>;
       if (mounted && key == _monthKey) setState(() => (_data = data, _error = null));
     } catch (e) {
       if (mounted && key == _monthKey) setState(() => _error = e.toString());
@@ -394,16 +394,34 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     if (mounted) _load();
   }
 
-  Widget _category(IconData icon, String title, String subtitle, Color tint, Widget screen) => Card(
-        margin: const EdgeInsets.only(bottom: 10),
-        child: ListTile(
-          leading: CircleAvatar(backgroundColor: tint.withValues(alpha: 0.12), child: Icon(icon, color: tint)),
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-          subtitle: Text(subtitle),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => _go(screen),
-        ),
-      );
+  /// What this category holds in the month: claimed and, when it differs, approved.
+  Map<String, dynamic>? _sum(String key) => ((_data?['categories'] as Map?)?[key] as Map?)?.cast<String, dynamic>();
+
+  Widget _category(String key, IconData icon, String title, String subtitle, Color tint, Widget screen) {
+    final sum = _sum(key);
+    final currency = _data?['currency'] as String?;
+    final claimed = (sum?['claimed'] as num?) ?? 0;
+    final approved = (sum?['approved'] as num?) ?? 0;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        leading: CircleAvatar(backgroundColor: tint.withValues(alpha: 0.12), child: Icon(icon, color: tint)),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+        subtitle: Text(subtitle),
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (sum != null && ((sum['count'] as num?) ?? 0) > 0)
+            Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(fmtMoney(claimed, currency), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+              if (key != 'card')
+                Text('${fmtMoney(approved, currency)} approved',
+                    style: const TextStyle(fontSize: 10.5, color: AppColors.success, fontWeight: FontWeight.w700)),
+            ]),
+          const Icon(Icons.chevron_right_rounded),
+        ]),
+        onTap: () => _go(screen),
+      ),
+    );
+  }
 
   Widget _total(String label, num? v, String? currency, Color tint) => Container(
         margin: const EdgeInsets.only(top: 10),
@@ -451,18 +469,18 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 Expanded(child: _total('Approved', data['approved_amount'] as num?, currency, AppColors.success)),
               ]),
             const SizedBox(height: 16),
-            _category(Icons.local_gas_station_rounded, 'Travel Allowance (TA)', 'Claims for the kilometres travelled',
+            _category('ta', Icons.local_gas_station_rounded, 'Travel Allowance (TA)', 'Claims for the kilometres travelled',
                 AppColors.purple, const AllowanceScreen()),
-            _category(Icons.restaurant_rounded, 'Daily Allowance (DA)', 'Daily allowance claims', AppColors.teal,
+            _category('da', Icons.restaurant_rounded, 'Daily Allowance (DA)', 'Daily allowance claims', AppColors.teal,
                 const DailyAllowanceScreen()),
-            _category(Icons.timer_rounded, 'OLA', 'Monthly allowance by the hours worked', AppColors.warning,
+            _category('ola', Icons.timer_rounded, 'OLA', 'Monthly allowance by the hours worked', AppColors.warning,
                 const OlaScreen()),
-            _category(Icons.account_balance_wallet_rounded, 'Expense Claiming', 'I paid from my own money · claim it',
+            _category('claim', Icons.account_balance_wallet_rounded, 'Expense Claiming', 'I paid from my own money · claim it',
                 AppColors.warning, ExpenseListScreen(kind: 'claim', month: _month)),
             if (Services.auth.profile?.expenseCard ?? false)
-              _category(Icons.credit_card_rounded, 'Expense Submission', 'Paid with a company card · record it',
+              _category('card', Icons.credit_card_rounded, 'Expense Submission', 'Paid with a company card · record it',
                   AppColors.primary, ExpenseListScreen(kind: 'card', month: _month)),
-            _category(Icons.request_quote_rounded, 'Payment requests', 'Paid directly by accounts · tax invoices',
+            _category('request', Icons.request_quote_rounded, 'Payment requests', 'Paid directly by accounts · tax invoices',
                 const Color(0xFF7C3AED), const PaymentRequestsScreen()),
           ],
         ),
