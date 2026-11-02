@@ -362,6 +362,8 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
 
   (Color, String, String) _look(Map<String, dynamic> r) => switch ('${r['state']}') {
         'completed' => (AppColors.success, 'Completed', 'Tax invoice uploaded'),
+        'requested' when r['invoice_uploaded'] == true && r['document'] == 'quotation' => (
+            AppColors.primary, 'With accounts', 'Tax invoice uploaded · waiting for accounts to pay'),
         'invoice_pending' => (
             _orange,
             'Invoice pending',
@@ -483,7 +485,9 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
       await Services.api
           .post('/api/v1/expense-requests/${_r['id']}/invoice', {'photo': base64Encode(_invoice.first)});
       if (!mounted) return;
-      showSnack(context, 'Tax invoice submitted. The request is completed.');
+      showSnack(context, _r['state'] == 'invoice_pending'
+          ? 'Tax invoice submitted. The request is completed.'
+          : 'Tax invoice submitted. Accounts will pay the request.');
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) await showProblem(context, _notYet(e));
@@ -503,7 +507,10 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
   @override
   Widget build(BuildContext context) {
     final state = '${_r['state']}';
-    final waitingInvoice = state == 'invoice_pending';
+    // A quotation's tax invoice can go in as soon as the request is sent, before accounts have paid.
+    final waitingInvoice = _r['document'] == 'quotation' &&
+        (state == 'invoice_pending' || state == 'requested') &&
+        _r['invoice_uploaded'] != true;
     final paid = DateTime.tryParse('${_r['paid_on'] ?? ''}');
     final due = DateTime.tryParse('${_r['invoice_due'] ?? ''}');
     return Scaffold(
@@ -536,6 +543,8 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
           )
         else if (state == 'completed')
           _banner('Completed · tax invoice uploaded.', AppColors.success)
+        else if (state == 'requested' && _r['invoice_uploaded'] == true)
+          _banner('Tax invoice uploaded. With accounts: you will be told when it is paid.', AppColors.primary)
         else
           _banner('With accounts. You will be told when it is paid.', AppColors.primary),
       ]),
