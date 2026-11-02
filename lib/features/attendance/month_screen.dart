@@ -12,6 +12,7 @@ const _statusStyle = <String, (String, Color)>{
   'absent': ('Absent', Colors.red),
   'week_off': ('Week Off', Colors.blueGrey),
   'holiday': ('Holiday', Colors.purple),
+  'leave': ('Leave', Colors.teal),
   'not_punched': ('Not Punched', Colors.indigo),
   'upcoming': ('Upcoming', Colors.transparent),
 };
