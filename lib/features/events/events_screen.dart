@@ -287,6 +287,26 @@ class _EventsScreenState extends State<EventsScreen> {
     }
   }
 
+  Widget _row(Map<String, dynamic> e, Map<String, String> names) => Card(
+        child: ListTile(
+          onTap: () async {
+            await Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => e['state'] == 'done'
+                    ? EventCompletedScreen(eventId: e['id'] as int, name: '${e['name']}')
+                    : EventReportScreen(eventId: e['id'] as int)));
+            _load();
+          },
+          title: Text('${e['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: Text([
+            '${names[e['state']] ?? e['state']}',
+            if (e['territory'] != null) '${(e['territory'] as Map)['name']}',
+            '${e['days']} day${e['days'] == 1 ? '' : 's'}',
+            if (e['can_act'] == false) 'by ${(e['created_by'] as Map?)?['name'] ?? ''}',
+          ].join(' · ')),
+          trailing: const Icon(Icons.chevron_right_rounded),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final events = _events;
@@ -313,25 +333,24 @@ class _EventsScreenState extends State<EventsScreen> {
                       const Padding(
                           padding: EdgeInsets.all(40),
                           child: Center(child: Text('No events yet.', style: TextStyle(color: AppColors.muted)))),
-                    for (final e in events)
-                      Card(
-                        child: ListTile(
-                          onTap: () async {
-                            await Navigator.of(context).push(MaterialPageRoute(
-                                builder: (_) => e['state'] == 'done'
-                                    ? EventCompletedScreen(eventId: e['id'] as int, name: '${e['name']}')
-                                    : EventReportScreen(eventId: e['id'] as int)));
-                            _load();
-                          },
-                          title: Text('${e['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                          subtitle: Text([
-                            '${names[e['state']] ?? e['state']}',
-                            if (e['territory'] != null) '${(e['territory'] as Map)['name']}',
-                            '${e['days']} day${e['days'] == 1 ? '' : 's'}',
-                          ].join(' · ')),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                        ),
+                    if (events.any((e) => e['can_act'] == false) && events.any((e) => e['can_act'] != false))
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(4, 4, 4, 6),
+                        child: Text('My events', style: TextStyle(fontWeight: FontWeight.w900, color: AppColors.muted)),
                       ),
+                    for (final e in events.where((e) => e['can_act'] != false)) _row(e, names),
+                    if (events.any((e) => e['can_act'] == false)) ...[
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(4, 14, 4, 2),
+                        child: Text('Team members\' events', style: TextStyle(fontWeight: FontWeight.w900, color: AppColors.muted)),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(4, 0, 4, 6),
+                        child: Text('You can look at these and change who conducts them; the organiser and their team run the days.',
+                            style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                      ),
+                      for (final e in events.where((e) => e['can_act'] == false)) _row(e, names),
+                    ],
                   ]),
                 ),
     );
@@ -1815,6 +1834,66 @@ class _EventReportScreenState extends State<EventReportScreen> {
     }
   }
 
+  /// Add one more person or remove one from the people conducting the event.
+  Future<void> _editPeople() async {
+    try {
+      final data = await withBusy(context, 'Loading the team…',
+          () async => await Services.api.get('/api/v1/events/${widget.eventId}/staff') as Map<String, dynamic>);
+      if (!mounted) return;
+      final candidates = _list(data['candidates']);
+      final picked = {for (final x in _list(data['staff'])) x['id'] as int};
+      final saved = await showModalBottomSheet<bool>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (sheet) => StatefulBuilder(
+          builder: (context, setSheet) => SafeArea(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Conducted by', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17))),
+                ),
+                Flexible(
+                  child: ListView(shrinkWrap: true, children: [
+                    for (final x in candidates)
+                      CheckboxListTile(
+                        value: picked.contains(x['id']),
+                        title: Text('${x['name']}'),
+                        onChanged: (v) => setSheet(() {
+                          if (v == true) {
+                            picked.add(x['id'] as int);
+                          } else {
+                            picked.remove(x['id']);
+                          }
+                        }),
+                      ),
+                  ]),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                    onPressed: picked.isEmpty ? null : () => Navigator.pop(sheet, true),
+                    child: const Text('Save'),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      );
+      if (saved != true || !mounted) return;
+      await Services.api.post('/api/v1/events/${widget.eventId}/staff', {'staff_ids': picked.toList()});
+      _load();
+    } catch (err) {
+      if (mounted) showProblem(context, err.toString());
+    }
+  }
+
   Future<void> _excel() async {
     setState(() => _exporting = true);
     try {
@@ -1843,7 +1922,6 @@ class _EventReportScreenState extends State<EventReportScreen> {
     final totals = (d['totals'] as Map).cast<String, dynamic>();
     final days = ((d['days'] as List?) ?? []).cast<String>();
     final coupons = (d['coupons'] as Map).cast<String, dynamic>();
-    final staff = (e['staff'] as List?)?.length ?? 0;
     final addedAll = _n(totals['opening']) + _n(totals['added']);
 
     Widget summary() => Container(
@@ -1893,8 +1971,8 @@ class _EventReportScreenState extends State<EventReportScreen> {
             for (final item in [
               ('Location', '${e['location']}'),
               ('MRP · Offer', '₹${_q(_n(e['mrp']))} · ${e['has_offer'] == true ? '₹${e['offer_price']}' : 'No offer'}'),
-              ('Conducted by', '$staff staff'),
-              ('Coupons used', '${coupons['used']}'),
+              ('Organiser', '${(e['created_by'] as Map?)?['name'] ?? ''}'),
+              ('Conducted by', _list(e['staff']).map((x) => '${x['name']}').join(', ')),
             ])
               SizedBox(
                 width: (MediaQuery.of(context).size.width - 32 - 28) / 2,
@@ -1905,6 +1983,19 @@ class _EventReportScreenState extends State<EventReportScreen> {
               ),
           ]),
         ),
+        if (e['can_edit_staff'] == true) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+            onPressed: _editPeople,
+            icon: const Icon(Icons.group_add_rounded),
+            label: const Text('Add or remove people'),
+          ),
+        ],
+        if (e['can_act'] == false) ...[
+          const SizedBox(height: 10),
+          _notice('Manager view: ${(e['created_by'] as Map?)?['name'] ?? 'the organiser'} and the team run this event\'s days.'),
+        ],
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(12),
