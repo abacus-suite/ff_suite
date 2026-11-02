@@ -28,14 +28,18 @@ class FfDemand(models.Model):
 
     @api.model
     def ff_create_from_app(self, employee, partner, data):
-        """The outlet's rate from the margin formula already includes the GST: the demand takes the tax out of
-        it instead of adding it on top (what the PO Summary showed is what the demand totals)."""
+        """The outlet's rate from the margin formula includes the GST. The unit price of the demand is that rate
+        without the GST (97.30 at 5% is 92.67), and the tax is then added on the lines as usual, so the demand
+        totals what the PO Summary showed."""
+        uuid = data.get('uuid') or False
+        resent = bool(uuid and self.sudo().search_count([('client_uuid', '=', uuid)]))
         demand = super().ff_create_from_app(employee, partner, data)
-        if price_basis(self.env) == 'margin' and not demand.partner_id.sudo().ff_is_distributor:
-            lines = demand.sudo().line_ids.filtered(
-                lambda l: l.price_unit > 0 and not getattr(l, 'is_foc', False) and not l.price_incl_tax)
-            if lines:
-                lines.write({'price_incl_tax': True})
+        if not resent and price_basis(self.env) == 'margin' and not demand.partner_id.sudo().ff_is_distributor:
+            for line in demand.sudo().line_ids.filtered(
+                    lambda l: l.price_unit > 0 and not getattr(l, 'is_foc', False)):
+                rate = sum(t.amount for t in line.tax_ids if t.amount_type == 'percent')
+                if rate:
+                    line.price_unit = round(line.price_unit / (1.0 + rate / 100.0), 2)
         return demand
 
     @api.model_create_multi
