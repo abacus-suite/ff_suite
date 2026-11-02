@@ -15,7 +15,7 @@ def _row(rec):
     return {
         'id': rec.id, 'date': to_iso(rec.date), 'worked_minutes': rec.worked_minutes,
         'expected_minutes': rec.expected_minutes, 'overtime_minutes': rec.overtime_minutes,
-        'approved_minutes': rec.approved_minutes, 'state': rec.state,
+        'approved_minutes': rec.approved_minutes, 'state': rec.state, 'note': rec.decision_note or None,
         'employee': ref(rec.employee_id),
     }
 
@@ -69,7 +69,8 @@ class FieldForceOvertimeApi(http.Controller):
             raise ApiError('Overtime not found.', 404, 'not_found')
         data = body()
         try:
-            rec.ff_decide(employee, data.get('minutes'), reject=bool(data.get('reject')))
+            rec.ff_decide(employee, data.get('minutes'), reject=bool(data.get('reject')),
+                          note=(data.get('reason') or '').strip())
         except (UserError, AccessError) as error:
             request.env.cr.rollback()
             raise ApiError(str(error), 400, 'invalid')
