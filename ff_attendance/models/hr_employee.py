@@ -254,6 +254,14 @@ class HrEmployee(models.Model):
         lines = employee.resource_calendar_id.attendance_ids.filtered(
             lambda a: getattr(a, 'day_period', '') != 'lunch' and not getattr(a, 'display_type', False)
         ) if employee.resource_calendar_id else employee.env['resource.calendar.attendance']
+        if lines and getattr(employee.resource_calendar_id, 'two_weeks_calendar', False):
+            # Two-week schedule (for example alternate Saturdays): only the lines of the week this day is in.
+            Attendance = employee.env['resource.calendar.attendance']
+            if hasattr(Attendance, 'get_week_type'):
+                week = str(Attendance.get_week_type(day))
+            else:
+                week = str(int(((day.toordinal() - 1) // 7) % 2))
+            lines = lines.filtered(lambda a: not getattr(a, 'week_type', False) or str(a.week_type) == week)
         if lines:
             return round(sum(a.hour_to - a.hour_from for a in lines if int(a.dayofweek) == day.weekday()), 2)
         shift = employee.ff_shift_id
