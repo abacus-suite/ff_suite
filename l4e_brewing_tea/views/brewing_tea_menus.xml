@@ -7,10 +7,16 @@
               action="action_brewing_tea"
               sequence="15"/>
 
-    <!-- Also accessible under Operations dropdown -->
+    <!-- Under Operations dropdown -->
     <menuitem id="menu_brewing_tea_operations"
               name="BREWING TEA"
               parent="mrp.menu_mrp_manufacturing"
               action="action_brewing_tea"
               sequence="25"/>
+
+    <menuitem id="menu_brewing_tea_qc_lines"
+              name="Brewing QC Lines (Expandable)"
+              parent="mrp.menu_mrp_manufacturing"
+              action="action_brewing_tea_qc_lines"
+              sequence="26"/>
 </odoo>

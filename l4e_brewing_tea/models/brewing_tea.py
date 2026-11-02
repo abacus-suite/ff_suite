@@ -37,11 +37,16 @@ class BrewingTea(models.Model):
             ('pass', 'Pass'),
             ('fail', 'Fail'),
         ],
-        string='QC Status',
+        string='Overall QC',
         compute='_compute_qc_status',
         store=True,
         tracking=True,
-        help="Overall quality check status, automatically determined by the Quality Check lines.",
+    )
+    qc_summary = fields.Char(
+        string='QC Details',
+        compute='_compute_qc_summary',
+        store=True,
+        help="Status of each quality check description (e.g. Tea: Fail | Coffee: Pass).",
     )
     user_id = fields.Many2one(
         'res.users',
@@ -75,6 +80,19 @@ class BrewingTea(models.Model):
                 rec.qc_status = 'pass'
             else:
                 rec.qc_status = False
+
+    @api.depends('qc_line_ids.description', 'qc_line_ids.status')
+    def _compute_qc_summary(self):
+        for rec in self:
+            if not rec.qc_line_ids:
+                rec.qc_summary = ''
+                continue
+            items = []
+            for line in rec.qc_line_ids:
+                status_str = 'Pass' if line.status == 'pass' else 'Fail'
+                desc = line.description or ''
+                items.append(f"{desc}: {status_str}")
+            rec.qc_summary = "  •  ".join(items)
 
     @api.model_create_multi
     def create(self, vals_list):

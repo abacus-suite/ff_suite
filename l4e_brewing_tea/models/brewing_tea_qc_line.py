@@ -5,17 +5,27 @@ from odoo import models, fields, api
 class BrewingTeaQcLine(models.Model):
     _name = 'brewing.tea.qc.line'
     _description = 'Brewing Tea Quality Check Line'
-    _order = 'sl_no asc, id asc'
+    _order = 'brewing_id desc, sl_no asc, id asc'
 
     brewing_id = fields.Many2one(
         'brewing.tea',
-        string='Brewing Reference',
+        string='SI No',
         required=True,
         ondelete='cascade',
         index=True,
     )
+    preparation_date = fields.Date(
+        related='brewing_id.preparation_date',
+        string='Preparation Date',
+        store=True,
+    )
+    quantity = fields.Float(
+        related='brewing_id.quantity',
+        string='Quantity',
+        store=True,
+    )
     sl_no = fields.Integer(
-        string='SI No',
+        string='Line No',
         default=1,
         help="Serial number of the quality check step.",
     )
