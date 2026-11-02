@@ -206,7 +206,6 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
               ),
             ),
           ),
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
