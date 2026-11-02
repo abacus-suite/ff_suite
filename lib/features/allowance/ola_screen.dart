@@ -10,7 +10,10 @@ num _n(dynamic v) => v is num ? v : num.tryParse('$v') ?? 0;
 
 /// OLA: a month amount over 26 days, paid in full, half or not at all by the hours worked each day.
 class OlaScreen extends StatefulWidget {
-  const OlaScreen({super.key});
+  const OlaScreen({super.key, this.embedded = false});
+
+  /// Inside a tab of My Expense: no bar of its own.
+  final bool embedded;
 
   @override
   State<OlaScreen> createState() => _OlaScreenState();
@@ -55,8 +58,8 @@ class _OlaScreenState extends State<OlaScreen> {
     const kinds = {'full': 'Full', 'half': 'Half', 'none': 'No allowance'};
     Color tint(String kind) => kind == 'full' ? AppColors.success : kind == 'half' ? AppColors.warning : AppColors.muted;
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('OLA')),
+      backgroundColor: widget.embedded ? Colors.transparent : AppColors.background,
+      appBar: widget.embedded ? null : AppBar(title: const Text('OLA')),
       body: _error != null
           ? ErrorView(message: _error!, onRetry: _load)
           : d == null

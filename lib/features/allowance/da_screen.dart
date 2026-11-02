@@ -10,7 +10,10 @@ num _n(dynamic v) => v is num ? v : num.tryParse('$v') ?? 0;
 
 /// My Daily Allowance (DA): worked out from where the day's visits were, grouped by week.
 class DailyAllowanceScreen extends StatefulWidget {
-  const DailyAllowanceScreen({super.key});
+  const DailyAllowanceScreen({super.key, this.embedded = false});
+
+  /// Inside a tab of My Expense: no bar of its own.
+  final bool embedded;
 
   @override
   State<DailyAllowanceScreen> createState() => _DailyAllowanceScreenState();
@@ -68,8 +71,8 @@ class _DailyAllowanceScreenState extends State<DailyAllowanceScreen> {
     final rates = (d?['rates'] as Map?)?.cast<String, dynamic>() ?? const {};
     final weeks = ((d?['weeks'] as List?) ?? []).cast<Map<String, dynamic>>();
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Daily Allowance (DA)')),
+      backgroundColor: widget.embedded ? Colors.transparent : AppColors.background,
+      appBar: widget.embedded ? null : AppBar(title: const Text('Daily Allowance (DA)')),
       body: _error != null
           ? ErrorView(message: _error!, onRetry: _load)
           : d == null
