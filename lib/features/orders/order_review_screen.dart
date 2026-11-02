@@ -77,6 +77,16 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
 
   Future<void> _loadFoc() async {
     try {
+      // Free goods alone: no cart for the schemes to work on, only the manual free lines.
+      if (widget.lines.isEmpty) {
+        final schemes = await Services.api.get('/api/v1/foc/schemes', query: {'partner_id': widget.client['id']});
+        if (!mounted) return;
+        setState(() {
+          _manualAllowed = (schemes as Map)['manual_allowed'] == true;
+          _freeChecked = true;
+        });
+        return;
+      }
       final results = await Future.wait([
         Services.api.get('/api/v1/foc/schemes', query: {'partner_id': widget.client['id']}),
         Services.api.post('/api/v1/foc/preview', {
@@ -370,6 +380,12 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
               const Text('No scheme applies to this cart.', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
           ],
           const Divider(),
+          if (widget.lines.isEmpty)
+            const ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text('Free goods only – nothing to pay', style: TextStyle(fontWeight: FontWeight.w800)),
+            )
+          else ...[
           if (!_rateHasGst) ...[
             ListTile(
               dense: true,
@@ -391,6 +407,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
           ),
           Text(_rateHasGst ? 'The rate already includes GST. Free goods carry no tax.' : 'Free goods carry no tax. The server works out the final taxes.',
               style: theme.textTheme.bodySmall),
+          ],
           const SizedBox(height: 16),
           TextField(
             controller: _note,

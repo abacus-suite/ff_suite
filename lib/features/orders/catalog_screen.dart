@@ -143,7 +143,6 @@ class _CatalogScreenState extends State<CatalogScreen> {
   String? get _problem {
     final order = _cart.values.any((v) => v > 0);
     if (!order && !_anyFree) return 'Enter the order quantity, or the free quantity.';
-    if (!order) return 'Enter the order quantity: free goods go with an order.';
     if (_anyFree && _freeReason == null) return 'Say why the quantity is free.';
     if (_anyFree && _freeReason == 'Other' && _freeNote.text.trim().isEmpty) return 'Describe the free reason.';
     return null;
