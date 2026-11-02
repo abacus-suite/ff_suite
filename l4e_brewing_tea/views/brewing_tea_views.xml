@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Master List View -->
+    <!-- Master List View (Strictly: SI No, Preparation Date, Quantity, QC Status) -->
     <record id="view_brewing_tea_list" model="ir.ui.view">
         <field name="name">brewing.tea.list</field>
         <field name="model">brewing.tea</field>
@@ -11,18 +11,14 @@
                 <field name="name" string="SI No"/>
                 <field name="preparation_date" string="Preparation Date"/>
                 <field name="quantity" string="Quantity" sum="Total Quantity"/>
-                <field name="qc_summary" string="QC Details"/>
-                <field name="qc_status" string="Overall QC" widget="badge"
+                <field name="qc_status" string="QC Status" widget="badge"
                        decoration-success="qc_status == 'pass'"
-                       decoration-danger="qc_status == 'fail'"
-                       optional="show"/>
-                <field name="user_id" string="Prepared By" optional="show" widget="many2one_avatar_user"/>
-                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                       decoration-danger="qc_status == 'fail'"/>
             </list>
         </field>
     </record>
 
-    <!-- Master Form View (QC Status removed as requested) -->
+    <!-- Master Form View -->
     <record id="view_brewing_tea_form" model="ir.ui.view">
         <field name="name">brewing.tea.form</field>
         <field name="model">brewing.tea</field>
@@ -72,7 +68,6 @@
         <field name="arch" type="xml">
             <search string="Search Brewing Tea">
                 <field name="name" string="SI No"/>
-                <field name="user_id" string="Prepared By"/>
                 <field name="preparation_date"/>
                 <separator/>
                 <filter name="filter_pass" string="QC Pass" domain="[('qc_status', '=', 'pass')]"/>
@@ -80,8 +75,9 @@
                 <separator/>
                 <filter name="filter_prep_date" string="Preparation Date" date="preparation_date"/>
                 <group>
+                    <filter name="group_name" string="SI No (Accordion)" context="{'group_by': 'name'}"/>
                     <filter name="group_prep_date" string="Preparation Date" context="{'group_by': 'preparation_date'}"/>
-                    <filter name="group_user" string="Prepared By" context="{'group_by': 'user_id'}"/>
+                    <filter name="group_qc_status" string="QC Status" context="{'group_by': 'qc_status'}"/>
                 </group>
             </search>
         </field>
@@ -103,20 +99,19 @@
         </field>
     </record>
 
-    <!-- QC Lines List View (Accordion Expandable by SI No / Batch) -->
+    <!-- QC Lines List View: Accordion Dropdown showing each description row -->
     <record id="view_brewing_tea_qc_line_list" model="ir.ui.view">
         <field name="name">brewing.tea.qc.line.list</field>
         <field name="model">brewing.tea.qc.line</field>
         <field name="arch" type="xml">
-            <list string="Quality Check Lines"
+            <list string="Brewing Tea Quality Checks"
                   decoration-success="status == 'pass'"
                   decoration-danger="status == 'fail'">
                 <field name="brewing_id" string="SI No"/>
+                <field name="description" string="Description"/>
                 <field name="preparation_date" string="Preparation Date"/>
                 <field name="quantity" string="Quantity"/>
-                <field name="sl_no" string="Line No"/>
-                <field name="description" string="Description"/>
-                <field name="status" string="Pass / Fail"
+                <field name="status" string="QC Status" widget="badge"
                        decoration-success="status == 'pass'"
                        decoration-danger="status == 'fail'"/>
             </list>
@@ -130,7 +125,7 @@
         <field name="arch" type="xml">
             <search string="Search QC Lines">
                 <field name="brewing_id" string="SI No"/>
-                <field name="description"/>
+                <field name="description" string="Description"/>
                 <separator/>
                 <filter name="filter_pass" string="Pass" domain="[('status', '=', 'pass')]"/>
                 <filter name="filter_fail" string="Fail" domain="[('status', '=', 'fail')]"/>
@@ -144,7 +139,7 @@
 
     <!-- QC Lines Expandable Action -->
     <record id="action_brewing_tea_qc_lines" model="ir.actions.act_window">
-        <field name="name">Quality Check Lines</field>
+        <field name="name">BREWING TEA (Accordion)</field>
         <field name="res_model">brewing.tea.qc.line</field>
         <field name="view_mode">list</field>
         <field name="search_view_id" ref="view_brewing_tea_qc_line_search"/>
