@@ -35,6 +35,13 @@ def _due(move):
     return move.invoice_date_due
 
 
+def _sales_employee(move):
+    """The field employee whose order the invoice is for, else the salesperson on the invoice."""
+    orders = move.invoice_line_ids.sale_line_ids.order_id
+    employee = orders.filtered('ff_employee_id')[:1].ff_employee_id if 'ff_employee_id' in orders._fields else None
+    return (employee.name if employee else None) or move.invoice_user_id.name or None
+
+
 def _check_accounting():
     if 'account.move' not in request.env:
         raise ApiError('Invoicing is not installed.', 404, 'not_found')
@@ -100,7 +107,7 @@ class FieldForceReceivablesApi(http.Controller):
                     'id': move.id, 'source': 'move', 'number': move.name,
                     'who': move.partner_id.commercial_partner_id, 'date': move.invoice_date,
                     'due': _due(move), 'amount': move.amount_total_signed, 'residual': move.amount_residual_signed,
-                    'refund': move.move_type == 'out_refund', 'salesperson': move.invoice_user_id.name or None})
+                    'refund': move.move_type == 'out_refund', 'salesperson': _sales_employee(move)})
         if 'ff.outlet.invoice' in env and kind in (None, '', 'outlet'):
             outlet_domain = [('state', 'in', ('open', 'partial')), ('company_id', '=', company.id)]
             if partner_id:
@@ -226,7 +233,7 @@ class FieldForceReceivablesApi(http.Controller):
                 '%s days credit' % (due - move.invoice_date).days if due and move.invoice_date else None),
             'payment_state': move.payment_state, 'reference': move.ref or None,
             'order': order.name or None,
-            'salesperson': move.invoice_user_id.name or None,
+            'salesperson': _sales_employee(move),
             'currency': move.currency_id.name,
             'untaxed': move.amount_untaxed_signed, 'tax': move.amount_tax_signed,
             'total': move.amount_total_signed, 'paid': round(move.amount_total_signed - move.amount_residual_signed, 2),
