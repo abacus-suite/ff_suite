@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- List / Tree View -->
+    <!-- List View -->
     <record id="view_brewing_tea_list" model="ir.ui.view">
         <field name="name">brewing.tea.list</field>
         <field name="model">brewing.tea</field>
@@ -76,7 +76,7 @@
                                     <field name="remarks" string="Remarks / Observation" optional="show"/>
                                 </list>
                             </field>
-                            <group class="oe_subtotal_footer oe_right">
+                            <group class="oe_subtotal_footer">
                                 <field name="qc_count_total" string="Total Checks" readonly="1"/>
                                 <field name="qc_count_pass" string="Passed" readonly="1"/>
                                 <field name="qc_count_fail" string="Failed" readonly="1"/>
@@ -107,9 +107,8 @@
                 <filter name="filter_pending" string="QC In Progress" domain="[('qc_status', '=', 'pending')]"/>
                 <filter name="filter_draft" string="Draft" domain="[('qc_status', '=', 'draft')]"/>
                 <separator/>
-                <filter name="filter_today" string="Today's Preparation"
-                        domain="[('preparation_date', '=', context_today().strftime('%Y-%m-%d'))]"/>
-                <group expand="0" string="Group By">
+                <filter name="filter_prep_date" string="Preparation Date" date="preparation_date"/>
+                <group>
                     <filter name="group_qc_status" string="QC Status" context="{'group_by': 'qc_status'}"/>
                     <filter name="group_prep_date" string="Preparation Date" context="{'group_by': 'preparation_date'}"/>
                     <filter name="group_user" string="Prepared By" context="{'group_by': 'user_id'}"/>
@@ -124,7 +123,6 @@
         <field name="res_model">brewing.tea</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_brewing_tea_search"/>
-        <field name="context">{'search_default_filter_today': 0}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 No Brewing Tea batches found. Let's create one!
