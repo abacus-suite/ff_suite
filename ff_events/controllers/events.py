@@ -210,6 +210,8 @@ def _event_data(event, detail=False):
             'stock': [{'distributor': ref(s.distributor_id), 'product_id': s.product_id.id, 'qty': s.qty,
                        'date': s.date.isoformat()} for s in todays_stock],
             'day_dates': [d.date.isoformat() for d in event.day_ids],
+            # What stayed at the event from the last closed day, distributor by distributor and flavour by flavour.
+            'carry': _carry(event, previous, returned_yesterday),
             # How the last closed day ended, for the Start Day page.
             'last_day': (lambda d: {
                 'date': d.date.isoformat(), 'closing_action': d.closing_action,
@@ -220,6 +222,21 @@ def _event_data(event, detail=False):
             'distributors': [ref(d) for d in event.stock_ids.mapped('distributor_id')],
         })
     return data
+
+
+def _carry(event, previous, returned_yesterday):
+    """``[{distributor, product_id, qty}]``: the bottles each distributor's stock still has at the event from the last day."""
+    if not previous or returned_yesterday:
+        return []
+    from .event_reports import _distributor_ledger  # lazy: event_reports imports this module
+    ledger, _coupons = _distributor_ledger(event)
+    partners = {p.id: p for p in event.stock_ids.mapped('distributor_id')}
+    out = []
+    for did, products in ledger.items():
+        for pid, row in products.items():
+            if row.get('closing', 0.0) > EPS and did in partners:
+                out.append({'distributor': ref(partners[did]), 'product_id': pid, 'qty': row['closing']})
+    return out
 
 
 def _geofence_m():
