@@ -80,17 +80,18 @@ class FieldForceExpensesApi(http.Controller):
         })
 
     @api_route('/api/v1/expenses', methods=('GET',))
-    def expenses(self, employee, month=None, **kw):
+    def expenses(self, employee, month=None, kind=None, **kw):
         first, last = month_bounds(employee, month)
+        kind = 'card' if kind == 'card' else 'claim'
         claims = request.env['ff.expense.claim'].sudo().search([
-            ('employee_id', '=', employee.id), ('kind', '=', 'claim'),
+            ('employee_id', '=', employee.id), ('kind', '=', kind),
             ('date', '>=', first), ('date', '<=', last),
         ])
         current_first = employee._ff_today().replace(day=1)
         if first == current_first:
             # Everything not yet sent from older periods, so nothing is forgotten in the current month view.
             unsent = request.env['ff.expense.claim'].sudo().search([
-                ('employee_id', '=', employee.id), ('kind', '=', 'claim'), ('state', '=', 'draft'),
+                ('employee_id', '=', employee.id), ('kind', '=', kind), ('state', '=', 'draft'),
                 ('date', '<', first), ('id', 'not in', claims.ids)])
             every = claims | unsent
         else:
