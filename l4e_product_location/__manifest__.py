@@ -27,7 +27,6 @@ L4E Product Location Routing
     'data': [
         'data/stock_location_data.xml',
         'views/product_template_views.xml',
-        'views/stock_picking_views.xml',
     ],
     'post_init_hook': 'post_init_hook',
     'installable': True,
