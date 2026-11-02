@@ -275,18 +275,6 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             const SizedBox(height: 10),
             if (_claims.isEmpty && !_loading) const EmptyView(icon: Icons.receipt_rounded, text: 'No expenses this month'),
             for (final c in _claims) _tile(c, currency),
-            const SizedBox(height: 14),
-            // TA and DA sit on the same page, below the expenses.
-            _allowanceCard(Icons.local_gas_station_rounded, 'Travel Allowance (TA)',
-                'Claims for the kilometres travelled', AppColors.purple,
-                () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllowanceScreen()))),
-            _allowanceCard(Icons.restaurant_rounded, 'Daily Allowance (DA)', 'Daily allowance claims', AppColors.teal,
-                () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DailyAllowanceScreen()))),
-            _allowanceCard(Icons.timer_rounded, 'OLA', 'Monthly allowance by the hours worked', AppColors.warning,
-                () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OlaScreen()))),
-            _allowanceCard(Icons.request_quote_rounded, 'Payment requests', 'Paid directly by accounts · tax invoices',
-                const Color(0xFF7C3AED),
-                () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaymentRequestsScreen()))),
           ],
         ),
         ),
@@ -334,16 +322,18 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
   Widget _dialButton() => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
         if (_dial) ...[
+          _dialOption(Icons.local_gas_station_rounded, AppColors.purple, 'Travel Allowance (TA)',
+              () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AllowanceScreen()))),
+          _dialOption(Icons.restaurant_rounded, AppColors.teal, 'Daily Allowance (DA)',
+              () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DailyAllowanceScreen()))),
+          _dialOption(Icons.timer_rounded, AppColors.warning, 'OLA',
+              () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const OlaScreen()))),
           _dialOption(Icons.receipt_long_rounded, const Color(0xFF7C3AED), 'Expense Claim', () => _new('claim')),
           if (Services.auth.profile?.expenseCard ?? false)
             _dialOption(Icons.credit_card_rounded, AppColors.primary, 'Company Card', () => _new('card')),
-          _dialOption(Icons.request_quote_rounded, const Color(0xFF2563EB), 'Payment Request', () async {
-            final sent = await Navigator.of(context)
-                .push<bool>(MaterialPageRoute(builder: (_) => const PaymentRequestFormScreen()));
-            if (sent == true && mounted) {
-              await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaymentRequestsScreen()));
-            }
-          }),
+          // The requests with their invoices to upload, and a button there for a new one.
+          _dialOption(Icons.request_quote_rounded, const Color(0xFF2563EB), 'Payment Request',
+              () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PaymentRequestsScreen()))),
         ],
         FloatingActionButton(
           tooltip: 'New expense',
@@ -352,20 +342,6 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               turns: _dial ? 0.125 : 0, duration: const Duration(milliseconds: 180), child: const Icon(Icons.add_rounded, size: 30)),
         ),
       ]);
-
-  Widget _allowanceCard(IconData icon, String title, String subtitle, Color tint, VoidCallback onTap) => Card(
-        margin: const EdgeInsets.only(bottom: 10),
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: tint.withValues(alpha: 0.12),
-            child: Icon(icon, color: tint),
-          ),
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-          subtitle: Text(subtitle),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: onTap,
-        ),
-      );
 
   Widget _total(String label, num? v, String? currency, Color tint) => Container(
         margin: const EdgeInsets.only(top: 10),
@@ -416,36 +392,6 @@ class _Detail extends StatelessWidget {
           const SizedBox(height: 6),
           const Text('A sent expense cannot be edited.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
         ]),
-      ),
-    );
-  }
-}
-
-/// Daily allowance: the screen is in place; the claim rules are still to be given.
-class _DailyAllowanceScreen extends StatelessWidget {
-  const _DailyAllowanceScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Daily Allowance (DA)')),
-      body: const Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.restaurant_rounded, size: 48, color: AppColors.teal),
-              SizedBox(height: 12),
-              Text('Daily allowance claims',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-              SizedBox(height: 6),
-              Text('Your daily allowance claims will be listed here once they are switched on.',
-                  textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
-            ],
-          ),
-        ),
       ),
     );
   }
