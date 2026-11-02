@@ -1215,6 +1215,66 @@ class _ActiveEventCardState extends State<ActiveEventCard> {
   }
 }
 
+/// Distributor by distributor: each flavour with what stayed from yesterday, what is added today, and the total.
+Widget _openingByDistributor({
+  required List<Map<String, dynamic>> products,
+  required Map<int, String> names,
+  required Map<int, Map<int, num>> stayed,
+  required Map<int, Map<int, num>> added,
+  String stayedLabel = 'stayed',
+}) {
+  final ids = {...stayed.keys, ...added.keys}.toList()..sort((a, b) => (names[a] ?? '').compareTo(names[b] ?? ''));
+  num grand = 0;
+  final children = <Widget>[];
+  for (final id in ids) {
+    final rows = [
+      for (final p in products)
+        if (((stayed[id]?[p['id']] ?? 0) + (added[id]?[p['id']] ?? 0)) > 0) p,
+    ];
+    if (rows.isEmpty) continue;
+    final total = rows.fold<num>(0, (a, p) => a + (stayed[id]?[p['id']] ?? 0) + (added[id]?[p['id']] ?? 0));
+    grand += total;
+    children.add(Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 2),
+      child: Row(children: [
+        Expanded(child: Text(names[id] ?? '', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary))),
+        Text(_q(total), style: const TextStyle(fontWeight: FontWeight.w900)),
+      ]),
+    ));
+    for (final p in rows) {
+      final kept = stayed[id]?[p['id']] ?? 0;
+      final plus = added[id]?[p['id']] ?? 0;
+      children.add(Padding(
+        padding: const EdgeInsets.fromLTRB(10, 3, 0, 3),
+        child: Row(children: [
+          Expanded(child: Text(flavourLabel(p), style: const TextStyle(fontSize: 13))),
+          if (kept > 0)
+            Text('${_q(kept)} $stayedLabel', style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+          if (kept > 0 && plus > 0) const Text('  +  ', style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+          if (plus > 0) Text('${_q(plus)} added', style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+          const SizedBox(width: 10),
+          Text(_q(kept + plus), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+        ]),
+      ));
+    }
+  }
+  if (children.isEmpty) return const SizedBox.shrink();
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('By distributor', style: TextStyle(fontWeight: FontWeight.w900)),
+      ...children,
+      const Divider(),
+      Row(children: [
+        const Expanded(child: Text('Total', style: TextStyle(fontWeight: FontWeight.w900))),
+        Text(_q(grand), style: const TextStyle(fontWeight: FontWeight.w900)),
+      ]),
+    ]),
+  );
+}
+
 // ====================================================================== next day: opening stock
 class _NextDayStockScreen extends StatefulWidget {
   const _NextDayStockScreen({required this.event});
@@ -1235,6 +1295,47 @@ class _NextDayStockScreenState extends State<_NextDayStockScreen> {
   bool _busy = false;
 
   bool get _returned => widget.event['returned_yesterday'] == true;
+
+  /// What stayed at the event from yesterday: distributor -> flavour -> bottles.
+  Map<int, Map<int, num>> get _stayed {
+    if (_returned) return {};
+    final out = <int, Map<int, num>>{};
+    for (final r in _list(widget.event['carry'])) {
+      final d = (r['distributor'] as Map)['id'] as int;
+      final mine = out.putIfAbsent(d, () => {});
+      final pid = r['product_id'] as int;
+      mine[pid] = (mine[pid] ?? 0) + _n(r['qty']);
+    }
+    return out;
+  }
+
+  /// What is being added today, by the distributor chosen for each block.
+  Map<int, Map<int, num>> get _addedNow {
+    final out = <int, Map<int, num>>{};
+    for (final b in _blocks) {
+      final d = b.distributor;
+      if (d == null) continue;
+      b.qty.forEach((pid, c) {
+        final v = num.tryParse(c.text.trim()) ?? 0;
+        if (v <= 0) return;
+        final mine = out.putIfAbsent(d, () => {});
+        mine[pid] = (mine[pid] ?? 0) + v;
+      });
+    }
+    return out;
+  }
+
+  Map<int, String> get _names {
+    final out = <int, String>{for (final d in _distributors) d['id'] as int: '${d['name']}'};
+    for (final r in _list(widget.event['carry'])) {
+      final d = r['distributor'] as Map;
+      out.putIfAbsent(d['id'] as int, () => '${d['name']}');
+    }
+    for (final d in _list(widget.event['distributors'])) {
+      out.putIfAbsent(d['id'] as int, () => '${d['name']}');
+    }
+    return out;
+  }
 
   @override
   void initState() {
@@ -1300,6 +1401,8 @@ class _NextDayStockScreenState extends State<_NextDayStockScreen> {
             const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No stock entered.', style: TextStyle(color: AppColors.muted)))
           else
             _Grid(products: _allProducts.where((p) => (totals[p['id']] ?? 0) > 0).toList(), values: totals),
+          const SizedBox(height: 14),
+          _openingByDistributor(products: _allProducts, names: _names, stayed: _stayed, added: _addedNow),
           const SizedBox(height: 16),
           Row(children: [
             Expanded(
@@ -1340,6 +1443,9 @@ class _NextDayStockScreenState extends State<_NextDayStockScreen> {
           _notice('No return yesterday – opening stock = yesterday\'s closing stock.'),
           _sectionTitle('Opening stock (from Day ${(widget.event['day_no'] as num) - 1} closing)'),
           _Grid(products: _products, values: carried),
+          const SizedBox(height: 10),
+          // Yesterday's stay, distributor by distributor and flavour by flavour.
+          _openingByDistributor(products: _allProducts, names: _names, stayed: _stayed, added: const {}),
           const SizedBox(height: 14),
         ],
         _StockEditor(
