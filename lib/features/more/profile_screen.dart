@@ -278,6 +278,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _badge(active),
                   ],
                 ),
+                // The Field Employee Code, right under the name.
+                if (profile.code != null && profile.code!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text('Employee ID: ${profile.code}',
+                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800)),
+                ],
                 if (designation != null && '$designation'.trim().isNotEmpty) ...[
                   const SizedBox(height: 3),
                   Text('$designation',
