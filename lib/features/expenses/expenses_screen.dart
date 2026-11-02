@@ -394,34 +394,16 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     if (mounted) _load();
   }
 
-  /// What this category holds in the month: claimed and, when it differs, approved.
-  Map<String, dynamic>? _sum(String key) => ((_data?['categories'] as Map?)?[key] as Map?)?.cast<String, dynamic>();
-
-  Widget _category(String key, IconData icon, String title, String subtitle, Color tint, Widget screen) {
-    final sum = _sum(key);
-    final currency = _data?['currency'] as String?;
-    final claimed = (sum?['claimed'] as num?) ?? 0;
-    final approved = (sum?['approved'] as num?) ?? 0;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: CircleAvatar(backgroundColor: tint.withValues(alpha: 0.12), child: Icon(icon, color: tint)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-        subtitle: Text(subtitle),
-        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          if (sum != null && ((sum['count'] as num?) ?? 0) > 0)
-            Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(fmtMoney(claimed, currency), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
-              if (key != 'card')
-                Text('${fmtMoney(approved, currency)} approved',
-                    style: const TextStyle(fontSize: 10.5, color: AppColors.success, fontWeight: FontWeight.w700)),
-            ]),
-          const Icon(Icons.chevron_right_rounded),
-        ]),
-        onTap: () => _go(screen),
-      ),
-    );
-  }
+  Widget _category(String key, IconData icon, String title, String subtitle, Color tint, Widget screen) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: ListTile(
+          leading: CircleAvatar(backgroundColor: tint.withValues(alpha: 0.12), child: Icon(icon, color: tint)),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: Text(subtitle),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => _go(screen),
+        ),
+      );
 
   Widget _total(String label, num? v, String? currency, Color tint) => Container(
         margin: const EdgeInsets.only(top: 10),
