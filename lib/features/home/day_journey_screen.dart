@@ -256,7 +256,12 @@ class _DayJourneyScreenState extends State<DayJourneyScreen> with SingleTickerPr
   Widget _summary(List<_Moment> moments) {
     final first = moments.isEmpty ? null : moments.first.at;
     final last = _isToday ? DateTime.now() : (moments.isEmpty ? null : moments.last.at);
-    final minutes = first != null && last != null ? last.difference(first).inMinutes : 0;
+    // The time spent moving, as the server worked it out from the positions; the hours since check-in only when an
+    // older server does not send it.
+    final moving = _data?['travel_minutes'] as num?;
+    final minutes = moving != null
+        ? moving.toInt()
+        : (first != null && last != null ? last.difference(first).inMinutes : 0);
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -265,7 +270,7 @@ class _DayJourneyScreenState extends State<DayJourneyScreen> with SingleTickerPr
           children: [
             _figure('${_km.toStringAsFixed(1)} km', 'Travelled', Icons.route_rounded, AppColors.primary),
             _figure('${_visits.length}', 'Visits', Icons.storefront_rounded, AppColors.purple),
-            _figure(minutes <= 0 ? '-' : (minutes >= 60 ? '${minutes ~/ 60}h ${minutes % 60}m' : '$minutes min'),
+            _figure(minutes <= 0 ? '0 min' : (minutes >= 60 ? '${minutes ~/ 60}h ${minutes % 60}m' : '$minutes min'),
                 'On the road', Icons.timer_rounded, AppColors.success),
             _figure(fmtMoney(_sold, _currency), 'Sold', Icons.shopping_bag_rounded, AppColors.warning),
           ],
