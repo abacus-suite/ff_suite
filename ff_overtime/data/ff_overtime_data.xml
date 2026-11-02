@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Approved overtime is added here, in hours, and leave of this type is asked for in hours. Created once; the
+         type can be renamed or changed afterwards, and any other type can be marked "Compensatory off". -->
+    <data noupdate="1">
+        <record id="leave_type_comp_off_overtime" model="hr.leave.type">
+            <field name="name">Compensatory Off (Overtime)</field>
+            <field name="requires_allocation">yes</field>
+            <field name="request_unit">hour</field>
+            <field name="leave_validation_type">manager</field>
+            <field name="ff_show_in_app" eval="True"/>
+            <field name="ff_comp_off" eval="True"/>
+        </record>
+    </data>
+</odoo>

@@ -44,6 +44,9 @@ class HrLeave(models.Model):
             'from': self.request_date_from and self.request_date_from.isoformat(),
             'to': self.request_date_to and self.request_date_to.isoformat(),
             'days': self.number_of_days,
+            'hours': round(self.number_of_hours or 0.0, 2) if 'number_of_hours' in self._fields else None,
+            'hour_from': float(self.request_hour_from) if self.request_unit_hours and self.request_hour_from else None,
+            'hour_to': float(self.request_hour_to) if self.request_unit_hours and self.request_hour_to else None,
             'half_day': self.request_unit_half,
             'half_day_period': (self.request_date_from_period or None)
             if self.request_unit_half and 'request_date_from_period' in self._fields else None,
@@ -102,6 +105,18 @@ class HrLeave(models.Model):
             used = number('leaves_taken') if 'leaves_taken' in leave_type._fields else round(sum(taken.mapped('number_of_days')), 2)
             pending_days = round(sum(pending.mapped('number_of_days')), 2)
             remaining = number('virtual_remaining_leaves')
+            if leave_type.request_unit == 'hour':
+                # Asked for by the hour: the balance is in hours too (what was given, used, waiting, left).
+                per_day = employee.sudo().resource_calendar_id.hours_per_day or 8.0
+                given = sum(a.number_of_days * per_day for a in self.env['hr.leave.allocation'].sudo().search([
+                    ('employee_id', '=', employee.id), ('holiday_status_id', '=', leave_type.id),
+                    ('state', '=', 'validate')])) if 'hr.leave.allocation' in self.env else 0.0
+                allocated = round(given, 2)
+                used = round(sum(Leave.search([
+                    ('employee_id', '=', employee.id), ('holiday_status_id', '=', leave_type.id),
+                    ('state', '=', 'validate')]).mapped('number_of_hours')), 2)
+                pending_days = round(sum(pending.mapped('number_of_hours')), 2)
+                remaining = round(allocated - used - pending_days, 2)
             rows.append({
                 'id': leave_type.id,
                 'name': leave_type.name,
@@ -165,7 +180,19 @@ class HrLeave(models.Model):
             'request_date_to': date_to,
             'name': (data.get('reason') or '').strip() or self.env._('Requested from the app'),
         }
-        if data.get('half_day'):
+        if leave_type.request_unit == 'hour' and data.get('hour_from') is not None:
+            # By the hour: one day, from a time to a time.
+            try:
+                hour_from, hour_to = float(data['hour_from']), float(data['hour_to'])
+            except (TypeError, ValueError, KeyError):
+                raise UserError(self.env._('Choose the time you are asking for.'))
+            if hour_to <= hour_from:
+                raise UserError(self.env._('The end time must be after the start time.'))
+            kind = self._fields['request_hour_from'].type
+            convert = (lambda v: '%g' % v) if kind == 'selection' else float
+            values.update({'request_unit_hours': True, 'request_date_to': date_from,
+                           'request_hour_from': convert(hour_from), 'request_hour_to': convert(hour_to)})
+        elif data.get('half_day'):
             values.update({'request_unit_half': True, 'request_date_to': date_from})
             if 'request_date_from_period' in self._fields:
                 values['request_date_from_period'] = 'pm' if data.get('half_day_period') == 'pm' else 'am'

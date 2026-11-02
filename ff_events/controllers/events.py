@@ -163,7 +163,9 @@ def _access(event):
     if viewer is None:
         return {}
     works = _works_on(viewer, event)
-    return {'can_act': works, 'can_edit_staff': (works or _manages(viewer, event)) and event.state != 'done'}
+    # Who conducts an event is for managers to change: a manager of the people on it, or one who runs it himself.
+    manager = bool(viewer._ff_subordinates()) and (works or _manages(viewer, event))
+    return {'can_act': works, 'can_edit_staff': manager and event.state != 'done'}
 
 
 def _event_data(event, detail=False):
@@ -540,6 +542,8 @@ class FieldForceEventsApi(http.Controller):
     def staff_options(self, employee, event_id, **kw):
         """Who conducts the event, and who could be added."""
         event = _viewable(employee, event_id)
+        if not employee._ff_subordinates():
+            raise ApiError('Only a manager can change who conducts an event.', 403, 'forbidden')
         return ok({'staff': [ref(s) for s in event.staff_ids], 'candidates': [ref(s) for s in _pool(employee, event)],
                    'created_by': ref(event.employee_id), **_access(event)})
 
@@ -549,6 +553,8 @@ class FieldForceEventsApi(http.Controller):
         event = _viewable(employee, event_id)
         if event.state == 'done':
             raise ApiError('This event has ended.', 400, 'invalid')
+        if not employee._ff_subordinates():
+            raise ApiError('Only a manager can change who conducts an event.', 403, 'forbidden')
         wanted = request.env['hr.employee'].sudo().browse([int(i) for i in (body().get('staff_ids') or [])]).exists()
         if not wanted:
             raise ApiError('An event needs at least one person conducting it.', 400, 'invalid')

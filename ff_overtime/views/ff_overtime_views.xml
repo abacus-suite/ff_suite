@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="hr_leave_type_form_ff_overtime" model="ir.ui.view">
+        <field name="name">hr.leave.type.form.ff_overtime</field>
+        <field name="model">hr.leave.type</field>
+        <field name="inherit_id" ref="hr_holidays.edit_holiday_status_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='ff_app']" position="inside">
+                <field name="ff_comp_off" string="Compensatory off for overtime"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="ff_overtime_view_list" model="ir.ui.view">
+        <field name="name">ff.overtime.list</field>
+        <field name="model">ff.overtime</field>
+        <field name="arch" type="xml">
+            <list decoration-info="state == 'submitted'" decoration-muted="state == 'rejected'">
+                <field name="date"/>
+                <field name="employee_id"/>
+                <field name="worked_minutes" string="Worked (min)"/>
+                <field name="expected_minutes" string="Shift (min)"/>
+                <field name="overtime_minutes" string="Overtime (min)"/>
+                <field name="approved_minutes" string="Approved (min)"/>
+                <field name="state" widget="badge" decoration-info="state == 'submitted'"
+                       decoration-success="state == 'approved'" decoration-danger="state == 'rejected'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_overtime_view_form" model="ir.ui.view">
+        <field name="name">ff.overtime.form</field>
+        <field name="model">ff.overtime</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,approved"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="employee_id"/>
+                            <field name="date"/>
+                            <field name="worked_minutes"/>
+                            <field name="expected_minutes"/>
+                            <field name="overtime_minutes"/>
+                        </group>
+                        <group>
+                            <field name="approved_minutes"/>
+                            <field name="approver_id"/>
+                            <field name="decided_at"/>
+                            <field name="allocation_id"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="ff_overtime_action" model="ir.actions.act_window">
+        <field name="name">Overtime</field>
+        <field name="res_model">ff.overtime</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_ff_overtime" name="Overtime" parent="ff_attendance.menu_ff_attendance"
+              action="ff_overtime_action" sequence="25"/>
+</odoo>
