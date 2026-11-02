@@ -1,22 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Top Navigation Menu under Manufacturing App -->
+    <!-- Top Navigation Menu: Opens the Accordion view directly! -->
     <menuitem id="menu_brewing_tea_root"
               name="BREWING TEA"
               parent="mrp.menu_mrp_root"
-              action="action_brewing_tea"
+              action="action_brewing_tea_accordion"
               sequence="15"/>
 
-    <!-- Under Operations dropdown -->
+    <!-- Operations Dropdown Menu: BREWING TEA (Accordion) -->
     <menuitem id="menu_brewing_tea_operations"
               name="BREWING TEA"
               parent="mrp.menu_mrp_manufacturing"
-              action="action_brewing_tea"
+              action="action_brewing_tea_accordion"
               sequence="25"/>
 
-    <menuitem id="menu_brewing_tea_qc_lines"
-              name="Brewing QC Lines (Expandable)"
+    <!-- Operations Dropdown: Full Batches Form / List -->
+    <menuitem id="menu_brewing_tea_batches"
+              name="Brewing Tea Batches"
               parent="mrp.menu_mrp_manufacturing"
-              action="action_brewing_tea_qc_lines"
+              action="action_brewing_tea"
               sequence="26"/>
 </odoo>
