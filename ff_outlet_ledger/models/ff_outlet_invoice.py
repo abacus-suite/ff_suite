@@ -97,25 +97,12 @@ class FfOutletInvoice(models.Model):
 
     @api.model
     def _ff_due_date(self, partner, date):
-        """When an invoice to ``partner`` falls due: its credit days, else its payment terms, else the default."""
-        ICP = self.env['ir.config_parameter'].sudo()
+        """When an invoice to ``partner`` falls due: its credit days, else the default due days of the settings."""
         partner = partner.sudo().commercial_partner_id
         days = getattr(partner, 'ff_credit_days', 0) or 0
-        if days > 0:
-            return date + timedelta(days=days)
-        term = partner.property_payment_term_id
-        if not term:
-            term_id = int(ICP.get_param('ff_base.invoice_payment_term_id') or 0)
-            term = self.env['account.payment.term'].sudo().browse(term_id).exists()
-        if term and term.line_ids:
-            last = term.line_ids.sorted('id')[-1]
-            nb = getattr(last, 'nb_days', 0) or 0
-            kind = getattr(last, 'delay_type', 'days_after')
-            due = date + timedelta(days=nb)
-            if kind == 'days_after_end_of_month':
-                due = (date.replace(day=1) + timedelta(days=32)).replace(day=1) - timedelta(days=1) + timedelta(days=nb)
-            return due
-        return date + timedelta(days=int(ICP.get_param('ff_base.invoice_due_days') or 30))
+        if days <= 0:
+            days = int(self.env['ir.config_parameter'].sudo().get_param('ff_base.invoice_due_days') or 30)
+        return date + timedelta(days=days)
 
     @api.model
     def ff_from_order(self, order):

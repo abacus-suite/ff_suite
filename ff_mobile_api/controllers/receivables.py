@@ -30,10 +30,9 @@ def _bucket(days_overdue):
 
 
 def _due(move):
-    """The due date receivables go by: the contact's credit days, else the default of the settings, else the
-    payment terms of the invoice itself."""
-    effective = getattr(move, '_ff_effective_due', None)
-    return effective() if effective else move.invoice_date_due
+    """The due date of the invoice, as it is on the invoice: it is set when the invoice is created or posted, from the
+    contact's credit days or the default due days of the settings (ff_outlet_ledger)."""
+    return move.invoice_date_due
 
 
 def _check_accounting():
@@ -89,37 +88,51 @@ class FieldForceReceivablesApi(http.Controller):
         Order = env.get('sale.order')
         if not partner_id and Order is not None and 'ff_employee_id' in Order._fields:
             reach.append([('invoice_line_ids.sale_line_ids.order_id.ff_employee_id', 'in', mine)])
-        dues = {}
-        if not reach:
-            moves = env['account.move']
-        else:
+        # Every open item as one list: the posted invoices, and the invoices the outlets owe through the demand flow.
+        items = []
+        if reach:
             move_domain += ['|'] * (len(reach) - 1) + [term for branch in reach for term in branch]
             # Outlets or distributors only, when one of the two buttons is chosen.
             if kind in ('outlet', 'distributor'):
                 move_domain.append(('partner_id.commercial_partner_id.ff_category_type', '=', kind))
-            # The totals and the ageing are of every open invoice; only the list on screen is cut to ``limit``.
-            moves = env['account.move'].sudo().search(move_domain, order='invoice_date_due asc, id asc', limit=5000)
-            # The due date is worked out per invoice, so overdue and due-soon are filtered here, not in the query.
-            dues = {m.id: _due(m) for m in moves}
-            if filter == 'overdue':
-                moves = moves.filtered(lambda m: dues[m.id] and dues[m.id] < today)
-            elif filter == 'due_soon':
-                moves = moves.filtered(lambda m: dues[m.id] and today <= dues[m.id] <= today + timedelta(days=7))
-            moves = moves.sorted(lambda m: (dues[m.id] or today, m.id))
+            for move in env['account.move'].sudo().search(move_domain, limit=5000):
+                items.append({
+                    'id': move.id, 'source': 'move', 'number': move.name,
+                    'who': move.partner_id.commercial_partner_id, 'date': move.invoice_date,
+                    'due': _due(move), 'amount': move.amount_total_signed, 'residual': move.amount_residual_signed,
+                    'refund': move.move_type == 'out_refund', 'salesperson': move.invoice_user_id.name or None})
+        if 'ff.outlet.invoice' in env and kind in (None, '', 'outlet'):
+            outlet_domain = [('state', 'in', ('open', 'partial')), ('company_id', '=', company.id)]
+            if partner_id:
+                outlet_domain.append(('partner_id', 'child_of', families.ids))
+            else:
+                outlet_domain += ['|', ('partner_id', 'child_of', families.ids), ('employee_id', 'in', mine)]
+            for invoice in env['ff.outlet.invoice'].sudo().search(outlet_domain, limit=5000):
+                items.append({
+                    'id': invoice.id, 'source': 'outlet', 'number': invoice.name,
+                    'who': invoice.partner_id.commercial_partner_id, 'date': invoice.date,
+                    'due': invoice.due_date, 'amount': invoice.amount_total, 'residual': invoice.amount_pending,
+                    'refund': False, 'salesperson': invoice.employee_id.name or None})
+        # The due date is each invoice's own, so overdue and due-soon are filtered here, not in the query.
+        if filter == 'overdue':
+            items = [i for i in items if i['due'] and i['due'] < today]
+        elif filter == 'due_soon':
+            items = [i for i in items if i['due'] and today <= i['due'] <= today + timedelta(days=7)]
+        items.sort(key=lambda i: (i['due'] or today, i['id']))
         shown = min(to_int(limit) or 200, 500)
         ageing = {key: 0.0 for key, _label in BUCKETS}
         rows, total, overdue = [], 0.0, 0.0
         customers = {}
-        for move in moves:
-            residual = move.amount_residual_signed
-            due = dues.get(move.id)
+        for item in items:
+            residual = item['residual']
+            due = item['due']
             late_days = (today - due).days if due else 0
             bucket = _bucket(late_days)
             ageing[bucket] += residual
             total += residual
             if late_days > 0 and residual > 0:
                 overdue += residual
-            who = move.partner_id.commercial_partner_id
+            who = item['who']
             row = customers.setdefault(who.id, {
                 'customer': ref(who), 'total': 0.0, 'overdue': 0.0, 'count': 0, 'days_overdue': 0, 'bucket': 'not_due'})
             row['total'] += residual
@@ -131,17 +144,18 @@ class FieldForceReceivablesApi(http.Controller):
             if len(rows) >= shown:
                 continue
             rows.append({
-                'id': move.id,
-                'number': move.name,
-                'customer': ref(move.partner_id.commercial_partner_id),
-                'date': to_iso(move.invoice_date),
+                'id': item['id'],
+                'source': item['source'],
+                'number': item['number'],
+                'customer': ref(who),
+                'date': to_iso(item['date']),
                 'due_date': to_iso(due),
-                'amount': round(move.amount_total_signed, 2),
+                'amount': round(item['amount'], 2),
                 'residual': round(residual, 2),
                 'days_overdue': max(late_days, 0),
                 'bucket': bucket,
-                'is_refund': move.move_type == 'out_refund',
-                'salesperson': move.invoice_user_id.name or None,
+                'is_refund': item['refund'],
+                'salesperson': item['salesperson'],
             })
         # Nothing owing and nothing to show is one thing; an invoice sitting in
         # draft is another, and it is the usual reason somebody says their
@@ -160,7 +174,7 @@ class FieldForceReceivablesApi(http.Controller):
             'filter': filter,
             'total': round(total, 2),
             'overdue': round(overdue, 2),
-            'count': len(moves),
+            'count': len(items),
             'draft_count': drafts,
             'ageing': [{'key': key, 'label': label, 'amount': round(ageing[key], 2)} for key, label in BUCKETS],
             'invoices': rows,
@@ -207,7 +221,9 @@ class FieldForceReceivablesApi(http.Controller):
             'billed_to': ref(move.partner_id),
             'date': to_iso(move.invoice_date), 'due_date': to_iso(due),
             'days_overdue': max(late, 0), 'bucket': _bucket(late),
-            'payment_terms': move.invoice_payment_term_id.name or None,
+            # The terms of the invoice, or - when the due date comes from the contact's credit days - those days.
+            'payment_terms': move.invoice_payment_term_id.name or (
+                '%s days credit' % (due - move.invoice_date).days if due and move.invoice_date else None),
             'payment_state': move.payment_state, 'reference': move.ref or None,
             'order': order.name or None,
             'salesperson': move.invoice_user_id.name or None,
@@ -215,6 +231,45 @@ class FieldForceReceivablesApi(http.Controller):
             'untaxed': move.amount_untaxed_signed, 'tax': move.amount_tax_signed,
             'total': move.amount_total_signed, 'paid': round(move.amount_total_signed - move.amount_residual_signed, 2),
             'residual': move.amount_residual_signed,
+            'lines': lines, 'payments': payments, 'narration': None,
+        })
+
+    @api_route('/api/v1/receivables/outlet-invoice/<int:invoice_id>', methods=('GET',))
+    def outlet_invoice(self, employee, invoice_id, **kw):
+        """One invoice an outlet owes through the demand flow: dates, credit days and what has been collected."""
+        env = request.env
+        mine = (employee | employee._ff_subordinates()).ids
+        invoice = env['ff.outlet.invoice'].sudo().browse(invoice_id).exists()
+        if not invoice or (invoice.employee_id.id not in mine and not env['res.partner'].sudo().search_count(
+                client_domain(employee) + [('id', '=', invoice.partner_id.id)])):
+            raise ApiError('Invoice not found.', 404, 'not_found')
+        today = employee._ff_today()
+        due = invoice.due_date
+        late = (today - due).days if due else 0
+        days = (due - invoice.date).days if due and invoice.date else None
+        payments = [{'date': to_iso(line.payment_id.date) if 'date' in line.payment_id._fields else None,
+                     'amount': line.amount, 'name': line.payment_id.display_name}
+                    for line in invoice.payment_line_ids.filtered(lambda l: l.payment_id.state != 'rejected')]
+        demand = invoice.demand_id
+        lines = [{
+            'product': l.product_id.display_name, 'name': l.product_id.display_name,
+            'qty': l.quantity, 'uom': l.uom_id.name or None, 'price_unit': l.price_unit, 'discount': 0.0,
+            'taxes': [t.name for t in l.tax_ids], 'subtotal': l.subtotal, 'total': l.price_total,
+        } for l in demand.line_ids.filtered(lambda l: not getattr(l, 'is_foc', False))] if demand else []
+        return ok({
+            'id': invoice.id, 'number': invoice.name, 'is_refund': False,
+            'customer': ref(invoice.partner_id.commercial_partner_id), 'billed_to': ref(invoice.partner_id),
+            'date': to_iso(invoice.date), 'due_date': to_iso(due),
+            'days_overdue': max(late, 0), 'bucket': _bucket(late),
+            'payment_terms': '%s days credit' % days if days is not None else None,
+            'payment_state': invoice.state, 'reference': None,
+            'order': demand.name if demand else None,
+            'salesperson': invoice.employee_id.name or None,
+            'currency': invoice.currency_id.name,
+            'untaxed': sum(demand.line_ids.mapped('subtotal')) if demand else invoice.amount_total,
+            'tax': sum(demand.line_ids.mapped('price_tax')) if demand else 0.0,
+            'total': invoice.amount_total, 'paid': round(invoice.amount_total - invoice.amount_pending, 2),
+            'residual': invoice.amount_pending,
             'lines': lines, 'payments': payments, 'narration': None,
         })
 
