@@ -35,6 +35,23 @@ def _path(employee, target):
     return [employee] + chain
 
 
+def _moving_minutes(pings):
+    """Minutes spent going somewhere: the gaps between fixes in which the person covered real ground."""
+    from odoo.addons.ff_base.tools import get_param, haversine_m
+    accuracy = get_param(request.env, 'max_accuracy')
+    moving, previous = 0.0, None
+    for ping in pings.filtered(lambda p: not p.is_mock):
+        if accuracy and ping.accuracy and ping.accuracy > accuracy:
+            continue
+        if previous is not None:
+            seconds = (ping.ts - previous.ts).total_seconds()
+            metres = haversine_m(previous.latitude, previous.longitude, ping.latitude, ping.longitude)
+            if 0 < seconds <= 900 and metres >= 30 and metres / seconds * 3.6 >= 2:
+                moving += seconds
+        previous = ping
+    return int(round(moving / 60.0))
+
+
 class FieldForceTeamApi(http.Controller):
 
     @api_route('/api/v1/team/members', methods=('GET',))
@@ -213,6 +230,8 @@ class FieldForceTeamApi(http.Controller):
             'employee': ref(target),
             'date': day.isoformat(),
             'distance_km': track.distance_km if track else 0.0,
+            # The time actually spent moving, not the hours since check-in.
+            'travel_minutes': _moving_minutes(pings),
             'attendance': [attendance_data(a) for a in attendances],
             'visits': [visit_data(v) for v in visits],
             'plan': plan_data(plan),
