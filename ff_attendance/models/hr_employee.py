@@ -274,6 +274,17 @@ class HrEmployee(models.Model):
             else:
                 entry['open'] = True
 
+        # Approved time off: every day it covers, in the employee's local time.
+        leave_days = set()
+        if 'hr.leave' in self.env:
+            for leave in self.env['hr.leave'].sudo().search([
+                    ('employee_id', '=', employee.id), ('state', '=', 'validate'),
+                    ('date_from', '<', end), ('date_to', '>=', start)]):
+                day = employee._ff_to_local(leave.date_from).date()
+                until = employee._ff_to_local(leave.date_to).date()
+                while day <= until:
+                    leave_days.add(day)
+                    day += timedelta(days=1)
         today = employee._ff_today()
         shift = employee.ff_shift_id
         days, summary = [], {}
@@ -285,6 +296,8 @@ class HrEmployee(models.Model):
                 half_day_hours = entry['shift'].half_day_hours if entry['shift'] else 0
                 if not entry['open'] and day < today and entry['worked_hours'] < half_day_hours:
                     status = 'half_day'
+            elif day in leave_days:
+                status = 'leave'
             elif self.env['ff.holiday']._ff_for(employee, day):
                 # Before "upcoming", so a holiday still to come is shown as one.
                 status = 'holiday'
