@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- List / Tree View -->
+    <record id="view_brewing_tea_list" model="ir.ui.view">
+        <field name="name">brewing.tea.list</field>
+        <field name="model">brewing.tea</field>
+        <field name="arch" type="xml">
+            <list string="Brewing Tea"
+                  decoration-success="qc_status == 'pass'"
+                  decoration-danger="qc_status == 'fail'"
+                  decoration-warning="qc_status == 'pending'">
+                <field name="name" string="SI No"/>
+                <field name="preparation_date" string="Preparation Date"/>
+                <field name="quantity" string="Quantity" sum="Total Quantity"/>
+                <field name="qc_status" string="QC Status" widget="badge"
+                       decoration-success="qc_status == 'pass'"
+                       decoration-danger="qc_status == 'fail'"
+                       decoration-warning="qc_status == 'pending'"
+                       decoration-muted="qc_status == 'draft'"/>
+                <field name="user_id" string="Prepared By" optional="show" widget="many2one_avatar_user"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_brewing_tea_form" model="ir.ui.view">
+        <field name="name">brewing.tea.form</field>
+        <field name="model">brewing.tea</field>
+        <field name="arch" type="xml">
+            <form string="Brewing Tea">
+                <header>
+                    <button name="action_load_default_qc_lines" string="Load QC Checklist"
+                            type="object" class="btn-outline-primary"
+                            invisible="qc_status not in ('draft', 'pending')"/>
+                    <button name="action_mark_pass" string="Mark as Passed"
+                            type="object" class="btn-success"
+                            invisible="qc_status == 'pass'"/>
+                    <button name="action_mark_fail" string="Mark as Failed"
+                            type="object" class="btn-danger"
+                            invisible="qc_status == 'fail'"/>
+                    <button name="action_reset_draft" string="Reset to Draft"
+                            type="object" class="btn-secondary"
+                            invisible="qc_status == 'draft'"/>
+                    <field name="qc_status" widget="statusbar"
+                           statusbar_visible="draft,pending,pass,fail"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" string="SI No"/>
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="preparation_date"/>
+                            <field name="quantity"/>
+                        </group>
+                        <group>
+                            <field name="user_id" widget="many2one_avatar_user"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Quality Check" name="quality_check">
+                            <field name="qc_line_ids">
+                                <list editable="bottom" string="Quality Checks">
+                                    <field name="sl_no" string="SI No"/>
+                                    <field name="description" string="Description"
+                                           placeholder="e.g. Temperature, Color, Taste, Brix, pH"/>
+                                    <field name="status" string="Pass / Fail" widget="badge"
+                                           decoration-success="status == 'pass'"
+                                           decoration-danger="status == 'fail'"
+                                           decoration-warning="status == 'pending'"/>
+                                    <field name="remarks" string="Remarks / Observation" optional="show"/>
+                                </list>
+                            </field>
+                            <group class="oe_subtotal_footer oe_right">
+                                <field name="qc_count_total" string="Total Checks" readonly="1"/>
+                                <field name="qc_count_pass" string="Passed" readonly="1"/>
+                                <field name="qc_count_fail" string="Failed" readonly="1"/>
+                            </group>
+                        </page>
+                        <page string="Process Notes" name="notes">
+                            <field name="notes" placeholder="Add additional preparation notes, batch details, or process observations..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_brewing_tea_search" model="ir.ui.view">
+        <field name="name">brewing.tea.search</field>
+        <field name="model">brewing.tea</field>
+        <field name="arch" type="xml">
+            <search string="Search Brewing Tea">
+                <field name="name" string="SI No"/>
+                <field name="user_id" string="Prepared By"/>
+                <field name="preparation_date"/>
+                <separator/>
+                <filter name="filter_pass" string="QC Passed" domain="[('qc_status', '=', 'pass')]"/>
+                <filter name="filter_fail" string="QC Failed" domain="[('qc_status', '=', 'fail')]"/>
+                <filter name="filter_pending" string="QC In Progress" domain="[('qc_status', '=', 'pending')]"/>
+                <filter name="filter_draft" string="Draft" domain="[('qc_status', '=', 'draft')]"/>
+                <separator/>
+                <filter name="filter_today" string="Today's Preparation"
+                        domain="[('preparation_date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_qc_status" string="QC Status" context="{'group_by': 'qc_status'}"/>
+                    <filter name="group_prep_date" string="Preparation Date" context="{'group_by': 'preparation_date'}"/>
+                    <filter name="group_user" string="Prepared By" context="{'group_by': 'user_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Window Action -->
+    <record id="action_brewing_tea" model="ir.actions.act_window">
+        <field name="name">BREWING TEA</field>
+        <field name="res_model">brewing.tea</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_brewing_tea_search"/>
+        <field name="context">{'search_default_filter_today': 0}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No Brewing Tea batches found. Let's create one!
+            </p>
+            <p>
+                Track tea brewing batches, preparation dates, quantities, and record quality check parameter results.
+            </p>
+        </field>
+    </record>
+</odoo>

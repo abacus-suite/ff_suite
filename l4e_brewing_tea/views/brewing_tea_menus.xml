@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Top Navigation Menu under Manufacturing App -->
+    <menuitem id="menu_brewing_tea_root"
+              name="BREWING TEA"
+              parent="mrp.menu_mrp_root"
+              action="action_brewing_tea"
+              sequence="15"/>
+
+    <!-- Also accessible under Operations dropdown -->
+    <menuitem id="menu_brewing_tea_operations"
+              name="BREWING TEA"
+              parent="mrp.menu_mrp_manufacturing"
+              action="action_brewing_tea"
+              sequence="25"/>
+</odoo>
