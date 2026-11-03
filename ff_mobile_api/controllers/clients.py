@@ -420,6 +420,9 @@ class FieldForceClientsApi(http.Controller):
             'allocated_outlets': bool(emp.ff_allocated_outlets),
             'allocated_distributors': bool(emp.ff_allocated_distributors),
             'count': Partner.search_count(domain),
+            'team_people': len(emp._ff_subordinates()),
+            'team_territories': sorted(set((emp._ff_subordinates().mapped('ff_territory_ids') |
+                                            emp._ff_subordinates().mapped('ff_secondary_territory')).mapped('name'))),
             'why_not': _why_not(emp),
             'by_territory': {(t.name or '?'): n for t, n in Partner._read_group(domain, ['ff_territory_id'], ['__count'])},
         })
