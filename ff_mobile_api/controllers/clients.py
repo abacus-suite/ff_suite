@@ -440,7 +440,7 @@ class FieldForceClientsApi(http.Controller):
         visits = request.env['ff.visit'].sudo().search([('partner_id', '=', partner.id)], limit=5)
         sites = partner.child_ids.filtered(lambda c: c.ff_is_client and c.ff_approval_state == 'approved')
         data = client_data(partner, to_float(lat), to_float(lng))
-        if hasattr(partner, 'ff_onboarding_payload') and partner.sudo().ff_category_type in ('outlet', 'distributor'):
+        if hasattr(partner, 'ff_onboarding_payload') and partner.sudo().ff_category_type in ('outlet', 'distributor', 'lead'):
             data['onboarding'] = partner.ff_onboarding_payload()
         # Checking in on arrival only happens where the person meant to go today,
         # so the app is told whether this customer is on the day's plan.
