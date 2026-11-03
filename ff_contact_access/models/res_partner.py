@@ -56,7 +56,8 @@ class ResPartner(models.Model):
             if mode == 'open':
                 return base
             emp = employee.sudo()
-            team = emp | emp._ff_subordinates()
+            # Somebody in employee mode (a manager too) sees their own places, not their team's.
+            team = emp if self.env.context.get('ff_only_me') else emp | emp._ff_subordinates()
             own = [('ff_created_by_employee_id', 'in', team.ids), ('ff_employee_ids', 'in', team.ids)]
             if mode == 'beat':
                 beats = team.mapped('ff_route_ids')
@@ -76,16 +77,19 @@ class ResPartner(models.Model):
                 places = [Domain.OR(city_conds)]
             else:
                 territories = team.mapped('ff_territory_ids') | team.mapped('ff_secondary_territory')
-                if not territories:
-                    return base
-                # A contact's own territory, secondary territories, or the territory of a beat it is on.
-                terr_conds = [
-                    Domain([('ff_territory_id', 'in', territories.ids)]),
-                    Domain([('ff_beat_line_ids.beat_id.territory_id', 'in', territories.ids)]),
-                ]
-                if 'ff_secondary_territory_ids' in self._fields:
-                    terr_conds.append(Domain([('ff_secondary_territory_ids', 'in', territories.ids)]))
-                places = [Domain.OR(terr_conds)]
+                # Territory-wise: the primary and secondary territories only. Nobody with none set sees the whole
+                # company; they see what they added or are assigned to (a contact rule or the employee's
+                # allocation switches widen that on purpose).
+                places = []
+                if territories:
+                    # A contact's own territory, secondary territories, or the territory of a beat it is on.
+                    terr_conds = [
+                        Domain([('ff_territory_id', 'in', territories.ids)]),
+                        Domain([('ff_beat_line_ids.beat_id.territory_id', 'in', territories.ids)]),
+                    ]
+                    if 'ff_secondary_territory_ids' in self._fields:
+                        terr_conds.append(Domain([('ff_secondary_territory_ids', 'in', territories.ids)]))
+                    places = [Domain.OR(terr_conds)]
             # The chosen kind of place, and whatever they or their team added or are assigned to.
             conds = places + [Domain([leaf]) for leaf in own]
             visibility_dom = Domain.OR(conds)
