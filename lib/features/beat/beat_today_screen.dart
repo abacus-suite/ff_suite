@@ -184,32 +184,6 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
                 style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
           ],
         ),
-        actions: [
-          // Which of the day's customers to list: All, Visited, Pending or Cancelled.
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _filter == 'planned' ? 'pending' : _filter,
-                isDense: true,
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.primary),
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('All')),
-                  DropdownMenuItem(value: 'visited', child: Text('Visited')),
-                  DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                  DropdownMenuItem(value: 'cancelled', child: Text('Cancelled')),
-                ],
-                onChanged: (v) => setState(() => _filter = v ?? 'all'),
-              ),
-            ),
-          ),
-        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _adhoc,
@@ -250,19 +224,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       if (plans.isEmpty)
         EmptyView(icon: Icons.event_busy_rounded,
             text: 'No $label planned for this day.\nUse "Add a Visit" to visit anyone.'),
-      if (_filter == 'all') for (final plan in plans) _planCard(plan),
-      if (_filter != 'all')
-        Padding(
-          padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: InputChip(
-              label: Text('Showing ${_filter[0].toUpperCase()}${_filter.substring(1)} (${clients.length})'),
-              onDeleted: () => setState(() => _filter = 'all'),
-            ),
-          ),
-        ),
-      if (_beat != null) _beatChip(plans, clients.length),
+      _filters(plans),
       if (clients.isEmpty && _filter != 'all')
         const EmptyView(icon: Icons.filter_alt_off_rounded, text: 'Nothing in this group.'),
       if (clients.isNotEmpty) ...[
@@ -318,19 +280,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       if (plans.isEmpty && rows.isEmpty && _filter == 'all')
         EmptyView(icon: Icons.event_busy_rounded,
             text: 'No $label planned for this day.\nUse "Add a Visit" to visit anyone.'),
-      if (_filter == 'all') for (final plan in plans) _planCard(plan),
-      if (_filter != 'all')
-        Padding(
-          padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: InputChip(
-              label: Text('Showing ${_filter[0].toUpperCase()}${_filter.substring(1)} (${rows.length})'),
-              onDeleted: () => setState(() => _filter = 'all'),
-            ),
-          ),
-        ),
-      if (_beat != null) _beatChip(plans, rows.length),
+      _filters(plans),
       if (rows.isEmpty && _filter != 'all')
         const EmptyView(icon: Icons.filter_alt_off_rounded, text: 'Nothing in this group.'),
       if (rows.isNotEmpty) ...[
@@ -406,18 +356,59 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     );
   }
 
-  Widget _beatChip(List<Map<String, dynamic>> plans, int count) {
-    final plan = plans.where((p) => _planKey(p) == _beat).firstOrNull;
-    final name = asText((plan?['beat'] as Map?)?['name']) ?? 'Without a beat';
+  /// Two filters in the style of the client filter: the beat, and the status of the visit.
+  Widget _filters(List<Map<String, dynamic>> plans) {
+    Widget pill(String value, List<DropdownMenuItem<String>> items, ValueChanged<String?> onChanged) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: value,
+                isExpanded: true,
+                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: AppColors.primary),
+                items: items,
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        );
+    final known = {for (final p in plans) _planKey(p)};
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 4, 0, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: InputChip(
-          avatar: const Icon(Icons.alt_route_rounded, size: 16),
-          label: Text('$name ($count)'),
-          onDeleted: () => setState(() => _beat = null),
-        ),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: SizedBox(
+        height: 46,
+        child: Row(children: [
+          pill(
+            known.contains(_beat) ? _beat! : 'all',
+            [
+              const DropdownMenuItem(value: 'all', child: Text('All beats')),
+              for (final p in plans)
+                DropdownMenuItem(
+                  value: _planKey(p),
+                  child: Text(asText((p['beat'] as Map?)?['name']) ?? 'Without a beat',
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+            (v) => setState(() => _beat = v == 'all' ? null : v),
+          ),
+          const SizedBox(width: 10),
+          pill(
+            _filter == 'planned' ? 'pending' : _filter,
+            const [
+              DropdownMenuItem(value: 'all', child: Text('All status')),
+              DropdownMenuItem(value: 'visited', child: Text('Visited')),
+              DropdownMenuItem(value: 'pending', child: Text('Pending')),
+              DropdownMenuItem(value: 'cancelled', child: Text('Cancelled')),
+            ],
+            (v) => setState(() => _filter = v ?? 'all'),
+          ),
+        ]),
       ),
     );
   }
@@ -485,63 +476,6 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
             SizedBox(width: 84, child: Center(child: badge)),
             SizedBox(width: 36, child: menu),
           ]),
-        ),
-      ),
-    );
-  }
-
-  Widget _planCard(Map<String, dynamic> plan) {
-    final pct = ((plan['completion_pct'] as num?) ?? 0).toDouble();
-    final beatName = asText((plan['beat'] as Map?)?['name']);
-    Widget count(IconData icon, Color color, String text) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [Icon(icon, size: 16, color: color), const SizedBox(width: 4), Text(text)],
-        );
-    final chosen = _beat == _planKey(plan);
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: chosen ? AppColors.primary : Colors.transparent, width: 2),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        // Tap a beat to list only its customers below; tap it again to see every beat.
-        onTap: () => setState(() => _beat = chosen ? null : _planKey(plan)),
-        child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // The beat's name only: a status badge here read "Visited" for a day whose only customer was cancelled.
-            if (beatName != null) ...[
-              Text(beatName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-              const SizedBox(height: 10),
-            ],
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: pct / 100,
-                minHeight: 8,
-                backgroundColor: AppColors.border,
-                valueColor: const AlwaysStoppedAnimation(AppColors.teal),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 14,
-              runSpacing: 6,
-              children: [
-                count(Icons.flag_rounded, AppColors.primary, '${plan['planned_count']} planned'),
-                count(Icons.check_circle_rounded, AppColors.success, '${plan['completed_count']} visited'),
-                if ((plan['missed_count'] as num? ?? 0) > 0)
-                  count(Icons.cancel_rounded, AppColors.danger, '${plan['missed_count']} missed'),
-                if ((plan['adhoc_count'] as num? ?? 0) > 0)
-                  count(Icons.bolt_rounded, AppColors.purple, '${plan['adhoc_count']} adhoc'),
-                count(Icons.route_rounded, AppColors.muted, '${plan['actual_km']} km'),
-              ],
-            ),
-          ],
-        ),
         ),
       ),
     );
