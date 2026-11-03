@@ -86,7 +86,10 @@ class ResPartner(models.Model):
                     # to elsewhere does not widen the list (a contact rule or the allocation switches can).
                     own = []
                     # A contact's own territory, secondary territories, or the territory of a beat it is on.
-                    places = [Domain([('ff_territory_id', 'in', territories.ids)])]
+                    terr_conds = [Domain([('ff_territory_id', 'in', territories.ids)])]
+                    if 'ff_secondary_territory_ids' in self._fields:
+                        terr_conds.append(Domain([('ff_secondary_territory_ids', 'in', territories.ids)]))
+                    places = [Domain.OR(terr_conds)]
             # The chosen kind of place, and whatever they or their team added or are assigned to.
             conds = places + [Domain([leaf]) for leaf in own]
             visibility_dom = Domain.OR(conds)
