@@ -221,7 +221,11 @@ class _OnboardScreenState extends State<OnboardScreen> {
     try {
       territories = [
         for (final t in (await Services.api.get('/api/v1/territories') as List).cast<Map<String, dynamic>>())
-          if (t['kind'] == null || t['kind'] == 'primary' || t['kind'] == 'secondary') t,
+          // Only the person's own territories (primary, secondary or granted), never the whole company's list; the
+          // lead's own territory is kept too, so its area is there.
+          if ((t['kind'] == null || t['kind'] == 'primary' || t['kind'] == 'secondary') &&
+              (t['assigned'] != false || t['id'] == _idOf(widget.client['territory'])))
+            t,
       ];
     } catch (_) {}
     try {
