@@ -48,6 +48,25 @@ def _route_partner_ids(people):
     return list(ids)
 
 
+def _own_ids(employee, extra_ids):
+    """The contacts that are this person's own: given to them by name, in their primary or secondary territories, or on
+    their routes and plans."""
+    employee = employee.sudo()
+    Partner = request.env['res.partner'].sudo()
+    terms = [('ff_employee_ids', 'in', employee.ids)]
+    territories = employee.ff_territory_ids if 'ff_territory_ids' in employee._fields else request.env['ff.territory']
+    for name in ('ff_secondary_territory', 'ff_secondary_territory_ids'):
+        if name in employee._fields and employee[name]:
+            territories |= employee[name]
+    if territories and 'ff_territory_id' in Partner._fields:
+        terms.append(('ff_territory_id', 'in', territories.ids))
+        if 'ff_secondary_territory_ids' in Partner._fields:
+            terms.append(('ff_secondary_territory_ids', 'in', territories.ids))
+    ids = set(Partner.search([('ff_is_client', '=', True)] + ['|'] * (len(terms) - 1) + terms).ids)
+    ids.update(extra_ids or [])
+    return list(ids)
+
+
 def _with_routes(domain, extra_ids):
     """The domain, widened by the customers of the routes and the plans.
 
@@ -110,13 +129,18 @@ def _client_domain(employee, member=None):
         # The office shares the contacts: everybody's list is the company's list,
         # narrowed only when somebody is picked out of the team.
         domain = Partner._ff_visible_domain(employee)
-        if member not in ('team', 'me'):
+        if member == 'me':
+            # "Only me": my own contacts, not the whole company's list.
+            domain = domain + [('id', 'in', _own_ids(employee, extra))]
+        elif member != 'team':
             domain = domain + [('ff_employee_ids', 'in', people.ids)]
         return domain
     if employee.ff_access_scope == 'all':
         domain = [('ff_is_client', '=', True), ('ff_approval_state', '!=', 'rejected')]
-        # Somebody who sees everything only narrows down when they pick a person.
-        if member not in ('team', 'me'):
+        # Somebody who sees everything only narrows down when they pick themselves or one person.
+        if member == 'me':
+            domain.append(('id', 'in', _own_ids(employee, extra)))
+        elif member != 'team':
             domain.append(('ff_employee_ids', 'in', people.ids))
         return domain
     if people == employee:
