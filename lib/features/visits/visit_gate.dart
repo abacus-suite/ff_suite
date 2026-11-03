@@ -72,7 +72,23 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
     if (task != null && geofenceM != null) {
       final lat = (client['lat'] as num?)?.toDouble();
       final lng = (client['lng'] as num?)?.toDouble();
-      if (lat != null && lng != null && !(lat == 0 && lng == 0)) {
+      if (lat == null || lng == null || (lat == 0 && lng == 0)) {
+        // Without a saved location the distance cannot be checked, and a task that must be started at the
+        // customer is not started from nowhere.
+        if (context.mounted) {
+          await showDialog<void>(
+            context: context,
+            builder: (dialog) => AlertDialog(
+              icon: const Icon(Icons.location_off_rounded, color: AppColors.danger, size: 36),
+              title: const Text('No location saved'),
+              content: Text('${client['name']} has no location saved, so the $geofenceM m check cannot be done. '
+                  'Ask your manager to set its location, then try again.'),
+              actions: [FilledButton(onPressed: () => Navigator.pop(dialog), child: const Text('OK'))],
+            ),
+          );
+        }
+        return null;
+      } else {
         final away = Geolocator.distanceBetween(pos.latitude, pos.longitude, lat, lng);
         if (away > geofenceM) {
           if (context.mounted) {
