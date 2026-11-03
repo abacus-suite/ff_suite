@@ -67,7 +67,7 @@ Future<bool> downloadAndSave(Uri url, {String fallbackName = 'report.xlsx'}) asy
   final response = await http.get(url, headers: await Services.api.authHeaders());
   if (response.statusCode != 200) throw Exception('The download failed (${response.statusCode}).');
   final disposition = response.headers['content-disposition'] ?? '';
-  final match = RegExp(r'filename\*?=(?:UTF-8'')?"?([^";]+)"?').firstMatch(disposition);
+  final match = RegExp(r"""filename\*?=(?:UTF-8'')?"?([^";]+)"?""").firstMatch(disposition);
   final name = match == null ? fallbackName : Uri.decodeComponent(match.group(1)!);
   return saveFile(response.bodyBytes, name);
 }

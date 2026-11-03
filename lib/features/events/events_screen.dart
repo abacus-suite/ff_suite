@@ -3,7 +3,6 @@ import '../../core/documents.dart';
 import '../../widgets/report_download.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';

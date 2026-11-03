@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/documents.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
