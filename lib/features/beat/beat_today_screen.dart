@@ -258,12 +258,30 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
   List<Widget> _todayContent(List<Map<String, dynamic>> plans, List<Map<String, dynamic>> clients,
       List<Map<String, dynamic>> adhoc, String label) {
     // An added visit counts as pending while it runs and as visited once it is closed.
-    final added = [
+    final every = [
       for (final visit in adhoc)
         if (_filter == 'all' ||
             (_filter == 'visited' && visit['state'] != 'ongoing' && '${visit['visit_type']}' != 'offsite') ||
             ((_filter == 'pending' || _filter == 'planned') && visit['state'] == 'ongoing'))
           {...(visit['client'] as Map).cast<String, dynamic>(), '_visit': visit},
+    ];
+    // A customer visited more than once today is one row (the timeline has each visit): the one still running,
+    // otherwise the latest, with how many visits there were.
+    final byClient = <Object?, Map<String, dynamic>>{};
+    final counts = <Object?, int>{};
+    for (final row in every) {
+      final id = row['id'];
+      counts[id] = (counts[id] ?? 0) + 1;
+      final kept = byClient[id];
+      final visit = row['_visit'] as Map;
+      final keptVisit = kept?['_visit'] as Map?;
+      final better = kept == null ||
+          (visit['state'] == 'ongoing' && keptVisit?['state'] != 'ongoing') ||
+          (keptVisit?['state'] != 'ongoing' && '${visit['check_in_at']}'.compareTo('${keptVisit?['check_in_at']}') > 0);
+      if (better) byClient[id] = row;
+    }
+    final added = [
+      for (final e in byClient.entries) {...e.value, '_visits': counts[e.key] ?? 1},
     ];
     // Added with "Add a Visit" and not visited yet: pending, until the server has the visit.
     final visited = {for (final v in adhoc) (v['client'] as Map?)?['id']};
@@ -425,6 +443,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       state == 'added' ? 'Planned' : 'Added visit',
       if (offsite) 'Offsite',
       if (metres != null) fmtDistance(metres),
+      if ((row['_visits'] as int? ?? 1) > 1) '${row['_visits']} visits · last',
       if (state != 'added') '${fmtTime(visit['check_in_at'])}–${fmtTime(visit['check_out_at'])}',
     ].join(' · ');
     return _tileRow(
