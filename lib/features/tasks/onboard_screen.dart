@@ -268,6 +268,42 @@ class _OnboardScreenState extends State<OnboardScreen> {
       ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
   }
 
+  /// Every area the person can choose, A to Z; an area whose name is in two territories says which.
+  List<Map<String, dynamic>> _allAreas() {
+    final rows = <int, Map<String, dynamic>>{};
+    final names = <String, int>{};
+    for (final t in _territories) {
+      for (final a in ((t['areas'] as List?) ?? const []).cast<Map<String, dynamic>>()) {
+        final id = (a['id'] as num).toInt();
+        rows.putIfAbsent(id, () => {'id': id, 'name': '${a['name']}', 'territory': t['id'], 'territory_name': '${t['name']}'});
+        names['${a['name']}'.toLowerCase()] = (names['${a['name']}'.toLowerCase()] ?? 0) + 1;
+      }
+    }
+    return [
+      for (final r in rows.values)
+        {...r, 'name': (names['${r['name']}'.toLowerCase()] ?? 0) > 1 ? '${r['name']} · ${r['territory_name']}' : r['name']},
+    ]..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+  }
+
+  /// Choosing an area fills the territory it belongs to, and the region from the person who is signed in.
+  void _pickArea(int? id) {
+    final area = _allAreas().where((a) => a['id'] == id).firstOrNull;
+    if (area == null) {
+      setState(() => _areaId = null);
+      return;
+    }
+    _pickTerritory((area['territory'] as num).toInt());
+    setState(() {
+      _areaId = id;
+      final mine = Services.auth.profile?.teamId;
+      if (mine != null && _regions.any((r) => r['id'] == mine)) {
+        _regionId = mine;
+      } else if (_regionId == null && _regions.length == 1) {
+        _regionId = _regions.first['id'] as int;
+      }
+    });
+  }
+
   /// Choosing a territory sets the city, and drops an area that is not in it.
   void _pickTerritory(int? id) {
     setState(() {
@@ -312,6 +348,9 @@ class _OnboardScreenState extends State<OnboardScreen> {
     }
   }
 
+  /// The first line of an address: where the street is.
+  String _firstLine(String address) => address.split(RegExp(r'[\n,]')).first.trim();
+
   /// "Delivery address same as billing": when it is, there is no delivery step.
   void _sameChanged(bool on) => setState(() => _sameAsBilling = on);
 
@@ -331,8 +370,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
         if (_territoryId == null) bad.add('Territory');
         // The city comes from the territory (or, failing that, the PIN code).
         if (_districtId == null && asText(_pinInfo['district']) == null) bad.add('City: choose a territory that has one, or enter a valid PIN code');
-        if (_areaOptions().isNotEmpty && _areaId == null) bad.add('Area');
-        if (_v('street_name').isEmpty) bad.add('Street name');
+        if (_allAreas().isNotEmpty && _areaId == null) bad.add('Area');
         if (_v('door').isEmpty) bad.add('Door / TC No.');
       case 'delivery':
         if (_v('delivery_address').isEmpty) bad.add('Delivery address');
@@ -407,9 +445,9 @@ class _OnboardScreenState extends State<OnboardScreen> {
               if (_hasGst) 'gstin': _v('gstin').toUpperCase(),
               'gst_name': _v('gst_name'),
               'billing_address': _v('billing_address'),
-              'street': [_v('door'), _v('street_name')].where((e) => e.isNotEmpty).join(', '),
+              'street': [_v('door'), _firstLine(_v('billing_address'))].where((e) => e.isNotEmpty).join(', '),
               'door_no': _v('door'),
-              'street_name': _v('street_name'),
+              'street_name': _firstLine(_v('billing_address')),
               'delivery_same': _sameAsBilling,
               if (!_sameAsBilling) 'delivery_address': _v('delivery_address'),
               if (!_sameAsBilling) 'delivery_zip': _v('delivery_zip'),
@@ -594,33 +632,22 @@ class _OnboardScreenState extends State<OnboardScreen> {
           _field('gstin', 'GSTIN', required: true, maxLength: 15, onChanged: (_) => _checkGst(), helper: _gstHelper()),
           _field('gst_name', 'Name as per GST', required: true),
         ],
+        // After the GST choice: the door number, the area, the billing address, the PIN code, then the region and the
+        // territory, which the area fills in.
+        _field('door', 'Door / TC No.', required: true),
+        _dropId('Area', _allAreas(), _areaId, _pickArea,
+            required: _allAreas().isNotEmpty, helper: _allAreas().isEmpty ? 'No areas are set for your territories yet' : null),
         _field('billing_address', 'Billing address', required: true, lines: 3),
-        ..._location(),
+        _field('zip', 'PIN code', required: true, type: TextInputType.number, maxLength: 6, onChanged: (v) {
+          if (v.length == 6) _lookupPin();
+        }),
+        _dropId('Region', _regions, _regionId, (v) => setState(() => _regionId = v),
+            required: _regions.isNotEmpty, helper: _regions.isEmpty ? 'No region is set for you' : null),
+        _dropId('Territory', [
+          for (final t in _territories) {'id': t['id'], 'name': '${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}'},
+        ], _territoryId, _pickTerritory),
         _same(),
       ]);
-
-  /// Where the outlet is, under the billing address: region, territory, area, PIN code, street and door number.
-  List<Widget> _location() {
-    final place = [asText(_pinInfo['state']), asText(_pinInfo['district'])].whereType<String>().join(' · ');
-    final areas = _areaOptions();
-    return [
-      // Each one a dropdown, filled from the lead and editable: some leads arrive without a region or territory.
-      _dropId('Region', _regions, _regionId, (v) => setState(() => _regionId = v),
-          required: _regions.isNotEmpty, helper: _regions.isEmpty ? 'No region is set for you' : null),
-      _dropId('Territory', [
-        for (final t in _territories) {'id': t['id'], 'name': '${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}'},
-      ], _territoryId, _pickTerritory),
-      _dropId('Area', areas, _areaId, (v) => setState(() => _areaId = v),
-          required: areas.isNotEmpty,
-          helper: _territoryId == null ? 'Choose a territory first' : (areas.isEmpty ? 'No areas in this territory yet' : null)),
-      _field('zip', 'PIN code', required: true, type: TextInputType.number, maxLength: 6, onChanged: (v) {
-        if (v.length == 6) _lookupPin();
-      }),
-      _readOnly('State · District (auto from PIN)', place.isEmpty ? 'Enter the PIN code' : place),
-      _field('street_name', 'Street name', required: true),
-      _field('door', 'Door / TC No.', required: true),
-    ];
-  }
 
   /// What the GSTIN says about itself.
   String? _gstHelper() {
