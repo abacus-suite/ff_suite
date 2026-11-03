@@ -86,11 +86,9 @@ def _territory_only_domain(employee):
         territories |= emp.ff_secondary_territory
     if not territories or 'ff_territory_id' not in Partner._fields:
         return None
+    # The contact's own territory is what counts: not a secondary tag on the contact, and not a beat it happens to
+    # be on, which can carry contacts from anywhere.
     places = [('ff_territory_id', 'in', territories.ids)]
-    if 'ff_secondary_territory_ids' in Partner._fields:
-        places = ['|'] + places + [('ff_secondary_territory_ids', 'in', territories.ids)]
-    if 'ff.beat.line' in request.env:
-        places = ['|'] + places + [('ff_beat_line_ids.beat_id.territory_id', 'in', territories.ids)]
     return [('ff_is_client', '=', True),
             ('company_id', 'in', (False, emp.company_id.id)),
             '|', '|', ('ff_approval_state', '=', 'approved'), ('ff_approval_state', '=', False),
