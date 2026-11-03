@@ -1,7 +1,7 @@
 """Reports behind the download button of the employee's own screens: samples, events and receivables."""
 from odoo import fields, models
 
-from .ff_app_report import DATE, MONEY, NUMBER, STATUS, col
+from .ff_app_report import DATE, HOURS, MONEY, NUMBER, STATUS, col
 
 EVENT_STATES = {'draft': 'Draft', 'running': 'Running', 'on_hold': 'On hold', 'done': 'Completed'}
 
@@ -28,7 +28,54 @@ class FfAppReportEmployee(models.AbstractModel):
                 col('due_date', 'Due date', DATE), col('amount', 'Invoice amount', MONEY, True),
                 col('residual', 'Amount due', MONEY, True), col('late', 'Days late', NUMBER),
                 col('status', 'Status', STATUS)], self._receivables)
+        if 'ff.da.claim' in self.env:
+            defs['da'] = ('Daily allowance', 'Daily allowance claims per day', 'restaurant', 'ff.da.claim', [
+                col('date', 'Date', DATE), col('employee', 'Employee'), col('kind', 'Where', STATUS),
+                col('visits', 'Visits', NUMBER, True), col('outside', 'Outside visits', NUMBER, True),
+                col('rate', 'Rate', MONEY), col('amount', 'Amount', MONEY, True), col('status', 'Status', STATUS)],
+                self._da)
+        if 'ff.ola.claim' in self.env:
+            defs['ola'] = ('OLA', 'Monthly allowance by the hours worked', 'timer', 'ff.ola.claim', [
+                col('date', 'Date', DATE), col('employee', 'Employee'), col('hours', 'Hours', HOURS, True),
+                col('kind', 'Allowance', STATUS), col('day_rate', 'Full day', MONEY),
+                col('amount', 'Amount', MONEY, True)], self._ola)
+        if 'ff.expense.request' in self.env:
+            defs['payment_requests'] = ('Payment requests', 'Requests paid directly by accounts', 'request_quote',
+                                        'ff.expense.request', [
+                col('date', 'Date', DATE), col('employee', 'Employee'), col('reference', 'Request'),
+                col('category', 'Category'), col('document', 'Document'), col('amount', 'Amount', MONEY, True),
+                col('status', 'Status', STATUS)], self._payment_requests)
         return defs
+
+    def _da(self, employees, start, end):
+        records = self.env['ff.da.claim'].sudo().search(
+            [('employee_id', 'in', employees.ids), ('date', '>=', start), ('date', '<=', end)], order='date desc')
+        kinds = dict(records._fields['kind'].selection)
+        return [{
+            'date': rec.date.isoformat(), 'employee': rec.employee_id.name, 'kind': kinds.get(rec.kind, rec.kind or ''),
+            'visits': rec.visit_count, 'outside': rec.outside_count, 'rate': rec.rate, 'amount': rec.amount,
+            'status': self._label(rec, 'state'),
+        } for rec in records]
+
+    def _ola(self, employees, start, end):
+        records = self.env['ff.ola.claim'].sudo().search(
+            [('employee_id', 'in', employees.ids), ('date', '>=', start), ('date', '<=', end)], order='date desc')
+        kinds = dict(records._fields['kind'].selection)
+        return [{
+            'date': rec.date.isoformat(), 'employee': rec.employee_id.name, 'hours': round(rec.hours or 0.0, 2),
+            'kind': kinds.get(rec.kind, rec.kind or ''), 'day_rate': rec.day_rate, 'amount': rec.amount,
+        } for rec in records]
+
+    def _payment_requests(self, employees, start, end):
+        records = self.env['ff.expense.request'].sudo().search(
+            [('employee_id', 'in', employees.ids), ('date', '>=', start), ('date', '<=', end)], order='date desc')
+        documents = dict(records._fields['document'].selection)
+        return [{
+            'date': rec.date.isoformat(), 'employee': rec.employee_id.name, 'reference': rec.name or '',
+            'category': ' / '.join(x for x in (rec.category_id.name, rec.sub_category_id.name) if x),
+            'document': documents.get(rec.document, rec.document or ''), 'amount': rec.amount,
+            'status': self._label(rec, 'state'),
+        } for rec in records]
 
     def _samples(self, employees, start, end):
         low, high = self._utc_bounds(start, end)

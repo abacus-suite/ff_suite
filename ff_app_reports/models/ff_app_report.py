@@ -86,6 +86,8 @@ class FfAppReport(models.AbstractModel):
     def ff_catalogue(self):
         # The app lists the one the company works with; both still run for the panel.
         hide = {'orders' if self._order_flow() == 'demand' and 'ff.demand' in self.env else 'demands',
+                # Per-person lines the Summary report already gives (By: Employee): hidden from the list.
+                'employee_sales', 'employee_collections', 'expense_summary',
                 # Folded into the one summary report, which is split inside.
                 'team_summary', 'daily_summary'}
         split = [{'key': k, 'label': v} for k, v in getattr(self, 'SUMMARY_BY', [])]
