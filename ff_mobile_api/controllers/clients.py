@@ -159,7 +159,10 @@ def _client_domain(employee, member=None):
         own = _territory_only_domain(employee)
         if own is not None:
             _mark('territory_only')
-            return _with_routes(own, extra)
+            # Territory-wise means the territories: his beats' and planned days' contacts from elsewhere do not
+            # come in; only what was granted to him on purpose (contact access) does.
+            granted = Partner._ff_grant_partner_ids(people) if hasattr(Partner, '_ff_grant_partner_ids') else []
+            return _with_routes(own, list(granted))
     if member == 'team' and Partner._ff_see_all():
         _mark('team_see_all')
         return Partner._ff_visible_domain(employee)
