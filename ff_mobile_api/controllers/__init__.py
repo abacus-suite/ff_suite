@@ -19,3 +19,4 @@ from . import my_pending
 from . import team_manager
 from . import da
 from . import ola
+from . import documents
