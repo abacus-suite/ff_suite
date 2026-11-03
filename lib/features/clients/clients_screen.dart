@@ -73,8 +73,18 @@ class _ClientsScreenState extends State<ClientsScreen> {
   final Set<int> _beatIds = {};
   int? _areaId;
   String _group = 'none';
-  List<Map<String, dynamic>> _territories = [];
-  List<Map<String, dynamic>> _beats = [];
+  List<Map<String, dynamic>> _rawTerritories = [];
+  List<Map<String, dynamic>> _rawBeats = [];
+
+  /// The territories and beats of the filter: in employee mode (a manager too) only the person's own; the team's
+  /// ("other") come with Manager Mode, where "me with my team" is a choice.
+  List<Map<String, dynamic>> get _territories =>
+      Services.managerMode.value ? _rawTerritories : _rawTerritories.where((t) => t['kind'] != 'other').toList();
+  List<Map<String, dynamic>> get _beats {
+    if (Services.managerMode.value) return _rawBeats;
+    final team = {for (final t in _rawTerritories) if (t['kind'] == 'other') t['id']};
+    return _rawBeats.where((b) => !team.contains(b['territory_id'])).toList();
+  }
   int _total = 0;
   bool _loadingMore = false;
   final ScrollController _scroll = ScrollController();
@@ -218,6 +228,13 @@ class _ClientsScreenState extends State<ClientsScreen> {
   }
 
   Future<void> _load() async {
+    // A team member's territory or beat chosen in Manager Mode does not carry into employee mode.
+    if (_territoryId != null && _rawTerritories.isNotEmpty && !_territories.any((t) => t['id'] == _territoryId)) {
+      _territoryId = null;
+      _areaId = null;
+      _area = null;
+    }
+    _beatIds.removeWhere((id) => !_beats.any((b) => b['id'] == id) && _rawBeats.isNotEmpty);
     setState(() {
       _loading = true;
       _error = null;
@@ -594,8 +611,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
       final data = await Services.api.get('/api/v1/clients/filters') as Map<String, dynamic>;
       if (mounted) {
         setState(() {
-          _territories = ((data['territories'] as List?) ?? []).cast<Map<String, dynamic>>();
-          _beats = ((data['beats'] as List?) ?? []).cast<Map<String, dynamic>>();
+          _rawTerritories = ((data['territories'] as List?) ?? []).cast<Map<String, dynamic>>();
+          _rawBeats = ((data['beats'] as List?) ?? []).cast<Map<String, dynamic>>();
         });
       }
     } catch (_) {
