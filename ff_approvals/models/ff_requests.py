@@ -85,7 +85,7 @@ class FfExpenseRequest(models.Model):
                 rec = line._ff_document()
                 if rec and rec.state == 'approval' and rec._ff_pending_line() == line:
                     ids.add(rec.id)
-        team = employee._ff_subordinates()
+        team = employee._ff_approval_team()
         if team:
             for rec in self.sudo().search([('state', '=', 'approval'), ('employee_id', 'in', team.ids)]):
                 if not rec._ff_pending_line():

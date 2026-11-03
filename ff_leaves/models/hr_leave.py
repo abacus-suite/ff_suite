@@ -290,7 +290,7 @@ class HrLeave(models.Model):
     @api.model
     def ff_to_approve(self, employee):
         """What this manager has waiting, inside their data access."""
-        team = employee._ff_subordinates()
+        team = employee._ff_approval_team()
         leaves = self.sudo().search([
             ('employee_id', 'in', team.ids), ('state', 'in', ('confirm', 'validate1')),
         ], order='request_date_from') if team else self.browse()
@@ -312,7 +312,7 @@ class HrLeave(models.Model):
     def ff_decide_as(self, employee, approve, reason=''):
         """Approve or refuse, with the manager's own rights checked first."""
         self.ensure_one()
-        if self.employee_id not in employee._ff_subordinates():
+        if self.employee_id not in employee._ff_approval_team():
             raise AccessError(self.env._('This request is not yours to decide.'))
         leave = self.sudo()
         if approve:

@@ -117,9 +117,15 @@ class HrEmployee(models.Model):
             return self.browse()
         return self._ff_scope_employees() - self
 
+    def _ff_approval_team(self):
+        """Who ``self`` approves for: the people in their data access, and always their direct reports (the
+        manager an employee's request is sent to), whatever the data access says."""
+        direct = self.env['hr.employee'].sudo().search([('parent_id', 'in', self.ids)]) if self else self.browse()
+        return (self._ff_subordinates() | direct) - self
+
     def _ff_is_manager_of(self, employee):
         self.ensure_one()
-        return employee in self._ff_subordinates()
+        return employee in self._ff_approval_team()
 
     # ------------------------------------------------------------------
     # Mobile app credentials (independent of Odoo user accounts)

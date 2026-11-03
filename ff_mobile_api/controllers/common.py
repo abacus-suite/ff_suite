@@ -130,7 +130,7 @@ def current_employee(manager=False):
     if not token:
         raise ApiError('Your session has expired. Please log in again.', 401, 'unauthorized')
     employee = token.employee_id.sudo()
-    if manager and employee.ff_access_scope == 'own':
+    if manager and employee.ff_access_scope == 'own' and not employee._ff_approval_team():
         raise ApiError('Manager access required.', 403, 'forbidden')
     return employee
 

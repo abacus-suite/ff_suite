@@ -57,7 +57,7 @@ class FieldForceOvertimeApi(http.Controller):
 
     @api_route('/api/v1/overtime/to-approve', methods=('GET',), manager=True)
     def to_approve(self, employee, **kw):
-        team = employee._ff_subordinates()
+        team = employee._ff_approval_team()
         rows = request.env['ff.overtime'].sudo().search(
             [('employee_id', 'in', team.ids), ('state', '=', 'submitted')], order='date desc')
         return ok({'rows': [_row(r) for r in rows]})
