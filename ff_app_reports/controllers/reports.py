@@ -89,7 +89,8 @@ class FieldForceReportsApi(http.Controller):
         _scope(employee, member)
         low, high = _dates(employee, start, end)
         token = _sign({'e': employee.id, 'k': key, 's': low.isoformat(), 'n': high.isoformat(),
-                       'm': member or 'me', 'b': data.get('by'), 'x': int(clock.time()) + LINK_SECONDS})
+                       'm': member or 'me', 'b': data.get('by'), 'st': data.get('status') or None,
+                       'x': int(clock.time()) + LINK_SECONDS})
         # A path: the app puts it on the server address it already talks to.
         return ok({'path': '/api/v1/reports/download?t=%s' % token, 'expires_in': LINK_SECONDS})
 
@@ -113,6 +114,14 @@ class FieldForceReportsApi(http.Controller):
         data = Report.ff_run(payload['k'], employee, employees, low, high, by=payload.get('b'))
         if data is None:
             return request.not_found()
+        status = payload.get('st')
+        if status and status != 'all':
+            # One status only, when the report was asked for that way.
+            key = next((c['key'] for c in data['columns'] if c['type'] == 'status'), None)
+            if key:
+                data['rows'] = [r for r in data['rows'] if str(r.get(key)) == status]
+                data['totals'] = {c['key']: round(sum(r.get(c['key']) or 0 for r in data['rows']), 2)
+                                  for c in data['columns'] if c['total']}
         content = Report.ff_xlsx(data, who)
         filename = '%s_%s_%s.xlsx' % (data['title'].replace(' ', '_'), low.isoformat(), high.isoformat())
         return request.make_response(content, headers=[
