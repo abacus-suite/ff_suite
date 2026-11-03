@@ -67,6 +67,27 @@ def _own_ids(employee, extra_ids):
     return list(ids)
 
 
+def _why_not(emp):
+    """For the diagnostic: of the contacts in this person's territories, how many each condition lets through."""
+    Partner = request.env['res.partner'].sudo()
+    territories = emp.ff_territory_ids
+    if 'ff_secondary_territory' in emp._fields:
+        territories |= emp.ff_secondary_territory
+    places = ['|', ('ff_territory_id', 'in', territories.ids), ('ff_secondary_territory_ids', 'in', territories.ids)]
+    out = {'in_territory_any': Partner.search_count(places)}
+    out['is_client'] = Partner.search_count(places + [('ff_is_client', '=', True)])
+    out['by_category_type'] = {str(k): n for k, n in Partner._read_group(
+        places + [('ff_is_client', '=', True)], ['ff_category_type'], ['__count'])}
+    out['by_approval_state'] = {str(k): n for k, n in Partner._read_group(
+        places + [('ff_is_client', '=', True)], ['ff_approval_state'], ['__count'])}
+    out['by_company'] = {(c.display_name if c else 'none'): n for c, n in Partner._read_group(
+        places + [('ff_is_client', '=', True)], ['company_id'], ['__count'])}
+    out['person_company'] = emp.company_id.display_name
+    out['category_hidden_in_app'] = Partner.search_count(
+        places + [('ff_is_client', '=', True), ('ff_category_id.show_in_app', '=', False)])
+    return out
+
+
 def _mark(name):
     """Remember which rule built the list, for the diagnostic screen."""
     request.httprequest.environ['ff_clients_rule'] = name
@@ -399,6 +420,7 @@ class FieldForceClientsApi(http.Controller):
             'allocated_outlets': bool(emp.ff_allocated_outlets),
             'allocated_distributors': bool(emp.ff_allocated_distributors),
             'count': Partner.search_count(domain),
+            'why_not': _why_not(emp),
             'by_territory': {(t.name or '?'): n for t, n in Partner._read_group(domain, ['ff_territory_id'], ['__count'])},
         })
 
