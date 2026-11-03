@@ -5,6 +5,7 @@ before. With one, the request waits for each approver in turn - in Odoo or in
 the app - and only the last "approve" validates the leave.
 """
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 
 class FfApprovalFlow(models.Model):
@@ -28,6 +29,13 @@ class HrLeave(models.Model):
         return leaves
 
     def write(self, vals):
+        if vals.get('state') in ('validate1', 'validate') and not self.env.context.get('ff_chain_finished'):
+            # The manager signs before HR: nothing marks a request approved while a step of its chain is open.
+            for leave in self.filtered(lambda l: l.state in ('confirm', 'draft')):
+                if leave.sudo()._ff_chain_pending():
+                    raise UserError(self.env._(
+                        'The manager has to approve %s before HR can. Approve it from its approval steps.',
+                        leave.display_name))
         result = super().write(vals)
         if vals.get('state') in ('validate', 'refuse', 'cancel'):
             # Decided by someone outside the chain: its unanswered steps are closed, not left waiting.
@@ -62,6 +70,9 @@ class HrLeave(models.Model):
         for leave in chained:
             leave._ff_decide_step(self.env.user, True)
         rest = self - chained
+        for leave in rest.filtered(lambda l: l.state == 'confirm'
+                                   and l.holiday_status_id.leave_validation_type == 'both'):
+            raise UserError(self.env._('The manager has to approve %s before HR can.', leave.display_name))
         return super(HrLeave, rest).action_validate(*args, **kwargs) if rest else True
 
     def action_refuse(self, *args, **kwargs):
