@@ -4,7 +4,7 @@
         <field name="name">ff.expense.request.list</field>
         <field name="model">ff.expense.request</field>
         <field name="arch" type="xml">
-            <list decoration-info="state == 'requested'" decoration-warning="state == 'invoice_pending'"
+            <list decoration-info="state in ('approval', 'requested')" decoration-warning="state == 'invoice_pending'"
                   decoration-muted="state == 'rejected'">
                 <field name="date"/>
                 <field name="employee_id"/>

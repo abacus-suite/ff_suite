@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ff_expense_request_view_form_approval" model="ir.ui.view">
+        <field name="name">ff.expense.request.form.approval</field>
+        <field name="model">ff.expense.request</field>
+        <field name="inherit_id" ref="ff_expenses.ff_expense_request_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_approve_step" type="object" string="Approve" class="btn-primary"
+                        invisible="state != 'approval'" groups="ff_base.group_ff_manager"/>
+                <button name="action_refuse_step" type="object" string="Refuse"
+                        invisible="state != 'approval'" groups="ff_base.group_ff_manager"/>
+            </xpath>
+            <xpath expr="//field[@name='state']" position="attributes">
+                <attribute name="statusbar_visible">approval,requested,invoice_pending,completed</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>

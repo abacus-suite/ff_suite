@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- A payment request goes to the reporting manager first, and only then to the accounts team. Add a step for a
+         person (for example a second approver) under Approvals > Flows. Created once and never overwritten. -->
+    <data noupdate="1">
+        <record id="ff_flow_payment_request" model="ff.approval.flow">
+            <field name="name">Payment Request: manager, then accounts</field>
+            <field name="document">ff.expense.request</field>
+            <field name="company_id" ref="base.main_company"/>
+        </record>
+        <record id="ff_flow_payment_request_step_manager" model="ff.approval.step">
+            <field name="flow_id" ref="ff_flow_payment_request"/>
+            <field name="sequence">10</field>
+            <field name="name">Manager approval</field>
+            <field name="approver_kind">manager</field>
+        </record>
+    </data>
+</odoo>

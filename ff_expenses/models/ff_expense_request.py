@@ -12,6 +12,7 @@ from odoo.exceptions import UserError
 from .ff_expense_claim import _strip_data_url
 
 STATES = [
+    ('approval', 'With manager'),
     ('requested', 'With accounts'),
     ('invoice_pending', 'Invoice pending'),
     ('completed', 'Completed'),
@@ -88,10 +89,24 @@ class FfExpenseRequest(models.Model):
                 self.env['ff.notification'].sudo().ff_push(
                     title=title, body=body, kind='decision', employee=rec.employee_id, record=rec)
 
+    # ------------------------------------------------------------------ the manager, before accounts
+    def _ff_set_decision(self, approve, approver_user=False):
+        """The end of the approval steps: approved goes on to accounts, refused stops here."""
+        for rec in self.sudo():
+            if rec.state != 'approval':
+                continue
+            if approve:
+                rec.write({'state': 'requested'})
+            else:
+                rec.write({'state': 'rejected'})
+
     # ------------------------------------------------------------------ accounts
     def action_mark_paid(self):
         """Accounts have paid the vendor. A quotation then waits for the tax invoice, by the due date set."""
         for rec in self:
+            if rec.state == 'approval':
+                raise UserError(self.env._('%s is still with the manager: it can be paid only after the approval.',
+                                           rec.name))
             if rec.state != 'requested':
                 raise UserError(self.env._('%s is not waiting for payment.', rec.name))
             if rec.document == 'quotation' and rec.invoice_uploaded:
@@ -126,7 +141,8 @@ class FfExpenseRequest(models.Model):
         """The tax invoice of a quotation. It can be uploaded as soon as the request is sent: before accounts pay it
         waits with them; once paid, this completes the request."""
         self.ensure_one()
-        if self.document != 'quotation' or self.state not in ('requested', 'invoice_pending') or self.invoice_uploaded:
+        if self.document != 'quotation' or self.state not in ('approval', 'requested', 'invoice_pending') \
+                or self.invoice_uploaded:
             raise UserError(self.env._('This request is not waiting for a tax invoice.'))
         self._ff_attach(photo, 'tax invoice')
         if self.state == 'invoice_pending':

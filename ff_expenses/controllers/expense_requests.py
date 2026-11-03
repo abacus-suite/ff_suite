@@ -1,6 +1,6 @@
 """Expense Payment Request API: the company pays a vendor, against a tax invoice or a quotation."""
 from odoo import http
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
 from odoo.addons.ff_base.tools import to_iso
@@ -32,6 +32,39 @@ class FieldForceExpenseRequestsApi(http.Controller):
     def listing(self, employee, **kw):
         rows = request.env['ff.expense.request'].sudo().search([('employee_id', '=', employee.id)], limit=100)
         return ok({'requests': [request_data(r) for r in rows]})
+
+    @api_route('/api/v1/expense-requests/to-approve', methods=('GET',), manager=True)
+    def to_approve(self, employee, **kw):
+        """The payment requests waiting for this person's approval, before they go to accounts."""
+        Request = request.env['ff.expense.request']
+        if not hasattr(Request, 'ff_to_approve'):
+            return ok([])
+        rows = []
+        for rec in Request.ff_to_approve(employee):
+            data = request_data(rec)
+            data['employee'] = ref(rec.employee_id)
+            data['note'] = rec.note or None
+            data['documents'] = request.env['ir.attachment'].sudo().search_count(
+                [('res_model', '=', rec._name), ('res_id', '=', rec.id)])
+            rows.append(data)
+        return ok(rows)
+
+    @api_route('/api/v1/expense-requests/<int:request_id>/decide', methods=('POST',), manager=True)
+    def decide(self, employee, request_id, **kw):
+        rec = request.env['ff.expense.request'].sudo().browse(request_id).exists()
+        if not rec or not hasattr(rec, 'ff_decide_as'):
+            raise ApiError('Request not found.', 404, 'not_found')
+        data = body()
+        approve = bool(data.get('approve'))
+        reason = (data.get('reason') or '').strip()
+        if not approve and not reason:
+            raise ApiError('Give the reason for refusing.', 400, 'invalid')
+        try:
+            rec.ff_decide_as(employee, approve, reason)
+        except (UserError, AccessError) as error:
+            request.env.cr.rollback()
+            raise ApiError(str(error), 400, 'invalid')
+        return ok(request_data(rec))
 
     @api_route('/api/v1/expense-requests', methods=('POST',))
     def create(self, employee, **kw):

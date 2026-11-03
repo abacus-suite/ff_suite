@@ -8,9 +8,11 @@
     'data': [
         'security/ir.model.access.csv',
         'security/ff_approvals_security.xml',
+        'data/ff_request_flow_data.xml',
         'views/ff_approval_flow_views.xml',
         'views/ff_notification_views.xml',
         'views/ff_claim_views.xml',
+        'views/ff_request_views.xml',
         'views/ff_approvals_menus.xml',
     ],
     'installable': True,

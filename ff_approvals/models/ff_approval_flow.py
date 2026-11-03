@@ -11,6 +11,7 @@ from odoo.exceptions import ValidationError
 DOCUMENT_KINDS = [
     ('ff.expense.claim', 'Expense Claim'),
     ('ff.allowance.claim', 'Travel Allowance'),
+    ('ff.expense.request', 'Payment Request'),
 ]
 
 APPROVER_KINDS = [
