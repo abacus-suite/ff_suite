@@ -83,6 +83,8 @@ class FieldForceRoutePlanApi(http.Controller):
                 ('date_from', '<=', today), ('date_to', '>=', today)])
             if grants:
                 mine |= grants.mapped('territory_id').filtered(lambda t: t.exists())
+        # False when the person has none of their own and every territory is offered instead.
+        assigned = bool(mine)
         if not mine:
             mine = env['ff.territory'].sudo().search([], limit=300)
 
@@ -144,6 +146,7 @@ class FieldForceRoutePlanApi(http.Controller):
                         if hasattr(territory, 'ff_mrp_option') and (mrp := territory.ff_mrp_option()) else None),
                 'is_secondary': is_sec,
                 'kind': 'secondary' if is_sec else 'primary',
+                'assigned': assigned,
                 # The Area master of this territory, with how many of its outlets sit in each (0 too).
                 'areas': areas,
                 'no_area_count': sum(1 for p in partners[:1000] if not (has_area and p.ff_area_id)),
