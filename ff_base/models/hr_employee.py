@@ -259,8 +259,11 @@ class HrEmployee(models.Model):
         field timezone in Field Force settings, then the company's.
         """
         self.ensure_one()
+        calendar_tz = self.resource_calendar_id.tz if self.resource_calendar_id else False
         name = self.tz if self.tz and self.tz != 'UTC' else (
             self.env['ir.config_parameter'].sudo().get_param('ff_base.default_tz')
+            # The timezone of the employee's working hours (for example Asia/Kolkata), before the company's.
+            or (calendar_tz if calendar_tz and calendar_tz != 'UTC' else False)
             or self.company_id.partner_id.tz or self.tz or 'UTC')
         try:
             return pytz.timezone(name)
