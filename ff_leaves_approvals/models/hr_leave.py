@@ -27,6 +27,13 @@ class HrLeave(models.Model):
             leave.sudo()._ff_start_approval()
         return leaves
 
+    def write(self, vals):
+        result = super().write(vals)
+        if vals.get('state') in ('validate', 'refuse', 'cancel'):
+            # Decided by someone outside the chain: its unanswered steps are closed, not left waiting.
+            self.sudo().approval_line_ids.filtered(lambda line: line.state == 'pending').write({'state': 'skipped'})
+        return result
+
     # -- the end of the chain: Odoo's own approval, all the way ------------
     def _ff_set_decision(self, approve, approver_user=False):
         for leave in self.sudo().with_context(ff_chain_finished=True):
@@ -77,7 +84,9 @@ class HrLeave(models.Model):
             'steps': [{
                 'name': line.name,
                 'approver': line.user_id.name or '',
-                'state': {'approved': 'done', 'rejected': 'rejected'}.get(line.state, line.state),
+                # A request already decided outside the chain (in Odoo, or by HR) has nothing left to wait for.
+                'state': 'skipped' if line.state == 'pending' and self.state in ('validate', 'refuse', 'cancel')
+                else {'approved': 'done', 'rejected': 'rejected'}.get(line.state, line.state),
                 'decided_at': fields.Datetime.to_string(line.decided_at) if line.decided_at else None,
                 'note': line.note or '',
             } for line in lines],
