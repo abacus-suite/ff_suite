@@ -707,15 +707,6 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                       onPressed: () => setState(_picked.clear),
                       icon: const Icon(Icons.close_rounded),
                     )
-                  else if (_canSend) ...[
-                    IconButton(
-                      tooltip: 'Choose demands to send',
-                      onPressed: _visible.where(_sendable).isEmpty
-                          ? null
-                          : () => setState(() => _picked.add(_visible.firstWhere(_sendable)['id'] as int)),
-                      icon: const Icon(Icons.checklist_rounded),
-                    ),
-                  ],
                 ],
               ),
             ),
