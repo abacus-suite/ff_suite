@@ -84,8 +84,8 @@
         </field>
     </record>
 
-    <menuitem id="menu_ff_travel_rates" name="Travel Rates per Km" parent="ff_base.menu_ff_masters"
-              action="ff_travel_rate_action" sequence="61" groups="ff_base.group_ff_admin"/>
+    <menuitem id="menu_ff_travel_rates" name="Travel Rates per Km" parent="ff_base.menu_ff_masters_others"
+              action="ff_travel_rate_action" sequence="10" groups="ff_base.group_ff_admin"/>
     <menuitem id="menu_ff_odometer_history" name="Odometer History" parent="ff_base.menu_ff_section_claims"
               action="ff_odometer_history_action" sequence="21"/>
 </odoo>
