@@ -1,6 +1,10 @@
 """Payment requests wait for the approvers first (the manager, then anybody else the flow names); only then does the
-accounts team see them to pay."""
-from odoo import api, fields, models
+accounts team see them to pay.
+
+The manager's approval does not depend on a flow having been set up: a request always starts with the manager. The flow
+only adds the steps that come after (or instead of) the reporting manager."""
+from odoo import api, models
+from odoo.exceptions import AccessError, UserError
 
 
 class FfExpenseRequest(models.Model):
@@ -10,20 +14,48 @@ class FfExpenseRequest(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         requests = super().create(vals_list)
-        for rec in requests:
-            # A flow for payment requests puts the request with the approvers; without one it goes to accounts.
-            if rec.state == 'requested' and rec.sudo()._ff_start_approval():
-                rec.sudo().state = 'approval'
+        for rec in requests.sudo():
+            if rec.state != 'requested':
+                continue
+            started = rec._ff_start_approval()
+            # With a flow the chain asks the approvers; without one the reporting manager still has to approve. Only
+            # a request with nobody to ask goes straight to accounts.
+            if started or rec.employee_id.parent_id:
+                rec.state = 'approval'
         return requests
+
+    def _ff_pending_line(self):
+        self.ensure_one()
+        return self.approval_line_ids.sorted('sequence').filtered(lambda line: line.state == 'pending')[:1]
+
+    def _ff_plain_decision(self, approver, approve, note=''):
+        """No chain to walk: the reporting manager (or an administrator) decides."""
+        self.ensure_one()
+        user = approver.sudo().user_id
+        admin = bool(user and user.has_group('ff_base.group_ff_admin'))
+        if not admin and not approver._ff_is_manager_of(self.employee_id):
+            raise AccessError(self.env._('This request is not yours to decide.'))
+        if self.state != 'approval':
+            raise UserError(self.env._('This request is not waiting for an approval.'))
+        if not approve and note:
+            self.sudo().reject_reason = note
+        self._ff_set_decision(approve, user.id if user else False)
+        self._ff_notify_owner(approve, note)
 
     # -- Odoo's buttons
     def action_approve_step(self):
         for rec in self.filtered(lambda r: r.state == 'approval'):
-            rec._ff_decide_step(self.env.user, True)
+            if rec._ff_pending_line():
+                rec._ff_decide_step(self.env.user, True)
+            else:
+                rec._ff_plain_decision(self.env.user.employee_id, True)
 
     def action_refuse_step(self):
         for rec in self.filtered(lambda r: r.state == 'approval'):
-            rec._ff_decide_step(self.env.user, False, rec.reject_reason or '')
+            if rec._ff_pending_line():
+                rec._ff_decide_step(self.env.user, False, rec.reject_reason or '')
+            else:
+                rec._ff_plain_decision(self.env.user.employee_id, False, rec.reject_reason or '')
 
     def _ff_finish_approval(self, approved, user, note=''):
         self.ensure_one()
@@ -34,21 +66,28 @@ class FfExpenseRequest(models.Model):
     # -- the app
     def ff_decide_as(self, employee, approve, reason=''):
         self.ensure_one()
-        self._ff_decide_step(employee.user_id, approve, reason)
+        if self._ff_pending_line():
+            self._ff_decide_step(employee.user_id, approve, reason)
+        else:
+            self._ff_plain_decision(employee, approve, reason)
         return self.sudo()
 
     @api.model
     def ff_to_approve(self, employee):
-        """The requests whose current step is waiting for this person."""
+        """The requests waiting for this person: the current step of a chain, or - with no chain - the requests of the
+        people reporting to them."""
+        ids = set()
         user = employee.user_id
-        if not user:
-            return self.browse()
-        lines = self.env['ff.approval.line'].sudo().search([
-            ('res_model', '=', self._name), ('state', '=', 'pending'), ('user_id', '=', user.id)])
-        ids = []
-        for line in lines:
-            rec = line._ff_document()
-            current = rec.approval_line_ids.sorted('sequence').filtered(lambda row: row.state == 'pending')[:1]
-            if rec and rec.state == 'approval' and current == line:
-                ids.append(rec.id)
-        return self.sudo().browse(ids)
+        if user:
+            lines = self.env['ff.approval.line'].sudo().search([
+                ('res_model', '=', self._name), ('state', '=', 'pending'), ('user_id', '=', user.id)])
+            for line in lines:
+                rec = line._ff_document()
+                if rec and rec.state == 'approval' and rec._ff_pending_line() == line:
+                    ids.add(rec.id)
+        team = employee._ff_subordinates()
+        if team:
+            for rec in self.sudo().search([('state', '=', 'approval'), ('employee_id', 'in', team.ids)]):
+                if not rec._ff_pending_line():
+                    ids.add(rec.id)
+        return self.sudo().browse(sorted(ids))
