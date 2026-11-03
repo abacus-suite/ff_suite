@@ -188,6 +188,8 @@ class _MyBeatsListState extends State<MyBeatsList> {
         'edited ${_shortDay(editedOn)}'
       else
         'created by you',
+      // A one-time beat is for its day only: it leaves the list after it.
+      if (_shortDay('${b['expires'] ?? ''}').isNotEmpty) 'expires ${_shortDay('${b['expires']}')}',
     ].join(' · ');
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
