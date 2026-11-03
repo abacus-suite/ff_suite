@@ -106,14 +106,12 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
               ? (client!['poc_name'] as String).trim()
               : null;
 
-      // The ledger itself, as a PDF, into the accounts contact's WhatsApp chat.
+      // Who it is for first (the accounts contact, or another number), then the ledger as a PDF into their chat.
       if (!mounted) return;
-      final sentPdf = await sendLedgerToContact(
-        context,
-        {...?client, 'id': widget.partnerId, 'name': clientName},
-        phone: pocPhone,
-        contactName: pocName,
-      );
+      final full = {...?client, 'id': widget.partnerId, 'name': clientName};
+      final to = await askLedgerRecipient(context, full);
+      if (to == null || !mounted) return;
+      final sentPdf = await sendLedgerToContact(context, full, phone: to.phone, contactName: to.name);
       if (sentPdf) return;
 
       // No statement from the server: the summary goes as a message instead, as before.

@@ -821,7 +821,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
   Future<void> _sendLedger() async {
     final client = _client;
     if (client == null) return;
-    final sent = await shareLedgerPdf(context, client);
+    final sent = await sendLedgerWithPopup(context, client);
     if (sent && mounted) setState(() => _a['ledger'] = true);
   }
 
