@@ -122,7 +122,9 @@ def _client_domain(employee, member=None):
     # Customers on the routes these people work, or planned for one of their
     # days, belong in the list even when nobody assigned them by name.
     extra = _route_partner_ids(people)
-    Partner = request.env['res.partner']
+    # In employee mode (a manager too) the list is the person's own territories, primary and secondary, not their
+    # team's: territory-wise, unless a contact rule or the employee's allocation switches say otherwise.
+    Partner = request.env['res.partner'].with_context(ff_only_me=True) if member == 'me' else request.env['res.partner']
     if member == 'team' and Partner._ff_see_all():
         return Partner._ff_visible_domain(employee)
     if Partner._ff_access_rule(employee) or Partner._ff_contact_access() == 'open':
@@ -144,7 +146,7 @@ def _client_domain(employee, member=None):
             domain.append(('ff_employee_ids', 'in', people.ids))
         return domain
     if people == employee:
-        return _with_routes(request.env['res.partner']._ff_visible_domain(employee), extra)
+        return _with_routes(Partner._ff_visible_domain(employee), extra)
     Category = request.env['ff.contact.category']
     categories = Category.browse()
     for person in people:
