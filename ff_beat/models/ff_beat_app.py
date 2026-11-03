@@ -339,11 +339,23 @@ class FfBeatApp(models.Model):
                 employee=manager,
                 record=self)
 
+    def ff_expiry(self):
+        """The last day a beat is for, or False when it goes on: a one-time beat has its date, and a beat that does not
+        repeat has the last of the days it was planned on."""
+        self.ensure_one()
+        if self.ff_schedule == 'one_time' and self.ff_one_time_date:
+            return self.ff_one_time_date
+        if self.ff_schedule == 'recurrent' and not self.ff_weekdays and self.ff_plan_dates:
+            days = [fields.Date.to_date(d) for d in self.ff_plan_dates.split(',') if d]
+            return max(days) if days else False
+        return False
+
     def ff_app_payload(self):
         self.ensure_one()
         return {
             'id': self.id,
             'name': self.name,
+            'expires': self.ff_expiry().isoformat() if self.ff_expiry() else None,
             'code': self.code or None,
             'city': self.district_id.name or None,
             'district_id': self.district_id.id or None,
@@ -478,6 +490,12 @@ class FfBeatApp(models.Model):
             plans = self.env['ff.beat.plan'].sudo().search([('beat_id', '=', beat.id), ('date', '=', today)])
             if plans and all(plan.status == 'done' for plan in plans):
                 finished |= beat
+        # A beat that does not repeat, planned on chosen days: expired once the last of them has passed.
+        for beat in self.sudo().search([('ff_schedule', '=', 'recurrent'), ('ff_plan_dates', '!=', False)]):
+            expiry = beat.ff_expiry()
+            if expiry and expiry < today:
+                finished |= beat
+        # Archived, so the name and the code can be used for a new beat.
         finished.write({'active': False})
 
     def _ff_make_weekly_template(self):

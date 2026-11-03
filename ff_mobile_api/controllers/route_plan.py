@@ -29,6 +29,7 @@ class FieldForceRoutePlanApi(http.Controller):
             'approval_state': route.ff_approval_state,
             'added_by': ref(route.ff_created_by_employee_id) or {'id': 0, 'name': 'Office'},
             'code': route.code or None,
+            'expires': route.ff_expiry().isoformat() if route.ff_expiry() else None,
             'territory': ref(route.territory_id) if 'territory_id' in route._fields else None,
             # Repeat on or off: a recurrent beat with weekdays repeats on them; without, it repeats on none.
             'schedule': route.ff_schedule or None,

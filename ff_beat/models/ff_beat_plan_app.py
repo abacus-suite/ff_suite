@@ -21,14 +21,15 @@ class FfBeatPlanApp(models.Model):
         they plan their own, and only fall back to all when they have none.
         """
         routes = self.env['ff.beat'].ff_beats_for(employee)
-        # A one-time beat is for its date only: once approved it leaves the list (pending ones stay visible).
-        routes = routes.filtered(lambda b: b.ff_schedule != 'one_time' or b.ff_approval_state != 'approved')
+        # A one-time beat is listed with its expiry date; once that day has passed it leaves the list.
+        today = fields.Date.context_today(self)
+        routes = routes.filtered(lambda b: not b.ff_expiry() or b.ff_expiry() >= today)
         # A beat the manager put on this person's day is theirs to see too (locked as "assigned by manager").
         planned = self.sudo().search([
             ('employee_id', '=', employee.id), ('beat_id', '!=', False),
             ('date', '>=', fields.Date.context_today(self) - timedelta(days=90))]).beat_id
         routes |= self.env['ff.beat'].sudo()._ff_beat_usable(planned, employee).filtered(
-            lambda b: b.ff_schedule != 'one_time' or b.ff_approval_state != 'approved')
+            lambda b: not b.ff_expiry() or b.ff_expiry() >= today)
         # Alphabetical, whoever drew the beat.
         return routes.sorted(lambda route: (route.display_name or '').lower())
 
