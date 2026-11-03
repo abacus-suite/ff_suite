@@ -598,7 +598,6 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         AppColors.primary,
         lat == null || lng == null ? null : () => openDirections(lat, lng)
       ),
-      (Icons.event_available_rounded, 'Plan Visit', AppColors.purple, () => _planVisit(c)),
       // Checking in and out lives here now; there is no second button below.
       if (profile.feature('visits'))
         (
