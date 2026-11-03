@@ -41,6 +41,8 @@
                 <group string="Delivery Address" invisible="not ff_is_client">
                     <group>
                         <field name="ff_delivery_same_billing"/>
+                        <field name="ff_delivery_address" invisible="ff_delivery_same_billing"/>
+                        <field name="ff_delivery_zip" invisible="ff_delivery_same_billing"/>
                         <field name="ff_door_no"/>
                         <field name="ff_street_name"/>
                         <field name="ff_area_id" options="{'no_create': True}"/>

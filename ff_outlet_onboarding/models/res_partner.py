@@ -40,6 +40,9 @@ class ResPartner(models.Model):
     ff_door_no = fields.Char(string='Door / TC No.')
     ff_street_name = fields.Char(string='Street Name')
     ff_delivery_same_billing = fields.Boolean(string='Delivery Same as Billing')
+    ff_delivery_address = fields.Text(string='Delivery Address',
+                                      help='Only when the delivery address is not the billing address.')
+    ff_delivery_zip = fields.Char(string='Delivery PIN Code')
     ff_has_gst = fields.Boolean(string='GST Available', default=True,
                                 help='Off for an outlet with no GST: then no GSTIN is asked for.')
     ff_swiggy_zomato = fields.Boolean(string='Swiggy / Zomato Outlet')
@@ -199,6 +202,9 @@ class ResPartner(models.Model):
             'onboarded_date': partner.ff_onboarded_date.isoformat() if partner.ff_onboarded_date else None,
             'gst_name': partner.ff_gst_name or None,
             'billing_address': partner.ff_billing_address or None,
+            'delivery_same': bool(partner.ff_delivery_same_billing),
+            'delivery_address': partner.ff_delivery_address or None,
+            'delivery_zip': partner.ff_delivery_zip or None,
             'poc_name': partner.ff_poc_name or None,
             'poc_phone': partner.ff_poc_phone or None,
             'poc_email': partner.ff_poc_email or None,
@@ -310,6 +316,9 @@ class ResPartner(models.Model):
             'street': text('street'), 'street2': text('street2'), 'city': text('city'), 'zip': text('zip'),
             'ff_door_no': text('door_no'), 'ff_street_name': text('street_name'),
             'ff_delivery_same_billing': flag('delivery_same'),
+            # A delivery address of its own is kept only when it is not the billing address.
+            'ff_delivery_address': False if flag('delivery_same') else text('delivery_address'),
+            'ff_delivery_zip': False if flag('delivery_same') else text('delivery_zip'),
             'ff_billing_address': text('billing_address'),
             'ff_poc_name': text('poc_name'), 'ff_poc_phone': text('poc_phone'), 'ff_poc_email': text('poc_email'),
             'ff_mrp_id': self.env['ff.partner.option'].ff_by_code('mrp', data.get('mrp')).id or False,
