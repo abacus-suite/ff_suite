@@ -529,7 +529,7 @@ class _FreeGoodsSheet extends StatefulWidget {
 }
 
 class _FreeGoodsSheetState extends State<_FreeGoodsSheet> {
-  static const _reasons = ['Sample', 'Display', 'Damage cover', 'Festival offer', 'Other'];
+  static const _reasons = ['Sample', 'Fizz Test', 'Listing Fee', 'Quality Issue'];
   int? _product;
   double _qty = 1;
   String? _reason;

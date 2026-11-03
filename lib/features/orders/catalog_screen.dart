@@ -36,7 +36,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
   bool _freeTab = false;
   String? _freeReason;
   final _freeNote = TextEditingController();
-  static const _freeReasons = ['Sample', 'Display', 'Damage cover', 'Festival offer', 'Other'];
+  static const _freeReasons = ['Sample', 'Fizz Test', 'Listing Fee', 'Quality Issue'];
   final Map<int, Map<String, dynamic>> _known = {};
 
   /// This outlet's price category, scheme and margin, when the server sends them.
