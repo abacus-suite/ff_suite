@@ -409,7 +409,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
     final subtitleText = widget.pickMode
         ? (_isOutletOnly ? 'Pick the outlet' : 'Pick who this is for')
         : 'Manage your customers and outlets';
-    final title = Column(
+    final title = GestureDetector(
+      onLongPress: _showRuleDebug,
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(titleText,
@@ -421,7 +423,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
       ],
-    );
+    ));
     final back = !widget.embedded && Navigator.of(context).canPop();
     if (widget.embedded) {
       // The tab has the whole width: title, then the list or map switch and the person picker.
@@ -1295,6 +1297,26 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   /// The list as rows when grouping is on: every territory, area or beat of the masters gets a header with its
   /// count (an empty one is left out), a contact appears under each beat or territory it belongs to, and contacts
+  /// Long-press the title: which rule built this list on the server, and the settings behind it.
+  Future<void> _showRuleDebug() async {
+    String text;
+    try {
+      final data = await Services.api.get('/api/v1/clients/rule-debug', query: {'member': _effectiveMember}) as Map<String, dynamic>;
+      text = data.entries.map((e) => '${e.key}: ${e.value}').join('\n');
+    } catch (e) {
+      text = 'No answer from the server ($e).\nIt is not running the latest ff_mobile_api: upgrade it.';
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('Client list rule'),
+        content: SingleChildScrollView(child: SelectableText(text, style: const TextStyle(fontSize: 12))),
+        actions: [TextButton(onPressed: () => Navigator.pop(d), child: const Text('OK'))],
+      ),
+    );
+  }
+
   /// with none are gathered under "No ...". Every group starts closed.
   List<Object> _groupedRows() {
     if (_group == 'none') return List<Object>.from(_shownClients);
