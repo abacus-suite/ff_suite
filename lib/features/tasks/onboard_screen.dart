@@ -232,8 +232,14 @@ class _OnboardScreenState extends State<OnboardScreen> {
       districts = (await Services.api.get('/api/v1/districts') as List).cast<Map<String, dynamic>>();
     } catch (_) {}
     int byName(Map<String, dynamic> a, Map<String, dynamic> b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase());
+    // The lead's category and MRP are on its full record, which the list the person came from may not carry.
+    var c = widget.client;
+    if (c['onboarding'] == null) {
+      try {
+        c = {...c, ...(await Services.api.get('/api/v1/clients/${c['id']}') as Map<String, dynamic>)};
+      } catch (_) {}
+    }
     if (!mounted) return;
-    final c = widget.client;
     setState(() {
       // A region on the lead's own profile is the person's even when the list could not be read.
       final mineId = Services.auth.profile?.teamId;
