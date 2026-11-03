@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../attendance/overtime_screen.dart' show decideOvertime, overtimeCard;
 import '../attendance/regularisation_screen.dart' show reasons;
+import '../../widgets/documents.dart';
 import '../../widgets/skeleton.dart';
 
 /// One quick-access place for everything a manager has to decide, sorted into categories with the
@@ -218,6 +219,17 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   }
 
 
+  /// The kinds of request that can carry uploaded pictures, and the Odoo model each one is kept in.
+  static const _documentModels = {
+    'expense': 'ff.expense.claim',
+    'return': 'ff.return',
+    'allowance': 'ff.allowance.claim',
+    'da': 'ff.da.claim',
+    'regularisation': 'ff.regularisation',
+    'leave': 'hr.leave',
+    'note': 'ff.distributor.note',
+  };
+
   Widget _card({
     required String kind,
     required int id,
@@ -236,7 +248,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     Future<void> view() async {
       if (detail == null) return;
       await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => _ApprovalDetailScreen(detail: detail, color: color, icon: icon, approveLabel: approveLabel, rejectLabel: rejectLabel, onDecide: go),
+        builder: (_) => _ApprovalDetailScreen(
+            detail: detail, color: color, icon: icon, approveLabel: approveLabel, rejectLabel: rejectLabel, onDecide: go,
+            documentModel: _documentModels[kind], documentId: id),
       ));
     }
 
@@ -728,8 +742,13 @@ class _ApprovalDetailScreen extends StatefulWidget {
     required this.approveLabel,
     required this.rejectLabel,
     required this.onDecide,
+    this.documentModel,
+    this.documentId,
   });
 
+  /// The request's own uploaded pictures are shown on the page, so the documents can be read before deciding.
+  final String? documentModel;
+  final int? documentId;
   final _Detail detail;
   final Color color;
   final IconData icon;
@@ -821,6 +840,8 @@ class _ApprovalDetailScreenState extends State<_ApprovalDetailScreen> {
                 ),
             ]),
           ),
+        if (widget.documentModel != null && widget.documentId != null)
+          DocumentGallery(model: widget.documentModel!, id: widget.documentId!),
         if (d.lines.isNotEmpty)
           _card(
             'Items (${d.lines.length})',
