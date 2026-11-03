@@ -1324,7 +1324,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
     final none = _Group('none', const {'territory': 'No territory', 'area': 'No area', 'beat': 'No beat'}[_group] ?? 'None');
 
     // The masters in scope, so a group with nobody in it is still listed.
-    final inScope = _territories.where((t) => _territoryId == null || t['id'] == _territoryId);
+    // In employee mode (a manager too) the territory groups are the person's own, however many secondary
+    // territories a contact carries.
+    final own = !Services.managerMode.value;
+    final inScope = _territories.where((t) =>
+        (_territoryId == null || t['id'] == _territoryId) && !(own && _group == 'territory' && t['kind'] == 'other'));
     if (_group == 'territory') {
       for (final t in inScope) {
         groups['t${t['id']}'] = _Group('t${t['id']}', territoryLabel(t));
@@ -1344,7 +1348,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     }
     // With that filter on, only its own groups; otherwise a group the lists did not know of is added as it turns up.
     final restricted = switch (_group) {
-      'territory' => _territoryId != null,
+      'territory' => _territoryId != null || own,
       'area' => _areaId != null || _territoryId != null,
       _ => _beatIds.isNotEmpty || _territoryId != null,
     };
