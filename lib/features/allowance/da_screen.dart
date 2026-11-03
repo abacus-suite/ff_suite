@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/report_download.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -69,7 +70,7 @@ class _DailyAllowanceScreenState extends State<DailyAllowanceScreen> {
     final weeks = ((d?['weeks'] as List?) ?? []).cast<Map<String, dynamic>>();
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Daily Allowance (DA)')),
+      appBar: AppBar(title: const Text('Daily Allowance (DA)'), actions: [const ReportDownloadButton(reportKey: 'da', title: 'Daily allowance')]),
       body: _error != null
           ? ErrorView(message: _error!, onRetry: _load)
           : d == null

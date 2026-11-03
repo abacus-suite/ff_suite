@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../widgets/report_download.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -359,7 +360,9 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
     final pending = (rows ?? const []).where((r) => r['state'] == 'invoice_pending' && !_hidden.contains(r['id']));
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Payment Request', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22))),
+      appBar: AppBar(
+          title: const Text('Payment Request', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22)),
+          actions: [const ReportDownloadButton(reportKey: 'payment_requests', title: 'Payment requests')]),
       floatingActionButton: FloatingActionButton(
         tooltip: 'New payment request',
         onPressed: _new,

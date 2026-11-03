@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/report_download.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/format.dart';
@@ -116,7 +117,7 @@ class _AllowanceScreenState extends State<AllowanceScreen> {
     final now = DateTime.now();
     final isCurrent = _month.year == now.year && _month.month == now.month;
     return Scaffold(
-      appBar: AppBar(title: const Text('Travel Allowance')),
+      appBar: AppBar(title: const Text('Travel Allowance'), actions: [const ReportDownloadButton(reportKey: 'allowances', title: 'Travel allowance')]),
       floatingActionButton: FloatingActionButton(
         tooltip: 'New travel allowance',
         onPressed: () async {

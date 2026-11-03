@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/report_download.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -56,7 +57,7 @@ class _OlaScreenState extends State<OlaScreen> {
     Color tint(String kind) => kind == 'full' ? AppColors.success : kind == 'half' ? AppColors.warning : AppColors.muted;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('OLA')),
+      appBar: AppBar(title: const Text('OLA'), actions: [const ReportDownloadButton(reportKey: 'ola', title: 'OLA')]),
       body: _error != null
           ? ErrorView(message: _error!, onRetry: _load)
           : d == null
