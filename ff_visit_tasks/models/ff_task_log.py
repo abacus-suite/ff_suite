@@ -499,6 +499,15 @@ class FfTaskLog(models.Model):
         if given:
             rows = self._ff_lines(log, 'sample', samples.get('lines'))
             self._ff_require(rows, 'Enter the quantity of samples given.')
+            # Only what the person holds can be given.
+            held = {product.id: qty for product, qty in self.env['ff.sample.move'].ff_on_hand(employee)}
+            for row in rows:
+                product = self.env['product.product'].sudo().browse(int(row.get('product_id') or 0))
+                quantity = float(row.get('qty') or row.get('quantity') or 0)
+                self._ff_require(
+                    quantity <= held.get(product.id, 0.0) + 1e-9,
+                    'You have %s of %s in hand: you cannot give %s.' % (
+                        ('%g' % held.get(product.id, 0.0)), product.display_name, ('%g' % quantity)))
         else:
             reason = (samples.get('reason') or '').strip()
             self._ff_require(reason, 'Say why no samples were given.')
