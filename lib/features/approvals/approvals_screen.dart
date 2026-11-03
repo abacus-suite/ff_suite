@@ -36,6 +36,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     ('returns', 'Returns', 'Damaged and returned stock', Icons.assignment_return_rounded, Color(0xFFDC2626)),
     ('leaves', 'Leave', 'Leave requests', Icons.beach_access_rounded, Color(0xFF0284C7)),
     ('overtime', 'Overtime', 'Hours beyond the shift: approve or change them', Icons.more_time_rounded, Color(0xFFEA580C)),
+    ('requests', 'Payment Requests', 'Approve before accounts pay', Icons.request_quote_rounded, Color(0xFF7C3AED)),
     ('regularisation', 'Attendance Fixes', 'Corrections to check-in and out', Icons.edit_calendar_rounded, Color(0xFF4F46E5)),
     ('expenses', 'Expenses', 'Claims and card expenses', Icons.receipt_long_rounded, Color(0xFFEA580C)),
     ('allowances', 'TA', 'Travel allowance claims', Icons.local_gas_station_rounded, Color(0xFF7C3AED)),
@@ -71,6 +72,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         _optional(Services.api.get('/api/v1/beats/to-approve')),
         _optional(Services.api.get('/api/v1/da/to-approve')),
         _optional(Services.api.get('/api/v1/overtime/to-approve')),
+        _optional(Services.api.get('/api/v1/expense-requests/to-approve')),
       ]);
       final base = results[0] as Map<String, dynamic>;
       if (!mounted) return;
@@ -88,6 +90,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         _items['beats'] = _list(results[9]);
         _items['da'] = _list(results[10]);
         _items['overtime'] = _list((results[11] as Map?)?['rows']);
+        _items['requests'] = _list(results[12]);
         _error = null;
       });
     } catch (e) {
@@ -222,6 +225,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   /// The kinds of request that can carry uploaded pictures, and the Odoo model each one is kept in.
   static const _documentModels = {
     'expense': 'ff.expense.claim',
+    'request': 'ff.expense.request',
     'return': 'ff.return',
     'allowance': 'ff.allowance.claim',
     'da': 'ff.da.claim',
@@ -323,6 +327,37 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     final rows = _items[key] ?? const [];
     final color = _kinds.firstWhere((k) => k.$1 == key).$5;
     switch (key) {
+      case 'requests':
+        return [
+          for (final r in rows)
+            _card(
+              kind: 'request',
+              detail: _Detail(
+                  title: '${(r['employee'] as Map?)?['name'] ?? ''}',
+                  status: 'Waiting for you',
+                  amount: fmtMoney(r['amount'] as num?),
+                  facts: [
+                    ('Category', '${(r['category'] as Map?)?['name'] ?? '-'}${(r['sub_category'] as Map?) != null ? ' / ${(r['sub_category'] as Map)['name']}' : ''}'),
+                    ('Date', '${r['date']}'),
+                    ('Document', r['document'] == 'quotation' ? 'Quotation (tax invoice follows)' : 'Tax invoice'),
+                    ('Amount', fmtMoney(r['amount'] as num?)),
+                  ],
+                  note: asText(r['note'])),
+              id: r['id'] as int,
+              icon: Icons.request_quote_rounded,
+              color: color,
+              title: '${(r['employee'] as Map?)?['name'] ?? ''}',
+              amount: fmtMoney(r['amount'] as num?),
+              approveLabel: 'Approve',
+              lines: [
+                '${(r['category'] as Map?)?['name'] ?? ''}${(r['sub_category'] as Map?) != null ? ' · ${(r['sub_category'] as Map)['name']}' : ''}',
+                '${r['document'] == 'quotation' ? 'Quotation' : 'Tax invoice'} · ${r['date']}',
+                if ((r['documents'] as num? ?? 0) > 0) '${r['documents']} document(s)',
+              ],
+              onDecide: (a) => _decide('request', r['id'] as int, a,
+                  path: '/api/v1/expense-requests/${r['id']}/decide', payload: {'approve': a, 'uuid': const Uuid().v4()}),
+            ),
+        ];
       case 'overtime':
         return [
           for (final r in rows)

@@ -362,6 +362,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
 
   (Color, String, String) _look(Map<String, dynamic> r) => switch ('${r['state']}') {
         'completed' => (AppColors.success, 'Completed', 'Tax invoice uploaded'),
+        'approval' => (_orange, 'With manager', 'Waiting for your manager to approve'),
         'requested' when r['invoice_uploaded'] == true && r['document'] == 'quotation' => (
             AppColors.primary, 'With accounts', 'Tax invoice uploaded · waiting for accounts to pay'),
         'invoice_pending' => (
@@ -509,7 +510,7 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     final state = '${_r['state']}';
     // A quotation's tax invoice can go in as soon as the request is sent, before accounts have paid.
     final waitingInvoice = _r['document'] == 'quotation' &&
-        (state == 'invoice_pending' || state == 'requested') &&
+        (state == 'invoice_pending' || state == 'requested' || state == 'approval') &&
         _r['invoice_uploaded'] != true;
     final paid = DateTime.tryParse('${_r['paid_on'] ?? ''}');
     final due = DateTime.tryParse('${_r['invoice_due'] ?? ''}');
@@ -543,6 +544,8 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
           )
         else if (state == 'completed')
           _banner('Completed · tax invoice uploaded.', AppColors.success)
+        else if (state == 'approval')
+          _banner('With your manager. It goes to accounts once it is approved.', _orange)
         else if (state == 'requested' && _r['invoice_uploaded'] == true)
           _banner('Tax invoice uploaded. With accounts: you will be told when it is paid.', AppColors.primary)
         else
