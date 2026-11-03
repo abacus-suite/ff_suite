@@ -207,79 +207,29 @@ class FieldForceOrdersApi(http.Controller):
         ]
         if q:
             domain += ['|', ('name', 'ilike', q), ('city', 'ilike', q)]
-        rows = Partner.search(domain, order='name', limit=200)
-
-        # Narrow to employee's related distributors (territories, secondary territories, districts, beats, assignments)
         emp = employee.sudo()
-        subs = emp._ff_subordinates()
-        all_emp_ids = set((emp | subs).ids)
-
-        emp_terr_ids = set()
-        if 'ff_territory_ids' in emp._fields:
-            emp_terr_ids.update(emp.ff_territory_ids.ids)
-            if subs:
-                emp_terr_ids.update(subs.mapped('ff_territory_ids').ids)
-        if 'ff_secondary_territory' in emp._fields:
-            emp_terr_ids.update(emp.ff_secondary_territory.ids)
-            if subs:
-                emp_terr_ids.update(subs.mapped('ff_secondary_territory').ids)
-
-        emp_dist_ids = set()
-        if 'ff_district_id' in emp._fields and emp.ff_district_id:
-            emp_dist_ids.add(emp.ff_district_id.id)
-            if subs:
-                emp_dist_ids.update(subs.mapped('ff_district_id').ids)
-        if 'ff_secondary_district_ids' in emp._fields:
-            emp_dist_ids.update(emp.ff_secondary_district_ids.ids)
-            if subs:
-                emp_dist_ids.update(subs.mapped('ff_secondary_district_ids').ids)
-
-        beat_dist_ids = set()
-        beat_ids = set()
-        if 'ff_route_ids' in emp._fields:
-            beat_ids.update(emp.ff_route_ids.ids)
-        if subs and 'ff_route_ids' in subs._fields:
-            beat_ids.update(subs.mapped('ff_route_ids').ids)
-
-        if beat_ids and 'ff.beat' in request.env:
-            beats = request.env['ff.beat'].sudo().browse(list(beat_ids))
-            if 'territory_id' in beats._fields:
-                emp_terr_ids.update(beats.mapped('territory_id').ids)
-            if 'district_id' in beats._fields:
-                emp_dist_ids.update(beats.mapped('district_id').ids)
-            if 'ff_distributor_id' in beats._fields:
-                beat_dist_ids.update(beats.mapped('ff_distributor_id').ids)
-            if 'ff.beat.line' in request.env:
-                lines = request.env['ff.beat.line'].sudo().search([('beat_id', 'in', beats.ids)])
-                if lines and 'ff_distributor_id' in lines.partner_id._fields:
-                    beat_dist_ids.update(lines.partner_id.mapped('ff_distributor_id').ids)
-
-        has_scope = bool(emp_terr_ids or emp_dist_ids or beat_ids or beat_dist_ids)
-        if has_scope and getattr(emp, 'ff_access_scope', None) != 'all':
-            def _is_related(r):
-                if r.id in beat_dist_ids:
-                    return True
-                if set(r.ff_employee_ids.ids) & all_emp_ids:
-                    return True
-                r_terrs = set()
-                if 'ff_territory_id' in r._fields and r.ff_territory_id:
-                    r_terrs.add(r.ff_territory_id.id)
-                if 'ff_secondary_territory_ids' in r._fields:
-                    r_terrs.update(r.ff_secondary_territory_ids.ids)
-                if r_terrs & emp_terr_ids:
-                    return True
-                r_dists = set()
-                if 'ff_district_id' in r._fields and r.ff_district_id:
-                    r_dists.add(r.ff_district_id.id)
-                if 'ff_secondary_district_ids' in r._fields:
-                    r_dists.update(r.ff_secondary_district_ids.ids)
-                if r_dists & emp_dist_ids:
-                    return True
-                return False
-
-            related = rows.filtered(_is_related)
-            if related:
-                rows = related
+        team = emp._ff_subordinates()
+        # "mode" tells Manager Mode (the person's team) from employee mode (a manager too: only their own).
+        team_view = kw.get('mode') == 'manager' and bool(team)
+        if getattr(emp, 'ff_access_scope', None) != 'all':
+            if getattr(emp, 'ff_allocated_distributors', False) and not team_view:
+                # "Allocated Distributors": only the ones with their name on them.
+                domain.append(('ff_employee_ids', 'in', [emp.id]))
+            else:
+                # The distributors of their primary and secondary territories (a manager's team view adds the
+                # team's); nobody with no territory is offered somebody else's.
+                people = (emp | team) if team_view else emp
+                territories = people.mapped('ff_territory_ids')
+                if 'ff_secondary_territory' in emp._fields:
+                    territories |= people.mapped('ff_secondary_territory')
+                if not territories:
+                    domain.append(('id', '=', 0))
+                else:
+                    places = [('ff_territory_id', 'in', territories.ids)]
+                    if 'ff_secondary_territory_ids' in Partner._fields:
+                        places = ['|'] + places + [('ff_secondary_territory_ids', 'in', territories.ids)]
+                    domain += places
+        rows = Partner.search(domain, order='name', limit=200)
 
         suggested = Partner.browse()
         if partner_id:

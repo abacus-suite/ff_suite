@@ -116,8 +116,7 @@ def _allowed_distributors(env, employee):
         territories |= employee.ff_secondary_territory
     if not territories:
         return Partner.browse()
-    where = ['|', ('ff_territory_id', 'in', territories.ids),
-             ('ff_beat_line_ids.beat_id.territory_id', 'in', territories.ids)]
+    where = [('ff_territory_id', 'in', territories.ids)]
     if 'ff_secondary_territory_ids' in Partner._fields:
         where = ['|'] + where + [('ff_secondary_territory_ids', 'in', territories.ids)]
     return Partner.search(base + where, order='name')
