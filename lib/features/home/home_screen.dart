@@ -29,6 +29,7 @@ import '../../core/duty_watch.dart';
 import 'day_journey_screen.dart';
 import 'sales_cards.dart';
 import '../events/events_screen.dart';
+import 'today_map_screen.dart';
 import 'nearby_outlets_card.dart';
 import 'recommendations_card.dart';
 import '../../widgets/sync_status.dart';
@@ -997,10 +998,18 @@ class _HomeScreenState extends State<HomeScreen> {
             CardHeader(
               icon: Icons.assignment_rounded,
               title: "Today's Beat Plan Summary",
-              trailing: TextButton(
-                onPressed: () => _push(const BeatTodayScreen()),
-                child: const Text('View All'),
-              ),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                // Where I am, today's outlets and the others, on one map.
+                TextButton.icon(
+                  onPressed: () => _push(TodayMapScreen(planned: _plannedClients)),
+                  icon: const Icon(Icons.map_rounded, size: 18),
+                  label: const Text('Map'),
+                ),
+                TextButton(
+                  onPressed: () => _push(const BeatTodayScreen()),
+                  child: const Text('View All'),
+                ),
+              ]),
             ),
             const SizedBox(height: 12),
             IntrinsicHeight(
