@@ -214,6 +214,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       return switch (_filter) {
         'visited' => status == 'visited',
         'cancelled' => status == 'cancelled',
+        'offsite' => false, // offsite visits are added visits, below
         _ => status != 'visited' && status != 'cancelled' && status != 'skipped',
       };
     }).toList();
@@ -262,6 +263,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       for (final visit in adhoc)
         if (_filter == 'all' ||
             (_filter == 'visited' && visit['state'] != 'ongoing' && '${visit['visit_type']}' != 'offsite') ||
+            (_filter == 'offsite' && visit['state'] != 'ongoing' && '${visit['visit_type']}' == 'offsite') ||
             ((_filter == 'pending' || _filter == 'planned') && visit['state'] == 'ongoing'))
           {...(visit['client'] as Map).cast<String, dynamic>(), '_visit': visit},
     ];
@@ -423,6 +425,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
               DropdownMenuItem(value: 'visited', child: Text('Visited')),
               DropdownMenuItem(value: 'pending', child: Text('Pending')),
               DropdownMenuItem(value: 'cancelled', child: Text('Cancelled')),
+              DropdownMenuItem(value: 'offsite', child: Text('Offsite')),
             ],
             (v) => setState(() => _filter = v ?? 'all'),
           ),
