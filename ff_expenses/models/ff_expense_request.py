@@ -9,7 +9,7 @@ from datetime import timedelta
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
-from .ff_expense_claim import _strip_data_url
+from .ff_expense_claim import _parse_upload, _strip_data_url
 
 STATES = [
     ('approval', 'With manager'),
@@ -75,12 +75,11 @@ class FfExpenseRequest(models.Model):
     # ------------------------------------------------------------------
     def _ff_attach(self, photo, label):
         self.ensure_one()
-        photo = _strip_data_url(photo)
         if not photo:
-            raise UserError(self.env._('A photo of the %s is needed.', label))
+            raise UserError(self.env._('A photo or document of the %s is needed.', label))
+        data, name, mime = _parse_upload(photo, '%s_%s.jpg' % (label.replace(' ', '_'), self.id))
         self.env['ir.attachment'].sudo().create({
-            'name': '%s_%s.jpg' % (label.replace(' ', '_'), self.id),
-            'datas': photo, 'res_model': self._name, 'res_id': self.id, 'mimetype': 'image/jpeg',
+            'name': name, 'datas': data, 'res_model': self._name, 'res_id': self.id, 'mimetype': mime,
         })
 
     def _ff_notify(self, title, body):

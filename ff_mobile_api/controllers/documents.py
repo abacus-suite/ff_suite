@@ -40,7 +40,8 @@ class FieldForceDocumentsApi(http.Controller):
         if not record or not _may_see(employee, record):
             raise ApiError('Not found.', 404, 'not_found')
         files = request.env['ir.attachment'].sudo().search([('res_model', '=', model), ('res_id', '=', record.id)])
-        return ok([{'id': f.id, 'name': f.name, 'image': bool((f.mimetype or '').startswith('image/'))} for f in files])
+        return ok([{'id': f.id, 'name': f.name, 'mimetype': f.mimetype or None,
+                    'image': bool((f.mimetype or '').startswith('image/'))} for f in files])
 
     @api_route('/api/v1/documents/<int:attachment_id>/file', methods=('GET',))
     def file(self, employee, attachment_id, **kw):
@@ -54,4 +55,5 @@ class FieldForceDocumentsApi(http.Controller):
         data = attachment.raw or base64.b64decode(attachment.datas or b'')
         return request.make_response(data, headers=[
             ('Content-Type', attachment.mimetype or 'application/octet-stream'),
-            ('Content-Length', str(len(data))), ('Cache-Control', 'private, max-age=3600')])
+            ('Content-Length', str(len(data))), ('Cache-Control', 'private, max-age=3600'),
+            ('Content-Disposition', 'attachment; filename="%s"' % (attachment.name or 'file').replace('"', ''))])

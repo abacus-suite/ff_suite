@@ -12,6 +12,23 @@ def _strip_data_url(image):
     return image
 
 
+def _parse_upload(value, default_name, default_mime='image/jpeg'):
+    """``(base64, file name, mime type)`` of an upload: a plain base64 photo, or a document sent as
+    ``data:<mime>;name=<file>;base64,<data>``."""
+    from urllib.parse import unquote
+    name, mime = default_name, default_mime
+    if isinstance(value, str) and value.startswith('data:') and ',' in value:
+        header, data = value.split(',', 1)
+        parts = header[5:].split(';')
+        if parts and parts[0]:
+            mime = parts[0]
+        for part in parts[1:]:
+            if part.startswith('name=') and part[5:]:
+                name = unquote(part[5:])[:120]
+        return data, name, mime
+    return value, name, mime
+
+
 class FfExpenseClaim(models.Model):
     _name = 'ff.expense.claim'
     _description = 'Field Expense Claim'
@@ -140,13 +157,12 @@ class FfExpenseClaim(models.Model):
         if have + len(receipts) > MAX_RECEIPTS:
             raise UserError(self.env._('Up to %s pictures can be added.', MAX_RECEIPTS))
         if receipts:
-            self.env['ir.attachment'].sudo().create([{
-                'name': 'receipt_%s_%s.jpg' % (claim.id, have + index + 1),
-                'datas': _strip_data_url(receipt),
-                'res_model': self._name,
-                'res_id': claim.id,
-                'mimetype': 'image/jpeg',
-            } for index, receipt in enumerate(receipts)])
+            vals = []
+            for index, receipt in enumerate(receipts):
+                data, name, mime = _parse_upload(receipt, 'receipt_%s_%s.jpg' % (claim.id, have + index + 1))
+                vals.append({'name': name, 'datas': data, 'res_model': self._name, 'res_id': claim.id,
+                             'mimetype': mime})
+            self.env['ir.attachment'].sudo().create(vals)
 
     @api.model
     def ff_create_from_app(self, employee, data):
