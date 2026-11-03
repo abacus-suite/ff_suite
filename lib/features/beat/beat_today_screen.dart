@@ -32,6 +32,9 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
   // Only today's plan is shown: no other day can be opened from here.
   final DateTime _day = DateTime.now();
   late String _filter = widget.filter;
+
+  /// The beat the list below is narrowed to (its id, or 'none' for the plan with no beat); null shows every beat.
+  String? _beat;
   Map<String, dynamic>? _data;
   bool _loading = true;
   String? _error;
@@ -231,6 +234,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     final plans = ((data['plans'] as List?) ?? []).cast<Map<String, dynamic>>();
     final every = ((data['clients'] as List?) ?? []).cast<Map<String, dynamic>>();
     final clients = every.where((c) {
+      if (_beat != null && !_inBeat(c, plans)) return false;
       if (_filter == 'all') return true;
       final status = c['visit_status'] == 'done' ? 'visited' : (c['plan_status'] as String? ?? 'planned');
       return switch (_filter) {
@@ -242,6 +246,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     final adhoc = ((data['adhoc_visits'] as List?) ?? []).cast<Map<String, dynamic>>();
     if (_isToday) return _todayContent(plans, clients, adhoc, label);
     return [
+      _statBoxes(plans),
       if (plans.isEmpty)
         EmptyView(icon: Icons.event_busy_rounded,
             text: 'No $label planned for this day.\nUse "Add a Visit" to visit anyone.'),
@@ -257,6 +262,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
             ),
           ),
         ),
+      if (_beat != null) _beatChip(plans, clients.length),
       if (clients.isEmpty && _filter != 'all')
         const EmptyView(icon: Icons.filter_alt_off_rounded, text: 'Nothing in this group.'),
       if (clients.isNotEmpty) ...[
@@ -305,8 +311,10 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
         for (final a in _added)
           if (!visited.contains(a['id']) && !planned.contains(a['id'])) {...a, '_visit': const {'state': 'added'}},
     ];
-    final rows = nearestFirst([...clients, ...added, ...waiting], _here);
+    // Visits added by hand belong to no beat: they are left out while one beat is chosen.
+    final rows = nearestFirst([...clients, if (_beat == null) ...added, if (_beat == null) ...waiting], _here);
     return [
+      _statBoxes(plans),
       if (plans.isEmpty && rows.isEmpty && _filter == 'all')
         EmptyView(icon: Icons.event_busy_rounded,
             text: 'No $label planned for this day.\nUse "Add a Visit" to visit anyone.'),
@@ -322,6 +330,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
             ),
           ),
         ),
+      if (_beat != null) _beatChip(plans, rows.length),
       if (rows.isEmpty && _filter != 'all')
         const EmptyView(icon: Icons.filter_alt_off_rounded, text: 'Nothing in this group.'),
       if (rows.isNotEmpty) ...[
@@ -346,6 +355,71 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
         ),
       ],
     ];
+  }
+
+  String _planKey(Map<String, dynamic> plan) => '${(plan['beat'] as Map?)?['id'] ?? 'none'}';
+
+  /// Does this customer belong to the beat that was chosen?
+  bool _inBeat(Map<String, dynamic> client, List<Map<String, dynamic>> plans) {
+    final route = client['route'] as Map?;
+    if (_beat == 'none') return route == null;
+    return route != null && '${route['id']}' == _beat;
+  }
+
+  /// Four figures first: how many beats are planned, the customers on them, how many were visited and the km.
+  Widget _statBoxes(List<Map<String, dynamic>> plans) {
+    num sum(String key) => plans.fold<num>(0, (a, p) => a + ((p[key] as num?) ?? 0));
+    Widget box(IconData icon, Color tint, String value, String label) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+            decoration: BoxDecoration(
+              color: tint.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: tint.withValues(alpha: 0.25)),
+            ),
+            child: Column(children: [
+              Icon(icon, size: 18, color: tint),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19, color: tint)),
+              ),
+              const SizedBox(height: 2),
+              Text(label,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 10.5, color: AppColors.muted, fontWeight: FontWeight.w600, height: 1.15)),
+            ]),
+          ),
+        );
+    final km = sum('actual_km').toDouble();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 12),
+      child: Row(children: [
+        box(Icons.alt_route_rounded, AppColors.primary, '${plans.length}', 'Planned beats'),
+        const SizedBox(width: 8),
+        box(Icons.storefront_rounded, AppColors.purple, '${sum('planned_count').toInt()}', 'Beat customers'),
+        const SizedBox(width: 8),
+        box(Icons.check_circle_rounded, AppColors.success, '${sum('completed_count').toInt()}', 'Visited'),
+        const SizedBox(width: 8),
+        box(Icons.route_rounded, AppColors.warning, km.toStringAsFixed(1), 'km'),
+      ]),
+    );
+  }
+
+  Widget _beatChip(List<Map<String, dynamic>> plans, int count) {
+    final plan = plans.where((p) => _planKey(p) == _beat).firstOrNull;
+    final name = asText((plan?['beat'] as Map?)?['name']) ?? 'Without a beat';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: InputChip(
+          avatar: const Icon(Icons.alt_route_rounded, size: 16),
+          label: Text('$name ($count)'),
+          onDeleted: () => setState(() => _beat = null),
+        ),
+      ),
+    );
   }
 
   /// A visit added to the day (not on the plan): its place in the list, distance and time.
@@ -423,8 +497,17 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [Icon(icon, size: 16, color: color), const SizedBox(width: 4), Text(text)],
         );
+    final chosen = _beat == _planKey(plan);
     return Card(
-      child: Padding(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: chosen ? AppColors.primary : Colors.transparent, width: 2),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        // Tap a beat to list only its customers below; tap it again to see every beat.
+        onTap: () => setState(() => _beat = chosen ? null : _planKey(plan)),
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -458,6 +541,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
               ],
             ),
           ],
+        ),
         ),
       ),
     );
