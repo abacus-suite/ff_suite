@@ -12,6 +12,48 @@ import '../../core/format.dart';
 import '../../core/local_state.dart';
 import '../clients/client_extras.dart';
 
+/// Whether the person is within [geofenceM] metres of the customer; says why when not (too far, or no location saved).
+Future<bool> _withinGeofence(BuildContext context, Map<String, dynamic> client, Position pos, int geofenceM) async {
+      final lat = (client['lat'] as num?)?.toDouble();
+      final lng = (client['lng'] as num?)?.toDouble();
+      if (lat == null || lng == null || (lat == 0 && lng == 0)) {
+        // Without a saved location the distance cannot be checked, and a task that must be started at the
+        // customer is not started from nowhere.
+        if (context.mounted) {
+          await showDialog<void>(
+            context: context,
+            builder: (dialog) => AlertDialog(
+              icon: const Icon(Icons.location_off_rounded, color: AppColors.danger, size: 36),
+              title: const Text('No location saved'),
+              content: Text('${client['name']} has no location saved, so the $geofenceM m check cannot be done. '
+                  'Ask your manager to set its location, then try again.'),
+              actions: [FilledButton(onPressed: () => Navigator.pop(dialog), child: const Text('OK'))],
+            ),
+          );
+        }
+        return false;
+      } else {
+        final away = Geolocator.distanceBetween(pos.latitude, pos.longitude, lat, lng);
+        if (away > geofenceM) {
+          if (context.mounted) {
+            await showDialog<void>(
+              context: context,
+              builder: (dialog) => AlertDialog(
+                icon: const Icon(Icons.wrong_location_rounded, color: AppColors.danger, size: 36),
+                title: const Text('Too far from the customer'),
+                content: Text('You are ${fmtDistance(away)} from ${client['name']}. '
+                    'This task can only be started within $geofenceM m of the customer. '
+                    'Move closer and try again.'),
+                actions: [FilledButton(onPressed: () => Navigator.pop(dialog), child: const Text('OK'))],
+              ),
+            );
+          }
+          return false;
+        }
+      }
+  return true;
+}
+
 /// Demands, orders and payments are taken at a customer, so they start with a
 /// check-in there. Returns the open visit, or null when the person backed out.
 ///
@@ -36,7 +78,14 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
     final current = checks.$1;
     if (current != null) {
       final at = current['client'] as Map;
-      if (at['id'] == clientId) return current;
+      if (at['id'] == clientId) {
+        // Already checked in here: a task that must be started at the customer still is not started from afar.
+        if (task != null && geofenceM != null) {
+          final here = await withBusy(context, 'Finding your location…', currentPosition);
+          if (!context.mounted || !await _withinGeofence(context, client, here, geofenceM)) return null;
+        }
+        return current;
+      }
       if (context.mounted) showSnack(context, 'Check out from ${at['name']} first.');
       return null;
     }
@@ -69,45 +118,7 @@ Future<Map<String, dynamic>?> ensureCheckedIn(BuildContext context, Map<String, 
     // for a PO or a collection, which come here without a task.
     // geofenceM is set by the task's own setting in Odoo; without it the task may start from anywhere
     // (the offsite question is asked as for a PO or a collection).
-    if (task != null && geofenceM != null) {
-      final lat = (client['lat'] as num?)?.toDouble();
-      final lng = (client['lng'] as num?)?.toDouble();
-      if (lat == null || lng == null || (lat == 0 && lng == 0)) {
-        // Without a saved location the distance cannot be checked, and a task that must be started at the
-        // customer is not started from nowhere.
-        if (context.mounted) {
-          await showDialog<void>(
-            context: context,
-            builder: (dialog) => AlertDialog(
-              icon: const Icon(Icons.location_off_rounded, color: AppColors.danger, size: 36),
-              title: const Text('No location saved'),
-              content: Text('${client['name']} has no location saved, so the $geofenceM m check cannot be done. '
-                  'Ask your manager to set its location, then try again.'),
-              actions: [FilledButton(onPressed: () => Navigator.pop(dialog), child: const Text('OK'))],
-            ),
-          );
-        }
-        return null;
-      } else {
-        final away = Geolocator.distanceBetween(pos.latitude, pos.longitude, lat, lng);
-        if (away > geofenceM) {
-          if (context.mounted) {
-            await showDialog<void>(
-              context: context,
-              builder: (dialog) => AlertDialog(
-                icon: const Icon(Icons.wrong_location_rounded, color: AppColors.danger, size: 36),
-                title: const Text('Too far from the customer'),
-                content: Text('You are ${fmtDistance(away)} from ${client['name']}. '
-                    'This task can only be started within $geofenceM m of the customer. '
-                    'Move closer and try again.'),
-                actions: [FilledButton(onPressed: () => Navigator.pop(dialog), child: const Text('OK'))],
-              ),
-            );
-          }
-          return null;
-        }
-      }
-    }
+    if (task != null && geofenceM != null && !await _withinGeofence(context, client, pos, geofenceM)) return null;
     final payload = {
       'partner_id': clientId,
       'lat': pos.latitude,
