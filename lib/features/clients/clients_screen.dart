@@ -76,12 +76,12 @@ class _ClientsScreenState extends State<ClientsScreen> {
   List<Map<String, dynamic>> _rawTerritories = [];
   List<Map<String, dynamic>> _rawBeats = [];
 
-  /// The territories and beats of the filter: in employee mode (a manager too) only the person's own; the team's
-  /// ("other") come with Manager Mode, where "me with my team" is a choice.
+  /// The territories and beats of the filter: with "Only me" the person's own; the team's ("other") come with
+  /// "Me + team" or a teammate.
   List<Map<String, dynamic>> get _territories =>
-      Services.managerMode.value ? _rawTerritories : _rawTerritories.where((t) => t['kind'] != 'other').toList();
+      _teamView ? _rawTerritories : _rawTerritories.where((t) => t['kind'] != 'other').toList();
   List<Map<String, dynamic>> get _beats {
-    if (Services.managerMode.value) return _rawBeats;
+    if (_teamView) return _rawBeats;
     final team = {for (final t in _rawTerritories) if (t['kind'] == 'other') t['id']};
     return _rawBeats.where((b) => !team.contains(b['territory_id'])).toList();
   }
@@ -97,8 +97,10 @@ class _ClientsScreenState extends State<ClientsScreen> {
   LatLng? _me;
   String _member = 'me';
 
-  /// In employee mode (a manager too) only the person's own territories, whatever the picker says.
-  String get _effectiveMember => Services.managerMode.value ? _member : 'me';
+  /// What the picker says: "Only me" is the person's own territories (employee mode opens on it), "Me + team" or one
+  /// teammate brings the team's.
+  String get _effectiveMember => _member;
+  bool get _teamView => _member != 'me';
   final MapController _mapController = MapController();
   double _zoom = 12;
 
@@ -1343,7 +1345,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     // The masters in scope, so a group with nobody in it is still listed.
     // In employee mode (a manager too) the territory groups are the person's own, however many secondary
     // territories a contact carries.
-    final own = !Services.managerMode.value;
+    final own = !_teamView;
     final inScope = _territories.where((t) =>
         (_territoryId == null || t['id'] == _territoryId) && !(own && _group == 'territory' && t['kind'] == 'other'));
     if (_group == 'territory') {
