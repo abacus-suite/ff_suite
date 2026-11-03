@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/api_client.dart';
+import '../../core/documents.dart';
 import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
@@ -62,6 +63,9 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
   final _amount = TextEditingController();
   final String _uuid = const Uuid().v4();
   final List<Uint8List> _photos = [];
+
+  /// A document chosen instead of a photo (a PDF, Word or Excel file).
+  PickedDoc? _doc;
   List<Map<String, dynamic>> _categories = [];
   Map<String, dynamic>? _category;
   Map<String, dynamic>? _sub;
@@ -105,7 +109,7 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
       if (_category == null) 'Expense category',
       if (_category != null && _children.isNotEmpty && _sub == null) 'Sub category',
       if ((double.tryParse(_amount.text.trim()) ?? 0) <= 0) 'Amount',
-      if (_photos.isEmpty) 'Photo of the $_docName',
+      if (_photos.isEmpty && _doc == null) 'Photo or document of the $_docName',
     ];
     if (problems.isNotEmpty) {
       await showProblem(context, problems, title: 'Still needed');
@@ -120,10 +124,10 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
         'date': fmtDate(_date),
         'amount': double.parse(_amount.text.trim()),
         'document': _document,
-        'photo': base64Encode(_photos.first),
+        'photo': _doc != null ? _doc!.dataUrl : base64Encode(_photos.first),
       });
       if (!mounted) return;
-      showSnack(context, 'Request sent to accounts');
+      showSnack(context, 'Request sent');
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) await showProblem(context, _notYet(e));
@@ -263,13 +267,39 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
                 child: _documentSwitch(),
               ),
               StepCard(
-                child: PhotoSlot(
-                  key: ValueKey(_document),
-                  label: 'Photo of the $_docName',
-                  photos: _photos,
-                  onChanged: () => setState(() {}),
-                  max: 1,
-                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  if (_doc == null)
+                    PhotoSlot(
+                      key: ValueKey(_document),
+                      label: 'Photo of the $_docName',
+                      photos: _photos,
+                      onChanged: () => setState(() {}),
+                      max: 1,
+                    ),
+                  const SizedBox(height: 8),
+                  // Or a file from the phone: a PDF, Word or Excel document, or a picture.
+                  if (_doc != null)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.description_rounded, color: AppColors.primary),
+                      title: Text(_doc!.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text('${(_doc!.bytes.length / 1024).round()} KB'),
+                      trailing: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(() => _doc = null)),
+                    )
+                  else if (_photos.isEmpty)
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final picked = await pickDocument();
+                        if (picked == null) {
+                          if (mounted) showSnack(context, 'Choose a PDF, Word, Excel or picture file under 10 MB.');
+                          return;
+                        }
+                        if (mounted) setState(() => _doc = picked);
+                      },
+                      icon: const Icon(Icons.attach_file_rounded),
+                      label: const Text('Or attach a document (PDF, Word, Excel)'),
+                    ),
+                ]),
               ),
             ]),
     );
@@ -472,19 +502,20 @@ class PaymentRequestDetailScreen extends StatefulWidget {
 
 class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen> {
   final List<Uint8List> _invoice = [];
+  PickedDoc? _invoiceDoc;
   bool _busy = false;
 
   Map<String, dynamic> get _r => widget.request;
 
   Future<void> _submit() async {
-    if (_invoice.isEmpty) {
-      await showProblem(context, 'Take the photo of the tax invoice.');
+    if (_invoice.isEmpty && _invoiceDoc == null) {
+      await showProblem(context, 'Take the photo of the tax invoice, or attach the document.');
       return;
     }
     setState(() => _busy = true);
     try {
       await Services.api
-          .post('/api/v1/expense-requests/${_r['id']}/invoice', {'photo': base64Encode(_invoice.first)});
+          .post('/api/v1/expense-requests/${_r['id']}/invoice', {'photo': _invoiceDoc != null ? _invoiceDoc!.dataUrl : base64Encode(_invoice.first)});
       if (!mounted) return;
       showSnack(context, _r['state'] == 'invoice_pending'
           ? 'Tax invoice submitted. The request is completed.'
@@ -540,7 +571,27 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         const SizedBox(height: 12),
         if (waitingInvoice)
           StepCard(
-            child: PhotoSlot(label: 'Photo of the tax invoice', photos: _invoice, onChanged: () => setState(() {}), max: 1),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (_invoiceDoc == null)
+                PhotoSlot(label: 'Photo of the tax invoice', photos: _invoice, onChanged: () => setState(() {}), max: 1),
+              const SizedBox(height: 8),
+              if (_invoiceDoc != null)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.description_rounded, color: AppColors.primary),
+                  title: Text(_invoiceDoc!.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  trailing: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => setState(() => _invoiceDoc = null)),
+                )
+              else if (_invoice.isEmpty)
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await pickDocument();
+                    if (picked != null && mounted) setState(() => _invoiceDoc = picked);
+                  },
+                  icon: const Icon(Icons.attach_file_rounded),
+                  label: const Text('Or attach the document (PDF, Word, Excel)'),
+                ),
+            ]),
           )
         else if (state == 'completed')
           _banner('Completed · tax invoice uploaded.', AppColors.success)

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/documents.dart';
 import '../../core/format.dart';
 import '../../core/photos.dart';
 import '../../core/services.dart';
@@ -32,6 +33,9 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
   final _amount = TextEditingController();
   final _note = TextEditingController();
   final List<Uint8List> _pictures = [];
+
+  /// Documents chosen from the phone (PDF, Word, Excel), counted with the pictures.
+  final List<PickedDoc> _docs = [];
   final String _uuid = const Uuid().v4();
   List<Map<String, dynamic>> _categories = [];
   List<Map<String, dynamic>> _cards = [];
@@ -87,7 +91,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
 
   /// A bill from the camera (stamped with the place and time) or from the gallery, where several can be chosen at once.
   Future<void> _addPicture(ImageSource source) async {
-    final room = _maxPictures - _pictures.length - _have;
+    final room = _maxPictures - _pictures.length - _docs.length - _have;
     if (room <= 0) return;
     if (source == ImageSource.gallery) {
       final chosen = await ImagePicker().pickMultiImage(
@@ -138,6 +142,22 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
               const SizedBox(width: 12),
               _sourceTile(sheet, ImageSource.gallery, Icons.photo_library_rounded, 'From gallery', 'Choose one or more'),
             ]),
+            const SizedBox(height: 12),
+            // A bill that came as a file: a PDF, a Word or Excel document, or a picture.
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+              onPressed: () async {
+                Navigator.pop(sheet);
+                final picked = await pickDocument();
+                if (picked == null) {
+                  if (mounted) showSnack(context, 'Choose a PDF, Word, Excel or picture file under 10 MB.');
+                  return;
+                }
+                if (mounted) setState(() => _docs.add(picked));
+              },
+              icon: const Icon(Icons.attach_file_rounded),
+              label: const Text('A document (PDF, Word, Excel)'),
+            ),
           ]),
         ),
       ),
@@ -154,7 +174,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
     final max = _category?['max_amount'] as num?;
     if (amount != null && max != null && amount > max) problems.add('Amount: above the allowed maximum of $max');
     if (_isCard && _card == null) problems.add('Payment mode (card)');
-    if (_isCard && _pictures.isEmpty) problems.add('Picture of the bill');
+    if (_isCard && _pictures.isEmpty && _docs.isEmpty) problems.add('Picture or document of the bill');
     if (problems.isNotEmpty) {
       await showProblem(context, problems, title: 'Still needed');
       return;
@@ -169,7 +189,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
         'date': fmtDate(_date),
         'note': _note.text.trim(),
         if (_isCard) 'payment_mode_id': _card!['id'],
-        'receipts': _pictures.map(base64Encode).toList(),
+        'receipts': [..._pictures.map(base64Encode), ..._docs.map((d) => d.dataUrl)],
       };
       if (_editing) {
         await Services.api.post('/api/v1/expenses/${widget.existing!['id']}/update', payload);
@@ -324,7 +344,34 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                           ),
                         ),
                       ]),
-                    if (_pictures.length + _have < _maxPictures)
+                    for (var i = 0; i < _docs.length; i++)
+                      Container(
+                        width: 92,
+                        height: 92,
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14)),
+                        child: Stack(children: [
+                          Center(
+                            child: Column(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.description_rounded, color: AppColors.primary),
+                              Text(_docs[i].name,
+                                  maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 10)),
+                            ]),
+                          ),
+                          Positioned(
+                            right: -6,
+                            top: -6,
+                            child: IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(Icons.close, size: 16),
+                              onPressed: () => setState(() => _docs.removeAt(i)),
+                            ),
+                          ),
+                        ]),
+                      ),
+                    if (_pictures.length + _docs.length + _have < _maxPictures)
                       SizedBox(
                         width: 92,
                         height: 92,
@@ -333,7 +380,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                           style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
                           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                             const Icon(Icons.add_a_photo_rounded),
-                            Text('${_pictures.length + _have}/$_maxPictures', style: const TextStyle(fontSize: 11)),
+                            Text('${_pictures.length + _docs.length + _have}/$_maxPictures', style: const TextStyle(fontSize: 11)),
                           ]),
                         ),
                       ),

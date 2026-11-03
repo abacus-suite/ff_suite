@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../core/documents.dart';
 import '../core/services.dart';
 import '../core/theme.dart';
 
@@ -48,12 +49,32 @@ class _DocumentGalleryState extends State<DocumentGallery> {
         }
       });
 
-  void _open(int id, String name) {
+  /// Save it to the phone, or send it on: the phone's share sheet has both.
+  Future<void> _download(Map<String, dynamic> f) async {
+    final bytes = await _fetch(f['id'] as int);
+    if (!mounted) return;
+    if (bytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not download it')));
+      return;
+    }
+    final name = '${f['name']}';
+    await shareFile(bytes, name, '${f['mimetype'] ?? mimeOfName(name)}');
+  }
+
+  void _open(Map<String, dynamic> f) {
+    final id = f['id'] as int;
+    final name = '${f['name']}';
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
-            backgroundColor: Colors.black, foregroundColor: Colors.white, title: Text(name, style: const TextStyle(fontSize: 14))),
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          title: Text(name, style: const TextStyle(fontSize: 14)),
+          actions: [
+            IconButton(tooltip: 'Download', icon: const Icon(Icons.download_rounded), onPressed: () => _download(f)),
+          ],
+        ),
         body: FutureBuilder<Uint8List?>(
           future: _fetch(id),
           builder: (context, snap) {
@@ -87,7 +108,8 @@ class _DocumentGalleryState extends State<DocumentGallery> {
           for (final f in _files)
             InkWell(
               borderRadius: BorderRadius.circular(12),
-              onTap: f['image'] == true ? () => _open(f['id'] as int, '${f['name']}') : null,
+              // A picture opens full screen; any other document goes straight to download.
+              onTap: f['image'] == true ? () => _open(f) : () => _download(f),
               child: Container(
                 width: 96,
                 height: 96,
@@ -97,7 +119,8 @@ class _DocumentGalleryState extends State<DocumentGallery> {
                   border: Border.all(color: AppColors.border),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: f['image'] == true
+                child: Stack(fit: StackFit.expand, children: [
+                  f['image'] == true
                     ? FutureBuilder<Uint8List?>(
                         future: _fetch(f['id'] as int),
                         builder: (context, snap) {
@@ -118,6 +141,19 @@ class _DocumentGalleryState extends State<DocumentGallery> {
                               maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10)),
                         ),
                       ]),
+                  Positioned(
+                    right: 4,
+                    bottom: 4,
+                    child: GestureDetector(
+                      onTap: () => _download(f),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(color: Color(0xCC0F172A), shape: BoxShape.circle),
+                        child: const Icon(Icons.download_rounded, size: 14, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ]),
               ),
             ),
         ]),
