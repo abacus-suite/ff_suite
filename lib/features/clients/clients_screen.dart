@@ -86,6 +86,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
   String _sort = 'latest';
   LatLng? _me;
   String _member = 'me';
+
+  /// In employee mode (a manager too) only the person's own territories, whatever the picker says.
+  String get _effectiveMember => Services.managerMode.value ? _member : 'me';
   final MapController _mapController = MapController();
   double _zoom = 12;
 
@@ -111,6 +114,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
   @override
   void initState() {
     super.initState();
+    // A manager in manager mode opens on the whole team; in employee mode it is only their own territories.
+    if (Services.managerMode.value && (Services.auth.profile?.isManager ?? false)) _member = 'team';
     if (widget.categoryType != null) {
       _kind = widget.categoryType!;
     }
@@ -141,7 +146,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
       if (q.isNotEmpty) query['q'] = q;
       if (_categoryId != null) query['category_id'] = _categoryId;
       if (_neverVisited) query['never_visited'] = 1;
-      if (_member != 'me') query['member'] = _member;
+      query['member'] = _effectiveMember;
       final catType = widget.categoryType ?? (_kind != 'all' && _kind != 'never' ? _kind : null);
       if (catType != null) {
         query['category_type'] = catType;
@@ -195,7 +200,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
       query['area'] = _area;
     }
     if (_beatIds.isNotEmpty) query['beat_ids'] = _beatIds.join(',');
-    if (_member != 'me') query['member'] = _member;
+    query['member'] = _effectiveMember;
     final catType = widget.categoryType ?? (_kind != 'all' && _kind != 'never' ? _kind : null);
     if (catType != null) {
       query['category_type'] = catType;
@@ -1289,7 +1294,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   }
 
   /// The list as rows when grouping is on: every territory, area or beat of the masters gets a header with its
-  /// count (an empty one shows 0), a contact appears under each beat or territory it belongs to, and contacts
+  /// count (an empty one is left out), a contact appears under each beat or territory it belongs to, and contacts
   /// with none are gathered under "No ...". Every group starts closed.
   List<Object> _groupedRows() {
     if (_group == 'none') return List<Object>.from(_shownClients);
@@ -1369,6 +1374,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
     if (none.clients.isNotEmpty) ordered.add(none);
     final rows = <Object>[];
     for (final g in ordered) {
+      // A group nobody is in is not listed: a 0 row only gets in the way.
+      if (g.clients.isEmpty) continue;
       rows.add(_GroupHeader(g.key, g.label, g.clients.length));
       if (!_openGroups.contains(g.key)) continue;
       if (g.clients.isEmpty) {
