@@ -82,6 +82,9 @@ class ResPartner(models.Model):
                 # allocation switches widen that on purpose).
                 places = []
                 if territories:
+                    # Territory-wise means the territories alone: what they or their team added or are assigned
+                    # to elsewhere does not widen the list (a contact rule or the allocation switches can).
+                    own = []
                     # A contact's own territory, secondary territories, or the territory of a beat it is on.
                     terr_conds = [
                         Domain([('ff_territory_id', 'in', territories.ids)]),
