@@ -49,7 +49,7 @@ class _DistributorSheetState extends State<_DistributorSheet> {
 
   Future<void> _load() async {
     try {
-      final res = await Services.api.get('/api/v1/distributors');
+      final res = await Services.api.get('/api/v1/distributors', query: {'mode': Services.managerMode.value ? 'manager' : 'employee'});
       final list = (res is Map ? ((res['distributors'] as List?) ?? []) : (res as List)).cast<Map<String, dynamic>>();
       if (mounted) setState(() => _all = list);
     } catch (e) {

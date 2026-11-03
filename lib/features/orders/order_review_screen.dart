@@ -60,7 +60,7 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
   Future<void> _loadDistributors() async {
     try {
       final res = await Services.api.get('/api/v1/distributors',
-          query: {'partner_id': widget.client['id']});
+          query: {'partner_id': widget.client['id'], 'mode': Services.managerMode.value ? 'manager' : 'employee'});
       if (!mounted) return;
       setState(() {
         if (res is Map) {
