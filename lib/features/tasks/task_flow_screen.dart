@@ -1069,8 +1069,36 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     return null;
   }
 
+  /// The samples the person holds, product id -> bottles: only these can be given.
+  Map<int, double>? _inHand;
+  bool _loadingHand = false;
+
+  Future<void> _loadInHand() async {
+    if (_loadingHand) return;
+    _loadingHand = true;
+    try {
+      final data = await Services.api.get('/api/v1/field-tasks/samples') as Map<String, dynamic>;
+      final held = <int, double>{};
+      for (final r in ((data['on_hand'] as List?) ?? []).cast<Map<String, dynamic>>()) {
+        final id = ((r['product'] as Map?)?['id'] as num?)?.toInt();
+        final qty = ((r['quantity'] as num?) ?? 0).toDouble();
+        if (id != null && qty > 0) held[id] = qty;
+      }
+      if (mounted) setState(() => _inHand = held);
+    } catch (_) {
+      // Offline or an older server: every flavour is listed, as before.
+      if (mounted) setState(() => _inHand = null);
+    } finally {
+      _loadingHand = false;
+    }
+  }
+
   Widget _stepSamples() {
     final given = _a['samples'] as bool?;
+    if (_inHand == null && !_loadingHand) unawaited(_loadInHand());
+    final held = _inHand;
+    // Only the flavours the person has in hand, each with how many.
+    final mine = held == null ? _flavours : [for (final p in _flavours) if ((held[p['id']] ?? 0) > 0) p];
     return Column(
       children: [
         StepCard(
@@ -1080,7 +1108,14 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
         if (given == true)
           StepCard(
             title: 'Sample quantity *',
-            child: QtyGrid(products: _flavours, values: _q('sample'), onChanged: _refresh),
+            child: held != null && mine.isEmpty
+                ? const Text('You have no samples in hand. Collect samples first, or answer No.',
+                    style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600))
+                : QtyGrid(
+                    products: mine,
+                    values: _q('sample'),
+                    onChanged: _refresh,
+                    subtitleOf: held == null ? null : (p) => 'In hand: ${fmtQty(held[p['id']] ?? 0)}'),
           ),
         if (given == false)
           StepCard(
@@ -1094,7 +1129,19 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
   String? _checkSamples() {
     final given = _a['samples'] as bool?;
     if (given == null) return 'Say whether samples were given.';
-    if (given) return _q('sample').values.any((v) => v > 0) ? null : 'Enter the quantity of samples given.';
+    if (given) {
+      if (!_q('sample').values.any((v) => v > 0)) return 'Enter the quantity of samples given.';
+      final held = _inHand;
+      if (held != null) {
+        for (final e in _q('sample').entries) {
+          if (e.value > (held[e.key] ?? 0)) {
+            final name = _flavours.where((p) => p['id'] == e.key).map((p) => flavourLabel(p)).firstOrNull ?? 'this flavour';
+            return 'You have only ${fmtQty(held[e.key] ?? 0)} of $name in hand.';
+          }
+        }
+      }
+      return null;
+    }
     return _s('samples_reason').isEmpty ? 'Say why no samples were given.' : null;
   }
 
