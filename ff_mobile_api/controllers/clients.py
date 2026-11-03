@@ -67,6 +67,11 @@ def _own_ids(employee, extra_ids):
     return list(ids)
 
 
+def _mark(name):
+    """Remember which rule built the list, for the diagnostic screen."""
+    request.httprequest.environ['ff_clients_rule'] = name
+
+
 def _territory_only_domain(employee):
     """Employee mode (a manager too) with "Contacts shown by: Territory wise" and no contact rule of their own: the
     contacts of the person's primary and secondary territories, and nothing else. None when it does not apply (another
@@ -153,12 +158,15 @@ def _client_domain(employee, member=None):
     if member == 'me':
         own = _territory_only_domain(employee)
         if own is not None:
+            _mark('territory_only')
             return _with_routes(own, extra)
     if member == 'team' and Partner._ff_see_all():
+        _mark('team_see_all')
         return Partner._ff_visible_domain(employee)
     if Partner._ff_access_rule(employee) or Partner._ff_contact_access() == 'open':
         # The office shares the contacts: everybody's list is the company's list,
         # narrowed only when somebody is picked out of the team.
+        _mark('rule_or_open_access')
         domain = Partner._ff_visible_domain(employee)
         if member == 'me':
             # "Only me": my own contacts, not the whole company's list.
@@ -167,6 +175,7 @@ def _client_domain(employee, member=None):
             domain = domain + [('ff_employee_ids', 'in', people.ids)]
         return domain
     if employee.ff_access_scope == 'all':
+        _mark('scope_all')
         domain = [('ff_is_client', '=', True), ('ff_approval_state', '!=', 'rejected')]
         # Somebody who sees everything only narrows down when they pick themselves or one person.
         if member == 'me':
@@ -175,6 +184,7 @@ def _client_domain(employee, member=None):
             domain.append(('ff_employee_ids', 'in', people.ids))
         return domain
     if people == employee:
+        _mark('own_visible_domain')
         return _with_routes(Partner._ff_visible_domain(employee), extra)
     Category = request.env['ff.contact.category']
     categories = Category.browse()
@@ -362,6 +372,31 @@ class FieldForceClientsApi(http.Controller):
                 'approval_state': row['ff_approval_state'],
                 'category_type': row['ff_category_type'],
             } for row in rows if row['partner_latitude'] or row['partner_longitude']],
+        })
+
+    @api_route('/api/v1/clients/rule-debug', methods=('GET',))
+    def clients_rule_debug(self, employee, member=None, **kw):
+        """Which rule built this person's client list, and the settings behind it (for the app's diagnostic)."""
+        Partner = request.env['res.partner'].sudo()
+        params = request.env['ir.config_parameter'].sudo()
+        domain = client_domain(employee, member or 'me')
+        emp = employee.sudo()
+        rule = Partner._ff_access_rule(employee)
+        return ok({
+            'build': 'territory-only-1cd334c',
+            'rule_used': request.httprequest.environ.get('ff_clients_rule'),
+            'member': member or 'me',
+            'contact_visibility': params.get_param('ff_base.contact_visibility') or '(unset: territory)',
+            'contact_access': params.get_param('ff_base.contact_access') or '(unset: scoped)',
+            'contact_see_all': params.get_param('ff_base.contact_see_all') or '(unset: true)',
+            'contact_rule': rule.display_name if rule else None,
+            'access_scope': emp.ff_access_scope,
+            'territories': emp.ff_territory_ids.mapped('name'),
+            'secondary_territories': emp.ff_secondary_territory.mapped('name') if 'ff_secondary_territory' in emp._fields else [],
+            'allocated_outlets': bool(emp.ff_allocated_outlets),
+            'allocated_distributors': bool(emp.ff_allocated_distributors),
+            'count': Partner.search_count(domain),
+            'by_territory': {(t.name or '?'): n for t, n in Partner._read_group(domain, ['ff_territory_id'], ['__count'])},
         })
 
     @api_route('/api/v1/clients/filters', methods=('GET',))
