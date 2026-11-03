@@ -211,7 +211,10 @@ class FieldForceOrdersApi(http.Controller):
         team = emp._ff_subordinates()
         # "mode" tells Manager Mode (the person's team) from employee mode (a manager too: only their own).
         team_view = kw.get('mode') == 'manager' and bool(team)
-        if getattr(emp, 'ff_access_scope', None) != 'all':
+        # What the secondary-territory chips of each row are narrowed to (the person's own territories).
+        emp_terr_ids, emp_dist_ids = set(), set()
+        scoped = getattr(emp, 'ff_access_scope', None) != 'all'
+        if scoped:
             if getattr(emp, 'ff_allocated_distributors', False) and not team_view:
                 # "Allocated Distributors": only the ones with their name on them.
                 domain.append(('ff_employee_ids', 'in', [emp.id]))
@@ -222,6 +225,7 @@ class FieldForceOrdersApi(http.Controller):
                 territories = people.mapped('ff_territory_ids')
                 if 'ff_secondary_territory' in emp._fields:
                     territories |= people.mapped('ff_secondary_territory')
+                emp_terr_ids = set(territories.ids)
                 if not territories:
                     domain.append(('id', '=', 0))
                 else:
@@ -276,10 +280,11 @@ class FieldForceOrdersApi(http.Controller):
                         suggested = row
                         break
 
+        # The usual distributor comes first, but only when it is one the person may choose.
         if suggested and suggested in rows:
             rows = suggested | (rows - suggested)
-        elif suggested and suggested not in rows:
-            rows = suggested | rows
+        else:
+            suggested = Partner.browse()
 
         def _row_districts(row):
             records = []
@@ -304,8 +309,6 @@ class FieldForceOrdersApi(http.Controller):
                         seen.add(t.id)
                         records.append(t)
             return [ref(t) for t in records]
-
-        scoped = has_scope and getattr(emp, 'ff_access_scope', None) != 'all'
 
         def _scoped_sec_districts(row):
             if 'ff_secondary_district_ids' not in row._fields:
