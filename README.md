@@ -1,5 +1,5 @@
 # Field Force Suite (Odoo 19)  
-
+ 
 Field sales force management on Odoo 19 (Odoo.sh), with the Field Force Flutter
 app (repository `ff_suite`).
  
