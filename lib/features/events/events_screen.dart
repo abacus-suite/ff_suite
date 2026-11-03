@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/report_download.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -313,7 +314,7 @@ class _EventsScreenState extends State<EventsScreen> {
     const names = {'draft': 'Draft', 'running': 'Event Running', 'on_hold': 'On hold', 'done': 'Completed'};
     return Scaffold(
       backgroundColor: _pageBg,
-      appBar: AppBar(title: const Text('My Events'), backgroundColor: _pageBg),
+      appBar: AppBar(title: const Text('My Events'), backgroundColor: _pageBg, actions: [const ReportDownloadButton(reportKey: 'events', title: 'Events')]),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewEventScreen()));

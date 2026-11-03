@@ -31,7 +31,8 @@ class MoreScreen extends StatelessWidget {
     void open(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
     // The order and names the client asked for. Planned Days, Forms, Notifications and Chat are gone.
     final menu = <(IconData, String, Color, Widget)>[
-      (Icons.bar_chart_rounded, 'Reports', AppColors.primary, const ReportsScreen()),
+      // The employee downloads a report from the screen itself; the Reports page is for managers.
+      if (profile.isManager && managerMode) (Icons.bar_chart_rounded, 'Reports', AppColors.primary, const ReportsScreen()),
       (Icons.task_alt_rounded, 'My Tasks', AppColors.success, const TasksScreen()),
       if (profile.feature('routes'))
         (Icons.calendar_month_rounded, 'My ${profile.routeLabel} Plan', AppColors.primary, const MyBeatPlanScreen()),

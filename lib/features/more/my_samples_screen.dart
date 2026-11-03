@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/report_download.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -378,7 +379,7 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text(_member == 'me' ? 'My Samples' : 'Samples'), centerTitle: false),
+      appBar: AppBar(title: Text(_member == 'me' ? 'My Samples' : 'Samples'), centerTitle: false, actions: [const ReportDownloadButton(reportKey: 'samples', title: 'Samples')]),
       body: d == null
           ? Center(
               child: _error != null

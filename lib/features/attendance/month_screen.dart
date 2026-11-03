@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/report_download.dart';
 
 import '../../core/format.dart';
 import '../../core/services.dart';
@@ -67,7 +68,7 @@ class _MonthScreenState extends State<MonthScreen> {
     final now = DateTime.now();
     final isCurrent = _month.year == now.year && _month.month == now.month;
     return Scaffold(
-      appBar: AppBar(title: const Text('My Attendance')),
+      appBar: AppBar(title: const Text('My Attendance'), actions: [const ReportDownloadButton(reportKey: 'attendance', title: 'Attendance')]),
       body: Column(
         children: [
           Row(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../widgets/report_download.dart';
 
 import 'package:flutter/material.dart';
 import 'assign_target_screen.dart';
@@ -131,7 +132,7 @@ class _TasksScreenState extends State<TasksScreen> {
     final tasks = ((_data?['tasks'] as List?) ?? []).cast<Map<String, dynamic>>();
     final summary = (_data?['summary'] as Map?)?.cast<String, dynamic>() ?? const {};
     return Scaffold(
-      appBar: AppBar(title: const Text('Tasks')),
+      appBar: AppBar(title: const Text('Tasks'), actions: [const ReportDownloadButton(reportKey: 'tasks', title: 'Tasks')]),
       // Lifted above the bottom bar (the app's bar sits over the page) and centred, clear of the chat bar on the right.
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: _isManager

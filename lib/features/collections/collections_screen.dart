@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/report_download.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/format.dart';
@@ -379,6 +380,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
     return Scaffold(
       appBar: AppBar(
         title: const Text('Collections'),
+        actions: [const ReportDownloadButton(reportKey: 'collections', title: 'Collections')],
         bottom: TabBar(
           controller: _tabs,
           tabs: const [Tab(text: 'Office'), Tab(text: 'Distributors'), Tab(text: 'History')],

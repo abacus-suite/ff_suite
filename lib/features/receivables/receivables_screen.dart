@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../widgets/report_download.dart';
 
 import 'package:flutter/material.dart';
 
@@ -167,6 +168,7 @@ class _ReceivablesScreenState extends State<ReceivablesScreen> {
     return Scaffold(
       appBar: AppBar(
         actions: [
+          if (widget.partnerId == null) const ReportDownloadButton(reportKey: 'receivables', title: 'Receivables'),
           if (widget.partnerId != null)
             IconButton(
               tooltip: 'Statement of account',

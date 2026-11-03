@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show setEquals;
+import '../../widgets/report_download.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
@@ -148,7 +149,7 @@ class _MyBeatPlanScreenState extends State<MyBeatPlanScreen> {
     final days = DateUtils.getDaysInMonth(_month.year, _month.month);
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text('My $_label Plan')),
+      appBar: AppBar(title: Text('My $_label Plan'), actions: [const ReportDownloadButton(reportKey: 'route_plans', title: 'Beat plan')]),
       body: RefreshIndicator(
         onRefresh: () => _myBeats ? _loadRoutes() : _loadMonth(),
         child: ListView(

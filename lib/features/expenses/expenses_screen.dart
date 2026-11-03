@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/report_download.dart';
 import '../allowance/da_screen.dart';
 import '../allowance/ola_screen.dart';
 
@@ -220,7 +221,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
           title: Text(widget.kind == 'card' ? 'Expense Submission' : 'Expense Claiming',
-              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22))),
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22)),
+          actions: [const ReportDownloadButton(reportKey: 'expenses', title: 'Expenses')]),
       floatingActionButton: _picked.isEmpty
           ? FloatingActionButton(
               tooltip: widget.kind == 'card' ? 'New company card expense' : 'New expense claim',
@@ -423,7 +425,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final isCurrent = _month.year == now.year && _month.month == now.month;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('My Expense')),
+      appBar: AppBar(title: const Text('My Expense'), actions: [const ReportDownloadButton(reportKey: 'expenses', title: 'Expenses')]),
+
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
