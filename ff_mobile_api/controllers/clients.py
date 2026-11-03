@@ -67,6 +67,31 @@ def _own_ids(employee, extra_ids):
     return list(ids)
 
 
+def _territory_only_domain(employee):
+    """Employee mode (a manager too) with "Contacts shown by: Territory wise" and no contact rule of their own: the
+    contacts of the person's primary and secondary territories, and nothing else. None when it does not apply (another
+    kind of visibility, a rule on the person, or no territory set), so the usual rules decide."""
+    Partner = request.env['res.partner'].sudo()
+    mode = request.env['ir.config_parameter'].sudo().get_param('ff_base.contact_visibility') or 'territory'
+    if mode != 'territory' or Partner._ff_access_rule(employee):
+        return None
+    emp = employee.sudo()
+    territories = emp.ff_territory_ids if 'ff_territory_ids' in emp._fields else request.env['ff.territory']
+    if 'ff_secondary_territory' in emp._fields:
+        territories |= emp.ff_secondary_territory
+    if not territories or 'ff_territory_id' not in Partner._fields:
+        return None
+    places = [('ff_territory_id', 'in', territories.ids)]
+    if 'ff_secondary_territory_ids' in Partner._fields:
+        places = ['|'] + places + [('ff_secondary_territory_ids', 'in', territories.ids)]
+    if 'ff.beat.line' in request.env:
+        places = ['|'] + places + [('ff_beat_line_ids.beat_id.territory_id', 'in', territories.ids)]
+    return [('ff_is_client', '=', True),
+            ('company_id', 'in', (False, emp.company_id.id)),
+            '|', '|', ('ff_approval_state', '=', 'approved'), ('ff_approval_state', '=', False),
+            '&', ('ff_approval_state', '=', 'pending'), ('ff_created_by_employee_id', '=', emp.id)] + places
+
+
 def _with_routes(domain, extra_ids):
     """The domain, widened by the customers of the routes and the plans.
 
@@ -125,6 +150,10 @@ def _client_domain(employee, member=None):
     # In employee mode (a manager too) the list is the person's own territories, primary and secondary, not their
     # team's: territory-wise, unless a contact rule or the employee's allocation switches say otherwise.
     Partner = request.env['res.partner'].with_context(ff_only_me=True) if member == 'me' else request.env['res.partner']
+    if member == 'me':
+        own = _territory_only_domain(employee)
+        if own is not None:
+            return _with_routes(own, extra)
     if member == 'team' and Partner._ff_see_all():
         return Partner._ff_visible_domain(employee)
     if Partner._ff_access_rule(employee) or Partner._ff_contact_access() == 'open':
