@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/documents.dart';
 import '../../widgets/report_download.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -1900,8 +1901,8 @@ class _EventReportScreenState extends State<EventReportScreen> {
     try {
       final result = await Services.api.post('/api/v1/events/${widget.eventId}/export', {}) as Map<String, dynamic>;
       final url = Uri.parse(await Services.api.url('${result['path']}'));
-      final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
-      if (!opened && mounted) showSnack(context, 'Could not open the download.');
+      final saved = await downloadAndSave(url, fallbackName: 'event_report.xlsx');
+      if (saved && mounted) showSnack(context, 'Report saved.');
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
     } finally {

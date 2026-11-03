@@ -247,7 +247,11 @@ class _OnboardScreenState extends State<OnboardScreen> {
       final territory = _idOf(c['territory']);
       if (_territoryId == null && territory != null && _territories.any((t) => t['id'] == territory)) _territoryId = territory;
       _districtId ??= _idOf(c['district']) ?? _districtOfTerritory(_territoryId);
-      _mrp ??= _territoryMrp(_territoryId);
+      // The outlet category and MRP the lead was created with come first; the territory's MRP only fills a gap.
+      final ob = c['onboarding'] as Map?;
+      String? code(Object? o) => o is Map ? asText(o['code']) : null;
+      _category ??= code(ob?['outlet_category']) ?? code(c['outlet_category']);
+      _mrp ??= code(ob?['mrp']) ?? code(c['mrp']) ?? _territoryMrp(_territoryId);
       final area = _idOf(c['area_master']);
       if (_areaId == null && area != null && _areaOptions().any((a) => a['id'] == area)) _areaId = area;
       final region = _idOf(c['region']) ?? mineId;

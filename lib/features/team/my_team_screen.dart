@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/documents.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -451,8 +452,8 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
           subject: 'Employee report ${widget.name}',
         ));
       } else if (sendTo == 'save') {
-        final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
-        if (!opened && mounted) showSnack(context, 'Could not open the download.');
+        final saved = await downloadAndSave(url, fallbackName: 'employee_report.xlsx');
+        if (saved && mounted) showSnack(context, 'Report saved.');
       }
     } catch (e) {
       if (mounted) showProblem(context, e.toString());

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/documents.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/format.dart';
@@ -196,10 +197,8 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
           as Map<String, dynamic>;
       final url = Uri.parse(await Services.api.url('${result['path']}'));
       // The phone's browser saves the .xlsx to Downloads and offers to open it.
-      final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
-      if (!opened && mounted) {
-        showSnack(context, 'Could not open the download.');
-      }
+      final saved = await downloadAndSave(url, fallbackName: '${widget.report['key']}_report.xlsx');
+      if (saved && mounted) showSnack(context, 'Report saved.');
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
     } finally {

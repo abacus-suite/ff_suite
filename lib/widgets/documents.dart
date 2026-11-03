@@ -49,7 +49,7 @@ class _DocumentGalleryState extends State<DocumentGallery> {
         }
       });
 
-  /// Save it to the phone, or send it on: the phone's share sheet has both.
+  /// Save it to the phone (the download icon saves; it no longer opens the share sheet).
   Future<void> _download(Map<String, dynamic> f) async {
     final bytes = await _fetch(f['id'] as int);
     if (!mounted) return;
@@ -58,7 +58,13 @@ class _DocumentGalleryState extends State<DocumentGallery> {
       return;
     }
     final name = '${f['name']}';
-    await shareFile(bytes, name, '${f['mimetype'] ?? mimeOfName(name)}');
+    try {
+      final saved = await saveFile(bytes, name);
+      if (saved && mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name saved')));
+    } catch (_) {
+      // No save dialog on this phone: fall back to the share sheet.
+      await shareFile(bytes, name, '${f['mimetype'] ?? mimeOfName(name)}');
+    }
   }
 
   void _open(Map<String, dynamic> f) {
