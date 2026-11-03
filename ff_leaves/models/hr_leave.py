@@ -205,6 +205,7 @@ class HrLeave(models.Model):
             values.update({'request_unit_half': True, 'request_date_to': date_from})
             if 'request_date_from_period' in self._fields:
                 values['request_date_from_period'] = 'pm' if data.get('half_day_period') == 'pm' else 'am'
+        self._ff_refuse_clash(employee, date_from, date_to, values)
         leave = self.sudo().with_context(
             mail_create_nosubscribe=True, leave_skip_date_check=True).create(values)
         manager = employee.parent_id or (getattr(employee, 'leave_manager_id', False) and employee.leave_manager_id.sudo().employee_id)
@@ -220,6 +221,29 @@ class HrLeave(models.Model):
                 record=leave,
             )
         return leave
+
+    @api.model
+    def _ff_refuse_clash(self, employee, date_from, date_to, values):
+        """A day that is already asked for or approved cannot be asked for again: only a request by the hour that
+        falls in other hours of the same day, or the other half of a half day, may share it."""
+        old_ones = self.sudo().search([
+            ('employee_id', '=', employee.id), ('state', 'in', ('confirm', 'validate1', 'validate')),
+            ('request_date_from', '<=', date_to), ('request_date_to', '>=', date_from)])
+        hourly = bool(values.get('request_unit_hours'))
+        half = bool(values.get('request_unit_half'))
+        for old in old_ones:
+            if hourly and getattr(old, 'request_unit_hours', False):
+                new_from, new_to = float(values['request_hour_from']), float(values['request_hour_to'])
+                old_from, old_to = old._ff_hour('request_hour_from'), old._ff_hour('request_hour_to')
+                if old_from is not None and old_to is not None and (new_to <= old_from or new_from >= old_to):
+                    continue
+            if half and getattr(old, 'request_unit_half', False):
+                if 'request_date_from_period' in self._fields and                         old.request_date_from_period != values.get('request_date_from_period'):
+                    continue
+            raise UserError(self.env._(
+                'You already have %(type)s on %(day)s (%(state)s). A day that is asked for or approved cannot be '
+                'asked for again.',
+                type=old.holiday_status_id.name, day=old.request_date_from, state=APP_STATES.get(old.state, old.state)))
 
     @api.model
     def ff_team_balances(self, employee):
@@ -340,5 +364,14 @@ class HrLeave(models.Model):
             raise AccessError(self.env._('This request is not yours.'))
         if self.state not in ('draft', 'confirm'):
             raise UserError(self.env._('An approved request cannot be withdrawn from the app.'))
-        self.sudo().unlink()
+        leave = self.sudo()
+        # Its approval steps are closed first, so nothing is left waiting (or answered) for a request that is gone.
+        if 'approval_line_ids' in leave._fields:
+            leave.approval_line_ids.filtered(lambda line: line.state == 'pending').write({'state': 'skipped'})
+        try:
+            with self.env.cr.savepoint():
+                leave.unlink()
+        except (UserError, AccessError):
+            # Odoo would not delete it: cancel it, which never approves anything.
+            leave.with_context(ff_chain_finished=True).write({'state': 'cancel'})
         return True
