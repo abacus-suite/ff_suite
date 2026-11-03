@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../allowance/allowance_screen.dart';
 import '../approvals/approvals_screen.dart';
+import '../attendance/overtime_screen.dart';
 import '../attendance/regularisation_screen.dart';
 import '../beat/plan_beat_screen.dart';
 import '../clients/clients_screen.dart';
@@ -302,6 +303,8 @@ Widget? resolveNotificationScreen(Map<String, dynamic> row) {
     final startTab = switch (model) {
       'ff.expense.claim' => 'expenses',
       'hr.leave' => 'leaves',
+      'ff.overtime' => 'overtime',
+      'ff.expense.request' => 'requests',
       'ff.allowance.claim' => 'allowances',
       'ff.da.claim' || 'ff.da' => 'da',
       'ff.regularisation' => 'regularisation',
@@ -317,6 +320,8 @@ Widget? resolveNotificationScreen(Map<String, dynamic> row) {
     if (startTab != null) {
       return ApprovalsScreen(start: startTab);
     }
+    if (text.contains('overtime')) return const ApprovalsScreen(start: 'overtime');
+    if (text.contains('payment request')) return const ApprovalsScreen(start: 'requests');
     if (text.contains('expense')) return const ApprovalsScreen(start: 'expenses');
     if (text.contains('leave')) return const ApprovalsScreen(start: 'leaves');
     if (text.contains('allowance') || text.contains(' ta')) return const ApprovalsScreen(start: 'allowances');
@@ -339,6 +344,7 @@ Widget? resolveNotificationScreen(Map<String, dynamic> row) {
     'ff.expense.claim' => const ExpensesScreen(),
     'ff.allowance.claim' || 'ff.da.claim' || 'ff.da' => const AllowanceScreen(),
     'hr.leave' => const LeavesScreen(),
+    'ff.overtime' => const OvertimeScreen(),
     'ff.demand' || 'sale.order' => const OrdersScreen(),
     'ff.regularisation' => const RegularisationScreen(),
     'ff.beat.app' || 'ff.beat' => const PlanBeatScreen(),
@@ -347,6 +353,7 @@ Widget? resolveNotificationScreen(Map<String, dynamic> row) {
     _ => switch (true) {
         _ when text.contains('expense') => const ExpensesScreen(),
         _ when text.contains('leave') => const LeavesScreen(),
+        _ when text.contains('overtime') => const OvertimeScreen(),
         _ when text.contains('allowance') || text.contains(' ta') || text.contains(' da') => const AllowanceScreen(),
         _ when text.contains('order') || text.contains('demand') => const OrdersScreen(),
         _ when text.contains('regularis') || text.contains('attendance') => const RegularisationScreen(),
