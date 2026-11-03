@@ -565,7 +565,7 @@ class FfTaskLog(models.Model):
         logs = self.sudo().search([
             ('task_code', 'in', ('new_lead', 'lead_follow_up')),
             ('employee_id', 'in', (employee | employee._ff_subordinates()).ids),
-            ('partner_id', '!=', False)], order='date desc')
+            ('partner_id', '!=', False), ('lead_outcome', '!=', False)], order='date desc, id desc')
         latest = {}
         for log in logs:
             latest.setdefault(log.partner_id.id, log)
