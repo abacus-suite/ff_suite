@@ -13,7 +13,6 @@ import 'task_widgets.dart';
 final _gstin = RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$');
 final _email = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 final _phone = RegExp(r'^[0-9]{10}$');
-final _pin = RegExp(r'\b[0-9]{6}\b');
 
 /// A scheme as people read it: its amount with the company's currency symbol (₹30). When the option's name
 /// says more than the number, the name follows.
@@ -77,7 +76,15 @@ class _OnboardScreenState extends State<OnboardScreen> {
   bool _busy = false;
   bool _saved = false;
 
-  static const _titles = ['GST & billing', 'Delivery address', 'Outlet details', 'Contacts & delivery apps'];
+  static const _titles = {
+    'bill': 'GST & billing',
+    'delivery': 'Delivery address',
+    'outlet': 'Outlet details',
+    'contacts': 'Contacts & delivery apps',
+  };
+
+  /// The steps, in order. The delivery address has a step of its own only when it is not the billing address.
+  List<String> get _keys => ['bill', if (!_sameAsBilling) 'delivery', 'outlet', 'contacts'];
 
   String get _draftKey => 'onboard-${widget.client['id']}';
   final Map<String, String> _starting = {};
@@ -101,9 +108,9 @@ class _OnboardScreenState extends State<OnboardScreen> {
     if (d == null || !mounted) return;
     setState(() {
       _kind = '${d['kind'] ?? _kind}';
-      _step = (d['step'] as num?)?.toInt() ?? 0;
       _hasGst = d['has_gst'] as bool? ?? true;
       _sameAsBilling = d['same'] as bool? ?? false;
+      _step = ((d['step'] as num?)?.toInt() ?? 0).clamp(0, _keys.length - 1);
       for (final e in ((d['text'] as Map?) ?? {}).entries) {
         _t('${e.key}').text = '${e.value}';
       }
@@ -305,33 +312,20 @@ class _OnboardScreenState extends State<OnboardScreen> {
     }
   }
 
-  /// "Delivery address same as billing": the billing address and its PIN code fill the delivery ones.
-  void _sameChanged(bool on) {
-    setState(() {
-      _sameAsBilling = on;
-      if (!on) return;
-      final billing = _v('billing_address');
-      if (billing.isNotEmpty) {
-        _t('street_name').text = billing.split(RegExp(r'[\n,]')).first.trim();
-        final pin = _pin.firstMatch(billing)?.group(0);
-        if (pin != null) _t('zip').text = pin;
-      }
-    });
-    if (on && _v('zip').length == 6) _lookupPin();
-  }
+  /// "Delivery address same as billing": when it is, there is no delivery step.
+  void _sameChanged(bool on) => setState(() => _sameAsBilling = on);
 
   // ------------------------------------------------------------------ checks
 
   List<String> _checkStep(int step) {
     final bad = <String>[];
-    switch (step) {
-      case 0:
+    switch (_keys[step.clamp(0, _keys.length - 1)]) {
+      case 'bill':
         if (_hasGst) {
           if (!_gstin.hasMatch(_v('gstin').toUpperCase())) bad.add('GSTIN: enter a valid 15-character GSTIN');
           if (_v('gst_name').isEmpty) bad.add('Name as per GST');
         }
         if (_v('billing_address').isEmpty) bad.add('Billing address');
-      case 1:
         if (_v('zip').length != 6) bad.add('PIN code: 6 digits');
         if (_regions.isNotEmpty && _regionId == null) bad.add('Region');
         if (_territoryId == null) bad.add('Territory');
@@ -340,7 +334,10 @@ class _OnboardScreenState extends State<OnboardScreen> {
         if (_areaOptions().isNotEmpty && _areaId == null) bad.add('Area');
         if (_v('street_name').isEmpty) bad.add('Street name');
         if (_v('door').isEmpty) bad.add('Door / TC No.');
-      case 2:
+      case 'delivery':
+        if (_v('delivery_address').isEmpty) bad.add('Delivery address');
+        if (_v('delivery_zip').length != 6) bad.add('Delivery PIN code: 6 digits');
+      case 'outlet':
         if (_outlet) {
           if (_category == null) bad.add('Outlet category');
           if (_categoryNeedsNote && _v('outlet_category_note').isEmpty) bad.add('Outlet category: describe it');
@@ -382,7 +379,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
       await showProblem(context, problems, title: 'Still needed on this step');
       return;
     }
-    if (_step < 3) {
+    if (_step < _keys.length - 1) {
       setState(() => _step++);
       return;
     }
@@ -390,7 +387,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
   }
 
   Future<void> _save() async {
-    for (var step = 0; step < 4; step++) {
+    for (var step = 0; step < _keys.length; step++) {
       final problems = _checkStep(step);
       if (problems.isNotEmpty) {
         setState(() => _step = step);
@@ -414,6 +411,8 @@ class _OnboardScreenState extends State<OnboardScreen> {
               'door_no': _v('door'),
               'street_name': _v('street_name'),
               'delivery_same': _sameAsBilling,
+              if (!_sameAsBilling) 'delivery_address': _v('delivery_address'),
+              if (!_sameAsBilling) 'delivery_zip': _v('delivery_zip'),
               'street2': area,
               'city': city,
               'zip': _v('zip'),
@@ -596,8 +595,32 @@ class _OnboardScreenState extends State<OnboardScreen> {
           _field('gst_name', 'Name as per GST', required: true),
         ],
         _field('billing_address', 'Billing address', required: true, lines: 3),
+        ..._location(),
         _same(),
       ]);
+
+  /// Where the outlet is, under the billing address: region, territory, area, PIN code, street and door number.
+  List<Widget> _location() {
+    final place = [asText(_pinInfo['state']), asText(_pinInfo['district'])].whereType<String>().join(' · ');
+    final areas = _areaOptions();
+    return [
+      // Each one a dropdown, filled from the lead and editable: some leads arrive without a region or territory.
+      _dropId('Region', _regions, _regionId, (v) => setState(() => _regionId = v),
+          required: _regions.isNotEmpty, helper: _regions.isEmpty ? 'No region is set for you' : null),
+      _dropId('Territory', [
+        for (final t in _territories) {'id': t['id'], 'name': '${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}'},
+      ], _territoryId, _pickTerritory),
+      _dropId('Area', areas, _areaId, (v) => setState(() => _areaId = v),
+          required: areas.isNotEmpty,
+          helper: _territoryId == null ? 'Choose a territory first' : (areas.isEmpty ? 'No areas in this territory yet' : null)),
+      _field('zip', 'PIN code', required: true, type: TextInputType.number, maxLength: 6, onChanged: (v) {
+        if (v.length == 6) _lookupPin();
+      }),
+      _readOnly('State · District (auto from PIN)', place.isEmpty ? 'Enter the PIN code' : place),
+      _field('street_name', 'Street name', required: true),
+      _field('door', 'Door / TC No.', required: true),
+    ];
+  }
 
   /// What the GSTIN says about itself.
   String? _gstHelper() {
@@ -616,28 +639,11 @@ class _OnboardScreenState extends State<OnboardScreen> {
           (v) => onChanged(v == null ? null : int.tryParse(v)),
           required: required, helper: helper);
 
-  Widget _step2() {
-    final place = [asText(_pinInfo['state']), asText(_pinInfo['district'])].whereType<String>().join(' · ');
-    final areas = _areaOptions();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _same(),
-      // Each one a dropdown, filled from the lead and editable: some leads arrive without a region or territory.
-      _dropId('Region', _regions, _regionId, (v) => setState(() => _regionId = v),
-          required: _regions.isNotEmpty, helper: _regions.isEmpty ? 'No region is set for you' : null),
-      _dropId('Territory', [
-        for (final t in _territories) {'id': t['id'], 'name': '${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}'},
-      ], _territoryId, _pickTerritory),
-      _dropId('Area', areas, _areaId, (v) => setState(() => _areaId = v),
-          required: areas.isNotEmpty,
-          helper: _territoryId == null ? 'Choose a territory first' : (areas.isEmpty ? 'No areas in this territory yet' : null)),
-      _field('zip', 'PIN code', required: true, type: TextInputType.number, maxLength: 6, onChanged: (v) {
-        if (v.length == 6) _lookupPin();
-      }),
-      _readOnly('State · District (auto from PIN)', place.isEmpty ? 'Enter the PIN code' : place),
-      _field('street_name', 'Street name', required: true),
-      _field('door', 'Door / TC No.', required: true),
-    ]);
-  }
+  /// Only when the delivery address is not the billing address.
+  Widget _step2() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _field('delivery_address', 'Delivery address', required: true, lines: 3),
+        _field('delivery_zip', 'PIN code', required: true, type: TextInputType.number, maxLength: 6),
+      ]);
 
   Widget _step3() {
     final onboardedText = fmtDate(_onboardedOn);
@@ -736,8 +742,10 @@ class _OnboardScreenState extends State<OnboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final steps = [_step1(), _step2(), _step3(), _step4()];
-    final titles = [..._titles]..[2] = _outlet ? 'Outlet details' : 'Distributor details';
+    final byKey = {'bill': _step1, 'delivery': _step2, 'outlet': _step3, 'contacts': _step4};
+    final keys = _keys;
+    final step = _step.clamp(0, keys.length - 1);
+    final titles = {..._titles, 'outlet': _outlet ? 'Outlet details' : 'Distributor details'};
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -749,7 +757,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
           leading: BackButton(onPressed: _leave),
           title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Complete Onboarding', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
-            Text('Step ${_step + 1} of 4 – ${titles[_step]}',
+            Text('Step ${step + 1} of ${keys.length} – ${titles[keys[step]]}',
                 style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
           ]),
         ),
@@ -757,7 +765,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Row(children: [
-              if (_step > 0) ...[
+              if (step > 0) ...[
                 SizedBox(
                   width: 56,
                   height: 56,
@@ -771,7 +779,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
               ],
               Expanded(
                 child: GradientButton(
-                  label: _step < 3 ? 'Next' : 'Complete Onboarding',
+                  label: step < keys.length - 1 ? 'Next' : 'Complete Onboarding',
                   busy: _busy,
                   onPressed: _busy ? null : _next,
                 ),
@@ -783,20 +791,20 @@ class _OnboardScreenState extends State<OnboardScreen> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           children: [
             Row(children: [
-              for (var i = 0; i < 4; i++)
+              for (var i = 0; i < keys.length; i++)
                 Expanded(
                   child: Container(
                     height: 5,
-                    margin: EdgeInsets.only(right: i < 3 ? 6 : 0),
+                    margin: EdgeInsets.only(right: i < keys.length - 1 ? 6 : 0),
                     decoration: BoxDecoration(
-                      color: i <= _step ? AppColors.primary : AppColors.border,
+                      color: i <= step ? AppColors.primary : AppColors.border,
                       borderRadius: BorderRadius.circular(3),
                     ),
                   ),
                 ),
             ]),
             const SizedBox(height: 18),
-            steps[_step],
+            byKey[keys[step]]!(),
           ],
         ),
       ),
