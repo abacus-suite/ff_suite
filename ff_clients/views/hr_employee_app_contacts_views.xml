@@ -11,13 +11,17 @@
                 <field name="ff_allocated_distributors" groups="ff_base.group_ff_admin"/>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
-                <button name="action_ff_app_contacts" type="object" class="oe_stat_button"
-                        icon="fa-mobile"
-                        help="The contacts this person's app lists, worked out the same way the app does.">
-                    <div class="o_stat_info">
-                        <span class="o_stat_text">App</span>
-                        <span class="o_stat_text">Contacts</span>
-                    </div>
+                <button name="action_view_ff_outlets" type="object" class="oe_stat_button"
+                        icon="fa-shopping-bag" help="Outlets visible to this employee.">
+                    <field name="ff_outlet_count" widget="statinfo" string="Outlets"/>
+                </button>
+                <button name="action_view_ff_distributors" type="object" class="oe_stat_button"
+                        icon="fa-truck" help="Distributors visible to this employee.">
+                    <field name="ff_distributor_count" widget="statinfo" string="Distributors"/>
+                </button>
+                <button name="action_view_ff_leads" type="object" class="oe_stat_button"
+                        icon="fa-user-plus" help="Leads visible to this employee.">
+                    <field name="ff_lead_count" widget="statinfo" string="Leads"/>
                 </button>
             </xpath>
         </field>
