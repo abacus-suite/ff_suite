@@ -42,9 +42,9 @@
                 <filter string="Needs Production (Suggested &gt; 0)" name="filter_needs_mo" domain="[('needs_mo', '=', True)]"/>
                 <filter string="Has Active BOM" name="filter_has_bom" domain="[('has_bom', '=', True)]"/>
                 <filter string="Missing BOM" name="filter_missing_bom" domain="[('has_bom', '=', False)]"/>
-                <group expand="0" string="Group By">
-                    <filter string="Product Category" name="group_by_categ" context="{'group_by': 'categ_id'}"/>
-                    <filter string="BOM Status" name="group_by_has_bom" context="{'group_by': 'has_bom'}"/>
+                <group>
+                    <filter string="Product Category" name="group_by_categ" domain="[]" context="{'group_by': 'categ_id'}"/>
+                    <filter string="BOM Status" name="group_by_has_bom" domain="[]" context="{'group_by': 'has_bom'}"/>
                 </group>
             </search>
         </field>
