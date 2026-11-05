@@ -302,22 +302,30 @@ class FermentationProcess(models.Model):
         if not product:
             raise UserError(_("Please configure at least one product to transfer to Fermentation."))
 
+        move_fields = self.env['stock.move']._fields
+        move_val = {
+            'product_id': product.id,
+            'product_uom_qty': self.quantity,
+            'location_id': source_loc.id if source_loc else False,
+            'location_dest_id': dest_loc.id if dest_loc else False,
+        }
+        if 'product_uom' in move_fields:
+            move_val['product_uom'] = self.uom_id.id or product.uom_id.id
+        elif 'product_uom_id' in move_fields:
+            move_val['product_uom_id'] = self.uom_id.id or product.uom_id.id
+
+        if 'description_picking' in move_fields:
+            move_val['description_picking'] = f"Transfer to {self.tank_id.name}"
+        elif 'name' in move_fields:
+            move_val['name'] = f"Transfer to {self.tank_id.name}"
+
         picking_vals = {
             'picking_type_id': picking_type.id if picking_type else False,
             'location_id': source_loc.id if source_loc else False,
             'location_dest_id': dest_loc.id if dest_loc else False,
             'origin': f"{self.name} - {self.tank_id.name}",
             'company_id': self.company_id.id,
-            'move_ids': [
-                (0, 0, {
-                    'name': f"Transfer to {self.tank_id.name}",
-                    'product_id': product.id,
-                    'product_uom': self.uom_id.id or product.uom_id.id,
-                    'product_uom_qty': self.quantity,
-                    'location_id': source_loc.id if source_loc else False,
-                    'location_dest_id': dest_loc.id if dest_loc else False,
-                })
-            ]
+            'move_ids': [(0, 0, move_val)],
         }
         picking = self.env['stock.picking'].create(picking_vals)
         try:
