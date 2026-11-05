@@ -308,7 +308,7 @@ class FermentationProcess(models.Model):
             'location_dest_id': dest_loc.id if dest_loc else False,
             'origin': f"{self.name} - {self.tank_id.name}",
             'company_id': self.company_id.id,
-            'move_ids_without_package': [
+            'move_ids': [
                 (0, 0, {
                     'name': f"Transfer to {self.tank_id.name}",
                     'product_id': product.id,
