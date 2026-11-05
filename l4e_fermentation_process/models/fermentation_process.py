@@ -68,6 +68,7 @@ class FermentationProcess(models.Model):
     is_qc_due = fields.Boolean(
         string='QC Due Today / Overdue',
         compute='_compute_is_qc_due',
+        search='_search_is_qc_due',
     )
     quantity = fields.Float(
         string='Quantity (L)',
@@ -200,6 +201,12 @@ class FermentationProcess(models.Model):
         today = fields.Date.context_today(self)
         for rec in self:
             rec.is_qc_due = bool(rec.qc_due_date and today >= rec.qc_due_date and not rec.qc_status)
+
+    def _search_is_qc_due(self, operator, value):
+        today = fields.Date.context_today(self)
+        if (operator == '=' and value) or (operator == '!=' and not value):
+            return [('qc_due_date', '<=', today), ('qc_status', '=', False)]
+        return ['|', ('qc_due_date', '>', today), ('qc_status', '!=', False)]
 
     @api.depends('qc_line_ids.status')
     def _compute_qc_status(self):

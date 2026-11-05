@@ -165,7 +165,7 @@
                 <field name="brewing_id"/>
                 <separator/>
                 <filter name="filter_in_fermentation" string="In Fermentation" domain="[('state', '=', 'in_fermentation')]"/>
-                <filter name="filter_qc_due" string="QC Due / Overdue" domain="[('is_qc_due', '=', True)]"/>
+                <filter name="filter_qc_due" string="QC Due / Overdue" domain="[('qc_due_date', '&lt;=', context_today().strftime('%Y-%m-%d')), ('qc_status', '=', False)]"/>
                 <filter name="filter_ready_bottling" string="Ready for Bottling" domain="[('state', '=', 'ready_bottling')]"/>
                 <separator/>
                 <filter name="filter_qc_pass" string="QC Pass" domain="[('qc_status', '=', 'pass')]"/>
