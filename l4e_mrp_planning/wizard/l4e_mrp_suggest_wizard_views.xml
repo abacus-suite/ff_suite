@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_l4e_mrp_suggest_wizard_form" model="ir.ui.view">
+        <field name="name">l4e.mrp.suggest.wizard.form</field>
+        <field name="model">l4e.mrp.suggest.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Suggest Manufacturing Orders">
+                <div class="alert alert-info d-flex align-items-center justify-content-between p-3 mb-3" role="alert">
+                    <div>
+                        <h5 class="mb-1"><i class="fa fa-cogs me-2"/>Weekly Production Proposal</h5>
+                        <p class="mb-0 text-muted">
+                            Review and adjust the quantities below. All quantities are editable before generating draft Manufacturing Orders.
+                        </p>
+                    </div>
+                    <div class="d-flex gap-3 text-end">
+                        <div class="border-end pe-3">
+                            <small class="text-muted text-uppercase d-block fw-bold">MO Count</small>
+                            <span class="fs-4 fw-bold text-primary"><field name="total_mo_count"/></span>
+                        </div>
+                        <div>
+                            <small class="text-muted text-uppercase d-block fw-bold">Total Units</small>
+                            <span class="fs-4 fw-bold text-success"><field name="total_production_qty"/></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning d-flex align-items-center mb-3" role="alert" invisible="not has_shortage">
+                    <i class="fa fa-exclamation-triangle fa-2x text-warning me-3"/>
+                    <div>
+                        <strong>Raw Material Shortage Detected!</strong>
+                        <p class="mb-0">One or more raw materials have insufficient stock on hand for the requested production volumes. Please review the <strong>Raw Material Availability</strong> tab.</p>
+                    </div>
+                </div>
+
+                <notebook>
+                    <page string="Finished Goods to Produce" name="finished_goods">
+                        <field name="line_ids">
+                            <list editable="bottom" decoration-info="approved_qty &gt; 0">
+                                <field name="product_id" options="{'no_create': True}"/>
+                                <field name="bom_id" options="{'no_create': True}"/>
+                                <field name="last_week_sales" string="Last Week Sales (Units)"/>
+                                <field name="next_week_deliveries" string="Next Week Deliveries (Units)"/>
+                                <field name="qty_available" string="Available Stock"/>
+                                <field name="suggested_qty" string="Suggested MO" widget="badge" decoration-primary="suggested_qty &gt; 0"/>
+                                <field name="approved_qty" string="Approved Qty to Produce" class="fw-bold text-primary"/>
+                                <field name="uom_id" string="UoM"/>
+                                <field name="notes" placeholder="Optional notes..."/>
+                            </list>
+                        </field>
+                        <div class="mt-2 text-end">
+                            <button name="action_recalculate_materials" string="↻ Recalculate Raw Materials" type="object" class="btn btn-outline-secondary btn-sm"/>
+                        </div>
+                    </page>
+
+                    <page string="Raw Material Availability" name="raw_materials">
+                        <field name="raw_material_ids" readonly="1">
+                            <list decoration-danger="is_shortage == True" decoration-success="is_shortage == False">
+                                <field name="product_id"/>
+                                <field name="required_qty"/>
+                                <field name="on_hand_qty"/>
+                                <field name="shortage_qty" widget="badge" decoration-danger="shortage_qty &gt; 0"/>
+                                <field name="uom_id"/>
+                                <field name="is_shortage" widget="boolean_toggle"/>
+                            </list>
+                        </field>
+                    </page>
+                </notebook>
+
+                <footer>
+                    <button name="action_generate_mos" string="Create Manufacturing Orders (Draft)" type="object" class="btn-primary" icon="fa-check-circle"/>
+                    <button string="Discard" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

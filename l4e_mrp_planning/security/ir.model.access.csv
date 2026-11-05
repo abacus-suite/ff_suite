@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_l4e_mrp_plan_user,l4e.mrp.plan.user,model_l4e_mrp_plan,mrp.group_mrp_user,1,1,1,1
+access_l4e_mrp_plan_manager,l4e.mrp.plan.manager,model_l4e_mrp_plan,mrp.group_mrp_manager,1,1,1,1
+access_l4e_mrp_suggest_wizard_user,l4e.mrp.suggest.wizard.user,model_l4e_mrp_suggest_wizard,mrp.group_mrp_user,1,1,1,1
+access_l4e_mrp_suggest_line_user,l4e.mrp.suggest.line.user,model_l4e_mrp_suggest_line,mrp.group_mrp_user,1,1,1,1
+access_l4e_mrp_suggest_raw_line_user,l4e.mrp.suggest.raw.line.user,model_l4e_mrp_suggest_raw_line,mrp.group_mrp_user,1,1,1,1

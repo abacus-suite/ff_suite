@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_l4e_mrp_planning"
+              name="Production Demand Planner"
+              parent="mrp.mrp_planning_menu_root"
+              action="action_l4e_mrp_plan"
+              sequence="5"
+              groups="mrp.group_mrp_user"/>
+</odoo>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- List / Dashboard View -->
+    <record id="view_l4e_mrp_plan_tree" model="ir.ui.view">
+        <field name="name">l4e.mrp.plan.list</field>
+        <field name="model">l4e.mrp.plan</field>
+        <field name="arch" type="xml">
+            <list string="Weekly Production Demand Plan" create="false" edit="false" delete="false"
+                  decoration-danger="suggested_qty &gt; 0 and not has_bom"
+                  decoration-warning="suggested_qty &gt; 0 and has_bom"
+                  decoration-muted="suggested_qty == 0">
+                <header>
+                    <button name="action_open_suggest_wizard" string="Suggest MO" type="object" class="btn-primary" icon="fa-cogs"/>
+                    <button name="action_refresh_plan" string="Refresh Calculations" type="object" class="btn-secondary" icon="fa-refresh"/>
+                </header>
+                <field name="product_id"/>
+                <field name="default_code" optional="show"/>
+                <field name="categ_id"/>
+                <field name="last_week_sales" string="Last Week Sales" sum="Total Sales"/>
+                <field name="next_week_deliveries" string="Next Week Deliveries" sum="Total Deliveries"/>
+                <field name="qty_available" string="Available Stock" sum="Total Available"/>
+                <field name="suggested_qty" string="Suggested MO Qty" widget="badge"
+                       decoration-danger="suggested_qty &gt; 0" sum="Total Suggested"/>
+                <field name="uom_id" string="UoM"/>
+                <field name="bom_id" optional="show"/>
+                <field name="has_bom" widget="boolean_toggle" string="BOM Ready"/>
+                <field name="date_calculated" string="Updated" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_l4e_mrp_plan_search" model="ir.ui.view">
+        <field name="name">l4e.mrp.plan.search</field>
+        <field name="model">l4e.mrp.plan</field>
+        <field name="arch" type="xml">
+            <search string="Search Production Plan">
+                <field name="product_id" string="Product"/>
+                <field name="default_code" string="Reference"/>
+                <field name="categ_id" string="Category"/>
+                <separator/>
+                <filter string="Needs Production (Suggested &gt; 0)" name="filter_needs_mo" domain="[('needs_mo', '=', True)]"/>
+                <filter string="Has Active BOM" name="filter_has_bom" domain="[('has_bom', '=', True)]"/>
+                <filter string="Missing BOM" name="filter_missing_bom" domain="[('has_bom', '=', False)]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Product Category" name="group_by_categ" context="{'group_by': 'categ_id'}"/>
+                    <filter string="BOM Status" name="group_by_has_bom" context="{'group_by': 'has_bom'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_l4e_mrp_plan" model="ir.actions.act_window">
+        <field name="name">Production Demand Planner</field>
+        <field name="res_model">l4e.mrp.plan</field>
+        <field name="view_mode">list</field>
+        <field name="search_view_id" ref="view_l4e_mrp_plan_search"/>
+        <field name="context">{'search_default_filter_needs_mo': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No production plans calculated yet
+            </p>
+            <p>
+                Click <strong>Refresh Calculations</strong> to analyze last week's sales run-rate, next week's committed deliveries, and available stock to generate suggested Manufacturing Orders.
+            </p>
+        </field>
+    </record>
+</odoo>
