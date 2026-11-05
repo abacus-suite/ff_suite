@@ -87,8 +87,8 @@
                 <separator/>
                 <filter name="filter_available" string="Available" domain="[('state', '=', 'available')]"/>
                 <filter name="filter_occupied" string="Occupied" domain="[('state', '=', 'occupied')]"/>
-                <group expand="0" string="Group By">
-                    <filter name="group_state" string="Status" domain="[]" context="{'group_by': 'state'}"/>
+                <group>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
                 </group>
             </search>
         </field>

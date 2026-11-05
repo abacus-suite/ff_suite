@@ -14,7 +14,7 @@
                 <field name="brewing_id" string="Brewing Batch"/>
                 <field name="preparation_date" string="Prep Date"/>
                 <field name="transfer_date" string="Transfer Date"/>
-                <field name="qc_due_date" string="15th Day QC Due" widget="remaining_days"/>
+                <field name="qc_due_date" string="15th Day QC Due"/>
                 <field name="days_in_fermentation" string="Days in Tank"/>
                 <field name="quantity" string="Qty (L)" sum="Total Volume"/>
                 <field name="qc_status" string="QC Status" widget="badge"
@@ -170,12 +170,12 @@
                 <separator/>
                 <filter name="filter_qc_pass" string="QC Pass" domain="[('qc_status', '=', 'pass')]"/>
                 <filter name="filter_qc_fail" string="QC Fail" domain="[('qc_status', '=', 'fail')]"/>
-                <group expand="0" string="Group By">
-                    <filter name="group_tank" string="Tank" domain="[]" context="{'group_by': 'tank_id'}"/>
-                    <filter name="group_state" string="Status" domain="[]" context="{'group_by': 'state'}"/>
-                    <filter name="group_qc_status" string="QC Status" domain="[]" context="{'group_by': 'qc_status'}"/>
-                    <filter name="group_transfer_date" string="Transfer Date" domain="[]" context="{'group_by': 'transfer_date'}"/>
-                    <filter name="group_qc_due_date" string="QC Due Date" domain="[]" context="{'group_by': 'qc_due_date'}"/>
+                <group>
+                    <filter name="group_tank" string="Tank" context="{'group_by': 'tank_id'}"/>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="group_qc_status" string="QC Status" context="{'group_by': 'qc_status'}"/>
+                    <filter name="group_transfer_date" string="Transfer Date" context="{'group_by': 'transfer_date'}"/>
+                    <filter name="group_qc_due_date" string="QC Due Date" context="{'group_by': 'qc_due_date'}"/>
                 </group>
             </search>
         </field>
