@@ -24,6 +24,16 @@ class BrewingTeaQcLine(models.Model):
         required=True,
         help="Parameter or test description.",
     )
+    preparation_date = fields.Date(
+        related='brewing_id.preparation_date',
+        string='Preparation Date',
+        store=True,
+    )
+    quantity = fields.Float(
+        related='brewing_id.quantity',
+        string='Quantity',
+        store=True,
+    )
     status = fields.Selection(
         [
             ('pass', 'Pass'),
