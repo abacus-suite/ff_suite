@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_brewing_tea_form_inherit_fermentation" model="ir.ui.view">
+        <field name="name">brewing.tea.form.inherit.fermentation</field>
+        <field name="model">brewing.tea</field>
+        <field name="inherit_id" ref="l4e_brewing_tea.view_brewing_tea_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <button name="action_transfer_to_fermentation"
+                            string="Transfer to Fermentation"
+                            type="object"
+                            class="btn-primary"/>
+                </header>
+            </xpath>
+            <xpath expr="//div[hasclass('oe_title')]" position="before">
+                <div class="oe_button_box" name="button_box">
+                    <button name="action_view_fermentations"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-flask">
+                        <field name="fermentation_count" widget="statinfo" string="Fermentations"/>
+                    </button>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>

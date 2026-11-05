@@ -1,0 +1,13 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_fermentation_tank_user,fermentation.tank.user,model_fermentation_tank,mrp.group_mrp_user,1,1,1,0
+access_fermentation_tank_manager,fermentation.tank.manager,model_fermentation_tank,mrp.group_mrp_manager,1,1,1,1
+access_fermentation_tank_base_user,fermentation.tank.base.user,model_fermentation_tank,base.group_user,1,0,0,0
+access_fermentation_process_user,fermentation.process.user,model_fermentation_process,mrp.group_mrp_user,1,1,1,1
+access_fermentation_process_manager,fermentation.process.manager,model_fermentation_process,mrp.group_mrp_manager,1,1,1,1
+access_fermentation_process_base_user,fermentation.process.base.user,model_fermentation_process,base.group_user,1,1,1,0
+access_fermentation_qc_line_user,fermentation.qc.line.user,model_fermentation_qc_line,mrp.group_mrp_user,1,1,1,1
+access_fermentation_qc_line_manager,fermentation.qc.line.manager,model_fermentation_qc_line,mrp.group_mrp_manager,1,1,1,1
+access_fermentation_qc_line_base_user,fermentation.qc.line.base.user,model_fermentation_qc_line,base.group_user,1,1,1,0
+access_fermentation_transfer_wizard_user,fermentation.transfer.wizard.user,model_fermentation_transfer_wizard,mrp.group_mrp_user,1,1,1,1
+access_fermentation_transfer_wizard_manager,fermentation.transfer.wizard.manager,model_fermentation_transfer_wizard,mrp.group_mrp_manager,1,1,1,1
+access_fermentation_transfer_wizard_base,fermentation.transfer.wizard.base,model_fermentation_transfer_wizard,base.group_user,1,1,1,1

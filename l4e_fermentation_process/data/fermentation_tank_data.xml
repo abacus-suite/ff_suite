@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="tank_01" model="fermentation.tank"><field name="name">Tank 01</field><field name="code">TK-01</field><field name="state">available</field></record>
+        <record id="tank_02" model="fermentation.tank"><field name="name">Tank 02</field><field name="code">TK-02</field><field name="state">available</field></record>
+        <record id="tank_03" model="fermentation.tank"><field name="name">Tank 03</field><field name="code">TK-03</field><field name="state">available</field></record>
+        <record id="tank_04" model="fermentation.tank"><field name="name">Tank 04</field><field name="code">TK-04</field><field name="state">available</field></record>
+        <record id="tank_05" model="fermentation.tank"><field name="name">Tank 05</field><field name="code">TK-05</field><field name="state">available</field></record>
+        <record id="tank_06" model="fermentation.tank"><field name="name">Tank 06</field><field name="code">TK-06</field><field name="state">available</field></record>
+        <record id="tank_07" model="fermentation.tank"><field name="name">Tank 07</field><field name="code">TK-07</field><field name="state">available</field></record>
+        <record id="tank_08" model="fermentation.tank"><field name="name">Tank 08</field><field name="code">TK-08</field><field name="state">available</field></record>
+        <record id="tank_09" model="fermentation.tank"><field name="name">Tank 09</field><field name="code">TK-09</field><field name="state">available</field></record>
+        <record id="tank_10" model="fermentation.tank"><field name="name">Tank 10</field><field name="code">TK-10</field><field name="state">available</field></record>
+        <record id="tank_11" model="fermentation.tank"><field name="name">Tank 11</field><field name="code">TK-11</field><field name="state">available</field></record>
+        <record id="tank_12" model="fermentation.tank"><field name="name">Tank 12</field><field name="code">TK-12</field><field name="state">available</field></record>
+        <record id="tank_13" model="fermentation.tank"><field name="name">Tank 13</field><field name="code">TK-13</field><field name="state">available</field></record>
+        <record id="tank_14" model="fermentation.tank"><field name="name">Tank 14</field><field name="code">TK-14</field><field name="state">available</field></record>
+        <record id="tank_15" model="fermentation.tank"><field name="name">Tank 15</field><field name="code">TK-15</field><field name="state">available</field></record>
+        <record id="tank_16" model="fermentation.tank"><field name="name">Tank 16</field><field name="code">TK-16</field><field name="state">available</field></record>
+        <record id="tank_17" model="fermentation.tank"><field name="name">Tank 17</field><field name="code">TK-17</field><field name="state">available</field></record>
+        <record id="tank_18" model="fermentation.tank"><field name="name">Tank 18</field><field name="code">TK-18</field><field name="state">available</field></record>
+        <record id="tank_19" model="fermentation.tank"><field name="name">Tank 19</field><field name="code">TK-19</field><field name="state">available</field></record>
+        <record id="tank_20" model="fermentation.tank"><field name="name">Tank 20</field><field name="code">TK-20</field><field name="state">available</field></record>
+        <record id="tank_21" model="fermentation.tank"><field name="name">Tank 21</field><field name="code">TK-21</field><field name="state">available</field></record>
+        <record id="tank_22" model="fermentation.tank"><field name="name">Tank 22</field><field name="code">TK-22</field><field name="state">available</field></record>
+        <record id="tank_23" model="fermentation.tank"><field name="name">Tank 23</field><field name="code">TK-23</field><field name="state">available</field></record>
+        <record id="tank_24" model="fermentation.tank"><field name="name">Tank 24</field><field name="code">TK-24</field><field name="state">available</field></record>
+        <record id="tank_25" model="fermentation.tank"><field name="name">Tank 25</field><field name="code">TK-25</field><field name="state">available</field></record>
+        <record id="tank_26" model="fermentation.tank"><field name="name">Tank 26</field><field name="code">TK-26</field><field name="state">available</field></record>
+        <record id="tank_27" model="fermentation.tank"><field name="name">Tank 27</field><field name="code">TK-27</field><field name="state">available</field></record>
+        <record id="tank_28" model="fermentation.tank"><field name="name">Tank 28</field><field name="code">TK-28</field><field name="state">available</field></record>
+        <record id="tank_29" model="fermentation.tank"><field name="name">Tank 29</field><field name="code">TK-29</field><field name="state">available</field></record>
+        <record id="tank_30" model="fermentation.tank"><field name="name">Tank 30</field><field name="code">TK-30</field><field name="state">available</field></record>
+        <record id="tank_31" model="fermentation.tank"><field name="name">Tank 31</field><field name="code">TK-31</field><field name="state">available</field></record>
+        <record id="tank_32" model="fermentation.tank"><field name="name">Tank 32</field><field name="code">TK-32</field><field name="state">available</field></record>
+        <record id="tank_33" model="fermentation.tank"><field name="name">Tank 33</field><field name="code">TK-33</field><field name="state">available</field></record>
+        <record id="tank_34" model="fermentation.tank"><field name="name">Tank 34</field><field name="code">TK-34</field><field name="state">available</field></record>
+        <record id="tank_35" model="fermentation.tank"><field name="name">Tank 35</field><field name="code">TK-35</field><field name="state">available</field></record>
+        <record id="tank_36" model="fermentation.tank"><field name="name">Tank 36</field><field name="code">TK-36</field><field name="state">available</field></record>
+        <record id="tank_37" model="fermentation.tank"><field name="name">Tank 37</field><field name="code">TK-37</field><field name="state">available</field></record>
+        <record id="tank_38" model="fermentation.tank"><field name="name">Tank 38</field><field name="code">TK-38</field><field name="state">available</field></record>
+        <record id="tank_39" model="fermentation.tank"><field name="name">Tank 39</field><field name="code">TK-39</field><field name="state">available</field></record>
+        <record id="tank_40" model="fermentation.tank"><field name="name">Tank 40</field><field name="code">TK-40</field><field name="state">available</field></record>
+        <record id="tank_41" model="fermentation.tank"><field name="name">Tank 41</field><field name="code">TK-41</field><field name="state">available</field></record>
+        <record id="tank_42" model="fermentation.tank"><field name="name">Tank 42</field><field name="code">TK-42</field><field name="state">available</field></record>
+        <record id="tank_43" model="fermentation.tank"><field name="name">Tank 43</field><field name="code">TK-43</field><field name="state">available</field></record>
+        <record id="tank_44" model="fermentation.tank"><field name="name">Tank 44</field><field name="code">TK-44</field><field name="state">available</field></record>
+        <record id="tank_45" model="fermentation.tank"><field name="name">Tank 45</field><field name="code">TK-45</field><field name="state">available</field></record>
+        <record id="tank_46" model="fermentation.tank"><field name="name">Tank 46</field><field name="code">TK-46</field><field name="state">available</field></record>
+        <record id="tank_47" model="fermentation.tank"><field name="name">Tank 47</field><field name="code">TK-47</field><field name="state">available</field></record>
+        <record id="tank_48" model="fermentation.tank"><field name="name">Tank 48</field><field name="code">TK-48</field><field name="state">available</field></record>
+        <record id="tank_49" model="fermentation.tank"><field name="name">Tank 49</field><field name="code">TK-49</field><field name="state">available</field></record>
+        <record id="tank_50" model="fermentation.tank"><field name="name">Tank 50</field><field name="code">TK-50</field><field name="state">available</field></record>
+        <record id="tank_51" model="fermentation.tank"><field name="name">Tank 51</field><field name="code">TK-51</field><field name="state">available</field></record>
+        <record id="tank_52" model="fermentation.tank"><field name="name">Tank 52</field><field name="code">TK-52</field><field name="state">available</field></record>
+    </data>
+</odoo>

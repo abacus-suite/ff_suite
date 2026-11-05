@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Tank List View -->
+    <record id="view_fermentation_tank_list" model="ir.ui.view">
+        <field name="name">fermentation.tank.list</field>
+        <field name="model">fermentation.tank</field>
+        <field name="arch" type="xml">
+            <list string="Fermentation Tanks">
+                <field name="name" string="Tank"/>
+                <field name="code"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'available'"
+                       decoration-warning="state == 'occupied'"
+                       decoration-danger="state == 'maintenance'"/>
+                <field name="current_process_id" string="Current Batch"/>
+                <field name="brewing_id" string="Brewing Tea"/>
+                <field name="process_count" string="Batches"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Tank Form View -->
+    <record id="view_fermentation_tank_form" model="ir.ui.view">
+        <field name="name">fermentation.tank.form</field>
+        <field name="model">fermentation.tank</field>
+        <field name="arch" type="xml">
+            <form string="Fermentation Tank">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_processes"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-flask">
+                            <field name="process_count" widget="statinfo" string="Batches"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name" string="Tank Name"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Tank 01"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code"/>
+                            <field name="capacity"/>
+                        </group>
+                        <group>
+                            <field name="state" widget="badge"
+                                   decoration-success="state == 'available'"
+                                   decoration-warning="state == 'occupied'"
+                                   decoration-danger="state == 'maintenance'"/>
+                            <field name="current_process_id" readonly="1"/>
+                            <field name="brewing_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Batch History" name="history">
+                            <field name="process_ids" readonly="1">
+                                <list string="Processes">
+                                    <field name="name"/>
+                                    <field name="brewing_id"/>
+                                    <field name="transfer_date"/>
+                                    <field name="qc_due_date"/>
+                                    <field name="quantity"/>
+                                    <field name="state" widget="badge"/>
+                                    <field name="qc_status" widget="badge"
+                                           decoration-success="qc_status == 'pass'"
+                                           decoration-danger="qc_status == 'fail'"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Tank Search View -->
+    <record id="view_fermentation_tank_search" model="ir.ui.view">
+        <field name="name">fermentation.tank.search</field>
+        <field name="model">fermentation.tank</field>
+        <field name="arch" type="xml">
+            <search string="Search Tanks">
+                <field name="name"/>
+                <field name="code"/>
+                <separator/>
+                <filter name="filter_available" string="Available" domain="[('state', '=', 'available')]"/>
+                <filter name="filter_occupied" string="Occupied" domain="[('state', '=', 'occupied')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_state" string="Status" domain="[]" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Tank Window Action -->
+    <record id="action_fermentation_tank" model="ir.actions.act_window">
+        <field name="name">52 Fermentation Tanks</field>
+        <field name="res_model">fermentation.tank</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_fermentation_tank_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Manage the 52 Fermentation Tanks.
+            </p>
+        </field>
+    </record>
+</odoo>

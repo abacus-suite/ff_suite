@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Top Navigation Menu under Manufacturing App (Sequence 16 - right next to Brewing Tea seq 15) -->
+    <menuitem id="menu_fermentation_root"
+              name="FERMENTATION"
+              parent="mrp.menu_mrp_root"
+              action="action_fermentation_process"
+              sequence="16"/>
+
+    <!-- Sub-menus under Top Navigation -->
+    <menuitem id="menu_fermentation_process"
+              name="Fermentation Batches"
+              parent="menu_fermentation_root"
+              action="action_fermentation_process"
+              sequence="1"/>
+
+    <menuitem id="menu_fermentation_tank"
+              name="52 Fermentation Tanks"
+              parent="menu_fermentation_root"
+              action="action_fermentation_tank"
+              sequence="2"/>
+
+    <!-- Under Operations Dropdown in Manufacturing (Sequence 26 - right next to Brewing Tea seq 25) -->
+    <menuitem id="menu_fermentation_operations"
+              name="FERMENTATION"
+              parent="mrp.menu_mrp_manufacturing"
+              action="action_fermentation_process"
+              sequence="26"/>
+
+    <menuitem id="menu_fermentation_tanks_operations"
+              name="52 Fermentation Tanks"
+              parent="mrp.menu_mrp_manufacturing"
+              action="action_fermentation_tank"
+              sequence="27"/>
+</odoo>

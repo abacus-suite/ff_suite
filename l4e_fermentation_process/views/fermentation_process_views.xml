@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Fermentation Process List View -->
+    <record id="view_fermentation_process_list" model="ir.ui.view">
+        <field name="name">fermentation.process.list</field>
+        <field name="model">fermentation.process</field>
+        <field name="arch" type="xml">
+            <list string="Fermentation Batches"
+                  decoration-danger="is_qc_due and not qc_status"
+                  decoration-success="qc_status == 'pass'"
+                  decoration-muted="state in ('done', 'cancel')">
+                <field name="name" string="Process No"/>
+                <field name="tank_id" string="Tank"/>
+                <field name="brewing_id" string="Brewing Batch"/>
+                <field name="preparation_date" string="Prep Date"/>
+                <field name="transfer_date" string="Transfer Date"/>
+                <field name="qc_due_date" string="15th Day QC Due" widget="remaining_days"/>
+                <field name="days_in_fermentation" string="Days in Tank"/>
+                <field name="quantity" string="Qty (L)" sum="Total Volume"/>
+                <field name="qc_status" string="QC Status" widget="badge"
+                       decoration-success="qc_status == 'pass'"
+                       decoration-danger="qc_status == 'fail'"/>
+                <field name="state" string="Status" widget="badge"
+                       decoration-info="state == 'in_fermentation'"
+                       decoration-success="state in ('ready_bottling', 'done')"
+                       decoration-warning="state == 'qc_done'"
+                       decoration-danger="state == 'cancel'"/>
+                <field name="is_qc_due" column_invisible="True"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Fermentation Process Form View -->
+    <record id="view_fermentation_process_form" model="ir.ui.view">
+        <field name="name">fermentation.process.form</field>
+        <field name="model">fermentation.process</field>
+        <field name="arch" type="xml">
+            <form string="Fermentation Process">
+                <header>
+                    <button name="action_validate_transfer"
+                            string="Validate Transfer to Tank"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'draft'"/>
+                    <button name="action_mark_qc_done"
+                            string="Mark QC Done"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'in_fermentation'"/>
+                    <button name="action_ready_for_bottling"
+                            string="Ready for Bottling"
+                            type="object"
+                            class="btn-success"
+                            invisible="state != 'qc_done' or qc_status != 'pass'"/>
+                    <button name="action_done"
+                            string="Complete &amp; Release Tank"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state not in ('ready_bottling', 'qc_done')"/>
+                    <button name="action_cancel"
+                            string="Cancel"
+                            type="object"
+                            invisible="state in ('done', 'cancel')"/>
+                    <button name="action_reset_draft"
+                            string="Reset to Draft"
+                            type="object"
+                            invisible="state != 'cancel'"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,in_fermentation,qc_done,ready_bottling,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_picking"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-truck"
+                                invisible="not picking_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Internal</span>
+                                <span class="o_stat_text">Transfer</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name" string="Process No"/>
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="tank_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                            <field name="brewing_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                            <field name="quantity" readonly="state != 'draft'"/>
+                            <field name="uom_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                        </group>
+                        <group>
+                            <field name="preparation_date" readonly="state != 'draft'"/>
+                            <field name="transfer_date" readonly="state != 'draft'"/>
+                            <field name="qc_due_date" readonly="1"/>
+                            <field name="days_in_fermentation" readonly="1"/>
+                            <field name="qc_status" widget="badge"
+                                   decoration-success="qc_status == 'pass'"
+                                   decoration-danger="qc_status == 'fail'"/>
+                            <field name="is_qc_due" invisible="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Quality Check (Day 15)" name="quality_check">
+                            <div class="alert alert-info" role="status" invisible="qc_status">
+                                Quality check must be conducted on the <strong>15th day of preparation</strong> (<field name="qc_due_date" readonly="1"/>). Add check parameters below:
+                            </div>
+                            <field name="qc_line_ids" readonly="state in ('done', 'cancel')">
+                                <list editable="bottom" string="Quality Checks">
+                                    <field name="sl_no" string="SI No"/>
+                                    <field name="description" string="Description"
+                                           placeholder="e.g. pH, Sugar / Brix, Acidity, Taste, Alcohol %"/>
+                                    <field name="status" string="Pass / Fail" widget="badge"
+                                           decoration-success="status == 'pass'"
+                                           decoration-danger="status == 'fail'"/>
+                                    <field name="remarks" string="Remarks / Value"
+                                           placeholder="e.g. pH: 3.2, Brix: 4.5%"/>
+                                </list>
+                            </field>
+                            <group invisible="not qc_date">
+                                <group>
+                                    <field name="qc_date" readonly="1"/>
+                                </group>
+                                <group>
+                                    <field name="qc_user_id" readonly="1"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Transfer &amp; Locations" name="transfer">
+                            <group>
+                                <group>
+                                    <field name="location_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                                    <field name="location_dest_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                                </group>
+                                <group>
+                                    <field name="picking_id" readonly="1"/>
+                                    <field name="user_id" widget="many2one_avatar_user" readonly="state != 'draft'"/>
+                                    <field name="company_id" groups="base.group_multi_company" readonly="state != 'draft'"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Notes &amp; Observations" name="notes">
+                            <field name="notes" placeholder="Enter batch observations, sensory profile, or lab notes..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Fermentation Process Search View -->
+    <record id="view_fermentation_process_search" model="ir.ui.view">
+        <field name="name">fermentation.process.search</field>
+        <field name="model">fermentation.process</field>
+        <field name="arch" type="xml">
+            <search string="Search Fermentation Batches">
+                <field name="name" string="Process No"/>
+                <field name="tank_id"/>
+                <field name="brewing_id"/>
+                <separator/>
+                <filter name="filter_in_fermentation" string="In Fermentation" domain="[('state', '=', 'in_fermentation')]"/>
+                <filter name="filter_qc_due" string="QC Due / Overdue" domain="[('is_qc_due', '=', True)]"/>
+                <filter name="filter_ready_bottling" string="Ready for Bottling" domain="[('state', '=', 'ready_bottling')]"/>
+                <separator/>
+                <filter name="filter_qc_pass" string="QC Pass" domain="[('qc_status', '=', 'pass')]"/>
+                <filter name="filter_qc_fail" string="QC Fail" domain="[('qc_status', '=', 'fail')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_tank" string="Tank" domain="[]" context="{'group_by': 'tank_id'}"/>
+                    <filter name="group_state" string="Status" domain="[]" context="{'group_by': 'state'}"/>
+                    <filter name="group_qc_status" string="QC Status" domain="[]" context="{'group_by': 'qc_status'}"/>
+                    <filter name="group_transfer_date" string="Transfer Date" domain="[]" context="{'group_by': 'transfer_date'}"/>
+                    <filter name="group_qc_due_date" string="QC Due Date" domain="[]" context="{'group_by': 'qc_due_date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Fermentation Process Window Action -->
+    <record id="action_fermentation_process" model="ir.actions.act_window">
+        <field name="name">FERMENTATION</field>
+        <field name="res_model">fermentation.process</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_fermentation_process_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No Fermentation Batches found. Let's record one!
+            </p>
+            <p>
+                Track brewed tea transferred into the 52 fermentation tanks, monitor fermentation duration, and record 15th-day QC results.
+            </p>
+        </field>
+    </record>
+</odoo>
