@@ -1,4 +1,6 @@
 """Demand endpoints, and the switch that decides what an app order becomes."""
+import html
+from html import escape
 import re
 
 from odoo import fields, http
@@ -102,6 +104,204 @@ def demand_data(demand, with_lines=False):
             'foc_note': (line.foc_scheme_id.name or line.foc_reason or None) if getattr(line, 'is_foc', False) else None,
         } for line in demand.line_ids]
     return data
+
+
+
+
+def _demand_html(demand):
+    company = demand.company_id
+    currency = demand.currency_id.symbol or demand.currency_id.name or '₹'
+    outlet = demand.partner_id
+    distributor = demand.distributor_id
+    employee = demand.employee_id
+
+    logo_html = ''
+    if getattr(company, 'logo', False):
+        try:
+            logo_bytes = company.logo
+            logo_b64 = logo_bytes if isinstance(logo_bytes, str) else logo_bytes.decode('ascii')
+            logo_html = '<img src="data:image/png;base64,%s" style="max-height:55px;max-width:180px;object-fit:contain;"/>' % logo_b64
+        except Exception:
+            logo_html = '<h2 style="margin:0;color:#1B3A7A;font-size:18pt;font-weight:bold;">%s</h2>' % escape(company.name or '')
+    else:
+        logo_html = '<h2 style="margin:0;color:#1B3A7A;font-size:18pt;font-weight:bold;">%s</h2>' % escape(company.name or '')
+
+    company_addr = ', '.join(filter(None, [company.street, company.street2, company.city, company.zip]))
+    outlet_addr = ', '.join(filter(None, [outlet.street, outlet.street2, outlet.city, outlet.zip])) if outlet else ''
+    dist_addr = ', '.join(filter(None, [distributor.street, distributor.street2, distributor.city, distributor.zip])) if distributor else ''
+
+    date_str = demand.date.strftime('%d-%b-%Y %I:%M %p') if demand.date else ''
+    state_label = STATE_LABELS.get(demand.state, demand.state)
+
+    lines_html = []
+    for idx, l in enumerate(demand.line_ids, 1):
+        prod_name = escape(l.product_id.display_name or '')
+        sku = escape(getattr(l.product_id.product_tmpl_id, 'ff_sku_code', '') or l.product_id.default_code or '-')
+        qty = ('%.2f' % l.quantity).rstrip('0').rstrip('.')
+        uom = escape(l.uom_id.name or 'Pcs')
+        rate = '%.2f' % (l.price_unit or 0.0)
+        is_foc = bool(getattr(l, 'is_foc', False))
+        foc_badge = '<span style="background:#e0f2fe;color:#0369a1;padding:2px 5px;border-radius:4px;font-size:8pt;font-weight:bold;">FOC</span>' if is_foc else '-'
+        tax_pct = ('%.2f' % (l.tax_percent or 0.0)).rstrip('0').rstrip('.') + '%' if (l.tax_percent or 0) > 0 else '0%'
+        tax_amt = '%.2f' % (l.price_tax or 0.0)
+        subtotal = '%.2f' % (l.subtotal or 0.0)
+
+        lines_html.append("""
+            <tr>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">%d</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;"><b>%s</b></td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">%s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">%s %s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">%s %s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">%s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">%s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">%s %s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;font-weight:bold;">%s %s</td>
+            </tr>
+        """ % (idx, prod_name, sku, qty, uom, currency, rate, foc_badge, tax_pct, currency, tax_amt, currency, subtotal))
+
+    html_doc = """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Demand - %(demand_name)s</title>
+    <style>
+        @page { size: A4; margin: 12mm; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #1e293b; font-size: 9.5pt; line-height: 1.35; margin: 0; padding: 0; }
+        .header-table { width: 100%%; border-collapse: collapse; margin-bottom: 14px; }
+        .cards-table { width: 100%%; border-collapse: separate; border-spacing: 10px 0; margin-left: -10px; margin-right: -10px; margin-bottom: 14px; }
+        .party-card { border: 1px solid #cbd5e1; border-radius: 6px; vertical-align: top; width: 50%%; background: #fff; }
+        .party-header { background: #f1f5f9; padding: 6px 10px; font-weight: bold; font-size: 9pt; border-bottom: 1px solid #cbd5e1; color: #334155; }
+        .party-body { padding: 8px 10px; }
+        .items-table { width: 100%%; border-collapse: collapse; margin-bottom: 14px; }
+        .items-table th { background: #1B3A7A; color: #ffffff; border: 1px solid #1B3A7A; padding: 6px 8px; font-size: 9pt; font-weight: bold; }
+        .totals-table { width: 320px; border-collapse: collapse; float: right; margin-bottom: 14px; }
+        .totals-table td { padding: 5px 8px; border: 1px solid #cbd5e1; font-size: 9pt; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 8.5pt; font-weight: bold; }
+        .badge-status { background: #e0e7ff; color: #3730a3; }
+        .footer { clear: both; padding-top: 18px; border-top: 1px dashed #cbd5e1; font-size: 8pt; color: #64748b; text-align: center; }
+    </style>
+</head>
+<body>
+    <table class="header-table">
+        <tr>
+            <td style="vertical-align:top;width:60%%;">
+                %(logo_html)s
+                <div style="font-size:8.5pt;color:#475569;margin-top:4px;">
+                    %(company_addr)s<br/>
+                    %(company_phone)s%(company_vat)s
+                </div>
+            </td>
+            <td style="vertical-align:top;width:40%%;text-align:right;">
+                <div style="font-size:16pt;font-weight:900;color:#1B3A7A;letter-spacing:0.5px;">DEMAND NOTE</div>
+                <div style="font-size:12pt;font-weight:bold;color:#0f172a;margin-top:2px;">%(demand_name)s</div>
+                <div style="margin-top:4px;"><span class="badge badge-status">%(state_label)s</span></div>
+                <div style="font-size:8.5pt;color:#475569;margin-top:6px;">
+                    <b>Date:</b> %(date_str)s<br/>
+                    <b>Field Rep:</b> %(employee_name)s<br/>
+                    %(route_row)s%(visit_row)s
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="cards-table">
+        <tr>
+            <td class="party-card">
+                <div class="party-header">OUTLET / CUSTOMER</div>
+                <div class="party-body">
+                    <div style="font-size:10pt;font-weight:bold;color:#0f172a;">%(outlet_name)s</div>
+                    <div style="font-size:8.5pt;color:#475569;margin-top:2px;">
+                        %(outlet_addr)s<br/>
+                        %(outlet_contact)s%(outlet_vat)s
+                    </div>
+                </div>
+            </td>
+            <td class="party-card">
+                <div class="party-header">SUPPLIED BY (DISTRIBUTOR)</div>
+                <div class="party-body">
+                    <div style="font-size:10pt;font-weight:bold;color:#0f172a;">%(dist_name)s</div>
+                    <div style="font-size:8.5pt;color:#475569;margin-top:2px;">
+                        %(dist_addr)s<br/>
+                        %(dist_contact)s
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width:28px;">#</th>
+                <th>Product Description</th>
+                <th style="width:70px;">SKU</th>
+                <th style="width:70px;">Qty</th>
+                <th style="width:80px;">Rate</th>
+                <th style="width:50px;">FOC</th>
+                <th style="width:55px;">Tax %%</th>
+                <th style="width:75px;">Tax</th>
+                <th style="width:85px;">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            %(rows_html)s
+        </tbody>
+    </table>
+
+    <table class="totals-table">
+        <tr>
+            <td style="background:#f8fafc;font-weight:bold;">Total Demanded Units</td>
+            <td style="text-align:right;font-weight:bold;">%(qty_total)s</td>
+        </tr>
+        <tr>
+            <td style="background:#f8fafc;">Untaxed Amount</td>
+            <td style="text-align:right;">%(currency)s %(amount_untaxed)s</td>
+        </tr>
+        <tr>
+            <td style="background:#f8fafc;">Tax</td>
+            <td style="text-align:right;">%(currency)s %(amount_tax)s</td>
+        </tr>
+        <tr style="font-size:10.5pt;background:#f1f5f9;">
+            <td style="font-weight:900;color:#1B3A7A;">Grand Total</td>
+            <td style="text-align:right;font-weight:900;color:#1B3A7A;">%(currency)s %(amount_total)s</td>
+        </tr>
+    </table>
+
+    <div style="clear:both;"></div>
+    %(note_html)s
+
+    <div class="footer">
+        Generated by Field Force &bull; Official Demand Record &bull; %(demand_name)s
+    </div>
+</body>
+</html>""" % {
+        'demand_name': escape(demand.name or ''),
+        'logo_html': logo_html,
+        'company_addr': escape(company_addr),
+        'company_phone': ('Phone: ' + escape(company.phone) + '<br/>') if company.phone else '',
+        'company_vat': ('GSTIN: ' + escape(company.vat) + '<br/>') if getattr(company, 'vat', False) else '',
+        'state_label': escape(state_label),
+        'date_str': escape(date_str),
+        'employee_name': escape(employee.name or '-'),
+        'route_row': ('<b>Beat:</b> ' + escape(demand.route_id.name) + '<br/>') if demand.route_id else '',
+        'visit_row': ('<b>Visit:</b> ' + escape(demand.visit_id.visit_type.capitalize()) + '<br/>') if (demand.visit_id and demand.visit_id.visit_type) else '',
+        'outlet_name': escape(outlet.name or '-') if outlet else '-',
+        'outlet_addr': escape(outlet_addr),
+        'outlet_contact': ('Phone: ' + escape(outlet.phone or getattr(outlet, 'mobile', '') or '') + '<br/>') if (outlet and (outlet.phone or getattr(outlet, 'mobile', ''))) else '',
+        'outlet_vat': ('GSTIN: ' + escape(outlet.vat) + '<br/>') if (outlet and getattr(outlet, 'vat', False)) else '',
+        'dist_name': escape(distributor.name or 'Direct / Unassigned') if distributor else 'Direct / Unassigned',
+        'dist_addr': escape(dist_addr),
+        'dist_contact': ('Phone: ' + escape(distributor.phone or getattr(distributor, 'mobile', '') or '') + '<br/>') if (distributor and (distributor.phone or getattr(distributor, 'mobile', ''))) else '',
+        'rows_html': ''.join(lines_html),
+        'qty_total': ('%.2f' % (demand.quantity_total or 0.0)).rstrip('0').rstrip('.'),
+        'currency': escape(currency),
+        'amount_untaxed': '%.2f' % (demand.amount_untaxed or 0.0),
+        'amount_tax': '%.2f' % (demand.amount_tax or 0.0),
+        'amount_total': '%.2f' % (demand.amount_total or 0.0),
+        'note_html': ('<div style="margin-top:10px;padding:8px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:4px;"><b>Note:</b> ' + escape(demand.note) + '</div>') if demand.note else '',
+    }
+    return html_doc
 
 
 class FieldForceDemandApi(http.Controller):
@@ -234,6 +434,29 @@ class FieldForceDemandApi(http.Controller):
             'demands': [demand_data(demand) for demand in demands],
         }, status=201)
 
+
+
+    @api_route('/api/v1/demands/<int:demand_id>/pdf', methods=('GET',))
+    def demand_pdf(self, employee, demand_id, **kw):
+        """Generates and downloads the Demand PDF for the given demand."""
+        demand = request.env['ff.demand'].sudo().browse(demand_id).exists()
+        allowed = demand and (demand.employee_id == employee
+                              or demand.employee_id in employee._ff_subordinates()
+                              or employee.user_id.has_group('sales_team.group_sale_manager')
+                              or employee.user_id.has_group('base.group_system'))
+        if not allowed:
+            raise ApiError('Demand not found.', 404, 'not_found')
+        try:
+            html = _demand_html(demand)
+            pdf = request.env['ir.actions.report'].sudo()._run_wkhtmltopdf([html])
+        except Exception as error:
+            raise ApiError('Failed to generate Demand PDF: %s' % error, 500, 'pdf_error')
+        name = 'Demand_%s.pdf' % (demand.name or demand_id).replace('/', '_')
+        return request.make_response(pdf, headers=[
+            ('Content-Type', 'application/pdf'),
+            ('Content-Length', len(pdf)),
+            ('Content-Disposition', 'attachment; filename="%s"' % name),
+        ])
 
     @api_route('/api/v1/orders/<int:order_id>/summary.pdf', methods=('GET',))
     def order_summary_pdf(self, employee, order_id, **kw):

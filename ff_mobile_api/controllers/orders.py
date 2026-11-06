@@ -1,4 +1,6 @@
 import base64
+import html
+from html import escape
 from datetime import timedelta
 
 from odoo import fields, http
@@ -105,6 +107,188 @@ def order_data(order, with_lines=False):
             'foc_note': (line.ff_foc_scheme_id.name or line.ff_foc_reason or None) if getattr(line, 'ff_is_foc', False) else None,
         } for line in order.order_line if line.product_id]
     return data
+
+
+
+
+def _order_html(order):
+    company = order.company_id
+    currency = order.currency_id.symbol or order.currency_id.name or '₹'
+    customer = order.partner_id
+    employee = order.ff_employee_id or (request.env['hr.employee'].sudo().search([('user_id', '=', order.user_id.id)], limit=1) if order.user_id else None)
+
+    logo_html = ''
+    if getattr(company, 'logo', False):
+        try:
+            logo_bytes = company.logo
+            logo_b64 = logo_bytes if isinstance(logo_bytes, str) else logo_bytes.decode('ascii')
+            logo_html = '<img src="data:image/png;base64,%s" style="max-height:55px;max-width:180px;object-fit:contain;"/>' % logo_b64
+        except Exception:
+            logo_html = '<h2 style="margin:0;color:#1B3A7A;font-size:18pt;font-weight:bold;">%s</h2>' % escape(company.name or '')
+    else:
+        logo_html = '<h2 style="margin:0;color:#1B3A7A;font-size:18pt;font-weight:bold;">%s</h2>' % escape(company.name or '')
+
+    company_addr = ', '.join(filter(None, [company.street, company.street2, company.city, company.zip]))
+    cust_addr = ', '.join(filter(None, [customer.street, customer.street2, customer.city, customer.zip])) if customer else ''
+
+    date_str = order.date_order.strftime('%d-%b-%Y %I:%M %p') if order.date_order else ''
+    state_label = dict(order._fields['state'].selection).get(order.state, order.state)
+
+    lines_html = []
+    idx = 1
+    for l in order.order_line:
+        if l.display_type:
+            continue
+        prod_name = escape(l.product_id.display_name or l.name or '')
+        sku = escape(getattr(l.product_id.product_tmpl_id, 'ff_sku_code', '') or l.product_id.default_code or '-')
+        qty = ('%.2f' % l.product_uom_qty).rstrip('0').rstrip('.')
+        uom = escape(l.product_uom.name or 'Pcs')
+        rate = '%.2f' % (l.price_unit or 0.0)
+        disc = (('%.2f' % l.discount).rstrip('0').rstrip('.') + '%') if (l.discount or 0) > 0 else '-'
+        taxes = ', '.join(t.name for t in l.tax_id) if l.tax_id else '-'
+        subtotal = '%.2f' % (l.price_subtotal or 0.0)
+
+        lines_html.append("""
+            <tr>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">%d</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;"><b>%s</b></td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">%s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">%s %s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">%s %s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">%s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">%s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;font-weight:bold;">%s %s</td>
+            </tr>
+        """ % (idx, prod_name, sku, qty, uom, currency, rate, disc, taxes, currency, subtotal))
+        idx += 1
+
+    total_qty = sum(l.product_uom_qty for l in order.order_line if not l.display_type)
+    html_doc = """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Sale Order - %(order_name)s</title>
+    <style>
+        @page { size: A4; margin: 12mm; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #1e293b; font-size: 9.5pt; line-height: 1.35; margin: 0; padding: 0; }
+        .header-table { width: 100%%; border-collapse: collapse; margin-bottom: 14px; }
+        .cards-table { width: 100%%; border-collapse: separate; border-spacing: 10px 0; margin-left: -10px; margin-right: -10px; margin-bottom: 14px; }
+        .party-card { border: 1px solid #cbd5e1; border-radius: 6px; vertical-align: top; width: 100%%; background: #fff; }
+        .party-header { background: #f1f5f9; padding: 6px 10px; font-weight: bold; font-size: 9pt; border-bottom: 1px solid #cbd5e1; color: #334155; }
+        .party-body { padding: 8px 10px; }
+        .items-table { width: 100%%; border-collapse: collapse; margin-bottom: 14px; }
+        .items-table th { background: #1B3A7A; color: #ffffff; border: 1px solid #1B3A7A; padding: 6px 8px; font-size: 9pt; font-weight: bold; }
+        .totals-table { width: 320px; border-collapse: collapse; float: right; margin-bottom: 14px; }
+        .totals-table td { padding: 5px 8px; border: 1px solid #cbd5e1; font-size: 9pt; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 8.5pt; font-weight: bold; }
+        .badge-status { background: #e0e7ff; color: #3730a3; }
+        .footer { clear: both; padding-top: 18px; border-top: 1px dashed #cbd5e1; font-size: 8pt; color: #64748b; text-align: center; }
+    </style>
+</head>
+<body>
+    <table class="header-table">
+        <tr>
+            <td style="vertical-align:top;width:60%%;">
+                %(logo_html)s
+                <div style="font-size:8.5pt;color:#475569;margin-top:4px;">
+                    %(company_addr)s<br/>
+                    %(company_phone)s%(company_vat)s
+                </div>
+            </td>
+            <td style="vertical-align:top;width:40%%;text-align:right;">
+                <div style="font-size:16pt;font-weight:900;color:#1B3A7A;letter-spacing:0.5px;">SALE ORDER</div>
+                <div style="font-size:12pt;font-weight:bold;color:#0f172a;margin-top:2px;">%(order_name)s</div>
+                <div style="margin-top:4px;"><span class="badge badge-status">%(state_label)s</span></div>
+                <div style="font-size:8.5pt;color:#475569;margin-top:6px;">
+                    <b>Date:</b> %(date_str)s<br/>
+                    %(salesperson_row)s%(payment_term_row)s
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="cards-table">
+        <tr>
+            <td class="party-card">
+                <div class="party-header">CUSTOMER / INVOICE TO</div>
+                <div class="party-body">
+                    <div style="font-size:10pt;font-weight:bold;color:#0f172a;">%(cust_name)s</div>
+                    <div style="font-size:8.5pt;color:#475569;margin-top:2px;">
+                        %(cust_addr)s<br/>
+                        %(cust_contact)s%(cust_vat)s
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width:28px;">#</th>
+                <th>Product Description</th>
+                <th style="width:70px;">SKU</th>
+                <th style="width:70px;">Qty</th>
+                <th style="width:80px;">Unit Price</th>
+                <th style="width:55px;">Disc</th>
+                <th style="width:70px;">Taxes</th>
+                <th style="width:90px;">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            %(rows_html)s
+        </tbody>
+    </table>
+
+    <table class="totals-table">
+        <tr>
+            <td style="background:#f8fafc;font-weight:bold;">Total Ordered Units</td>
+            <td style="text-align:right;font-weight:bold;">%(qty_total)s</td>
+        </tr>
+        <tr>
+            <td style="background:#f8fafc;">Untaxed Amount</td>
+            <td style="text-align:right;">%(currency)s %(amount_untaxed)s</td>
+        </tr>
+        <tr>
+            <td style="background:#f8fafc;">Taxes</td>
+            <td style="text-align:right;">%(currency)s %(amount_tax)s</td>
+        </tr>
+        <tr style="font-size:10.5pt;background:#f1f5f9;">
+            <td style="font-weight:900;color:#1B3A7A;">Total Amount</td>
+            <td style="text-align:right;font-weight:900;color:#1B3A7A;">%(currency)s %(amount_total)s</td>
+        </tr>
+    </table>
+
+    <div style="clear:both;"></div>
+    %(note_html)s
+
+    <div class="footer">
+        Generated by Field Force &bull; Official Sale Order Document &bull; %(order_name)s
+    </div>
+</body>
+</html>""" % {
+        'order_name': escape(order.name or ''),
+        'logo_html': logo_html,
+        'company_addr': escape(company_addr),
+        'company_phone': ('Phone: ' + escape(company.phone) + '<br/>') if company.phone else '',
+        'company_vat': ('GSTIN: ' + escape(company.vat) + '<br/>') if getattr(company, 'vat', False) else '',
+        'state_label': escape(state_label),
+        'date_str': escape(date_str),
+        'salesperson_row': ('<b>Salesperson:</b> ' + escape(employee.name) + '<br/>') if employee else '',
+        'payment_term_row': ('<b>Payment Terms:</b> ' + escape(order.payment_term_id.name) + '<br/>') if order.payment_term_id else '',
+        'cust_name': escape(customer.name or '-') if customer else '-',
+        'cust_addr': escape(cust_addr),
+        'cust_contact': ('Phone: ' + escape(customer.phone or getattr(customer, 'mobile', '') or '') + '<br/>') if (customer and (customer.phone or getattr(customer, 'mobile', ''))) else '',
+        'cust_vat': ('GSTIN: ' + escape(customer.vat)) if (customer and getattr(customer, 'vat', False)) else '',
+        'rows_html': ''.join(lines_html),
+        'qty_total': ('%.2f' % total_qty).rstrip('0').rstrip('.'),
+        'currency': escape(currency),
+        'amount_untaxed': '%.2f' % (order.amount_untaxed or 0.0),
+        'amount_tax': '%.2f' % (order.amount_tax or 0.0),
+        'amount_total': '%.2f' % (order.amount_total or 0.0),
+        'note_html': ('<div style="margin-top:10px;padding:8px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:4px;"><b>Note:</b> ' + escape(order.note) + '</div>') if getattr(order, 'note', False) else '',
+    }
+    return html_doc
 
 
 class FieldForceOrdersApi(http.Controller):
@@ -382,6 +566,41 @@ class FieldForceOrdersApi(http.Controller):
         if not allowed:
             raise ApiError('Order not found.', 404, 'not_found')
         return ok(order_data(order, with_lines=True))
+
+    @api_route('/api/v1/orders/<int:order_id>/pdf', methods=('GET',))
+    def order_pdf(self, employee, order_id, **kw):
+        """Generates and downloads the Sale Order PDF."""
+        order = request.env['sale.order'].sudo().browse(order_id).exists()
+        allowed = order and (order.ff_employee_id == employee
+                             or order.ff_employee_id in employee._ff_subordinates()
+                             or order.user_id == employee.user_id
+                             or not order.ff_employee_id
+                             or employee.user_id.has_group('sales_team.group_sale_manager')
+                             or employee.user_id.has_group('base.group_system'))
+        if not allowed:
+            raise ApiError('Order not found.', 404, 'not_found')
+
+        pdf = None
+        try:
+            report = request.env.ref('sale.action_report_saleorder', raise_if_not_found=False)
+            if report:
+                pdf, _kind = report.sudo()._render_qweb_pdf(report.report_name, res_ids=order.ids)
+        except Exception:
+            pdf = None
+
+        if not pdf:
+            try:
+                html = _order_html(order)
+                pdf = request.env['ir.actions.report'].sudo()._run_wkhtmltopdf([html])
+            except Exception as error:
+                raise ApiError('Failed to generate Sale Order PDF: %s' % error, 500, 'pdf_error')
+
+        name = 'Order_%s.pdf' % (order.name or order_id).replace('/', '_')
+        return request.make_response(pdf, headers=[
+            ('Content-Type', 'application/pdf'),
+            ('Content-Length', len(pdf)),
+            ('Content-Disposition', 'attachment; filename="%s"' % name),
+        ])
 
     @api_route('/api/v1/orders/summary', methods=('GET',))
     def summary(self, employee, member=None, start=None, end=None, **kw):

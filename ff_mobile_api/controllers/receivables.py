@@ -4,6 +4,8 @@ Only customers the employee can see (their Data Access) are included, in the
 company currency, from posted accounting entries.
 """
 from datetime import timedelta
+import html
+from html import escape
 
 from odoo import fields, http
 from odoo.http import request
@@ -62,6 +64,179 @@ def _reach(employee, partner_id=None):
     if not partner_id and Order is not None and 'ff_employee_id' in Order._fields:
         reach.append([('invoice_line_ids.sale_line_ids.order_id.ff_employee_id', 'in', mine)])
     return reach, families
+
+
+
+
+def _invoice_html(move):
+    company = move.company_id
+    currency = move.currency_id.symbol or move.currency_id.name or '₹'
+    customer = move.partner_id
+
+    logo_html = ''
+    if getattr(company, 'logo', False):
+        try:
+            logo_bytes = company.logo
+            logo_b64 = logo_bytes if isinstance(logo_bytes, str) else logo_bytes.decode('ascii')
+            logo_html = '<img src="data:image/png;base64,%s" style="max-height:55px;max-width:180px;object-fit:contain;"/>' % logo_b64
+        except Exception:
+            logo_html = '<h2 style="margin:0;color:#1B3A7A;font-size:18pt;font-weight:bold;">%s</h2>' % escape(company.name or '')
+    else:
+        logo_html = '<h2 style="margin:0;color:#1B3A7A;font-size:18pt;font-weight:bold;">%s</h2>' % escape(company.name or '')
+
+    company_addr = ', '.join(filter(None, [company.street, company.street2, company.city, company.zip]))
+    cust_addr = ', '.join(filter(None, [customer.street, customer.street2, customer.city, customer.zip])) if customer else ''
+
+    date_str = move.invoice_date.strftime('%d-%b-%Y') if move.invoice_date else ''
+    due_str = move.invoice_date_due.strftime('%d-%b-%Y') if move.invoice_date_due else ''
+    doc_title = 'CREDIT NOTE' if move.move_type == 'out_refund' else ('DEBIT NOTE' if move.move_type == 'in_refund' else 'TAX INVOICE')
+
+    lines_html = []
+    idx = 1
+    for l in move.invoice_line_ids:
+        if l.display_type:
+            continue
+        prod_name = escape(l.product_id.display_name or l.name or '')
+        qty = ('%.2f' % l.quantity).rstrip('0').rstrip('.')
+        uom = escape(l.product_uom_id.name or 'Pcs')
+        rate = '%.2f' % (l.price_unit or 0.0)
+        disc = (('%.2f' % l.discount).rstrip('0').rstrip('.') + '%') if (l.discount or 0) > 0 else '-'
+        taxes = ', '.join(t.name for t in l.tax_ids) if l.tax_ids else '-'
+        subtotal = '%.2f' % (l.price_subtotal or 0.0)
+
+        lines_html.append("""
+            <tr>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">%d</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;"><b>%s</b></td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">%s %s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">%s %s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">%s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">%s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;font-weight:bold;">%s %s</td>
+            </tr>
+        """ % (idx, prod_name, qty, uom, currency, rate, disc, taxes, currency, subtotal))
+        idx += 1
+
+    html_doc = """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>%(doc_title)s - %(doc_name)s</title>
+    <style>
+        @page { size: A4; margin: 12mm; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #1e293b; font-size: 9.5pt; line-height: 1.35; margin: 0; padding: 0; }
+        .header-table { width: 100%%; border-collapse: collapse; margin-bottom: 14px; }
+        .cards-table { width: 100%%; border-collapse: separate; border-spacing: 10px 0; margin-left: -10px; margin-right: -10px; margin-bottom: 14px; }
+        .party-card { border: 1px solid #cbd5e1; border-radius: 6px; vertical-align: top; width: 100%%; background: #fff; }
+        .party-header { background: #f1f5f9; padding: 6px 10px; font-weight: bold; font-size: 9pt; border-bottom: 1px solid #cbd5e1; color: #334155; }
+        .party-body { padding: 8px 10px; }
+        .items-table { width: 100%%; border-collapse: collapse; margin-bottom: 14px; }
+        .items-table th { background: #1B3A7A; color: #ffffff; border: 1px solid #1B3A7A; padding: 6px 8px; font-size: 9pt; font-weight: bold; }
+        .totals-table { width: 320px; border-collapse: collapse; float: right; margin-bottom: 14px; }
+        .totals-table td { padding: 5px 8px; border: 1px solid #cbd5e1; font-size: 9pt; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 8.5pt; font-weight: bold; }
+        .badge-status { background: #e0e7ff; color: #3730a3; }
+        .footer { clear: both; padding-top: 18px; border-top: 1px dashed #cbd5e1; font-size: 8pt; color: #64748b; text-align: center; }
+    </style>
+</head>
+<body>
+    <table class="header-table">
+        <tr>
+            <td style="vertical-align:top;width:60%%;">
+                %(logo_html)s
+                <div style="font-size:8.5pt;color:#475569;margin-top:4px;">
+                    %(company_addr)s<br/>
+                    %(company_phone)s%(company_vat)s
+                </div>
+            </td>
+            <td style="vertical-align:top;width:40%%;text-align:right;">
+                <div style="font-size:16pt;font-weight:900;color:#1B3A7A;letter-spacing:0.5px;">%(doc_title)s</div>
+                <div style="font-size:12pt;font-weight:bold;color:#0f172a;margin-top:2px;">%(doc_name)s</div>
+                <div style="font-size:8.5pt;color:#475569;margin-top:6px;">
+                    <b>Date:</b> %(date_str)s<br/>
+                    %(due_row)s
+                    %(ref_row)s
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="cards-table">
+        <tr>
+            <td class="party-card">
+                <div class="party-header">BILLED TO / CUSTOMER</div>
+                <div class="party-body">
+                    <div style="font-size:10pt;font-weight:bold;color:#0f172a;">%(cust_name)s</div>
+                    <div style="font-size:8.5pt;color:#475569;margin-top:2px;">
+                        %(cust_addr)s<br/>
+                        %(cust_contact)s%(cust_vat)s
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width:28px;">#</th>
+                <th>Description</th>
+                <th style="width:70px;">Qty</th>
+                <th style="width:80px;">Unit Price</th>
+                <th style="width:55px;">Disc</th>
+                <th style="width:70px;">Taxes</th>
+                <th style="width:90px;">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            %(rows_html)s
+        </tbody>
+    </table>
+
+    <table class="totals-table">
+        <tr>
+            <td style="background:#f8fafc;">Untaxed Amount</td>
+            <td style="text-align:right;">%(currency)s %(amount_untaxed)s</td>
+        </tr>
+        <tr>
+            <td style="background:#f8fafc;">Taxes</td>
+            <td style="text-align:right;">%(currency)s %(amount_tax)s</td>
+        </tr>
+        <tr style="font-size:10.5pt;background:#f1f5f9;">
+            <td style="font-weight:900;color:#1B3A7A;">Total Amount</td>
+            <td style="text-align:right;font-weight:900;color:#1B3A7A;">%(currency)s %(amount_total)s</td>
+        </tr>
+    </table>
+
+    <div style="clear:both;"></div>
+    %(narration_html)s
+
+    <div class="footer">
+        Generated by Field Force &bull; Official Document &bull; %(doc_name)s
+    </div>
+</body>
+</html>""" % {
+        'doc_title': escape(doc_title),
+        'doc_name': escape(move.name or ''),
+        'logo_html': logo_html,
+        'company_addr': escape(company_addr),
+        'company_phone': ('Phone: ' + escape(company.phone) + '<br/>') if company.phone else '',
+        'company_vat': ('GSTIN: ' + escape(company.vat) + '<br/>') if getattr(company, 'vat', False) else '',
+        'date_str': escape(date_str),
+        'due_row': ('<b>Due Date:</b> ' + escape(due_str) + '<br/>') if due_str else '',
+        'ref_row': ('<b>Reference:</b> ' + escape(move.ref) + '<br/>') if getattr(move, 'ref', False) else '',
+        'cust_name': escape(customer.name or '-') if customer else '-',
+        'cust_addr': escape(cust_addr),
+        'cust_contact': ('Phone: ' + escape(customer.phone or getattr(customer, 'mobile', '') or '') + '<br/>') if (customer and (customer.phone or getattr(customer, 'mobile', ''))) else '',
+        'cust_vat': ('GSTIN: ' + escape(customer.vat)) if (customer and getattr(customer, 'vat', False)) else '',
+        'rows_html': ''.join(lines_html),
+        'currency': escape(currency),
+        'amount_untaxed': '%.2f' % (move.amount_untaxed or 0.0),
+        'amount_tax': '%.2f' % (move.amount_tax or 0.0),
+        'amount_total': '%.2f' % (move.amount_total or 0.0),
+        'narration_html': ('<div style="margin-top:10px;padding:8px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:4px;">' + escape(move.narration) + '</div>') if getattr(move, 'narration', False) else '',
+    }
+    return html_doc
 
 
 class FieldForceReceivablesApi(http.Controller):
@@ -240,6 +415,36 @@ class FieldForceReceivablesApi(http.Controller):
             'residual': move.amount_residual_signed,
             'lines': lines, 'payments': payments, 'narration': None,
         })
+
+    @api_route('/api/v1/receivables/invoice/<int:move_id>/pdf', methods=('GET',))
+    @api_route('/api/v1/invoices/<int:move_id>/pdf', methods=('GET',))
+    def invoice_pdf(self, employee, move_id, **kw):
+        """Downloads the PDF for an invoice, credit note or debit note (account.move)."""
+        _check_accounting()
+        env = request.env
+        move = env['account.move'].sudo().browse(move_id).exists()
+        if not move:
+            raise ApiError('Invoice not found.', 404, 'not_found')
+        pdf = None
+        try:
+            pdf, _kind = env['ir.actions.report'].sudo()._render_qweb_pdf('account.account_invoices', move.ids)
+        except Exception:
+            pdf = None
+
+        if not pdf:
+            try:
+                html = _invoice_html(move)
+                pdf = env['ir.actions.report'].sudo()._run_wkhtmltopdf([html])
+            except Exception as error:
+                raise ApiError('Failed to generate PDF: %s' % error, 500, 'pdf_error')
+
+        prefix = 'Credit_Note' if move.move_type == 'out_refund' else ('Debit_Note' if move.move_type == 'in_refund' else 'Invoice')
+        name = '%s_%s.pdf' % (prefix, (move.name or str(move_id)).replace('/', '_'))
+        return request.make_response(pdf, headers=[
+            ('Content-Type', 'application/pdf'),
+            ('Content-Length', len(pdf)),
+            ('Content-Disposition', 'attachment; filename="%s"' % name),
+        ])
 
     @api_route('/api/v1/receivables/outlet-invoice/<int:invoice_id>', methods=('GET',))
     def outlet_invoice(self, employee, invoice_id, **kw):
