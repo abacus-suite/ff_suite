@@ -119,8 +119,10 @@ class FieldForceChatApi(http.Controller):
         """Who this employee can start a chat with: their manager and the people in their Data Access."""
         user = _user(employee)
         candidates = (employee._ff_scope_employees() | employee.parent_id) - employee
-        if employee.ff_team_id:
-            candidates |= request.env['hr.employee'].sudo().search([('ff_team_id', '=', employee.ff_team_id.id)]) - employee
+        regions = employee.ff_team_ids | employee.ff_team_id
+        if regions:
+            candidates |= request.env['hr.employee'].sudo().search([
+                '|', ('ff_team_id', 'in', regions.ids), ('ff_team_ids', 'in', regions.ids)]) - employee
         rows = [{'employee_id': person.id, 'name': person.name, 'job': person.job_title or None,
                  'team': person.ff_team_id.name or None}
                 for person in candidates.sudo().sorted('name') if person.user_id and person.user_id != user]

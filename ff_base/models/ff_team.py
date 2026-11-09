@@ -13,6 +13,8 @@ class FfTeam(models.Model):
     parent_id = fields.Many2one('ff.team', string='Parent Region', index=True)
     child_ids = fields.One2many('ff.team', 'parent_id', string='Sub Regions')
     member_ids = fields.One2many('hr.employee', 'ff_team_id', string='Members')
+    employee_ids = fields.Many2many('hr.employee', 'ff_employee_team_rel', 'team_id', 'employee_id',
+                                    string='Employees in this Region')
     member_count = fields.Integer(compute='_compute_member_count')
     company_id = fields.Many2one('res.company', required=True, default=lambda self: self.env.company)
     active = fields.Boolean(default=True)
@@ -22,7 +24,7 @@ class FfTeam(models.Model):
         'A region with this name already exists.',
     )
 
-    @api.depends('member_ids')
+    @api.depends('member_ids', 'employee_ids')
     def _compute_member_count(self):
         for team in self:
-            team.member_count = len(team.member_ids)
+            team.member_count = len(team.member_ids | team.employee_ids)

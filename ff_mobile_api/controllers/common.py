@@ -271,6 +271,7 @@ def employee_profile(employee):
             'photo_version': hashlib.sha1(employee.sudo().image_128).hexdigest()[:12] if employee.sudo().image_128 else None,
             'email': employee.work_email or None,
             'team': ref(employee.ff_team_id),
+            'teams': [ref(t) for t in (employee.ff_team_ids | employee.ff_team_id)],
             'designation': ref(employee.ff_designation_id),
             'manager': ref(employee.parent_id),
             'tracking_enabled': employee.ff_tracking_enabled and app['features']['tracking'],
