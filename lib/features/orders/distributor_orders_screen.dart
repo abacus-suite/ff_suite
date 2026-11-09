@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/format.dart';
+import '../../core/pdf_download.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
@@ -417,6 +418,18 @@ class _DistributorOrdersScreenState extends State<DistributorOrdersScreen> with 
                           onPressed: () => shareOrderSummary(context, o['id'] as int, '${o['name']}'),
                           icon: const Icon(Icons.ios_share_rounded, size: 17),
                           label: const Text('Summary'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => downloadAndSavePdf(
+                            context,
+                            endpoint: '/api/v1/orders/${o['id']}/pdf',
+                            filename: 'Order_${o['name']}.pdf',
+                          ),
+                          icon: const Icon(Icons.picture_as_pdf_rounded, size: 17),
+                          label: const Text('Order PDF'),
                         ),
                       ),
                       if (link != null && !confirmed) ...[

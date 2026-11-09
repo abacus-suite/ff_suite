@@ -377,7 +377,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
     // "Team" is now "Region": the region's name, and a page with its districts and my territories in it.
     final region = _map('region');
-    final regionName = asText(region['name']) ?? (teams.isEmpty ? null : asText(teams.first['name']));
+    // An employee can have several Regions: all their names, the first being the main one.
+    final names = [for (final t in teams) if (asText(t['name']) != null) asText(t['name'])!];
+    final regionName = names.length > 1
+        ? names.join(', ')
+        : (asText(region['name']) ?? (names.isEmpty ? null : names.first));
     final mine = [
       for (final t in primary) (t, 'Primary'),
       for (final t in secondary) (t, 'Secondary'),

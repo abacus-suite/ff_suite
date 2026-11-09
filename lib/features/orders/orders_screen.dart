@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/format.dart';
+import '../../core/pdf_download.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
@@ -884,6 +885,15 @@ class _OrderDetail extends StatelessWidget {
                   Expanded(
                     child: Text('${o['name']} · ${o['state_label']}', style: Theme.of(context).textTheme.titleLarge),
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary),
+                    tooltip: 'Download PDF',
+                    onPressed: () => downloadAndSavePdf(
+                      context,
+                      endpoint: demandFlow ? '/api/v1/demands/$orderId/pdf' : '/api/v1/orders/$orderId/pdf',
+                      filename: '${demandFlow ? 'Demand' : 'Order'}_${o['name']}.pdf',
+                    ),
+                  ),
                   if (o['visit_type'] != null)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
@@ -925,6 +935,20 @@ class _OrderDetail extends StatelessWidget {
               ListTile(contentPadding: EdgeInsets.zero, title: const Text('Total'),
                   trailing: Text(fmtMoney(o['amount_total'] as num?, currency),
                       style: const TextStyle(fontWeight: FontWeight.bold))),
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: () => downloadAndSavePdf(
+                  context,
+                  endpoint: demandFlow ? '/api/v1/demands/$orderId/pdf' : '/api/v1/orders/$orderId/pdf',
+                  filename: '${demandFlow ? 'Demand' : 'Order'}_${o['name']}.pdf',
+                ),
+                icon: const Icon(Icons.picture_as_pdf_rounded),
+                label: Text('Download ${demandFlow ? 'Demand' : 'Order'} PDF'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(44),
+                  foregroundColor: AppColors.primary,
+                ),
+              ),
               if (o['foc_status'] != null) ...[
                 const SizedBox(height: 4),
                 Text(

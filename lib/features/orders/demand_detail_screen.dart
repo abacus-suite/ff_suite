@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/format.dart';
+import '../../core/pdf_download.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/group_kit.dart';
@@ -458,6 +459,20 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
       row('Untaxed', d['amount_untaxed'] as num?),
       row('Taxes', d['amount_tax'] as num?),
       row('Total', d['amount_total'] as num?, strong: true),
+      const SizedBox(height: 12),
+      OutlinedButton.icon(
+        onPressed: () => downloadAndSavePdf(
+          context,
+          endpoint: '/api/v1/demands/${d['id']}/pdf',
+          filename: 'Demand_${d['name']}.pdf',
+        ),
+        icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+        label: const Text('Download Demand PDF'),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(42),
+          foregroundColor: AppColors.primary,
+        ),
+      ),
     ]);
   }
 
@@ -507,6 +522,15 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
             onPressed: () => shareOrderSummary(context, o['id'] as int, '${o['name']}'),
             icon: const Icon(Icons.ios_share_rounded, size: 16),
             label: const Text('Summary'),
+          ),
+          OutlinedButton.icon(
+            onPressed: () => downloadAndSavePdf(
+              context,
+              endpoint: '/api/v1/orders/${o['id']}/pdf',
+              filename: 'Order_${o['name']}.pdf',
+            ),
+            icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+            label: const Text('Order PDF'),
           ),
           if (turned)
             FilledButton.icon(
@@ -562,7 +586,21 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
-        appBar: AppBar(title: const Text('Demand')),
+        appBar: AppBar(
+          title: const Text('Demand'),
+          actions: [
+            if (d != null)
+              IconButton(
+                icon: const Icon(Icons.picture_as_pdf_rounded),
+                tooltip: 'Download PDF',
+                onPressed: () => downloadAndSavePdf(
+                  context,
+                  endpoint: '/api/v1/demands/${d['id']}/pdf',
+                  filename: 'Demand_${d['name']}.pdf',
+                ),
+              ),
+          ],
+        ),
         bottomNavigationBar: sendable
             ? SafeArea(
                 child: Padding(

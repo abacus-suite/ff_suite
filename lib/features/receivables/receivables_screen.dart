@@ -4,6 +4,7 @@ import '../../widgets/report_download.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/format.dart';
+import '../../core/pdf_download.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
@@ -723,7 +724,23 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
         );
     return Scaffold(
-      appBar: AppBar(title: Text(widget.number)),
+      appBar: AppBar(
+        title: Text(widget.number),
+        actions: [
+          if (d != null)
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf_rounded),
+              tooltip: 'Download PDF',
+              onPressed: () => downloadAndSavePdf(
+                context,
+                endpoint: widget.source == 'outlet'
+                    ? '/api/v1/receivables/outlet-invoice/${widget.id}/pdf'
+                    : '/api/v1/receivables/invoice/${widget.id}/pdf',
+                filename: '${d['is_refund'] == true ? 'Credit_Note' : 'Invoice'}_${widget.number}.pdf',
+              ),
+            ),
+        ],
+      ),
       body: _error != null
           ? ErrorView(message: _error!, onRetry: _load)
           : d == null
