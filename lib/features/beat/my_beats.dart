@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show setEquals;
@@ -7,6 +8,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import 'beat_areas.dart';
 
 /// Beats edited on this phone and sent back for approval, with the day of the last edit: shown as
 /// "Pending re-approval" while the server still has them waiting, and "edited 19 Oct" on the list.
@@ -548,6 +550,39 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
     }
   }
 
+  /// What the beat is: its territory and areas, one time or recurrent, and the day or weekdays it is for.
+  Widget _info() {
+    final b = widget.beat;
+    final oneTime = '${b['schedule']}' == 'one_time';
+    final days = [for (final d in (b['weekdays'] as List?) ?? const []) _wdays[(d as num).toInt() % 7]];
+    final areas = [for (final a in (b['areas'] as List?) ?? const []) '${(a as Map)['name']}'];
+    final planned = [for (final d in (b['plan_dates'] as List?) ?? const []) _niceDay('$d')];
+    Widget line(String label, String value) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(width: 96, child: Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.muted))),
+            Expanded(
+              child: Text(value.isEmpty ? '—' : value,
+                  textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+            ),
+          ]),
+        );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+      child: Column(children: [
+        line('Territory', asText(b['territory']) ?? asText(b['city']) ?? ''),
+        line('Area', areas.join(', ')),
+        line('Schedule', oneTime ? 'One time' : 'Recurrent'),
+        if (oneTime) line('Day', _niceDay('${b['date'] ?? ''}')),
+        if (!oneTime) line('Repeat on', days.isEmpty ? 'Does not repeat' : days.join(', ')),
+        if (!oneTime && days.isEmpty && planned.isNotEmpty) line('Planned days', planned.join(', ')),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final b = widget.beat;
@@ -586,6 +621,7 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
             if (_tab == 1) await _loadPlans();
           },
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
+            _info(),
             _tabs(),
             if (_tab == 1) ...[
               if (_plansLoading) const LinearProgressIndicator(minHeight: 2),
@@ -647,7 +683,20 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
   /// The outlets on the beat as saved, and as ticked now.
   Set<int> _onBeat = {};
   Set<int> _chosen = {};
-  List<Map<String, dynamic>> _candidates = [];
+
+  /// Every outlet seen so far (the beat's own, and what the search found), by id.
+  final Map<int, Map<String, dynamic>> _known = {};
+
+  /// One time or recurrent, as saved and as set now; a one-time beat's day.
+  late final String _schedule0 = '${widget.beat['schedule']}' == 'one_time' ? 'one_time' : 'recurrent';
+  late String _schedule = _schedule0;
+  late final DateTime? _date0 = DateTime.tryParse('${widget.beat['date'] ?? ''}');
+  late DateTime _date = DateUtils.dateOnly(_date0 ?? DateTime.now());
+
+  /// The areas of the beat, as saved and as set now, and the territory's areas to choose from.
+  late final Set<int> _areas0 = {for (final a in (widget.beat['area_ids'] as List?) ?? const []) (a as num).toInt()};
+  late final Set<int> _areas = {..._areas0};
+  List<Map<String, dynamic>> _territoryAreas = [];
   bool _loading = true;
   bool _busy = false;
 
@@ -657,9 +706,16 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
   late bool _repeat = _repeat0;
   late final Set<int> _days = {..._days0};
 
-  bool get _canRepeat => '${widget.beat['schedule']}' != 'one_time';
+  bool get _canRepeat => _schedule == 'recurrent';
   bool get _repeatChanged => _repeat != _repeat0 || (_repeat && !setEquals(_days, {..._days0}));
-  bool get _dirty => !setEquals(_chosen, _onBeat) || _repeatChanged;
+  bool get _dateChanged =>
+      _schedule == 'one_time' && (_date0 == null || _date != DateUtils.dateOnly(_date0));
+  bool get _dirty =>
+      !setEquals(_chosen, _onBeat) ||
+      _schedule != _schedule0 ||
+      _dateChanged ||
+      !setEquals(_areas, _areas0) ||
+      (_schedule == 'recurrent' && _repeatChanged);
 
   @override
   void initState() {
@@ -675,17 +731,25 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
             query: {'beat_id': widget.beat['id'], 'date': fmtDate(DateTime.now()), 'member': 'me'}) as Map<String, dynamic>;
         outlets = ((data['customers'] as List?) ?? []).cast<Map<String, dynamic>>();
       }
-      final found = await Services.api.get('/api/v1/clients', query: {'limit': 500});
-      final list = found is Map ? (found['clients'] as List? ?? []) : (found as List? ?? []);
+      // The areas of the beat's territory, to add or take off.
+      var areas = <Map<String, dynamic>>[];
+      try {
+        final list = await Services.api.get('/api/v1/territories') as List;
+        final territory = list.cast<Map<String, dynamic>>().where((t) => t['id'] == widget.beat['territory_id']).firstOrNull;
+        areas = ((territory?['areas'] as List?) ?? const []).cast<Map<String, dynamic>>();
+      } catch (_) {}
+      // Whatever the beat already has stays in the list, even when the territory list could not be read.
+      for (final a in ((widget.beat['areas'] as List?) ?? const []).cast<Map>()) {
+        if (!areas.any((x) => x['id'] == a['id'])) areas = [...areas, a.cast<String, dynamic>()];
+      }
       if (!mounted) return;
       setState(() {
         _onBeat = {for (final o in outlets!) o['id'] as int};
         _chosen = {..._onBeat};
-        _candidates = [
-          ...outlets,
-          for (final c in list.cast<Map<String, dynamic>>())
-            if (!outlets.any((o) => o['id'] == c['id']) && '${c['category_type'] ?? ''}'.toLowerCase() != 'lead') c,
-        ]..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+        for (final o in outlets) {
+          _known[o['id'] as int] = o;
+        }
+        _territoryAreas = areas;
       });
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
@@ -694,21 +758,65 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
     }
   }
 
-  /// Tick the outlets that stay and tick new ones: one list, with the beat's own outlets already ticked.
+  /// The outlets of the beat's own territory (district), found by the server: all of them, or those matching what
+  /// was typed.
+  Future<List<Map<String, dynamic>>> _search(String q) async {
+    final res = await Services.api.get('/api/v1/clients', query: {
+      if (widget.beat['territory_id'] != null) 'territory_id': widget.beat['territory_id'],
+      'exclude_leads': 1,
+      'limit': 100,
+      if (q.isNotEmpty) 'q': q,
+    });
+    final list = res is Map ? (res['clients'] as List? ?? []) : (res as List? ?? []);
+    return list.cast<Map<String, dynamic>>();
+  }
+
+  /// Tick the outlets that stay and tick new ones: the beat's own outlets first, then the territory's, searched on
+  /// the server as you type.
   Future<void> _pickOutlets() async {
     final picked = Set<int>.from(_chosen);
+    var query = '';
+    var results = <Map<String, dynamic>>[];
+    var searching = true;
+    var started = false;
+    Timer? timer;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheet) {
-        var query = '';
         return StatefulBuilder(builder: (context, setSheet) {
-          final q = query.trim().toLowerCase();
-          final rows = [
-            for (final c in _candidates)
-              if (q.isEmpty || '${c['name']} ${c['city'] ?? ''}'.toLowerCase().contains(q)) c,
-          ];
+          Future<void> run(String q) async {
+            try {
+              final found = await _search(q);
+              for (final c in found) {
+                _known[c['id'] as int] = c;
+              }
+              if (context.mounted && q == query.trim()) {
+                setSheet(() {
+                  results = found;
+                  searching = false;
+                });
+              }
+            } catch (_) {
+              if (context.mounted) setSheet(() => searching = false);
+            }
+          }
+
+          if (!started) {
+            started = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) => run(''));
+          }
+          // No search yet: what is ticked comes first, so it is easy to see and take off.
+          final ticked = <Map<String, dynamic>>[];
+          for (final id in picked) {
+            final known = _known[id];
+            if (known != null) ticked.add(known);
+          }
+          ticked.sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+          final rows = query.trim().isEmpty
+              ? [...ticked, ...results.where((c) => !picked.contains(c['id']))]
+              : results;
           return SafeArea(
             child: SizedBox(
               height: MediaQuery.of(context).size.height * 0.75,
@@ -716,27 +824,35 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: TextField(
-                    onChanged: (v) => setSheet(() => query = v),
+                    onChanged: (v) {
+                      query = v;
+                      timer?.cancel();
+                      setSheet(() => searching = true);
+                      timer = Timer(const Duration(milliseconds: 350), () => run(v.trim()));
+                    },
                     decoration: const InputDecoration(
                         prefixIcon: Icon(Icons.search_rounded), hintText: 'Search outlet…', isDense: true),
                   ),
                 ),
+                if (searching) const LinearProgressIndicator(minHeight: 2),
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: rows.length,
-                    itemBuilder: (_, i) {
-                      final c = rows[i];
-                      final id = c['id'] as int;
-                      return CheckboxListTile(
-                        value: picked.contains(id),
-                        onChanged: (v) => setSheet(() => v == true ? picked.add(id) : picked.remove(id)),
-                        controlAffinity: ListTileControlAffinity.leading,
-                        title: Text('${c['name']}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                        subtitle: Text(_onBeat.contains(id) ? 'On this beat' : '${c['city'] ?? c['address'] ?? ''}',
-                            style: const TextStyle(fontSize: 12)),
-                      );
-                    },
-                  ),
+                  child: rows.isEmpty && !searching
+                      ? const Center(child: Text('No outlet found', style: TextStyle(color: AppColors.muted)))
+                      : ListView.builder(
+                          itemCount: rows.length,
+                          itemBuilder: (_, i) {
+                            final c = rows[i];
+                            final id = c['id'] as int;
+                            return CheckboxListTile(
+                              value: picked.contains(id),
+                              onChanged: (v) => setSheet(() => v == true ? picked.add(id) : picked.remove(id)),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              title: Text('${c['name']}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                              subtitle: Text(_onBeat.contains(id) ? 'On this beat' : '${c['city'] ?? c['address'] ?? ''}',
+                                  style: const TextStyle(fontSize: 12)),
+                            );
+                          },
+                        ),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -751,7 +867,39 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
         });
       },
     );
+    timer?.cancel();
     if (mounted) setState(() => _chosen = picked);
+  }
+
+  Future<void> _pickAreas() async {
+    final picked = await pickBeatAreas(context, _territoryAreas, _areas);
+    if (picked != null && mounted) {
+      setState(() {
+        _areas
+          ..clear()
+          ..addAll(picked);
+      });
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date.isBefore(today) ? today : _date,
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 365)),
+    );
+    if (picked != null && mounted) setState(() => _date = DateUtils.dateOnly(picked));
+  }
+
+  void _setSchedule(String value) {
+    if (value == _schedule) return;
+    setState(() {
+      _schedule = value;
+      // Back to recurrent from a one-time beat: repeat on its weekdays, to be chosen.
+      if (value == 'recurrent' && _schedule0 == 'one_time') _repeat = true;
+    });
   }
 
   /// Repeat on with no day left ticked: the repeat will be switched off, so ask first.
@@ -777,16 +925,25 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
       showProblem(context, 'Keep at least one outlet on the beat.');
       return;
     }
-    if (_repeat && _days.isEmpty) {
+    if (_schedule == 'one_time' && _date.isBefore(DateUtils.dateOnly(DateTime.now())) && _dateChanged) {
+      showProblem(context, 'Choose today or a later day for this one-time beat.');
+      return;
+    }
+    if (_schedule == 'recurrent' && _repeat && _days.isEmpty) {
       if (!await _confirmRepeatOff() || !mounted) return;
       setState(() => _repeat = false);
     }
     setState(() => _busy = true);
     try {
+      final toRecurrent = _schedule == 'recurrent' && _schedule0 == 'one_time';
       await Services.api.post('/api/v1/beats/${widget.beat['id']}/update', {
         'partner_ids': _chosen.toList(),
-        if (_repeatChanged) 'repeat': _repeat,
-        if (_repeatChanged) 'weekdays': _repeat ? (_days.toList()..sort()) : <int>[],
+        'schedule': _schedule,
+        if (_schedule == 'one_time') 'date': fmtDate(_date),
+        if (_schedule == 'recurrent' && (_repeatChanged || toRecurrent)) 'repeat': _repeat,
+        if (_schedule == 'recurrent' && (_repeatChanged || toRecurrent))
+          'weekdays': _repeat ? (_days.toList()..sort()) : <int>[],
+        if (!setEquals(_areas, _areas0)) 'area_ids': _areas.toList(),
       });
       await _EditedBeats.add(widget.beat['id'] as int);
       settleAndRefresh();
@@ -829,6 +986,37 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
         _label('District / Territory'),
         _field(territory, locked: true),
         const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text('Area', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+        ),
+        BeatAreaField(
+          names: [for (final a in _territoryAreas) if (_areas.contains(a['id'])) '${a['name']}'],
+          onChange: _pickAreas,
+          enabled: !_loading,
+        ),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text('Schedule', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+        ),
+        Row(children: [
+          for (final (value, text) in const [('recurrent', 'Recurrent'), ('one_time', 'One time')])
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(text, style: const TextStyle(fontWeight: FontWeight.w700)),
+                selected: _schedule == value,
+                onSelected: (_) => _setSchedule(value),
+              ),
+            ),
+        ]),
+        const SizedBox(height: 16),
+        if (_schedule == 'one_time') ...[
+          _label('Day'),
+          _field(_niceDay(_date.toIso8601String().substring(0, 10)), onTap: _pickDate),
+          const SizedBox(height: 16),
+        ],
         if (_canRepeat) ...[
           _label('Repeat on?'),
           Container(

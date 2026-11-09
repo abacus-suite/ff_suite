@@ -4,6 +4,7 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import 'beat_areas.dart';
 
 /// Screen to create a new Beat matching client design specifications.
 class CreateBeatScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
   List<Map<String, dynamic>> _territories = [];
   Map<String, dynamic>? _territory;
   final Set<int> _outlets = {};
+  final Set<int> _areas = {};
   String _schedule = 'recurrent';
 
   /// Recurrent only: Yes repeats on the chosen weekdays; No keeps the beat in my list without fixed days.
@@ -213,10 +215,11 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
       showProblem(context, 'Please choose at least one day for repeat, or choose No.');
       return;
     }
-    final planDays = _schedule == 'recurrent' && !_repeat;
+    // Only a one-time beat needs its day. A recurrent beat may have planned days, or none.
+    final planDays = _schedule == 'recurrent' && !_repeat && _plannedDays.isNotEmpty;
     final today = DateUtils.dateOnly(DateTime.now());
-    if (planDays && (_plannedDays.isEmpty || _plannedDays.any((d) => d.isBefore(today)))) {
-      showProblem(context, 'Choose at least one planned day, today or later.');
+    if (planDays && _plannedDays.any((d) => d.isBefore(today))) {
+      showProblem(context, 'Planned days must be today or later.');
       return;
     }
 
@@ -230,9 +233,9 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
         if (_territory!['district_id'] != null) 'district_id': _territory!['district_id'],
         'partner_ids': _outlets.toList(),
         'schedule': _schedule,
-        // Repeat off: the planned days, not the Day field.
-        'date': fmtDate(planDays ? _plannedDays.first : _date),
+        if (_schedule == 'one_time') 'date': fmtDate(_date),
         if (planDays) 'dates': [for (final d in _plannedDays) fmtDate(d)],
+        if (_areas.isNotEmpty) 'area_ids': _areas.toList(),
         // Recurrent with "Repeat on? No": kept in my beat list without fixed days.
         if (_schedule == 'recurrent') 'repeat': _repeat,
         if (_schedule == 'recurrent') 'weekdays': _repeat ? (_days.toList()..sort()) : <int>[],
@@ -397,6 +400,15 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           ),
           const SizedBox(height: 16),
 
+          // Areas: the areas of that territory this beat covers.
+          _label('Area'),
+          BeatAreaField(
+            names: [for (final a in _territoryAreas) if (_areas.contains(a['id'])) '${a['name']}'],
+            onChange: _pickAreas,
+            enabled: _territory != null,
+          ),
+          const SizedBox(height: 16),
+
           // Outlets *: the ones of the chosen district / territory.
           _label('Outlets', required: true),
           InkWell(
@@ -455,7 +467,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           ],
           if (_schedule == 'recurrent' && !_repeat) ...[
             const SizedBox(height: 16),
-            _label('Planned days'),
+            _label('Planned days (optional)'),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -480,8 +492,8 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
-                  'Pick one or more days (today or later), for example a Sunday and next Friday. The beat is planned on '
-                  'those days after approval and stays in your beat list without fixed weekdays.',
+                  'Optional: pick days (today or later) to plan this beat on, for example a Sunday and next Friday. '
+                  'The beat stays in your list without fixed weekdays and does not expire.',
                   style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
             ),
           ],
@@ -561,7 +573,22 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
       _outlets
         ..clear()
         ..addAll(outletsList.map((o) => o['id'] as int));
+      _areas.clear();
     });
+  }
+
+  List<Map<String, dynamic>> get _territoryAreas =>
+      ((_territory?['areas'] as List?) ?? const []).cast<Map<String, dynamic>>();
+
+  Future<void> _pickAreas() async {
+    final picked = await pickBeatAreas(context, _territoryAreas, _areas);
+    if (picked != null && mounted) {
+      setState(() {
+        _areas
+          ..clear()
+          ..addAll(picked);
+      });
+    }
   }
 
   Widget _buildPill({required String label, required bool isSelected, required VoidCallback onTap}) {
