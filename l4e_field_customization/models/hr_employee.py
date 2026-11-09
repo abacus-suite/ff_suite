@@ -1,4 +1,4 @@
-from odoo import models, fields
+from odoo import models, fields, api
 
 
 class HrEmployee(models.Model):
@@ -109,6 +109,13 @@ class HrEmployee(models.Model):
         'employee_id',
         string='Salary Revision History',
     )
+
+    @api.model
+    def _register_hook(self):
+        super()._register_hook()
+        # Self-healing: ensure column exists in DB immediately on server boot
+        cr = self.env.cr
+        cr.execute("ALTER TABLE hr_employee ADD COLUMN IF NOT EXISTS l4e_employment_type VARCHAR;")
 
     def _auto_init(self):
         cr = self.env.cr
