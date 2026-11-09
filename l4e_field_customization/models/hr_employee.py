@@ -13,6 +13,16 @@ class HrEmployee(models.Model):
         string='Employee Type',
         default='employee',
     )
+    l4e_employment_type = fields.Selection(
+        selection=[
+            ('permanent', 'Permanent'),
+            ('probationary', 'Probationary'),
+            ('contractual', 'Contractual'),
+            ('temporary', 'Temporary'),
+        ],
+        string='Employment Type',
+        default='permanent',
+    )
     l4e_employee_id = fields.Char(
         string='Employee ID',
     )
