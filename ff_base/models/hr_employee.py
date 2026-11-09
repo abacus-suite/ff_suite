@@ -25,7 +25,7 @@ ACCESS_SCOPES = [
     ('all', 'All employees'),
 ]
 # Changing any of these changes who sees what, and record rule results are cached.
-SCOPE_FIELDS = {'ff_access_scope', 'ff_team_id', 'parent_id', 'user_id', 'active', 'company_id'}
+SCOPE_FIELDS = {'ff_access_scope', 'ff_team_id', 'ff_team_ids', 'parent_id', 'user_id', 'active', 'company_id'}
 
 
 def _normalize_login(vals):
@@ -38,7 +38,11 @@ class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
     ff_employee_code = fields.Char(string='Field Employee Code', copy=False, tracking=True)
-    ff_team_id = fields.Many2one('ff.team', string='Region', index=True, tracking=True)
+    # An employee can cover several Regions. ``ff_team_id`` stays as the main (first) one, so everything that reads
+    # one Region per employee (reports, dashboards, approval flows) keeps working; ``ff_team_ids`` is the full list.
+    ff_team_ids = fields.Many2many('ff.team', 'ff_employee_team_rel', 'employee_id', 'team_id', string='Regions')
+    ff_team_id = fields.Many2one('ff.team', string='Main Region', index=True, tracking=True,
+                                 help='The first of the Regions: kept in step with the Regions list.')
     ff_designation_id = fields.Many2one('ff.designation', string='Field Designation', tracking=True)
     ff_tracking_enabled = fields.Boolean(
         string='Location Tracking', default=True,
@@ -78,14 +82,43 @@ class HrEmployee(models.Model):
         for employee in self:
             employee.ff_app_password_set = bool(employee.sudo().ff_app_password_hash)
 
+    def _auto_init(self):
+        """Region became many: every employee keeps the Region they had, as the first of their Regions. Runs when
+        the module loads (no version change or migration script), and only adds what is missing."""
+        res = super()._auto_init()
+        self.env.cr.execute("""
+            INSERT INTO ff_employee_team_rel (employee_id, team_id)
+            SELECT e.id, e.ff_team_id FROM hr_employee e
+            WHERE e.ff_team_id IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM ff_employee_team_rel r
+                              WHERE r.employee_id = e.id AND r.team_id = e.ff_team_id)
+        """)
+        return res
+
+    def _ff_sync_regions(self, list_changed):
+        """Keep the Regions list and the main Region in step, after a save and with full rights (the person saving
+        may not be allowed to read Regions). The list wins when it was edited; otherwise the main Region joins it."""
+        for employee in self.sudo().with_context(ff_region_sync=True):
+            regions, main = employee.ff_team_ids, employee.ff_team_id
+            if list_changed:
+                if main not in regions:
+                    employee.write({'ff_team_id': regions[:1].id or False})
+            elif main and main not in regions:
+                employee.write({'ff_team_ids': [(4, main.id)]})
+
     @api.model_create_multi
     def create(self, vals_list):
         employees = super().create([_normalize_login(vals) for vals in vals_list])
+        if not self.env.context.get('ff_region_sync'):
+            for employee, vals in zip(employees, vals_list):
+                employee._ff_sync_regions('ff_team_ids' in vals)
         self.env.registry.clear_cache()
         return employees
 
     def write(self, vals):
         res = super().write(_normalize_login(vals))
+        if not self.env.context.get('ff_region_sync') and ({'ff_team_ids', 'ff_team_id'} & set(vals)):
+            self._ff_sync_regions('ff_team_ids' in vals)
         if SCOPE_FIELDS & set(vals):
             self.env.registry.clear_cache()
         if vals.get('ff_app_access') is False:
