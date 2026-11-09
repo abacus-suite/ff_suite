@@ -102,13 +102,16 @@ class FfBeatApp(models.Model):
         schedule = data.get('schedule') if data.get('schedule') in ('one_time', 'recurrent') else False
         weekdays = ','.join(sorted({str(int(d)) for d in (data.get('weekdays') or []) if str(d) in '0123456'}))
         plan_dates = []
+        if schedule == 'one_time' and not data.get('date'):
+            raise UserError(self.env._('Choose the day of this one-time route.'))
         if schedule == 'recurrent' and not weekdays:
             if data.get('repeat') is not False:
                 raise UserError(self.env._('Choose the weekdays this route repeats on.'))
-            # "Repeat on? No": the route stays in the list and is planned on the days chosen, today or later.
-            picked = data.get('dates') or ([data['date']] if data.get('date') else [])
+            # "Repeat on? No": the route stays in the list; planned days are optional, and when given they are today
+            # or later.
+            picked = data.get('dates') or []
             plan_dates = sorted({fields.Date.to_date(d) for d in picked if d})
-            if not plan_dates or plan_dates[0] < fields.Date.context_today(self):
+            if plan_dates and plan_dates[0] < fields.Date.context_today(self):
                 raise UserError(self.env._('Choose today or upcoming days to plan this route on.'))
         territory = {}
         if 'territory_id' in self._fields and data.get('territory_id'):
@@ -127,7 +130,7 @@ class FfBeatApp(models.Model):
             'ff_approval_state': 'pending' if pending else 'approved',
             'ff_schedule': schedule,
             'ff_weekdays': weekdays if schedule == 'recurrent' else False,
-            'ff_one_time_date': plan_dates[0] if plan_dates else (data.get('date') or False),
+            'ff_one_time_date': (data.get('date') or False) if schedule == 'one_time' else False,
             'ff_plan_dates': ','.join(d.isoformat() for d in plan_dates) if plan_dates else False,
         }))
         partner_ids = data.get('partner_ids') or []
@@ -302,7 +305,29 @@ class FfBeatApp(models.Model):
                 Line.create({'beat_id': beat.id, 'partner_id': partner.id, 'sequence': sequence})
                 changed = True
 
-        if 'weekdays' in data or 'repeat' in data:
+        schedule = data.get('schedule')
+        if schedule in ('one_time', 'recurrent') and schedule != beat.ff_schedule:
+            if schedule == 'one_time':
+                day = fields.Date.to_date(data.get('date')) if data.get('date') else False
+                if not day:
+                    raise UserError(self.env._('Choose the day of this one-time route.'))
+                beat.write({'ff_schedule': 'one_time', 'ff_one_time_date': day, 'ff_weekdays': False,
+                            'ff_plan_dates': False})
+                # No weekly template any more: it is for one day.
+                self.env['ff.route.plan.template.line'].sudo().search([('beat_id', '=', beat.id)]).unlink()
+            else:
+                days = ','.join(sorted({str(int(d)) for d in (data.get('weekdays') or []) if str(d) in '0123456'}))
+                if not days and data.get('repeat') is not False:
+                    raise UserError(self.env._('Choose the weekdays this route repeats on.'))
+                beat.write({'ff_schedule': 'recurrent', 'ff_weekdays': days or False, 'ff_one_time_date': False})
+            changed = True
+        elif schedule == 'one_time' and data.get('date'):
+            day = fields.Date.to_date(data['date'])
+            if day != beat.ff_one_time_date:
+                beat.write({'ff_one_time_date': day})
+                changed = True
+
+        if beat.ff_schedule == 'recurrent' and ('weekdays' in data or 'repeat' in data):
             days = ','.join(sorted({str(int(d)) for d in (data.get('weekdays') or []) if str(d) in '0123456'}))
             if data.get('repeat') is False:
                 days = ''
@@ -340,14 +365,11 @@ class FfBeatApp(models.Model):
                 record=self)
 
     def ff_expiry(self):
-        """The last day a beat is for, or False when it goes on: a one-time beat has its date, and a beat that does not
-        repeat has the last of the days it was planned on."""
+        """The last day a beat is for, or False when it goes on: only a one-time beat has one (its date). A recurrent
+        beat never expires, whether it repeats on weekdays or is planned on days of its own."""
         self.ensure_one()
         if self.ff_schedule == 'one_time' and self.ff_one_time_date:
             return self.ff_one_time_date
-        if self.ff_schedule == 'recurrent' and not self.ff_weekdays and self.ff_plan_dates:
-            days = [fields.Date.to_date(d) for d in self.ff_plan_dates.split(',') if d]
-            return max(days) if days else False
         return False
 
     def ff_app_payload(self):
@@ -366,6 +388,8 @@ class FfBeatApp(models.Model):
             'weekdays': [int(d) for d in (self.ff_weekdays or '').split(',') if d],
             'date': self.ff_one_time_date.isoformat() if self.ff_one_time_date else None,
             'plan_dates': [d for d in (self.ff_plan_dates or '').split(',') if d],
+            'territory_id': self.territory_id.id if 'territory_id' in self._fields and self.territory_id else None,
+            'territory': self.territory_id.name if 'territory_id' in self._fields and self.territory_id else None,
             'delete_requested': bool(self.ff_delete_requested),
             'delete_note': self.ff_delete_note or None,
             'mine': self.ff_created_by_employee_id.id or None,
@@ -489,11 +513,6 @@ class FfBeatApp(models.Model):
                 continue
             plans = self.env['ff.beat.plan'].sudo().search([('beat_id', '=', beat.id), ('date', '=', today)])
             if plans and all(plan.status == 'done' for plan in plans):
-                finished |= beat
-        # A beat that does not repeat, planned on chosen days: expired once the last of them has passed.
-        for beat in self.sudo().search([('ff_schedule', '=', 'recurrent'), ('ff_plan_dates', '!=', False)]):
-            expiry = beat.ff_expiry()
-            if expiry and expiry < today:
                 finished |= beat
         # Archived, so the name and the code can be used for a new beat.
         finished.write({'active': False})
