@@ -104,14 +104,14 @@
                         <!-- Tab 1: 1st QC Check (Pre-Mixing) - Readonly after confirmed -->
                         <page string="1st QC Check (Pre-Mixing)" name="first_qc_tab">
                             <div class="alert alert-info" role="status" invisible="state != 'draft'">
-                                Perform Pre-Mixing Quality Check. Enter pH value and status below, then click <strong>"Verify 1st QC &amp; Start Mixing"</strong>.
+                                Perform Pre-Mixing Quality Check. Select Pass or Fail manually for each check, then click <strong>"Verify 1st QC &amp; Start Mixing"</strong>.
                             </div>
                             <field name="first_qc_line_ids" readonly="state != 'draft'">
                                 <list editable="bottom" string="1st QC Check Lines">
                                     <field name="sl_no" string="S.No"/>
                                     <field name="date" string="Date"/>
                                     <field name="ph_value" string="PH Value"/>
-                                    <field name="status" string="Status" widget="badge"
+                                    <field name="status" string="Status"
                                            decoration-success="status == 'pass'"
                                            decoration-danger="status == 'fail'"/>
                                     <field name="remarks" string="Remarks" placeholder="Optional notes..."/>
@@ -130,14 +130,14 @@
                         <!-- Tab 2: 2nd QC Check (Post-Mixing) -->
                         <page string="2nd QC Check (Post-Mixing)" name="second_qc_tab" invisible="state == 'draft'">
                             <div class="alert alert-info" role="status" invisible="state != 'first_qc'">
-                                Perform Post-Mixing Quality Check. Enter pH value and status below, then click <strong>"Verify 2nd QC"</strong>.
+                                Perform Post-Mixing Quality Check. Select Pass or Fail manually for each check, then click <strong>"Verify 2nd QC"</strong>.
                             </div>
                             <field name="second_qc_line_ids" readonly="state in ('second_qc', 'done', 'cancel')">
                                 <list editable="bottom" string="2nd QC Check Lines">
                                     <field name="sl_no" string="S.No"/>
                                     <field name="date" string="Date"/>
                                     <field name="ph_value" string="PH Value"/>
-                                    <field name="status" string="Status" widget="badge"
+                                    <field name="status" string="Status"
                                            decoration-success="status == 'pass'"
                                            decoration-danger="status == 'fail'"/>
                                     <field name="remarks" string="Remarks" placeholder="Optional notes..."/>

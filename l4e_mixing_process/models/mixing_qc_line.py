@@ -43,8 +43,7 @@ class MixingQcLine(models.Model):
         ],
         string='Status',
         required=True,
-        default='pass',
-        help="Select Pass or Fail for this quality check.",
+        help="Select Pass or Fail manually for this quality check.",
     )
     remarks = fields.Char(
         string='Remarks',

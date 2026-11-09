@@ -102,6 +102,7 @@ class MixingProcess(models.Model):
         string='1st QC Status',
         compute='_compute_first_qc_status',
         store=True,
+        readonly=False,
         tracking=True,
     )
     second_qc_status = fields.Selection(
@@ -112,6 +113,7 @@ class MixingProcess(models.Model):
         string='2nd QC Status',
         compute='_compute_second_qc_status',
         store=True,
+        readonly=False,
         tracking=True,
     )
     first_qc_date = fields.Date(
