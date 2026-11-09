@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="mrp_production_form_view_inherit_mixing" model="ir.ui.view">
+        <field name="name">mrp.production.form.inherit.mixing</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button name="action_view_mixing_processes"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-flask"
+                        invisible="mixing_process_count == 0">
+                    <field name="mixing_process_count" widget="statinfo" string="Mixing"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

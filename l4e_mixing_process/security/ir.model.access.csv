@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_mixing_process_user,mixing.process.user,model_mixing_process,mrp.group_mrp_user,1,1,1,1
+access_mixing_process_manager,mixing.process.manager,model_mixing_process,mrp.group_mrp_manager,1,1,1,1
+access_mixing_process_base_user,mixing.process.base.user,model_mixing_process,base.group_user,1,1,1,0
+access_mixing_qc_line_user,mixing.qc.line.user,model_mixing_qc_line,mrp.group_mrp_user,1,1,1,1
+access_mixing_qc_line_manager,mixing.qc.line.manager,model_mixing_qc_line,mrp.group_mrp_manager,1,1,1,1
+access_mixing_qc_line_base_user,mixing.qc.line.base.user,model_mixing_qc_line,base.group_user,1,1,1,0

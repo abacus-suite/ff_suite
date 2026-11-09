@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Top Navigation Menu under Manufacturing App (Sequence 17 - right after Fermentation seq 16) -->
+    <menuitem id="menu_mixing_process_root"
+              name="MIXING PROCESS"
+              parent="mrp.menu_mrp_root"
+              action="action_mixing_process"
+              sequence="17"/>
+
+    <!-- Under Operations Dropdown in Manufacturing (Sequence 28) -->
+    <menuitem id="menu_mixing_process_operations"
+              name="MIXING PROCESS"
+              parent="mrp.menu_mrp_manufacturing"
+              action="action_mixing_process"
+              sequence="28"/>
+</odoo>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Mixing Area Location -->
+        <record id="location_mixing_area" model="stock.location">
+            <field name="name">Mixing Area</field>
+            <field name="usage">internal</field>
+            <field name="location_id" ref="stock.stock_location_stock"/>
+        </record>
+    </data>
+</odoo>
