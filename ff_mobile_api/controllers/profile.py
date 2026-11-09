@@ -98,7 +98,7 @@ class FieldForceProfileApi(http.Controller):
         colours = self.designation_gradient(designation)
 
         # Teams
-        teams = e.ff_team_id
+        teams = e.ff_team_ids | e.ff_team_id
         if 'ff.team' in request.env:
             teams |= request.env['ff.team'].sudo().search([
                 '|', ('manager_id', '=', e.id), ('member_ids', 'in', [e.id])
