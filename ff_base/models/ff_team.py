@@ -24,6 +24,5 @@ class FfTeam(models.Model):
 
     @api.depends('member_ids')
     def _compute_member_count(self):
-        Employee = self.env['hr.employee'].sudo()
         for team in self:
-            team.member_count = Employee.search_count(['|', ('ff_team_id', '=', team.id), ('ff_team_ids', 'in', team.ids)])
+            team.member_count = len(team.member_ids)

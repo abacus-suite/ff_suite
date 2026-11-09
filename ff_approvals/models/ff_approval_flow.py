@@ -79,7 +79,7 @@ class FfApprovalFlow(models.Model):
         def score(flow):
             if flow.employee_ids and employee not in flow.employee_ids:
                 return None
-            if flow.team_ids and not ((employee.ff_team_ids | employee.ff_team_id) & flow.team_ids):
+            if flow.team_ids and employee.ff_team_id not in flow.team_ids:
                 return None
             if flow.department_ids and employee.department_id not in flow.department_ids:
                 return None
