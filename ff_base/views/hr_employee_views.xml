@@ -10,8 +10,7 @@
                     <group>
                         <group name="ff_org" string="Organisation">
                             <field name="ff_employee_code"/>
-                            <field name="ff_team_ids" widget="many2many_tags" options="{'no_create': True}"/>
-                            <field name="ff_team_id" string="Main Region" readonly="1"/>
+                            <field name="ff_team_id"/>
                             <field name="ff_designation_id"/>
                             <field name="parent_id" string="Manager"/>
                         </group>
@@ -68,7 +67,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='name']" position="after">
                 <field name="ff_employee_code"/>
-                <field name="ff_team_ids" string="Region"/>
+                <field name="ff_team_id"/>
             </xpath>
         </field>
     </record>
@@ -77,6 +76,6 @@
         <field name="name">Field Staff</field>
         <field name="res_model">hr.employee</field>
         <field name="view_mode">list,kanban,form</field>
-        <field name="domain">['|', ('ff_team_id', '!=', False), ('ff_team_ids', '!=', False)]</field>
+        <field name="domain">[('ff_team_id', '!=', False)]</field>
     </record>
 </odoo>

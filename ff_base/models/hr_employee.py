@@ -25,7 +25,7 @@ ACCESS_SCOPES = [
     ('all', 'All employees'),
 ]
 # Changing any of these changes who sees what, and record rule results are cached.
-SCOPE_FIELDS = {'ff_access_scope', 'ff_team_id', 'ff_team_ids', 'parent_id', 'user_id', 'active', 'company_id'}
+SCOPE_FIELDS = {'ff_access_scope', 'ff_team_id', 'parent_id', 'user_id', 'active', 'company_id'}
 
 
 def _normalize_login(vals):
@@ -38,11 +38,7 @@ class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
     ff_employee_code = fields.Char(string='Field Employee Code', copy=False, tracking=True)
-    # An employee can cover several Regions. ``ff_team_id`` stays as the main (first) one, so everything that reads
-    # one Region per employee (reports, dashboards, approval flows) keeps working; ``ff_team_ids`` is the full list.
-    ff_team_ids = fields.Many2many('ff.team', 'ff_employee_team_rel', 'employee_id', 'team_id', string='Regions')
-    ff_team_id = fields.Many2one('ff.team', string='Main Region', index=True, tracking=True,
-                                 help='The first of the Regions: kept in step with the Regions list.')
+    ff_team_id = fields.Many2one('ff.team', string='Region', index=True, tracking=True)
     ff_designation_id = fields.Many2one('ff.designation', string='Field Designation', tracking=True)
     ff_tracking_enabled = fields.Boolean(
         string='Location Tracking', default=True,
@@ -82,39 +78,14 @@ class HrEmployee(models.Model):
         for employee in self:
             employee.ff_app_password_set = bool(employee.sudo().ff_app_password_hash)
 
-    @api.model
-    def _ff_region_vals(self, vals):
-        """The Regions list and the main Region always agree: choosing one adds it to the other."""
-        vals = dict(vals)
-        if 'ff_team_ids' in vals and 'ff_team_id' not in vals:
-            commands = vals['ff_team_ids'] or []
-            ids = []
-            for cmd in commands:
-                if cmd[0] == 6:
-                    ids = list(cmd[2])
-                elif cmd[0] == 4:
-                    ids.append(cmd[1])
-            if ids:
-                vals.setdefault('ff_team_id', ids[0])
-        elif vals.get('ff_team_id') and 'ff_team_ids' not in vals:
-            vals['ff_team_ids'] = [(4, vals['ff_team_id'])]
-        return vals
-
     @api.model_create_multi
     def create(self, vals_list):
-        employees = super().create([_normalize_login(self._ff_region_vals(vals)) for vals in vals_list])
+        employees = super().create([_normalize_login(vals) for vals in vals_list])
         self.env.registry.clear_cache()
         return employees
 
     def write(self, vals):
-        vals = self._ff_region_vals(vals)
         res = super().write(_normalize_login(vals))
-        if 'ff_team_ids' in vals:
-            # Whatever the list ends up as, the main Region is one of them (the first when it was removed).
-            for employee in self:
-                regions = employee.ff_team_ids
-                if employee.ff_team_id not in regions:
-                    employee.ff_team_id = regions[:1]
         if SCOPE_FIELDS & set(vals):
             self.env.registry.clear_cache()
         if vals.get('ff_app_access') is False:
