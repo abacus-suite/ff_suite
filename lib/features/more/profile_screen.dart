@@ -379,18 +379,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final region = _map('region');
     // An employee can have several Regions: all their names, the first being the main one.
     final names = [for (final t in teams) if (asText(t['name']) != null) asText(t['name'])!];
+    // One Region: its name; several: how many (the page behind the tile lists them).
     final regionName = names.length > 1
-        ? names.join(', ')
+        ? count(names.length, 'region', 'regions')
         : (asText(region['name']) ?? (names.isEmpty ? null : names.first));
-    final mine = [
-      for (final t in primary) (t, 'Primary'),
-      for (final t in secondary) (t, 'Secondary'),
-      for (final t in outside) (t, 'Outside'),
-    ];
     return Row(
       children: [
         cell(Icons.public_rounded, 'Region', regionName ?? '—', AppColors.primary,
-            () => _openRegion(regionName, region, mine)),
+            () => _openRegion(names.isEmpty && regionName != null ? [regionName] : names)),
         const SizedBox(width: 10),
         cell(Icons.place_rounded, 'Territory',
             count(primary.length + secondary.length + outside.length, 'territory', 'territories'), AppColors.success,
@@ -419,80 +415,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// My Region: the region with its districts and territories, then my own territories in it, each marked
-  /// Primary, Secondary or Outside.
-  void _openRegion(String? name, Map<String, dynamic> region, List<(Map<String, dynamic>, String)> mine) {
-    List<String> names(dynamic raw) => raw is List
-        ? [for (final e in raw) if ((e is Map ? asText(e['name']) : asText(e)) != null) (e is Map ? '${e['name']}' : '$e')]
-        : const [];
-    // Without the server's lists, they are read off my own territories (each carries its district).
-    var districts = names(region['districts']);
-    if (districts.isEmpty) districts = {for (final (t, _) in mine) if (asText(t['region']) != null) '${t['region']}'}.toList();
-    var territories = names(region['territories']);
-    if (territories.isEmpty) territories = [for (final (t, _) in mine) '${t['name']}'];
-    const blue = Color(0xFF1A56DB);
-    Color pill(String kind) => switch (kind) {
-          'Primary' => blue,
-          'Secondary' => AppColors.purple,
-          _ => AppColors.warning,
-        };
-    Widget line(String label, String value) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(width: 92, child: Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.muted))),
-            Expanded(
-              child: Text(value.isEmpty ? '—' : value,
-                  textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-            ),
-          ]),
-        );
+  /// My Regions: the names of the Regions the employee covers, nothing else.
+  void _openRegion(List<String> regions) {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
           title: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('My Region', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
+            Text('My Regions', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19)),
             Text('Opened by tapping “Region”',
                 style: TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
           ]),
         ),
         body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-            decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name ?? 'Region not set', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-              const SizedBox(height: 4),
-              line('Districts', districts.join(', ')),
-              line('Territories', territories.join(', ')),
-            ]),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(2, 16, 2, 8),
-            child: Text('Your territories in this region',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: blue)),
-          ),
-          if (mine.isEmpty) const Text('No territory is assigned to you yet.', style: TextStyle(color: AppColors.muted)),
-          for (final (t, kind) in mine)
+          if (regions.isEmpty) const Text('No region is set for you yet.', style: TextStyle(color: AppColors.muted)),
+          for (final name in regions)
             Container(
               margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
               decoration: BoxDecoration(
                   color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
               child: Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${t['name']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-                    if (asText(t['region']) != null)
-                      Text('${t['region']}', style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-                  ]),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(color: pill(kind).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-                  child: Text(kind, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: pill(kind))),
-                ),
+                const Icon(Icons.public_rounded, size: 20, color: AppColors.primary),
+                const SizedBox(width: 12),
+                Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
               ]),
             ),
         ]),
