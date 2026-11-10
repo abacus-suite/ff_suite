@@ -4,7 +4,7 @@ Odoo already models leave properly - types, allocations, approval steps - so the
 app asks it questions rather than keeping its own version of the truth.
 """
 from odoo import api, fields, models
-from odoo.exceptions import AccessError, UserError
+from odoo.exceptions import AccessError, UserError, ValidationError
 
 APP_STATES = {
     'draft': 'Draft',
@@ -35,6 +35,47 @@ class HrLeaveType(models.Model):
 
 class HrLeave(models.Model):
     _inherit = 'hr.leave'
+
+    def _has_supporting_attachment(self):
+        self.ensure_one()
+        if 'supported_attachment_ids' in self._fields and self.supported_attachment_ids:
+            return True
+        if 'attachment_ids' in self._fields and self.attachment_ids:
+            return True
+        if self.message_main_attachment_id:
+            return True
+        if self.id:
+            count = self.env['ir.attachment'].sudo().search_count([
+                ('res_model', '=', 'hr.leave'),
+                ('res_id', '=', self.id),
+            ])
+            if count > 0:
+                return True
+        return False
+
+    def _check_sick_leave_attachment_mandatory(self):
+        for leave in self:
+            if leave.state in ('cancel', 'refuse'):
+                continue
+            is_sick = 'sick' in (leave.holiday_status_id.name or '').lower()
+            if is_sick and leave.number_of_days >= 2.0:
+                if not leave._has_supporting_attachment():
+                    raise ValidationError(self.env._(
+                        'An attachment is mandatory for Sick Leave of 2 days or more. '
+                        'Please attach a supporting medical certificate or document.'
+                    ))
+
+    @api.constrains('holiday_status_id', 'number_of_days', 'supported_attachment_ids', 'state')
+    def _constrains_sick_leave_attachment(self):
+        self._check_sick_leave_attachment_mandatory()
+
+    def action_approve(self):
+        self._check_sick_leave_attachment_mandatory()
+        return super().action_approve()
+
+    def action_validate(self):
+        self._check_sick_leave_attachment_mandatory()
+        return super().action_validate()
 
     def _ff_hour(self, name):
         """The start or end time of a request made by the hour, or None (the field differs between versions)."""
