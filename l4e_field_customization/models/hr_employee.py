@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from dateutil.relativedelta import relativedelta
 
 
 class HrEmployee(models.Model):
@@ -43,7 +44,13 @@ class HrEmployee(models.Model):
     )
     l4e_probation_period = fields.Char(
         string='Probation Period',
-        help='e.g. 3 Months, 6 Months',
+        help='e.g. 1 MONTH, 3 MONTHS',
+    )
+    l4e_probation_start_date = fields.Date(
+        string='Probation Start Date',
+    )
+    l4e_probation_end_date = fields.Date(
+        string='Probation End Date',
     )
     l4e_immediate_reporting_person = fields.Many2one(
         'hr.employee',
@@ -110,12 +117,37 @@ class HrEmployee(models.Model):
         string='Salary Revision History',
     )
 
+    @api.onchange('department_id', 'l4e_date_of_joining')
+    def _onchange_department_probation(self):
+        if not self.department_id:
+            return
+        dept_name = (self.department_id.name or '').upper()
+        is_mfg = 'MANUFACTURING' in dept_name or 'PRODUCTION' in dept_name
+        months = 1 if is_mfg else 3
+        self.l4e_probation_period = '1 MONTH' if is_mfg else '3 MONTHS'
+
+        start_date = self.l4e_date_of_joining or self.l4e_probation_start_date
+        if self.l4e_date_of_joining:
+            self.l4e_probation_start_date = self.l4e_date_of_joining
+        if start_date:
+            self.l4e_probation_end_date = start_date + relativedelta(months=months)
+
+    @api.onchange('l4e_probation_start_date')
+    def _onchange_probation_start_date(self):
+        if self.l4e_probation_start_date:
+            dept_name = (self.department_id.name or '').upper() if self.department_id else ''
+            is_mfg = 'MANUFACTURING' in dept_name or 'PRODUCTION' in dept_name
+            months = 1 if is_mfg else 3
+            self.l4e_probation_end_date = self.l4e_probation_start_date + relativedelta(months=months)
+
     @api.model
     def _register_hook(self):
         super()._register_hook()
-        # Self-healing: ensure column exists in DB immediately on server boot
+        # Self-healing: ensure custom columns exist in DB immediately on server boot
         cr = self.env.cr
         cr.execute("ALTER TABLE hr_employee ADD COLUMN IF NOT EXISTS l4e_employment_type VARCHAR;")
+        cr.execute("ALTER TABLE hr_employee ADD COLUMN IF NOT EXISTS l4e_probation_start_date DATE;")
+        cr.execute("ALTER TABLE hr_employee ADD COLUMN IF NOT EXISTS l4e_probation_end_date DATE;")
 
     def _auto_init(self):
         cr = self.env.cr

@@ -19,6 +19,8 @@
                 <field name="l4e_date_of_joining" options="{'numeric': true}"/>
                 <field name="l4e_date_of_joining_pvt" options="{'numeric': true}"/>
                 <field name="l4e_probation_period"/>
+                <field name="l4e_probation_start_date" options="{'numeric': true}"/>
+                <field name="l4e_probation_end_date" options="{'numeric': true}"/>
                 <field name="l4e_immediate_reporting_person"/>
                 <field name="l4e_unolo_id"/>
                 <field name="l4e_company_vehicle"/>
