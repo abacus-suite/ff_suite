@@ -1,17 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Module Category for Quality Control -->
-    <record id="module_category_qc_approval" model="ir.module.category">
-        <field name="name">Quality Control</field>
-        <field name="description">Quality control parameters, testing standards and manager deviation approvals.</field>
-        <field name="sequence">25</field>
-    </record>
-
     <!-- QC Manager User Group -->
     <record id="group_qc_manager" model="res.groups">
-        <field name="name">QC Manager</field>
-        <field name="category_id" ref="module_category_qc_approval"/>
-        <field name="users" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+        <field name="name">Quality: QC Manager</field>
         <field name="comment">Authorized to approve or reject quality deviations and manage QC test parameters.</field>
+    </record>
+
+    <!-- System administrators automatically get QC Manager rights -->
+    <record id="base.group_system" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('group_qc_manager'))]"/>
     </record>
 </odoo>
