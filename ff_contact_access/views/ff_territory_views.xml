@@ -8,6 +8,7 @@
                 <field name="name"/>
                 <field name="code" optional="show"/>
                 <field name="district_id"/>
+                <field name="team_id" string="Region" optional="show"/>
                 <field name="state_id" optional="show"/>
                 <field name="beat_count"/>
                 <field name="is_company_location" widget="boolean_toggle"/>
@@ -35,6 +36,7 @@
                         <group string="Details">
                             <field name="code" placeholder="e.g. TR-001"/>
                             <field name="district_id" options="{'no_create': True}"/>
+                            <field name="team_id" string="Region" readonly="1"/>
                             <field name="state_id"/>
                             <field name="country_id" invisible="not country_id"/>
                             <field name="active" invisible="1"/>
@@ -82,11 +84,13 @@
                 <field name="name"/>
                 <field name="code"/>
                 <field name="district_id"/>
+                <field name="team_id" string="Region"/>
                 <field name="state_id"/>
                 <filter name="company_loc" string="Company Location" domain="[('is_company_location', '=', True)]"/>
                 <separator/>
                 <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
                 <group>
+                    <filter name="group_region" string="Region" context="{'group_by': 'team_id'}"/>
                     <filter name="group_district" string="City / District" context="{'group_by': 'district_id'}"/>
                     <filter name="group_state" string="State" context="{'group_by': 'state_id'}"/>
                 </group>

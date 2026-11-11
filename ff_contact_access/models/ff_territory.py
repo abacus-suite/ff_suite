@@ -10,6 +10,7 @@ class FfTerritory(models.Model):
     name = fields.Char(required=True)
     code = fields.Char()
     district_id = fields.Many2one('ff.district', string='City / District', index=True)
+    team_id = fields.Many2one(related='district_id.team_id', string='Region', store=True, readonly=True)
     state_id = fields.Many2one(related='district_id.state_id', string='State', store=True, readonly=True)
     country_id = fields.Many2one(related='district_id.country_id', string='Country', store=True, readonly=True)
     beat_ids = fields.One2many('ff.beat', 'territory_id', string='Beats')
@@ -32,6 +33,18 @@ class FfTerritory(models.Model):
                                       readonly=False, store=True)
     ff_is_company_location = fields.Boolean(string='Company Location', related='is_company_location',
                                             readonly=False, store=True)
+
+    @api.model
+    def _register_hook(self):
+        super()._register_hook()
+        cr = self.env.cr
+        cr.execute("ALTER TABLE ff_territory ADD COLUMN IF NOT EXISTS team_id INTEGER;")
+        cr.execute("""
+            UPDATE ff_territory t
+            SET team_id = d.team_id
+            FROM ff_district d
+            WHERE t.district_id = d.id AND t.team_id IS NULL AND d.team_id IS NOT NULL;
+        """)
 
     @api.depends('beat_ids')
     def _compute_beat_count(self):
