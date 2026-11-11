@@ -9,7 +9,7 @@ class BrewingTeaQcLine(models.Model):
 
     brewing_id = fields.Many2one(
         'brewing.tea',
-        string='SI No',
+        string='Brewing Batch',
         required=True,
         ondelete='cascade',
         index=True,

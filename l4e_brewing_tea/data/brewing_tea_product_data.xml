@@ -5,6 +5,5 @@
         <field name="name">Brewed Tea</field>
         <field name="is_storable" eval="True"/>
         <field name="uom_id" ref="uom.product_uom_litre"/>
-        <field name="uom_po_id" ref="uom.product_uom_litre"/>
     </record>
 </odoo>
