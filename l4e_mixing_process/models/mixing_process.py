@@ -94,6 +94,16 @@ class MixingProcess(models.Model):
         string='2nd QC Check Lines',
         copy=True,
     )
+
+    @api.onchange('first_qc_line_ids')
+    def _onchange_first_qc_line_ids_resequence(self):
+        for idx, line in enumerate(self.first_qc_line_ids, start=1):
+            line.sl_no = idx
+
+    @api.onchange('second_qc_line_ids')
+    def _onchange_second_qc_line_ids_resequence(self):
+        for idx, line in enumerate(self.second_qc_line_ids, start=1):
+            line.sl_no = idx
     first_qc_status = fields.Selection(
         [
             ('pass', 'Pass'),

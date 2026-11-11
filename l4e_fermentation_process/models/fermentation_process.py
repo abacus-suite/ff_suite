@@ -150,6 +150,11 @@ class FermentationProcess(models.Model):
         string='Quality Check Lines',
         copy=True,
     )
+
+    @api.onchange('qc_line_ids')
+    def _onchange_qc_line_ids_resequence(self):
+        for idx, line in enumerate(self.qc_line_ids, start=1):
+            line.sl_no = idx
     notes = fields.Html(string='Notes / Observations')
     user_id = fields.Many2one(
         'res.users',

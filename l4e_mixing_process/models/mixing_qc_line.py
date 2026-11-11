@@ -21,7 +21,9 @@ class MixingQcLine(models.Model):
     )
     sl_no = fields.Integer(
         string='S.No',
-        default=1,
+        compute='_compute_sl_no',
+        store=True,
+        readonly=False,
         help="Serial number of the quality check entry.",
     )
     date = fields.Date(
@@ -49,6 +51,24 @@ class MixingQcLine(models.Model):
         string='Remarks',
         help="Optional remarks or sensory observations.",
     )
+
+    @api.depends('process_first_id.first_qc_line_ids', 'process_second_id.second_qc_line_ids')
+    def _compute_sl_no(self):
+        for line in self:
+            if line.process_first_id and line.process_first_id.first_qc_line_ids:
+                lines = list(line.process_first_id.first_qc_line_ids)
+                if line in lines:
+                    line.sl_no = lines.index(line) + 1
+                else:
+                    line.sl_no = len(lines) + 1
+            elif line.process_second_id and line.process_second_id.second_qc_line_ids:
+                lines = list(line.process_second_id.second_qc_line_ids)
+                if line in lines:
+                    line.sl_no = lines.index(line) + 1
+                else:
+                    line.sl_no = len(lines) + 1
+            else:
+                line.sl_no = line.sl_no or 1
 
     @api.model_create_multi
     def create(self, vals_list):

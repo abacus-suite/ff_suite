@@ -16,7 +16,9 @@ class BrewingTeaQcLine(models.Model):
     )
     sl_no = fields.Integer(
         string='SI No',
-        default=1,
+        compute='_compute_sl_no',
+        store=True,
+        readonly=False,
         help="Serial number of the quality check step.",
     )
     description = fields.Char(
@@ -44,6 +46,19 @@ class BrewingTeaQcLine(models.Model):
         default='pass',
         help="Select Pass or Fail for this quality check parameter.",
     )
+
+    @api.depends('brewing_id.qc_line_ids')
+    def _compute_sl_no(self):
+        for line in self:
+            parent = line.brewing_id
+            if parent and parent.qc_line_ids:
+                lines = list(parent.qc_line_ids)
+                if line in lines:
+                    line.sl_no = lines.index(line) + 1
+                else:
+                    line.sl_no = len(lines) + 1
+            else:
+                line.sl_no = line.sl_no or 1
 
     @api.model_create_multi
     def create(self, vals_list):

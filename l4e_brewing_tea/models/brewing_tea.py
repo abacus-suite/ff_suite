@@ -67,6 +67,11 @@ class BrewingTea(models.Model):
         copy=True,
     )
 
+    @api.onchange('qc_line_ids')
+    def _onchange_qc_line_ids_resequence(self):
+        for idx, line in enumerate(self.qc_line_ids, start=1):
+            line.sl_no = idx
+
     @api.depends('qc_line_ids.status')
     def _compute_qc_status(self):
         for rec in self:
