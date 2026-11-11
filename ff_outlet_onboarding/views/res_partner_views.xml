@@ -48,7 +48,7 @@
                         <field name="ff_area_id" options="{'no_create': True}"/>
                     </group>
                     <group>
-                        <field name="ff_district_id" string="City / District" options="{'no_create': True}"/>
+                        <field name="ff_district_id" string="District / Territory" options="{'no_create': True}"/>
                         <field name="state_id" options="{'no_create': True}"/>
                         <field name="zip"/>
                         <field name="ff_team_ids" string="Region" widget="many2many_tags" options="{'no_create': True}"/>

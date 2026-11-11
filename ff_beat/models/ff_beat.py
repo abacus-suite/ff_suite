@@ -17,7 +17,7 @@ class FfBeat(models.Model):
     team_id = fields.Many2one('ff.team', string='Region', tracking=True)
     country_id = fields.Many2one('res.country', string='Country')
     state_id = fields.Many2one('res.country.state', string='State', domain="[('country_id', '=?', country_id)]")
-    district_id = fields.Many2one('ff.district', string='City / District', index=True,
+    district_id = fields.Many2one('ff.district', string='District / Territory', index=True,
                                   domain="[('state_id', '=?', state_id)]")
     line_ids = fields.One2many('ff.beat.line', 'beat_id', string='Clients', copy=True)
     employee_ids = fields.Many2many('hr.employee', 'ff_beat_employee_rel', 'beat_id', 'employee_id',

@@ -23,13 +23,13 @@ class ResPartner(models.Model):
     ff_employee_ids = fields.Many2many('hr.employee', 'ff_partner_employee_rel', 'partner_id', 'employee_id',
                                        string='Field Employees',
                                        help='Employees who work with this contact. Only they (and their managers) see it in the app.')
-    ff_district_id = fields.Many2one('ff.district', string='City / District', index=True)
+    ff_district_id = fields.Many2one('ff.district', string='District / Territory', index=True)
     ff_secondary_district_ids = fields.Many2many(
         'ff.district', 'ff_partner_secondary_district_rel', 'partner_id', 'district_id',
-        string='Secondary Cities / Districts',
+        string='Secondary Districts / Territories',
         help='Additional cities covered by this distributor.')
     ff_district_ids = fields.Many2many(
-        'ff.district', compute='_compute_ff_district_ids', string='All Cities / Districts')
+        'ff.district', compute='_compute_ff_district_ids', string='All Districts / Territories')
     ff_client_code = fields.Char(string='Client Code', index=True, copy=False)
     ff_team_ids = fields.Many2many('ff.team', string='Regions', help='Informational grouping of the contact.')
     ff_geofence_radius = fields.Integer(string='Geofence Radius (m)',

@@ -91,7 +91,7 @@
                 <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
                 <group>
                     <filter name="group_region" string="Region" context="{'group_by': 'team_id'}"/>
-                    <filter name="group_district" string="City / District" context="{'group_by': 'district_id'}"/>
+                    <filter name="group_district" string="District / Territory" context="{'group_by': 'district_id'}"/>
                     <filter name="group_state" string="State" context="{'group_by': 'state_id'}"/>
                 </group>
                 <searchpanel>

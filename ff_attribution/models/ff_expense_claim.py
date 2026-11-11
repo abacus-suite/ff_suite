@@ -8,7 +8,7 @@ class FfExpenseClaim(models.Model):
     _inherit = 'ff.expense.claim'
 
     ff_route_id = fields.Many2one('ff.beat', string='Route', index=True)
-    ff_district_id = fields.Many2one('ff.district', string='City / District', index=True)
+    ff_district_id = fields.Many2one('ff.district', string='District / Territory', index=True)
 
     @api.onchange('partner_id')
     def _onchange_partner_ff_attribution(self):

@@ -11,7 +11,7 @@ class FfEvent(models.Model):
     employee_id = fields.Many2one('hr.employee', string='Created By', required=True, index=True)
     staff_ids = fields.Many2many('hr.employee', 'ff_event_staff_rel', 'event_id', 'employee_id',
                                  string='Conducted By')
-    district_id = fields.Many2one('ff.district', string='City / District')
+    district_id = fields.Many2one('ff.district', string='District / Territory')
     territory_id = fields.Many2one('ff.territory', string='Territory')
     location = fields.Char()
     latitude = fields.Float(digits=(10, 7))

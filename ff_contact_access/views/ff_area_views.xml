@@ -26,7 +26,7 @@
                 <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
                 <group>
                     <filter name="group_territory" string="Territory" context="{'group_by': 'territory_id'}"/>
-                    <filter name="group_district" string="City / District" context="{'group_by': 'district_id'}"/>
+                    <filter name="group_district" string="District / Territory" context="{'group_by': 'district_id'}"/>
                 </group>
             </search>
         </field>

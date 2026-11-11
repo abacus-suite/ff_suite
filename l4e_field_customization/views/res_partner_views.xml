@@ -94,7 +94,7 @@
 
             <!-- The City / District keeps its own name: Territory is its own field (ff_territory_id). -->
             <xpath expr="//field[@name='ff_district_id']" position="attributes">
-                <attribute name="string">City / District</attribute>
+                <attribute name="string">District / Territory</attribute>
             </xpath>
 
             <!-- Add Business Category under Contact Category (Left Side) -->

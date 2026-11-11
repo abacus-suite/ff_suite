@@ -9,7 +9,7 @@ class FfTerritory(models.Model):
 
     name = fields.Char(required=True)
     code = fields.Char()
-    district_id = fields.Many2one('ff.district', string='City / District', index=True)
+    district_id = fields.Many2one('ff.district', string='District / Territory', index=True)
     team_id = fields.Many2one(related='district_id.team_id', string='Region', store=True, readonly=True)
     state_id = fields.Many2one(related='district_id.state_id', string='State', store=True, readonly=True)
     country_id = fields.Many2one(related='district_id.country_id', string='Country', store=True, readonly=True)

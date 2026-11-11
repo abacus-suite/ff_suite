@@ -19,7 +19,7 @@ class FfAttributionMixin(models.AbstractModel):
     ff_department_id = fields.Many2one(related='ff_employee_id.department_id', store=True, string='Field Department')
     ff_route_id = fields.Many2one('ff.beat', string='Route', index=True,
                                   help='Route the contact belongs to, at the time of this document.')
-    ff_district_id = fields.Many2one('ff.district', string='City / District', index=True)
+    ff_district_id = fields.Many2one('ff.district', string='District / Territory', index=True)
 
     @api.model
     def _ff_default_employee(self):

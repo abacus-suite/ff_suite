@@ -13,7 +13,7 @@ class FfContactAccessRequest(models.Model):
                                   required=True, default='beat')
     territory_id = fields.Many2one('ff.territory')
     beat_id = fields.Many2one('ff.beat')
-    district_id = fields.Many2one('ff.district', string='City / District')
+    district_id = fields.Many2one('ff.district', string='District / Territory')
     date_from = fields.Date(required=True, default=fields.Date.context_today)
     date_to = fields.Date(required=True)
     reason = fields.Text()

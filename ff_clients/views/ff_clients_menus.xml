@@ -8,6 +8,6 @@
 
     <menuitem id="menu_ff_contact_categories" name="Contact Categories" parent="ff_base.menu_ff_masters_contacts"
               action="ff_contact_category_action" sequence="20" groups="ff_base.group_ff_admin"/>
-    <menuitem id="menu_ff_districts" name="Cities / Districts" parent="ff_base.menu_ff_masters_locations"
+    <menuitem id="menu_ff_districts" name="Districts / Territories" parent="ff_base.menu_ff_masters_locations"
               action="ff_district_action" sequence="20" groups="ff_base.group_ff_manager"/>
 </odoo>

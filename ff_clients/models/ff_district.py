@@ -3,7 +3,7 @@ from odoo import api, fields, models
 
 class FfDistrict(models.Model):
     _name = 'ff.district'
-    _description = 'City / District'
+    _description = 'District / Territory'
     _order = 'name'
 
     name = fields.Char(required=True)
@@ -13,7 +13,7 @@ class FfDistrict(models.Model):
     country_id = fields.Many2one(related='state_id.country_id', store=True, string='Country')
     active = fields.Boolean(default=True)
 
-    _name_state_uniq = models.Constraint('UNIQUE(name, state_id)', 'This city / district already exists in the state.')
+    _name_state_uniq = models.Constraint('UNIQUE(name, state_id)', 'This district / territory already exists in the state.')
 
     @api.model
     def _register_hook(self):

@@ -11,7 +11,7 @@ class FfArea(models.Model):
     code = fields.Char(readonly=True, copy=False, default='New',
                        help='Generated automatically when the area is created.')
     territory_id = fields.Many2one('ff.territory', string='Territory', required=True, index=True, ondelete='cascade')
-    district_id = fields.Many2one(related='territory_id.district_id', string='City / District', store=True, index=True)
+    district_id = fields.Many2one(related='territory_id.district_id', string='District / Territory', store=True, index=True)
     active = fields.Boolean(default=True)
     contact_count = fields.Integer(compute='_compute_contact_count')
 
