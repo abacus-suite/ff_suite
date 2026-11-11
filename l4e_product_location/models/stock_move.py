@@ -44,7 +44,11 @@ class StockMove(models.Model):
                 elif product.product_type == 'packing_product' and bottling_loc:
                     vals['location_dest_id'] = bottling_loc.id
 
-        return super().create(vals_list)
+        moves = super().create(vals_list)
+        incoming_pickings = moves.mapped('picking_id').filtered(lambda p: p.picking_type_code == 'incoming')
+        if incoming_pickings:
+            incoming_pickings._update_custom_destination_header()
+        return moves
 
     @api.onchange('product_id')
     def _onchange_product_id_set_custom_dest_location(self):

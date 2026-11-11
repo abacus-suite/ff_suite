@@ -29,4 +29,9 @@
             <field name="location_id" ref="stock.stock_location_stock"/>
         </record>
     </data>
+
+    <!-- Sync existing incoming receipts on install / upgrade -->
+    <data noupdate="0">
+        <function model="stock.picking" name="_fix_existing_incoming_destinations"/>
+    </data>
 </odoo>

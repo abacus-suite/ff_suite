@@ -55,3 +55,7 @@ def post_init_hook(env):
             if parent_loc and not loc.location_id:
                 loc.sudo().write({'location_id': parent_loc.id})
                 _logger.info("Linked location %s to parent %s", loc_name, parent_loc.display_name)
+
+    # 3. Synchronize existing incoming receipts
+    if hasattr(env['stock.picking'], '_fix_existing_incoming_destinations'):
+        env['stock.picking']._fix_existing_incoming_destinations()

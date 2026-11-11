@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Inherit Picking Form View to display Product Type and Destination Location on Move Lines -->
+    <record id="view_picking_form_inherit_l4e_product_location" model="ir.ui.view">
+        <field name="name">stock.picking.form.inherit.l4e.product.location</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='move_ids']//field[@name='product_id']" position="after">
+                <field name="product_type" optional="show"/>
+            </xpath>
+            <xpath expr="//field[@name='move_ids']//field[@name='location_dest_id']" position="attributes">
+                <attribute name="optional">show</attribute>
+                <attribute name="column_invisible">0</attribute>
+                <attribute name="string">To (Destination)</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>
