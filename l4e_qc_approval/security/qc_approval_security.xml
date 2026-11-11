@@ -1,8 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- Module Category (Section visible on User Access Rights tab without dev mode) -->
+    <record id="module_category_qc_approval" model="ir.module.category">
+        <field name="name">Quality Control Approval</field>
+        <field name="description">Quality control tolerances and deviation approval management.</field>
+        <field name="sequence">60</field>
+    </record>
+
+    <!-- Privilege Layer (Required in Odoo 19 to show group on Access Rights tab) -->
+    <record id="privilege_qc_approval" model="res.groups.privilege">
+        <field name="name">QC Approval</field>
+        <field name="category_id" ref="module_category_qc_approval"/>
+        <field name="sequence">10</field>
+        <field name="description">Assign QC Manager approval privileges for out-of-range test deviations.</field>
+    </record>
+
     <!-- QC Manager User Group -->
     <record id="group_qc_manager" model="res.groups">
-        <field name="name">Quality: QC Manager</field>
+        <field name="name">QC Manager</field>
+        <field name="privilege_id" ref="privilege_qc_approval"/>
         <field name="comment">Authorized to approve or reject quality deviations and manage QC test parameters.</field>
     </record>
 

@@ -146,8 +146,12 @@ class MixingProcessInherit(models.Model):
         )
 
         qc_group = self.env.ref('l4e_qc_approval.group_qc_manager', raise_if_not_found=False)
-        if qc_group and qc_group.users:
-            for manager in qc_group.users:
+        if qc_group:
+            managers = qc_group.user_ids if hasattr(qc_group, 'user_ids') else getattr(qc_group, 'users', self.env['res.users'])
+            root_user = self.env.ref('base.user_root', raise_if_not_found=False)
+            for manager in managers:
+                if root_user and manager.id == root_user.id:
+                    continue
                 self.activity_schedule(
                     'mail.mail_activity_data_todo',
                     user_id=manager.id,
