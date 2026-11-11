@@ -6,7 +6,7 @@ class ResPartner(models.Model):
     _inherit = 'res.partner'
 
     ff_territory_id = fields.Many2one(
-        'ff.territory', string='Territory', compute='_compute_ff_territory_id', store=True, readonly=False,
+        'ff.territory', string='City / Town', compute='_compute_ff_territory_id', store=True, readonly=False,
         index=True, domain="[('district_id', '=?', ff_district_id)]",
         help='Taken from the territory of the beat of the contact. It can also be set here, for a contact that '
              'is not on a beat yet.')
@@ -15,10 +15,10 @@ class ResPartner(models.Model):
         help='The neighbourhood of the contact inside its territory. The app filters the client list by it.')
     ff_secondary_territory_ids = fields.Many2many(
         'ff.territory', 'ff_partner_secondary_territory_rel', 'partner_id', 'territory_id',
-        string='Secondary Territories',
+        string='Secondary Cities / Towns',
         help='Additional territories covered by this distributor.')
     ff_territory_ids = fields.Many2many(
-        'ff.territory', compute='_compute_ff_territory_ids', string='All Territories')
+        'ff.territory', compute='_compute_ff_territory_ids', string='All Cities / Towns')
 
     @api.depends('ff_beat_line_ids.beat_id.territory_id')
     def _compute_ff_territory_id(self):

@@ -4,7 +4,7 @@ from odoo import api, fields, models
 class FfTerritory(models.Model):
     """A patch of a city that groups beats: City -> Territory -> Beat."""
     _name = 'ff.territory'
-    _description = 'Territory'
+    _description = 'City / Town'
     _order = 'name'
 
     name = fields.Char(required=True)
@@ -69,7 +69,7 @@ class FfTerritory(models.Model):
 class FfBeat(models.Model):
     _inherit = 'ff.beat'
 
-    territory_id = fields.Many2one('ff.territory', string='Territory', index=True,
+    territory_id = fields.Many2one('ff.territory', string='City / Town', index=True,
                                    domain="[('district_id', '=?', district_id)]")
 
     @api.onchange('territory_id')
@@ -82,10 +82,10 @@ class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
     ff_territory_ids = fields.Many2many('ff.territory', 'ff_employee_territory_rel', 'employee_id', 'territory_id',
-                                        string='Territories')
+                                        string='Cities / Towns')
     ff_secondary_territory = fields.Many2many(
         'ff.territory', 'ff_employee_secondary_territory_rel', 'employee_id', 'territory_id',
-        string='Secondary Territories',
+        string='Secondary Cities / Towns',
         help='Territories the employee also works in, besides the primary ones above.')
     ff_district_ids = fields.Many2many('ff.district', 'ff_employee_district_rel', 'employee_id', 'district_id',
                                        string='Cities')

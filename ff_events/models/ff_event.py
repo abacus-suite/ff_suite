@@ -12,7 +12,7 @@ class FfEvent(models.Model):
     staff_ids = fields.Many2many('hr.employee', 'ff_event_staff_rel', 'event_id', 'employee_id',
                                  string='Conducted By')
     district_id = fields.Many2one('ff.district', string='District / Territory')
-    territory_id = fields.Many2one('ff.territory', string='Territory')
+    territory_id = fields.Many2one('ff.territory', string='City / Town')
     location = fields.Char()
     latitude = fields.Float(digits=(10, 7))
     longitude = fields.Float(digits=(10, 7))

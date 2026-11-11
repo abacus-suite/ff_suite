@@ -98,7 +98,7 @@
                 <group>
                     <filter name="by_state" string="Status" context="{'group_by': 'state'}"/>
                     <filter name="by_employee" string="Created By" context="{'group_by': 'employee_id'}"/>
-                    <filter name="by_territory" string="Territory" context="{'group_by': 'territory_id'}"/>
+                    <filter name="by_territory" string="City / Town" context="{'group_by': 'territory_id'}"/>
                 </group>
             </search>
         </field>

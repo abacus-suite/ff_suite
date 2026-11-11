@@ -84,7 +84,7 @@ class ResPartner(models.Model):
         string='Credit Days',
     )
     x_studio_territory = fields.Char(
-        string='Territory',
+        string='City / Town',
     )
     x_studio_category = fields.Selection(
         selection=[
