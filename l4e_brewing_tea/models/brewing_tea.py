@@ -12,9 +12,11 @@ class BrewingTea(models.Model):
     _order = 'preparation_date desc, id desc'
 
     def _default_product_id(self):
-        prod = self.env.ref('l4e_brewing_tea.product_brewed_tea', raise_if_not_found=False)
-        if prod:
-            return prod
+        rec = self.env.ref('l4e_brewing_tea.product_brewed_tea', raise_if_not_found=False)
+        if rec:
+            if rec._name == 'product.template':
+                return rec.product_variant_id
+            return rec
         prod = self.env['product.product'].search([('name', '=', 'Brewed Tea')], limit=1)
         if prod:
             return prod

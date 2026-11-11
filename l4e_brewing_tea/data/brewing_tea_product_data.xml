@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo noupdate="1">
-    <!-- Default Product for Brewing Tea tracking in Litres -->
-    <record id="product_brewed_tea" model="product.product">
+    <!-- Default Product Template for Brewing Tea tracking in Litres -->
+    <record id="product_brewed_tea" model="product.template">
         <field name="name">Brewed Tea</field>
         <field name="is_storable" eval="True"/>
         <field name="uom_id" ref="uom.product_uom_litre"/>
