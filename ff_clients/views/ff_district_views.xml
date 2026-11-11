@@ -7,6 +7,7 @@
             <list editable="bottom">
                 <field name="name"/>
                 <field name="code" optional="show"/>
+                <field name="team_id" string="Region" optional="show" options="{'no_create': True}"/>
                 <field name="state_id"/>
                 <field name="country_id"/>
                 <field name="active" widget="boolean_toggle" optional="hide"/>
@@ -20,8 +21,11 @@
         <field name="arch" type="xml">
             <search>
                 <field name="name"/>
+                <field name="code"/>
+                <field name="team_id" string="Region"/>
                 <field name="state_id"/>
                 <group>
+                    <filter name="group_region" string="Region" context="{'group_by': 'team_id'}"/>
                     <filter name="group_state" string="State" context="{'group_by': 'state_id'}"/>
                     <filter name="group_country" string="Country" context="{'group_by': 'country_id'}"/>
                 </group>
