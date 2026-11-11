@@ -31,8 +31,10 @@ class BrewingTea(models.Model):
             'domain': [('brewing_id', '=', self.id)],
             'context': {
                 'default_brewing_id': self.id,
+                'default_product_id': self.product_id.id if self.product_id else False,
                 'default_preparation_date': self.preparation_date,
                 'default_quantity': self.quantity,
+                'default_uom_id': self.uom_id.id if self.uom_id else False,
             },
         }
 
@@ -40,6 +42,11 @@ class BrewingTea(models.Model):
         self.ensure_one()
         if self.qc_status != 'pass':
             raise UserError(_("Cannot transfer to fermentation: Quality Check has not passed for batch %s.", self.name))
+
+        # Ensure stock is recorded into Godown before transferring out
+        if hasattr(self, '_record_brewed_tea_stock') and not self.stock_recorded:
+            self._record_brewed_tea_stock()
+
         return {
             'name': _('Transfer to Fermentation Tank'),
             'type': 'ir.actions.act_window',
@@ -48,7 +55,9 @@ class BrewingTea(models.Model):
             'target': 'new',
             'context': {
                 'default_brewing_id': self.id,
+                'default_product_id': self.product_id.id if self.product_id else False,
                 'default_preparation_date': self.preparation_date,
                 'default_quantity': self.quantity,
+                'default_uom_id': self.uom_id.id if self.uom_id else False,
             },
         }

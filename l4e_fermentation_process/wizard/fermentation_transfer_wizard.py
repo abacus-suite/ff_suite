@@ -12,6 +12,18 @@ class FermentationTransferWizard(models.TransientModel):
         string='Brewing Tea Batch',
         required=True,
     )
+    product_id = fields.Many2one(
+        'product.product',
+        string='Product',
+        related='brewing_id.product_id',
+        readonly=True,
+    )
+    uom_id = fields.Many2one(
+        'uom.uom',
+        string='Unit of Measure',
+        related='brewing_id.uom_id',
+        readonly=True,
+    )
     tank_id = fields.Many2one(
         'fermentation.tank',
         string='Fermentation Tank',
@@ -51,13 +63,19 @@ class FermentationTransferWizard(models.TransientModel):
         if self.tank_id.state != 'available':
             raise UserError(_("Tank %s is currently not available.", self.tank_id.name))
 
+        # Ensure stock is recorded in Godown if not already done
+        if hasattr(self.brewing_id, '_record_brewed_tea_stock') and not self.brewing_id.stock_recorded:
+            self.brewing_id._record_brewed_tea_stock()
+
         # Create fermentation process record
         process = self.env['fermentation.process'].create({
             'tank_id': self.tank_id.id,
             'brewing_id': self.brewing_id.id,
+            'product_id': self.product_id.id if self.product_id else False,
             'preparation_date': self.preparation_date,
             'transfer_date': self.transfer_date,
             'quantity': self.quantity,
+            'uom_id': self.uom_id.id if self.uom_id else False,
             'state': 'draft',
         })
 

@@ -9,11 +9,14 @@
                   decoration-success="qc_status == 'pass'"
                   decoration-danger="qc_status == 'fail'">
                 <field name="name" string="SI No"/>
+                <field name="product_id"/>
                 <field name="preparation_date"/>
                 <field name="quantity"/>
+                <field name="uom_id" string="UoM"/>
                 <field name="qc_status" widget="badge"
                        decoration-success="qc_status == 'pass'"
                        decoration-danger="qc_status == 'fail'"/>
+                <field name="stock_recorded" string="In Godown" widget="boolean_toggle"/>
                 <field name="user_id" widget="many2one_avatar_user"/>
             </list>
         </field>
@@ -26,6 +29,18 @@
         <field name="arch" type="xml">
             <form string="Brewing Tea">
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_stock_picking"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-truck"
+                                invisible="not stock_picking_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Stock</span>
+                                <span class="o_stat_text">Receipt</span>
+                            </div>
+                        </button>
+                    </div>
                     <div class="oe_title">
                         <label for="name" string="SI No"/>
                         <h1>
@@ -34,8 +49,13 @@
                     </div>
                     <group>
                         <group>
+                            <field name="product_id" options="{'no_create': True}"/>
                             <field name="preparation_date"/>
-                            <field name="quantity"/>
+                            <label for="quantity"/>
+                            <div class="o_row">
+                                <field name="quantity"/>
+                                <field name="uom_id" readonly="1" options="{'no_open': True}"/>
+                            </div>
                         </group>
                         <group>
                             <field name="user_id" widget="many2one_avatar_user"/>
@@ -43,6 +63,7 @@
                             <field name="qc_status" widget="badge"
                                    decoration-success="qc_status == 'pass'"
                                    decoration-danger="qc_status == 'fail'"/>
+                            <field name="stock_recorded" widget="boolean_toggle"/>
                         </group>
                     </group>
                     <notebook>
@@ -72,12 +93,15 @@
         <field name="arch" type="xml">
             <search string="Search Brewing Tea">
                 <field name="name" string="SI No"/>
+                <field name="product_id"/>
                 <field name="preparation_date"/>
                 <field name="user_id"/>
                 <separator/>
                 <filter name="filter_qc_pass" string="QC Pass" domain="[('qc_status', '=', 'pass')]"/>
                 <filter name="filter_qc_fail" string="QC Fail" domain="[('qc_status', '=', 'fail')]"/>
+                <filter name="filter_stock_recorded" string="Stock in Godown" domain="[('stock_recorded', '=', True)]"/>
                 <group>
+                    <filter name="group_product" string="Product" context="{'group_by': 'product_id'}"/>
                     <filter name="group_preparation_date" string="Preparation Date" context="{'group_by': 'preparation_date'}"/>
                     <filter name="group_user" string="Responsible" context="{'group_by': 'user_id'}"/>
                     <filter name="group_qc_status" string="Overall QC" context="{'group_by': 'qc_status'}"/>
@@ -97,7 +121,7 @@
                 No Brewing Tea batches found. Let's create one!
             </p>
             <p>
-                Track tea brewing batches, preparation dates, quantities, and record quality check parameter results.
+                Track tea brewing batches, preparation dates, product volume in Litres, and record quality check parameter results.
             </p>
         </field>
     </record>

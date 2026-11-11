@@ -246,6 +246,10 @@ class FermentationProcess(models.Model):
             self.preparation_date = self.brewing_id.preparation_date
             if not self.quantity:
                 self.quantity = self.brewing_id.quantity
+            if not self.product_id and self.brewing_id.product_id:
+                self.product_id = self.brewing_id.product_id
+            if self.brewing_id.uom_id:
+                self.uom_id = self.brewing_id.uom_id
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -298,7 +302,7 @@ class FermentationProcess(models.Model):
         dest_loc = self.location_dest_id or self._default_dest_location()
 
         # Find product
-        product = self.product_id
+        product = self.product_id or (self.brewing_id and self.brewing_id.product_id)
         if not product:
             product = self.env['product.product'].search([
                 ('product_type', '=', 'raw_material'),
