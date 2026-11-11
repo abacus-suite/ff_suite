@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Top Navigation Menu in Manufacturing App -->
+    <menuitem id="menu_qc_approval_root"
+              name="QC APPROVAL"
+              parent="mrp.menu_mrp_root"
+              action="action_qc_test_parameter"
+              sequence="18"/>
+
+    <!-- Under Configuration Dropdown in Manufacturing -->
+    <menuitem id="menu_qc_approval_config"
+              name="QC Approval"
+              parent="mrp.menu_mrp_configuration"
+              action="action_qc_test_parameter"
+              sequence="55"/>
+</odoo>

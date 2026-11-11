@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fermentation_process_form_inherit_qc_approval" model="ir.ui.view">
+        <field name="name">fermentation.process.form.inherit.qc.approval</field>
+        <field name="model">fermentation.process</field>
+        <field name="inherit_id" ref="l4e_fermentation_process.view_fermentation_process_form"/>
+        <field name="arch" type="xml">
+            <!-- Header Approval Buttons -->
+            <xpath expr="//header//button[@name='action_ready_for_bottling']" position="before">
+                <button name="action_request_qc_approval"
+                        string="Request QC Approval"
+                        type="object"
+                        class="btn-warning"
+                        invisible="approval_state != 'to_request'"/>
+                <button name="action_approve_qc"
+                        string="Approve QC Deviation"
+                        type="object"
+                        class="btn-success"
+                        groups="l4e_qc_approval.group_qc_manager"
+                        invisible="approval_state != 'pending'"/>
+                <button name="action_reject_qc"
+                        string="Reject QC Deviation"
+                        type="object"
+                        class="btn-danger"
+                        groups="l4e_qc_approval.group_qc_manager"
+                        invisible="approval_state != 'pending'"/>
+                <button name="action_reset_qc_approval"
+                        string="Reset Approval"
+                        type="object"
+                        class="btn-secondary"
+                        groups="l4e_qc_approval.group_qc_manager"
+                        invisible="approval_state not in ('approved', 'rejected')"/>
+            </xpath>
+
+            <!-- Show Approval State Badge in Header Group -->
+            <xpath expr="//field[@name='qc_status']" position="after">
+                <field name="approval_state" string="Approval Status" widget="badge"
+                       decoration-success="approval_state == 'approved'"
+                       decoration-warning="approval_state in ('to_request', 'pending')"
+                       decoration-danger="approval_state == 'rejected'"
+                       invisible="approval_state == 'none'"/>
+                <field name="has_qc_deviation" invisible="1"/>
+            </xpath>
+
+            <!-- Upgrade QC Line Items to use Test Parameter Dropdown and Limits -->
+            <xpath expr="//field[@name='qc_line_ids']//field[@name='description']" position="before">
+                <field name="test_id" options="{'no_create': True}" placeholder="Select QC test..."/>
+                <field name="display_range" string="Target Limits" readonly="1" optional="show"/>
+                <field name="measured_value" string="Measured Reading"/>
+                <field name="is_out_of_range" invisible="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

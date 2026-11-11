@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Standard Kombucha Quality Control Parameters -->
+    <record id="qc_param_ph" model="qc.test.parameter">
+        <field name="name">pH Level</field>
+        <field name="sequence">10</field>
+        <field name="test_type">numeric</field>
+        <field name="min_value">2.80</field>
+        <field name="max_value">3.50</field>
+        <field name="unit">pH</field>
+        <field name="applies_to">all</field>
+        <field name="description">Standard acceptable pH range for Kombucha fermentation and finished product safety.</field>
+    </record>
+
+    <record id="qc_param_brix" model="qc.test.parameter">
+        <field name="name">Sugar / Brix</field>
+        <field name="sequence">20</field>
+        <field name="test_type">numeric</field>
+        <field name="min_value">4.00</field>
+        <field name="max_value">6.50</field>
+        <field name="unit">°Bx</field>
+        <field name="applies_to">all</field>
+        <field name="description">Dissolved sugar content measured by refractometer.</field>
+    </record>
+
+    <record id="qc_param_temp" model="qc.test.parameter">
+        <field name="name">Brew Temperature</field>
+        <field name="sequence">30</field>
+        <field name="test_type">numeric</field>
+        <field name="min_value">20.00</field>
+        <field name="max_value">30.00</field>
+        <field name="unit">°C</field>
+        <field name="applies_to">brewing</field>
+        <field name="description">Temperature of brewed tea liquid before inoculation.</field>
+    </record>
+
+    <record id="qc_param_taste" model="qc.test.parameter">
+        <field name="name">Sensory Taste</field>
+        <field name="sequence">40</field>
+        <field name="test_type">qualitative</field>
+        <field name="applies_to">all</field>
+        <field name="description">Sensory taste test checking for balanced sweetness, acidity, and absence of off-flavors.</field>
+    </record>
+
+    <record id="qc_param_color" model="qc.test.parameter">
+        <field name="name">Color &amp; Clarity</field>
+        <field name="sequence">50</field>
+        <field name="test_type">qualitative</field>
+        <field name="applies_to">all</field>
+        <field name="description">Visual inspection for characteristic color, brightness, and absence of foreign particles.</field>
+    </record>
+
+    <record id="qc_param_alcohol" model="qc.test.parameter">
+        <field name="name">Alcohol %</field>
+        <field name="sequence">60</field>
+        <field name="test_type">numeric</field>
+        <field name="min_value">0.00</field>
+        <field name="max_value">0.50</field>
+        <field name="unit">%</field>
+        <field name="applies_to">fermentation</field>
+        <field name="description">Alcohol percentage by volume (must remain below 0.5% for non-alcoholic beverage compliance).</field>
+    </record>
+</odoo>

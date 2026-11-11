@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- QC Test Parameter List View -->
+    <record id="view_qc_test_parameter_list" model="ir.ui.view">
+        <field name="name">qc.test.parameter.list</field>
+        <field name="model">qc.test.parameter</field>
+        <field name="arch" type="xml">
+            <list string="QC Tests / Approval Parameters">
+                <field name="sequence" widget="handle"/>
+                <field name="name" string="Test Name"/>
+                <field name="test_type" widget="badge"
+                       decoration-info="test_type == 'numeric'"
+                       decoration-success="test_type == 'qualitative'"/>
+                <field name="display_range" string="Acceptable Limits"/>
+                <field name="applies_to" widget="badge"
+                       decoration-primary="applies_to == 'all'"
+                       decoration-warning="applies_to == 'brewing'"
+                       decoration-info="applies_to == 'fermentation'"
+                       decoration-success="applies_to == 'mixing'"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- QC Test Parameter Form View -->
+    <record id="view_qc_test_parameter_form" model="ir.ui.view">
+        <field name="name">qc.test.parameter.form</field>
+        <field name="model">qc.test.parameter</field>
+        <field name="arch" type="xml">
+            <form string="QC Test Parameter">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" string="Test Name"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. pH Level, Sugar / Brix, Temperature..."/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Configuration">
+                            <field name="test_type" widget="radio"/>
+                            <field name="applies_to"/>
+                            <field name="sequence"/>
+                        </group>
+                        <group string="Tolerance Thresholds" invisible="test_type != 'numeric'">
+                            <field name="min_value"/>
+                            <field name="max_value"/>
+                            <field name="unit" placeholder="e.g. pH, °Bx, °C, %"/>
+                            <field name="display_range" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Instructions &amp; SOP" name="description">
+                            <field name="description" placeholder="Enter standard operating procedure, equipment requirements, or testing method..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- QC Test Parameter Search View -->
+    <record id="view_qc_test_parameter_search" model="ir.ui.view">
+        <field name="name">qc.test.parameter.search</field>
+        <field name="model">qc.test.parameter</field>
+        <field name="arch" type="xml">
+            <search string="Search QC Parameters">
+                <field name="name" string="Test Name"/>
+                <filter name="filter_numeric" string="Numeric Range" domain="[('test_type', '=', 'numeric')]"/>
+                <filter name="filter_qualitative" string="Sensory / Qualitative" domain="[('test_type', '=', 'qualitative')]"/>
+                <separator/>
+                <filter name="filter_brewing" string="Brewing Tea" domain="[('applies_to', 'in', ('all', 'brewing'))]"/>
+                <filter name="filter_fermentation" string="Fermentation" domain="[('applies_to', 'in', ('all', 'fermentation'))]"/>
+                <filter name="filter_mixing" string="Mixing" domain="[('applies_to', 'in', ('all', 'mixing'))]"/>
+                <separator/>
+                <filter name="filter_archived" string="Archived" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_applies_to" string="Applies To" context="{'group_by': 'applies_to'}"/>
+                    <filter name="group_test_type" string="Test Type" context="{'group_by': 'test_type'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- QC Test Parameter Window Action -->
+    <record id="action_qc_test_parameter" model="ir.actions.act_window">
+        <field name="name">QC Approval</field>
+        <field name="res_model">qc.test.parameter</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_qc_test_parameter_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Define your quality check tests and tolerance limits!
+            </p>
+            <p>
+                Configure parameters like pH, Brix, Temperature, and Sensory standards. When operators record readings in Brewing, Fermentation, or Mixing, any values outside these thresholds will automatically require QC Manager sign-off.
+            </p>
+        </field>
+    </record>
+</odoo>
