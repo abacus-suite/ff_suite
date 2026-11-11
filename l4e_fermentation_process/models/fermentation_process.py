@@ -219,10 +219,10 @@ class FermentationProcess(models.Model):
             if not rec.qc_line_ids:
                 rec.qc_status = False
                 continue
-            statuses = [line.status for line in rec.qc_line_ids if line.status]
-            if any(st == 'fail' for st in statuses):
+            all_statuses = [line.status for line in rec.qc_line_ids]
+            if any(st == 'fail' for st in all_statuses):
                 rec.qc_status = 'fail'
-            elif statuses and all(st == 'pass' for st in statuses):
+            elif all(st == 'pass' for st in all_statuses):
                 rec.qc_status = 'pass'
             else:
                 rec.qc_status = False
@@ -347,6 +347,8 @@ class FermentationProcess(models.Model):
         for rec in self:
             if not rec.qc_line_ids:
                 raise UserError(_("Please add at least one Quality Check line before marking QC as done."))
+            if any(not line.status for line in rec.qc_line_ids):
+                raise UserError(_("Please select Pass or Fail for all Quality Check lines before marking QC as done."))
             rec.write({
                 'state': 'qc_done',
                 'qc_date': fields.Date.context_today(rec),

@@ -1,19 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Master List View (Strictly: SI No, Preparation Date, Quantity, QC Status) -->
+    <!-- Master List View -->
     <record id="view_brewing_tea_list" model="ir.ui.view">
         <field name="name">brewing.tea.list</field>
         <field name="model">brewing.tea</field>
         <field name="arch" type="xml">
-            <list string="Brewing Tea"
+            <list string="Brewing Tea Records"
                   decoration-success="qc_status == 'pass'"
                   decoration-danger="qc_status == 'fail'">
                 <field name="name" string="SI No"/>
-                <field name="preparation_date" string="Preparation Date"/>
-                <field name="quantity" string="Quantity" sum="Total Quantity"/>
-                <field name="qc_status" string="QC Status" widget="badge"
+                <field name="preparation_date"/>
+                <field name="quantity"/>
+                <field name="qc_status" widget="badge"
                        decoration-success="qc_status == 'pass'"
                        decoration-danger="qc_status == 'fail'"/>
+                <field name="user_id" widget="many2one_avatar_user"/>
             </list>
         </field>
     </record>
@@ -39,6 +40,9 @@
                         <group>
                             <field name="user_id" widget="many2one_avatar_user"/>
                             <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="qc_status" widget="badge"
+                                   decoration-success="qc_status == 'pass'"
+                                   decoration-danger="qc_status == 'fail'"/>
                         </group>
                     </group>
                     <notebook>
@@ -69,14 +73,14 @@
             <search string="Search Brewing Tea">
                 <field name="name" string="SI No"/>
                 <field name="preparation_date"/>
+                <field name="user_id"/>
                 <separator/>
-                <filter name="filter_pass" string="QC Pass" domain="[('qc_status', '=', 'pass')]"/>
-                <filter name="filter_fail" string="QC Fail" domain="[('qc_status', '=', 'fail')]"/>
-                <separator/>
-                <filter name="filter_prep_date" string="Preparation Date" date="preparation_date"/>
+                <filter name="filter_qc_pass" string="QC Pass" domain="[('qc_status', '=', 'pass')]"/>
+                <filter name="filter_qc_fail" string="QC Fail" domain="[('qc_status', '=', 'fail')]"/>
                 <group>
-                    <filter name="group_prep_date" string="Preparation Date" context="{'group_by': 'preparation_date'}"/>
-                    <filter name="group_qc_status" string="QC Status" context="{'group_by': 'qc_status'}"/>
+                    <filter name="group_preparation_date" string="Preparation Date" context="{'group_by': 'preparation_date'}"/>
+                    <filter name="group_user" string="Responsible" context="{'group_by': 'user_id'}"/>
+                    <filter name="group_qc_status" string="Overall QC" context="{'group_by': 'qc_status'}"/>
                 </group>
             </search>
         </field>

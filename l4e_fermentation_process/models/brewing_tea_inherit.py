@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from odoo import models, fields, api, _
+from odoo.exceptions import UserError
 
 
 class BrewingTea(models.Model):
@@ -37,6 +38,8 @@ class BrewingTea(models.Model):
 
     def action_transfer_to_fermentation(self):
         self.ensure_one()
+        if self.qc_status != 'pass':
+            raise UserError(_("Cannot transfer to fermentation: Quality Check has not passed for batch %s.", self.name))
         return {
             'name': _('Transfer to Fermentation Tank'),
             'type': 'ir.actions.act_window',

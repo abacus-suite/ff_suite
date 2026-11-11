@@ -43,7 +43,6 @@ class BrewingTeaQcLine(models.Model):
         ],
         string='Pass / Fail',
         required=True,
-        default='pass',
         help="Select Pass or Fail for this quality check parameter.",
     )
 

@@ -10,7 +10,8 @@
                     <button name="action_transfer_to_fermentation"
                             string="Transfer to Fermentation"
                             type="object"
-                            class="btn-primary"/>
+                            class="btn-primary"
+                            invisible="qc_status != 'pass'"/>
                 </header>
             </xpath>
             <xpath expr="//div[hasclass('oe_title')]" position="before">

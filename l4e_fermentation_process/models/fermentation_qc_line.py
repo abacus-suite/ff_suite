@@ -33,7 +33,6 @@ class FermentationQcLine(models.Model):
         ],
         string='Pass / Fail',
         required=True,
-        default='pass',
         help="Select Pass or Fail for this quality check parameter.",
     )
     remarks = fields.Char(

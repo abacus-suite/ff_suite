@@ -115,7 +115,7 @@
                                     <field name="sl_no" string="SI No"/>
                                     <field name="description" string="Description"
                                            placeholder="e.g. pH, Sugar / Brix, Acidity, Taste, Alcohol %"/>
-                                    <field name="status" string="Pass / Fail" widget="badge"
+                                    <field name="status" string="Pass / Fail"
                                            decoration-success="status == 'pass'"
                                            decoration-danger="status == 'fail'"/>
                                     <field name="remarks" string="Remarks / Value"

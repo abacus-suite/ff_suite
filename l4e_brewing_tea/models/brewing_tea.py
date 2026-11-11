@@ -78,10 +78,10 @@ class BrewingTea(models.Model):
             if not rec.qc_line_ids:
                 rec.qc_status = False
                 continue
-            statuses = [line.status for line in rec.qc_line_ids if line.status]
-            if any(st == 'fail' for st in statuses):
+            all_statuses = [line.status for line in rec.qc_line_ids]
+            if any(st == 'fail' for st in all_statuses):
                 rec.qc_status = 'fail'
-            elif statuses and all(st == 'pass' for st in statuses):
+            elif all(st == 'pass' for st in all_statuses):
                 rec.qc_status = 'pass'
             else:
                 rec.qc_status = False

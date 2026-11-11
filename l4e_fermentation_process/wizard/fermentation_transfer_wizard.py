@@ -42,6 +42,9 @@ class FermentationTransferWizard(models.TransientModel):
 
     def action_confirm_transfer(self):
         self.ensure_one()
+        if self.brewing_id and self.brewing_id.qc_status != 'pass':
+            raise UserError(_("Cannot transfer to fermentation: Brewing Tea Quality Check has not passed for batch %s.", self.brewing_id.name))
+
         if not self.tank_id:
             raise UserError(_("Please select a fermentation tank."))
 
