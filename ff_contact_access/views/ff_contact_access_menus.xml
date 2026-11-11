@@ -3,9 +3,9 @@
     <menuitem id="menu_ff_contact_access_rules" name="Contact Access Rules" parent="ff_base.menu_ff_masters_contacts"
               action="ff_contact_access_rule_action" sequence="30" groups="ff_base.group_ff_admin"/>
     <menuitem id="menu_ff_territories" name="City / Town" parent="ff_base.menu_ff_masters_locations"
-              action="ff_territory_action" sequence="10" groups="ff_base.group_ff_admin"/>
+              action="ff_territory_action" sequence="30" groups="ff_base.group_ff_admin"/>
     <menuitem id="menu_ff_areas" name="Areas" parent="ff_base.menu_ff_masters_locations"
-              action="ff_area_action" sequence="15" groups="ff_base.group_ff_admin"/>
+              action="ff_area_action" sequence="40" groups="ff_base.group_ff_admin"/>
     <menuitem id="menu_ff_contact_access_requests" name="Access Requests" parent="ff_base.menu_ff_group_sales"
               action="ff_contact_access_request_action" sequence="40" groups="ff_base.group_ff_manager"/>
     <menuitem id="menu_ff_contact_access_assign" name="Assign Access" parent="ff_base.menu_ff_group_sales"

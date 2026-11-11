@@ -45,6 +45,20 @@ class FfTerritory(models.Model):
             FROM ff_district d
             WHERE t.district_id = d.id AND t.team_id IS NULL AND d.team_id IS NOT NULL;
         """)
+        cr.execute("""
+            UPDATE ir_ui_menu m
+            SET sequence = data.seq
+            FROM (
+                VALUES 
+                    ('ff_base', 'menu_ff_teams', 10),
+                    ('ff_clients', 'menu_ff_districts', 20),
+                    ('ff_contact_access', 'menu_ff_territories', 30),
+                    ('ff_contact_access', 'menu_ff_areas', 40),
+                    ('ff_beat', 'menu_ff_beats', 50)
+            ) AS data(module, name, seq)
+            JOIN ir_model_data d ON d.module = data.module AND d.name = data.name AND d.model = 'ir.ui.menu'
+            WHERE m.id = d.res_id;
+        """)
 
     @api.depends('beat_ids')
     def _compute_beat_count(self):

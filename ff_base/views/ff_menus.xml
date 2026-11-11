@@ -26,7 +26,7 @@
     <menuitem id="menu_ff_masters_others" name="Others" parent="ff_base.menu_ff_masters" sequence="60"/>
 
     <menuitem id="menu_ff_teams" name="Region" parent="ff_base.menu_ff_masters_locations"
-              action="ff_team_action" sequence="5"/>
+              action="ff_team_action" sequence="10"/>
     <menuitem id="menu_ff_config" name="Configuration" parent="menu_ff_root" sequence="100"
               groups="group_ff_admin"/>
     <menuitem id="menu_ff_settings" name="Settings" parent="menu_ff_config"
