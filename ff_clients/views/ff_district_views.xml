@@ -6,8 +6,8 @@
         <field name="arch" type="xml">
             <list editable="bottom">
                 <field name="name"/>
-                <field name="code" optional="show"/>
-                <field name="team_id" string="Region" optional="show" options="{'no_create': True}"/>
+                <field name="code" optional="show" width="160px"/>
+                <field name="team_id" string="Region" optional="show" options="{'no_create': True}" width="250px"/>
                 <field name="state_id"/>
                 <field name="country_id"/>
                 <field name="active" widget="boolean_toggle" optional="hide"/>
