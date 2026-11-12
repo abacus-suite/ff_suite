@@ -382,8 +382,9 @@ class FfBeatApp(models.Model):
             'weekdays': [int(d) for d in (self.ff_weekdays or '').split(',') if d],
             'date': self.ff_one_time_date.isoformat() if self.ff_one_time_date else None,
             'plan_dates': [d for d in (self.ff_plan_dates or '').split(',') if d],
-            'territory_id': self.territory_id.id if 'territory_id' in self._fields and self.territory_id else None,
-            'territory': self.territory_id.name if 'territory_id' in self._fields and self.territory_id else None,
+            # The app's Territory is the District / Territory master.
+            'territory_id': self.district_id.id or None,
+            'territory': self.district_id.name or None,
             'delete_requested': bool(self.ff_delete_requested),
             'delete_note': self.ff_delete_note or None,
             'mine': self.ff_created_by_employee_id.id or None,
