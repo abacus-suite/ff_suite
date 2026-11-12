@@ -6,7 +6,7 @@
         <field name="inherit_id" ref="ff_base.hr_employee_view_form_ff"/>
         <field name="arch" type="xml">
             <xpath expr="//group[@name='ff_org']" position="inside">
-                <field name="ff_route_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                <field name="ff_route_ids" widget="many2many_tags" options="{'no_create': True, 'color_field': 'ff_color'}"/>
                 <field name="ff_routes_per_day"/>
                 <field name="ff_beat_at_checkin"/>
             </xpath>

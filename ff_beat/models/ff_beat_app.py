@@ -28,6 +28,8 @@ def beats_need_approval(env):
 class FfBeatApp(models.Model):
     _inherit = 'ff.beat'
 
+    ff_color = fields.Integer(string='Colour', compute='_compute_ff_color',
+                              help='Orange while the beat waits for approval, green once approved.')
     ff_approval_state = fields.Selection(
         APPROVAL_STATES, string='Approval', default='approved', required=True, index=True, tracking=True,
         help='A route drawn in the app waits here when the office has asked to see new ones first.')
@@ -358,6 +360,11 @@ class FfBeatApp(models.Model):
                 employee=manager,
                 record=self)
 
+    @api.depends('ff_approval_state')
+    def _compute_ff_color(self):
+        for beat in self:
+            beat.ff_color = 2 if beat.ff_approval_state == 'pending' else 10 if beat.ff_approval_state == 'approved' else 0
+
     def ff_expiry(self):
         """The last day a beat is for, or False when it goes on: only a one-time beat has one (its date). A recurrent
         beat never expires, whether it repeats on weekdays or is planned on days of its own."""
@@ -510,6 +517,8 @@ class FfBeatApp(models.Model):
             if plans and all(plan.status == 'done' for plan in plans):
                 finished |= beat
         # Archived, so the name and the code can be used for a new beat.
+        # An expired one-time beat also leaves the allowed beats of the people it was given to.
+        finished.sudo().write({'employee_ids': [(5, 0, 0)]})
         finished.write({'active': False})
 
     def _ff_make_weekly_template(self):
