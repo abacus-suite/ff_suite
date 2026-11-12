@@ -14,8 +14,8 @@ class FfTravelRate(models.Model):
                              required=True, default='designation')
     designation_id = fields.Many2one('ff.designation', string='Designation')
     employee_id = fields.Many2one('hr.employee', string='Employee')
-    assigned_rate = fields.Monetary(string='Assigned Route (per km)', required=True)
-    other_rate = fields.Monetary(string='Other Route (per km)', required=True,
+    assigned_rate = fields.Monetary(string='Assigned Beat (per km)', required=True)
+    other_rate = fields.Monetary(string='Other Beat (per km)', required=True,
                                  help='A route that is not assigned: given by the manager or through contact access.')
     company_id = fields.Many2one('res.company', required=True, default=lambda self: self.env.company)
     currency_id = fields.Many2one(related='company_id.currency_id')

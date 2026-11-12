@@ -8,7 +8,7 @@ class ResPartner(models.Model):
                                              compute='_compute_ff_primary_employee', store=True,
                                              help='First employee assigned to this contact; used to credit '
                                                   'documents created for it.')
-    ff_primary_route_id = fields.Many2one('ff.beat', string='Main Route',
+    ff_primary_route_id = fields.Many2one('ff.beat', string='Main Beat',
                                           compute='_compute_ff_primary_employee', store=True)
 
     @api.depends('ff_employee_ids', 'ff_beat_line_ids.beat_id')

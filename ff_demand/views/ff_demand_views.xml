@@ -129,7 +129,7 @@
                 <filter name="date" string="Date" date="date"/>
                 <group>
                     <filter name="group_distributor" string="Distributor" context="{'group_by': 'distributor_id'}"/>
-                    <filter name="group_route" string="Route" context="{'group_by': 'route_id'}"/>
+                    <filter name="group_route" string="Beat" context="{'group_by': 'route_id'}"/>
                     <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
                     <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
                     <filter name="group_delivery" string="Delivery Status" context="{'group_by': 'delivery_status_id'}"/>

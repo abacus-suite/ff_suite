@@ -83,7 +83,7 @@ class FfLeaderReports(models.AbstractModel):
             'summary': ('Summary report', 'Overall, or by employee, day, week, month, customer, product or route',
                         'summarize', 'hr.attendance', self._summary_columns(sale_word), self._summary),
             'route_plans': ('Route plans', 'Planned routes per person and how they went', 'alt_route', 'ff.beat.plan', [
-                col('date', 'Date', DATE), col('employee', 'Employee'), col('route', 'Route'),
+                col('date', 'Date', DATE), col('employee', 'Employee'), col('route', 'Beat'),
                 col('planned', 'Planned', NUMBER, True), col('visited', 'Visited', NUMBER, True),
                 col('missed', 'Missed', NUMBER, True), col('completion', 'Done %', NUMBER),
                 col('km', 'Actual km', KM, True)], self._route_plans),
@@ -403,7 +403,7 @@ class FfLeaderReports(models.AbstractModel):
             return [col('product', 'Product'), col('sku', 'SKU'), col('quantity', 'Quantity', NUMBER, True),
                     col('outlets', 'Outlets', NUMBER), col('amount', 'Value', MONEY, True)]
         if by == 'route':
-            return [col('route', 'Route'), col('days', 'Days planned', NUMBER, True),
+            return [col('route', 'Beat'), col('days', 'Days planned', NUMBER, True),
                     col('planned', 'Planned', NUMBER, True), col('visited', 'Visited', NUMBER, True),
                     col('missed', 'Missed', NUMBER, True), col('completion', 'Done %', NUMBER),
                     col('km', 'Actual km', KM, True)]

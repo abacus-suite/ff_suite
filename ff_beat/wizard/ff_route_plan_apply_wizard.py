@@ -8,7 +8,7 @@ from ..models.ff_route_plan import month_start
 
 class FfRoutePlanApplyWizard(models.TransientModel):
     _name = 'ff.route.plan.apply.wizard'
-    _description = 'Apply Route Plan Template'
+    _description = 'Apply Beat Plan Template'
 
     template_id = fields.Many2one('ff.route.plan.template', string='Template', required=True)
     employee_ids = fields.Many2many('hr.employee', string='Employees', required=True)

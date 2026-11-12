@@ -4,14 +4,14 @@ from odoo import api, fields, models
 class FfRouteType(models.Model):
     """What a department calls its routes: Beat, Patch, Route, Territory..."""
     _name = 'ff.route.type'
-    _description = 'Route Type'
+    _description = 'Beat Type'
     _order = 'sequence, name'
 
     name = fields.Char(required=True, translate=True, help='Shown in the app, e.g. "Beat" or "Patch".')
     department_ids = fields.Many2many('hr.department', string='Departments',
                                       help='Departments that use this name. Leave empty for everyone.')
     sequence = fields.Integer(default=10)
-    route_count = fields.Integer(string='Routes', compute='_compute_route_count')
+    route_count = fields.Integer(string='Beats', compute='_compute_route_count')
     company_id = fields.Many2one('res.company', required=True, default=lambda self: self.env.company)
     active = fields.Boolean(default=True)
 

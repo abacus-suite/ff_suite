@@ -4,7 +4,7 @@ from odoo import api, fields, models
 class FfVisit(models.Model):
     _inherit = 'ff.visit'
 
-    beat_plan_id = fields.Many2one('ff.beat.plan', string='Route Plan', index=True, ondelete='set null')
+    beat_plan_id = fields.Many2one('ff.beat.plan', string='Beat Plan', index=True, ondelete='set null')
     is_planned = fields.Boolean(string='Planned Visit', compute='_compute_is_planned', store=True)
 
     @api.depends('beat_plan_id.customer_line_ids.partner_id', 'beat_plan_id.customer_line_ids.selected', 'partner_id')

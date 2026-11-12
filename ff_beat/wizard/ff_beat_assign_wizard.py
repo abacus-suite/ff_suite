@@ -6,9 +6,9 @@ from odoo.exceptions import ValidationError
 
 class FfBeatAssignWizard(models.TransientModel):
     _name = 'ff.beat.assign.wizard'
-    _description = 'Plan Route for Employees'
+    _description = 'Plan Beat for Employees'
 
-    beat_id = fields.Many2one('ff.beat', string='Route', required=True)
+    beat_id = fields.Many2one('ff.beat', string='Beat', required=True)
     employee_ids = fields.Many2many('hr.employee', string='Employees', required=True,
                                     compute='_compute_employee_ids', store=True, readonly=False)
     date_from = fields.Date(required=True, default=fields.Date.context_today)
@@ -17,7 +17,7 @@ class FfBeatAssignWizard(models.TransientModel):
                                    help="Uses each employee's shift week offs (Sunday when no shift).")
     overwrite = fields.Boolean(string='Replace Existing Plans',
                                help='Replace plans on those days that have no visits yet.')
-    assign_route = fields.Boolean(string='Add Route to Employees', default=True,
+    assign_route = fields.Boolean(string='Add Beat to Employees', default=True,
                                   help="Also add this route to the employees' Assigned Routes.")
 
     @api.depends('beat_id')

@@ -43,7 +43,7 @@ class FfDemand(models.Model):
     distributor_id = fields.Many2one('res.partner', string='Distributor', index=True, tracking=True,
                                      domain=[('ff_is_distributor', '=', True)],
                                      help='Who should supply this outlet. Suggested from the outlet or its route.')
-    route_id = fields.Many2one('ff.beat', string='Route', index=True)
+    route_id = fields.Many2one('ff.beat', string='Beat', index=True)
     district_id = fields.Many2one(related='partner_id.ff_district_id', store=True)
     visit_id = fields.Many2one('ff.visit', string='Visit', ondelete='set null')
     date = fields.Datetime(required=True, default=fields.Datetime.now, index=True, tracking=True)

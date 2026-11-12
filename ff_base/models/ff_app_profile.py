@@ -15,7 +15,7 @@ class FfAppProfile(models.Model):
                                       help='Departments using this profile. Leave empty for the default profile.')
     feature_attendance = fields.Boolean(string='Attendance', default=True)
     feature_tracking = fields.Boolean(string='Location Tracking', default=True)
-    feature_routes = fields.Boolean(string='Routes (Beat / Patch)', default=True)
+    feature_routes = fields.Boolean(string='Beats (Patch)', default=True)
     feature_visits = fields.Boolean(string='Visits', default=True)
     feature_orders = fields.Boolean(string='Orders', default=True)
     feature_forms = fields.Boolean(string='Forms', default=True)

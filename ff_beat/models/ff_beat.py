@@ -7,13 +7,13 @@ from odoo.addons.ff_base.tools import haversine_m
 class FfBeat(models.Model):
     """A route of clients (called Beat, Patch... depending on the route type)."""
     _name = 'ff.beat'
-    _description = 'Route (Beat / Patch)'
+    _description = 'Beat (Patch)'
     _inherit = ['mail.thread']
     _order = 'name'
 
     name = fields.Char(required=True, tracking=True)
     code = fields.Char()
-    route_type_id = fields.Many2one('ff.route.type', string='Route Type', index=True, tracking=True)
+    route_type_id = fields.Many2one('ff.route.type', string='Beat Type', index=True, tracking=True)
     team_id = fields.Many2one('ff.team', string='Region', tracking=True)
     country_id = fields.Many2one('res.country', string='Country')
     state_id = fields.Many2one('res.country.state', string='State', domain="[('country_id', '=?', country_id)]")
@@ -23,7 +23,7 @@ class FfBeat(models.Model):
     employee_ids = fields.Many2many('hr.employee', 'ff_beat_employee_rel', 'beat_id', 'employee_id',
                                     string='Assigned Employees')
     client_count = fields.Integer(compute='_compute_route', store=True)
-    planned_km = fields.Float(string='Route Length (km)', digits=(10, 1), compute='_compute_route', store=True,
+    planned_km = fields.Float(string='Beat Length (km)', digits=(10, 1), compute='_compute_route', store=True,
                               help='Straight-line distance through the clients in order.')
     allowance_km = fields.Float(string='Allowance km per Day', digits=(10, 1),
                                 help='Fixed km paid for a day worked on this route (route-based allowance policies).')
@@ -73,7 +73,7 @@ class FfBeat(models.Model):
 
 class FfBeatLine(models.Model):
     _name = 'ff.beat.line'
-    _description = 'Route Client'
+    _description = 'Beat Client'
     _order = 'sequence, id'
 
     beat_id = fields.Many2one('ff.beat', required=True, index=True, ondelete='cascade')

@@ -97,7 +97,7 @@
         <field name="name">ff.beat.plan.calendar</field>
         <field name="model">ff.beat.plan</field>
         <field name="arch" type="xml">
-            <calendar string="Route Plans" date_start="date" color="employee_id" mode="month" quick_create="0">
+            <calendar string="Beat Plans" date_start="date" color="employee_id" mode="month" quick_create="0">
                 <field name="employee_id" filters="1"/>
                 <field name="beat_id"/>
                 <field name="completion_pct"/>
@@ -109,7 +109,7 @@
         <field name="name">ff.beat.plan.pivot</field>
         <field name="model">ff.beat.plan</field>
         <field name="arch" type="xml">
-            <pivot string="Route Completion">
+            <pivot string="Beat Completion">
                 <field name="employee_id" type="row"/>
                 <field name="date" interval="week" type="col"/>
                 <field name="planned_count" type="measure"/>
@@ -134,7 +134,7 @@
                 <filter name="date" string="Date" date="date"/>
                 <group>
                     <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
-                    <filter name="group_beat" string="Route" context="{'group_by': 'beat_id'}"/>
+                    <filter name="group_beat" string="Beat" context="{'group_by': 'beat_id'}"/>
                     <filter name="group_date" string="Day" context="{'group_by': 'date:day'}"/>
                 </group>
             </search>

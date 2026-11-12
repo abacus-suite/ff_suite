@@ -15,13 +15,13 @@ WEEKS = [
 class FfRoutePlanTemplate(models.Model):
     """Reusable weekly pattern, e.g. Mon: Route A, Tue: Route B (optionally per week of the month)."""
     _name = 'ff.route.plan.template'
-    _description = 'Route Plan Template'
+    _description = 'Beat Plan Template'
     _order = 'name'
 
     name = fields.Char(required=True)
     employee_id = fields.Many2one('hr.employee', string='Suggested Employee',
                                   help='Optional: pre-selected when applying. The template can be used for anyone.')
-    line_ids = fields.One2many('ff.route.plan.template.line', 'template_id', string='Routes', copy=True)
+    line_ids = fields.One2many('ff.route.plan.template.line', 'template_id', string='Beats', copy=True)
     note = fields.Text()
     company_id = fields.Many2one('res.company', required=True, default=lambda self: self.env.company)
     active = fields.Boolean(default=True)
@@ -29,14 +29,14 @@ class FfRoutePlanTemplate(models.Model):
 
 class FfRoutePlanTemplateLine(models.Model):
     _name = 'ff.route.plan.template.line'
-    _description = 'Route Plan Template Line'
+    _description = 'Beat Plan Template Line'
     _order = 'week, weekday, sequence, id'
 
     template_id = fields.Many2one('ff.route.plan.template', required=True, index=True, ondelete='cascade')
     sequence = fields.Integer(default=10)
     week = fields.Selection(WEEKS, required=True, default='all')
     weekday = fields.Selection(WEEKDAYS, required=True, default='0')
-    beat_id = fields.Many2one('ff.beat', string='Route', required=True)
+    beat_id = fields.Many2one('ff.beat', string='Beat', required=True)
 
     def _ff_matches(self, day):
         self.ensure_one()

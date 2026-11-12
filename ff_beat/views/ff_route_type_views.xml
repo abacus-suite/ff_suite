@@ -15,7 +15,7 @@
     </record>
 
     <record id="ff_route_type_action" model="ir.actions.act_window">
-        <field name="name">Route Types</field>
+        <field name="name">Beat Types</field>
         <field name="res_model">ff.route.type</field>
         <field name="view_mode">list</field>
         <field name="help" type="html">

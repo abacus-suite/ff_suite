@@ -5,11 +5,11 @@ class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
     ff_route_ids = fields.Many2many('ff.beat', 'ff_beat_employee_rel', 'employee_id', 'beat_id',
-                                    string='Assigned Routes',
+                                    string='Assigned Beats',
                                     help='Beats / patches this employee works. Plans can only use these routes.')
     ff_routes_per_day = fields.Selection(
         [('single', 'One route per day'), ('multiple', 'Several routes per day')],
-        string='Routes per Day', default='single', required=True)
+        string='Beats per Day', default='single', required=True)
 
     ff_beat_at_checkin = fields.Boolean(
         string='Choose Beat at Check-in', default=True,

@@ -5,11 +5,11 @@ from odoo.exceptions import ValidationError
 class FfRouteDistance(models.Model):
     """Agreed travel distance between two routes (used by route-based allowances)."""
     _name = 'ff.route.distance'
-    _description = 'Route to Route Distance'
+    _description = 'Beat to Beat Distance'
     _order = 'from_beat_id, to_beat_id'
 
-    from_beat_id = fields.Many2one('ff.beat', string='From Route', required=True, index=True, ondelete='cascade')
-    to_beat_id = fields.Many2one('ff.beat', string='To Route', required=True, index=True, ondelete='cascade')
+    from_beat_id = fields.Many2one('ff.beat', string='From Beat', required=True, index=True, ondelete='cascade')
+    to_beat_id = fields.Many2one('ff.beat', string='To Beat', required=True, index=True, ondelete='cascade')
     distance_km = fields.Float(string='Distance (km)', digits=(10, 1), required=True)
 
     _pair_uniq = models.Constraint('UNIQUE(from_beat_id, to_beat_id)', 'This route pair already has a distance.')

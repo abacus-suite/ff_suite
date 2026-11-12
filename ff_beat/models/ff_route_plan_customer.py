@@ -19,7 +19,7 @@ class FfRoutePlanCustomer(models.Model):
     plan_id = fields.Many2one(related='day_id.plan_id', store=True, index=True, string='Monthly Plan')
     employee_id = fields.Many2one(related='day_id.employee_id', store=True, index=True)
     date = fields.Date(related='day_id.date', store=True, index=True)
-    beat_id = fields.Many2one(related='day_id.beat_id', store=True, string='Route')
+    beat_id = fields.Many2one(related='day_id.beat_id', store=True, string='Beat')
     sequence = fields.Integer(default=10)
     partner_id = fields.Many2one('res.partner', string='Customer', required=True, index=True)
     partner_category_id = fields.Many2one(related='partner_id.ff_category_id', string='Category')

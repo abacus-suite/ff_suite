@@ -24,7 +24,7 @@
             </field>
             <xpath expr="//search/group" position="inside">
                 <filter name="ff_group_employee" string="Field Employee" context="{'group_by': 'ff_employee_id'}"/>
-                <filter name="ff_group_route" string="Route" context="{'group_by': 'ff_route_id'}"/>
+                <filter name="ff_group_route" string="Beat" context="{'group_by': 'ff_route_id'}"/>
             </xpath>
         </field>
     </record>

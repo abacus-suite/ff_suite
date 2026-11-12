@@ -171,7 +171,7 @@
     </record>
 
     <record id="ff_route_plan_action" model="ir.actions.act_window">
-        <field name="name">Monthly Route Plans</field>
+        <field name="name">Monthly Beat Plans</field>
         <field name="res_model">ff.route.plan</field>
         <field name="view_mode">list,form,pivot</field>
         <field name="context">{'search_default_this_year': 1, 'search_default_group_year': 1, 'search_default_group_month': 1}</field>
@@ -247,7 +247,7 @@
                 <group>
                     <filter name="group_status" string="Status" context="{'group_by': 'status'}"/>
                     <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
-                    <filter name="group_route" string="Route" context="{'group_by': 'beat_id'}"/>
+                    <filter name="group_route" string="Beat" context="{'group_by': 'beat_id'}"/>
                     <filter name="group_date" string="Day" context="{'group_by': 'date:day'}"/>
                 </group>
             </search>

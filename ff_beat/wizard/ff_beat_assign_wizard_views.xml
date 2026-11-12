@@ -27,7 +27,7 @@
     </record>
 
     <record id="ff_beat_assign_wizard_action" model="ir.actions.act_window">
-        <field name="name">Plan Routes</field>
+        <field name="name">Plan Beats</field>
         <field name="res_model">ff.beat.assign.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>

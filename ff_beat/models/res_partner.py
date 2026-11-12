@@ -4,8 +4,8 @@ from odoo import api, fields, models
 class ResPartner(models.Model):
     _inherit = 'res.partner'
 
-    ff_beat_line_ids = fields.One2many('ff.beat.line', 'partner_id', string='Route Lines')
-    ff_route_ids = fields.Many2many('ff.beat', string='Routes', compute='_compute_ff_route_ids',
+    ff_beat_line_ids = fields.One2many('ff.beat.line', 'partner_id', string='Beat Lines')
+    ff_route_ids = fields.Many2many('ff.beat', string='Beats', compute='_compute_ff_route_ids',
                                     inverse='_inverse_ff_route_ids', search='_search_ff_route_ids',
                                     help="Routes this contact belongs to. Adding a route assigns the route's employees.")
 

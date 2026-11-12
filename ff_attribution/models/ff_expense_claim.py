@@ -7,7 +7,7 @@ class FfExpenseClaim(models.Model):
     of the same route."""
     _inherit = 'ff.expense.claim'
 
-    ff_route_id = fields.Many2one('ff.beat', string='Route', index=True)
+    ff_route_id = fields.Many2one('ff.beat', string='Beat', index=True)
     ff_district_id = fields.Many2one('ff.district', string='District / Territory', index=True)
 
     @api.onchange('partner_id')

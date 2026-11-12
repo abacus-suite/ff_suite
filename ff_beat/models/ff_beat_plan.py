@@ -9,16 +9,16 @@ from .ff_route_plan import month_start
 class FfBeatPlan(models.Model):
     """One route on one day, with the customers planned on it."""
     _name = 'ff.beat.plan'
-    _description = 'Daily Route Plan'
+    _description = 'Daily Beat Plan'
     _order = 'date desc, employee_id, id'
 
     plan_id = fields.Many2one('ff.route.plan', string='Monthly Plan', index=True, ondelete='cascade')
     employee_id = fields.Many2one('hr.employee', required=True, index=True, ondelete='cascade')
     team_id = fields.Many2one(related='employee_id.ff_team_id', store=True)
     department_id = fields.Many2one(related='employee_id.department_id', store=True)
-    employee_route_ids = fields.Many2many(related='employee_id.ff_route_ids', string='Allowed Routes')
+    employee_route_ids = fields.Many2many(related='employee_id.ff_route_ids', string='Allowed Beats')
     beat_id = fields.Many2one(
-        'ff.beat', string='Route', ondelete='restrict',
+        'ff.beat', string='Beat', ondelete='restrict',
         help='The route this day follows. A day planned customer by customer - a lead has no route '
              'yet, and somebody may want a handful of shops from here and there - has none.')
     route_type_id = fields.Many2one(related='beat_id.route_type_id', store=True)

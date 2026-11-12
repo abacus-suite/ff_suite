@@ -25,7 +25,7 @@ def is_week_off(employee, day):
 class FfRoutePlan(models.Model):
     """Monthly journey plan of one employee: "Ravi - May 2026 Plan"."""
     _name = 'ff.route.plan'
-    _description = 'Monthly Route Plan'
+    _description = 'Monthly Beat Plan'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'month desc, employee_id'
 
@@ -34,7 +34,7 @@ class FfRoutePlan(models.Model):
     department_id = fields.Many2one(related='employee_id.department_id', store=True)
     team_id = fields.Many2one(related='employee_id.ff_team_id', store=True)
     company_id = fields.Many2one(related='employee_id.company_id', store=True)
-    employee_route_ids = fields.Many2many(related='employee_id.ff_route_ids', string='Allowed Routes')
+    employee_route_ids = fields.Many2many(related='employee_id.ff_route_ids', string='Allowed Beats')
     routes_per_day = fields.Selection(related='employee_id.ff_routes_per_day')
     month = fields.Date(required=True, index=True, tracking=True,
                         default=lambda self: month_start(fields.Date.context_today(self)),
