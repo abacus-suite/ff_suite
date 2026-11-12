@@ -105,6 +105,14 @@ def _territory_only_domain(employee):
     territories = emp.ff_territory_ids if 'ff_territory_ids' in emp._fields else request.env['ff.territory']
     if 'ff_secondary_territory' in emp._fields:
         territories |= emp.ff_secondary_territory
+    # The Districts / Territories the person works in (primary and secondary) decide, when they have any.
+    districts = (emp.ff_district_ids | emp.ff_secondary_district_ids) if 'ff_district_ids' in emp._fields else None
+    if districts and 'ff_district_id' in Partner._fields:
+        places = ['|', ('ff_district_id', 'in', districts.ids), ('ff_secondary_district_ids', 'in', districts.ids)]
+        return [('ff_is_client', '=', True),
+                ('company_id', 'in', (False, emp.company_id.id)),
+                '|', '|', ('ff_approval_state', '=', 'approved'), ('ff_approval_state', '=', False),
+                '&', ('ff_approval_state', '=', 'pending'), ('ff_created_by_employee_id', '=', emp.id)] + places
     if not territories or 'ff_territory_id' not in Partner._fields:
         return None
     # Exactly this: the contact's Territory, or its Secondary Territories, is one of the person's. A beat the
@@ -292,7 +300,10 @@ def _location_domain(Partner, territory_id=None, beat_id=None, kw=None):
     domain = []
     if territory_id:
         tid = to_int(territory_id)
-        if 'ff_secondary_territory_ids' in Partner._fields:
+        if 'ff_district_id' in Partner._fields:
+            # The app's Territory is the District / Territory master.
+            domain += ['|', ('ff_district_id', '=', tid), ('ff_secondary_district_ids', 'in', [tid])]
+        elif 'ff_secondary_territory_ids' in Partner._fields:
             domain += ['|', '|', ('ff_territory_id', '=', tid),
                                  ('ff_secondary_territory_ids', 'in', [tid]),
                                  ('ff_beat_line_ids.beat_id.territory_id', '=', tid)]
@@ -429,24 +440,21 @@ class FieldForceClientsApi(http.Controller):
     @api_route('/api/v1/clients/filters', methods=('GET',))
     def client_filters(self, employee, **kw):
         e = employee.sudo()
-        Territory = request.env['ff.territory'] if 'ff.territory' in request.env else None
-        Beat = request.env['ff.beat'] if 'ff.beat' in request.env else None
-        primary = e.ff_territory_ids if 'ff_territory_ids' in e._fields else (Territory.browse() if Territory else request.env['res.partner'].browse())
-        secondary = e.ff_secondary_territory if 'ff_secondary_territory' in e._fields \
-            else (Territory.browse() if Territory else request.env['res.partner'].browse())
-        beats = e.ff_route_ids if 'ff_route_ids' in e._fields else (Beat.browse() if Beat else request.env['res.partner'].browse())
+        District = request.env['ff.district']
+        # Territory in the app is the District / Territory master: the person's primary and secondary ones, and
+        # (for a manager) the team's. Areas are the ones under those districts; beats are the Assigned Beats.
+        primary = e.ff_district_ids if 'ff_district_ids' in e._fields else District.browse()
+        secondary = (e.ff_secondary_district_ids - primary) if 'ff_secondary_district_ids' in e._fields else District.browse()
+        beats = e.ff_route_ids if 'ff_route_ids' in e._fields else request.env['ff.beat'].browse()
         team = e._ff_subordinates()
-        mine = (primary | secondary) if Territory else primary
-        others = Territory.browse() if Territory else primary.browse()
-        if 'ff_territory_ids' in e._fields:
-            others = (team.mapped('ff_territory_ids') |
-                      beats.mapped('territory_id')) - mine
-        beats = beats | (mine | others).mapped('beat_ids') if (mine or others) else beats
-        # The Area master of each territory, so the filter lists the real areas (empty ones too).
+        mine = primary | secondary
+        others = District.browse()
+        if team and 'ff_district_ids' in e._fields:
+            others = (team.mapped('ff_district_ids') | team.mapped('ff_secondary_district_ids')) - mine
         areas = {}
         if 'ff.area' in request.env:
-            for area in request.env['ff.area'].sudo().search([('territory_id', 'in', (mine | others).ids)]):
-                areas.setdefault(area.territory_id.id, []).append({'id': area.id, 'name': area.name})
+            for area in request.env['ff.area'].sudo().search([('district_id', 'in', (mine | others).ids)]):
+                areas.setdefault(area.district_id.id, []).append({'id': area.id, 'name': area.name})
 
         def territory_row(t, kind):
             return {'id': t.id, 'name': t.name, 'kind': kind, 'areas': areas.get(t.id, [])}
@@ -456,7 +464,7 @@ class FieldForceClientsApi(http.Controller):
                            [territory_row(t, 'secondary') for t in secondary.sorted(lambda r: (r.name or '').lower()) if t not in primary] +
                            [territory_row(t, 'other') for t in others.sorted(lambda r: (r.name or '').lower())],
             'beats': [{'id': b.id, 'name': b.name,
-                       'territory_id': b.territory_id.id if 'territory_id' in b._fields and b.territory_id else None}
+                       'territory_id': b.district_id.id if 'district_id' in b._fields and b.district_id else None}
                       for b in beats.sorted(lambda r: (r.name or '').lower())],
         })
 

@@ -405,11 +405,10 @@ class FfTaskLog(models.Model):
         self._ff_require(name, 'Give the lead a name.')
         Partner = self.env['res.partner']
         category = self.env.ref('ff_clients.contact_category_lead')
-        district = self.env['ff.district'].sudo().browse(int(contact.get('district_id') or 0)).exists()
-        territory = self.env['ff.territory'].sudo().browse(int(contact.get('territory_id') or 0)).exists() \
-            if 'ff.territory' in self.env else None
-        if territory and not district:
-            district = territory.district_id
+        # The app's Territory is the District / Territory master.
+        district = self.env['ff.district'].sudo().browse(
+            int(contact.get('territory_id') or contact.get('district_id') or 0)).exists()
+        territory = None
         vals = {
             'name': name, 'ff_category_id': category.id,
             'partner_latitude': float(data.get('lat') or 0.0),

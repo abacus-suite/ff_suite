@@ -83,6 +83,11 @@ def client_data(partner, lat=None, lng=None):
                 territories.append(t)
     if not territories and territory:
         territories.append(territory)
+    # The app's Territory is the District / Territory master: the contact's own, then its secondary ones.
+    if 'ff_district_id' in partner._fields and partner.ff_district_id:
+        territory = partner.ff_district_id
+        territories = [partner.ff_district_id] + [
+            d for d in partner.ff_secondary_district_ids if d != partner.ff_district_id]
 
     is_company_loc = partner_is_company_location(partner)
 

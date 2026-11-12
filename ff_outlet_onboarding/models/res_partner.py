@@ -347,10 +347,11 @@ class ResPartner(models.Model):
         region = self.env['ff.team'].sudo().browse(int(data.get('region_id') or 0)).exists()
         if region and 'ff_team_ids' in Partner._fields:
             values['ff_team_ids'] = [(4, region.id)]
-        territory = self.env['ff.territory'].sudo().browse(int(data.get('territory_id') or 0)).exists() \
-            if 'ff.territory' in self.env else None
-        if territory and 'ff_territory_id' in Partner._fields:
-            values['ff_territory_id'] = territory.id
+        # The app's Territory is the District / Territory master.
+        district = self.env['ff.district'].sudo().browse(
+            int(data.get('territory_id') or data.get('district_id') or 0)).exists() if 'ff.district' in self.env else None
+        if district and 'ff_district_id' in Partner._fields:
+            values['ff_district_id'] = district.id
         area = self.env['ff.area'].sudo().browse(int(data.get('area_id') or 0)).exists() if 'ff.area' in self.env else None
         if area and 'ff_area_id' in Partner._fields:
             values['ff_area_id'] = area.id

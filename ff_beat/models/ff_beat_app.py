@@ -62,11 +62,8 @@ class FfBeatApp(models.Model):
         name = (data.get('name') or '').strip()
         if not name:
             raise UserError(self.env._('Give the route a name.'))
-        district = self.env['ff.district'].sudo().browse(int(data.get('district_id') or 0)).exists()
-        if not district and data.get('territory_id'):
-            territory_rec = self.env['ff.territory'].sudo().browse(int(data['territory_id'])).exists()
-            if territory_rec and territory_rec.district_id:
-                district = territory_rec.district_id
+        district = self.env['ff.district'].sudo().browse(
+            int(data.get('territory_id') or data.get('district_id') or 0)).exists()
         if not district:
             district = self.env['ff.district'].sudo().search([], limit=1)
         if not district:
@@ -113,10 +110,7 @@ class FfBeatApp(models.Model):
             plan_dates = sorted({fields.Date.to_date(d) for d in picked if d})
             if plan_dates and plan_dates[0] < fields.Date.context_today(self):
                 raise UserError(self.env._('Choose today or upcoming days to plan this route on.'))
-        territory = {}
-        if 'territory_id' in self._fields and data.get('territory_id'):
-            territory = {'territory_id': int(data['territory_id'])}
-        beat = self.sudo().create(dict(territory, **{
+        beat = self.sudo().create(dict({}, **{
             'name': name,
             'code': (data.get('code') or '').strip() or False,
             'district_id': district.id,

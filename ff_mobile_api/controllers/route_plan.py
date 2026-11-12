@@ -67,92 +67,51 @@ class FieldForceRoutePlanApi(http.Controller):
         env = request.env
         if member not in (None, '', 'me'):
             employee, _label = _one(employee, member)  # a manager drawing a beat for somebody in the team
-        if 'ff.territory' not in env:
+        if 'ff.district' not in env:
             return ok([])
-        primary = employee.ff_territory_ids if 'ff_territory_ids' in employee._fields else env['ff.territory'].browse()
-        secondary = env['ff.territory'].browse()
-        if 'ff_secondary_territory' in employee._fields and employee.ff_secondary_territory:
-            secondary |= employee.ff_secondary_territory
-        if 'ff_secondary_territory_ids' in employee._fields and employee.ff_secondary_territory_ids:
-            secondary |= employee.ff_secondary_territory_ids
+        # "Territory" in the app is the District / Territory master: the person's primary and secondary ones, with
+        # the areas under them and the outlets that sit in each.
+        primary = employee.ff_district_ids if 'ff_district_ids' in employee._fields else env['ff.district'].browse()
+        secondary = (employee.ff_secondary_district_ids - primary) \
+            if 'ff_secondary_district_ids' in employee._fields else env['ff.district'].browse()
         mine = primary | secondary
-        if 'ff.contact.access.request' in env:
-            today = fields.Date.context_today(employee)
-            grants = env['ff.contact.access.request'].sudo().search([
-                ('employee_id', '=', employee.id), ('scope_type', '=', 'territory'), ('state', '=', 'approved'),
-                ('date_from', '<=', today), ('date_to', '>=', today)])
-            if grants:
-                mine |= grants.mapped('territory_id').filtered(lambda t: t.exists())
-        # False when the person has none of their own and every territory is offered instead.
+        # False when the person has none of their own and every district is offered instead.
         assigned = bool(mine)
         if not mine:
-            mine = env['ff.territory'].sudo().search([], limit=300)
-
-        secondary_ids = set((secondary - primary).ids)
-        beats = env['ff.beat'].sudo().search([('territory_id', 'in', mine.ids)])
-        lines = env['ff.beat.line'].sudo().search([('beat_id', 'in', beats.ids)])
-        territory_of = {beat.id: beat.territory_id.id for beat in beats}
-        by_territory = {}
-        for line in lines:
-            partner = line.partner_id
-            if not partner.active:
-                continue
-            by_territory.setdefault(territory_of.get(line.beat_id.id), {})[partner.id] = partner
-        # A contact can also carry its territory directly, with no beat yet (primary or secondary).
+            mine = env['ff.district'].sudo().search([], limit=300)
+        secondary_ids = set(secondary.ids)
         Partner = env['res.partner'].sudo()
-        direct_domain = ['|', ('ff_territory_id', 'in', mine.ids), ('ff_secondary_territory_ids', 'in', mine.ids)] \
-            if 'ff_secondary_territory_ids' in Partner._fields else [('ff_territory_id', 'in', mine.ids)]
-        direct = Partner.search(direct_domain + [('active', '=', True)])
-        for partner in direct:
-            partner_tids = set()
-            if partner.ff_territory_id:
-                partner_tids.add(partner.ff_territory_id.id)
-            if 'ff_secondary_territory_ids' in partner._fields and partner.ff_secondary_territory_ids:
-                partner_tids.update(partner.ff_secondary_territory_ids.ids)
-            for tid in partner_tids:
-                if tid in mine.ids:
-                    by_territory.setdefault(tid, {})[partner.id] = partner
-        # Also include outlets in the territory's district that aren't assigned to any other territory yet
-        for territory in mine:
-            if territory.district_id and not by_territory.get(territory.id):
-                unassigned = Partner.search([
-                    ('active', '=', True),
-                    ('ff_district_id', '=', territory.district_id.id),
-                    ('ff_territory_id', '=', False),
-                    ('ff_is_client', '=', True),
-                ], limit=300)
-                for p in unassigned:
-                    by_territory.setdefault(territory.id, {})[p.id] = p
+        has_area = 'ff_area_id' in Partner._fields
         out = []
-        for territory in mine.sorted(lambda r: (r.name or '').lower()):
-            partners = sorted(by_territory.get(territory.id, {}).values(), key=lambda p: (p.name or '').lower())
-            is_sec = territory.id in secondary_ids
-            has_area = 'ff_area_id' in request.env['res.partner']._fields
+        for district in mine.sorted(lambda r: (r.name or '').lower()):
+            partners = Partner.search([('active', '=', True), ('ff_is_client', '=', True), '|',
+                                       ('ff_district_id', '=', district.id),
+                                       ('ff_secondary_district_ids', 'in', [district.id])],
+                                      order='name', limit=1000)
             counts = {}
-            for p in partners[:1000]:
+            for p in partners:
                 if has_area and p.ff_area_id:
                     counts[p.ff_area_id.id] = counts.get(p.ff_area_id.id, 0) + 1
             areas = []
-            if 'ff.area' in request.env:
+            if 'ff.area' in env:
                 areas = [{'id': a.id, 'name': a.name, 'count': counts.get(a.id, 0)}
-                         for a in request.env['ff.area'].sudo().search([('territory_id', '=', territory.id)])]
+                         for a in env['ff.area'].sudo().search([('district_id', '=', district.id)])]
                 areas.sort(key=lambda a: a['name'].lower())
+            is_sec = district.id in secondary_ids
             out.append({
-                'id': territory.id,
-                'name': territory.name,
-                'district_id': territory.district_id.id or None,
-                # The MRP of this territory, picked by itself when somebody is onboarded here.
-                'mrp': ({'code': mrp.code, 'name': mrp.name}
-                        if hasattr(territory, 'ff_mrp_option') and (mrp := territory.ff_mrp_option()) else None),
+                'id': district.id,
+                'name': district.name,
+                'district_id': district.id,
+                'region': ref(district.team_id) if district.team_id else None,
+                'mrp': None,
                 'is_secondary': is_sec,
                 'kind': 'secondary' if is_sec else 'primary',
                 'assigned': assigned,
-                # The Area master of this territory, with how many of its outlets sit in each (0 too).
                 'areas': areas,
-                'no_area_count': sum(1 for p in partners[:1000] if not (has_area and p.ff_area_id)),
+                'no_area_count': sum(1 for p in partners if not (has_area and p.ff_area_id)),
                 'outlets': [{'id': p.id, 'name': p.name, 'city': p.city or None,
-                            'area': ref(p.ff_area_id) if has_area and p.ff_area_id else None,
-                            'kind': getattr(p, 'ff_category_type', '') or 'outlet'} for p in partners[:1000]],
+                             'area': ref(p.ff_area_id) if has_area and p.ff_area_id else None,
+                             'kind': getattr(p, 'ff_category_type', '') or 'outlet'} for p in partners],
             })
         return ok(out)
 
