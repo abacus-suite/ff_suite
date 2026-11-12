@@ -96,11 +96,10 @@ class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
     ff_territory_ids = fields.Many2many('ff.territory', 'ff_employee_territory_rel', 'employee_id', 'territory_id',
-                                        string='Cities / Towns')
-    ff_secondary_territory = fields.Many2many(
-        'ff.territory', 'ff_employee_secondary_territory_rel', 'employee_id', 'territory_id',
-        string='Secondary Cities / Towns',
-        help='Territories the employee also works in, besides the primary ones above.')
+                                        string='Cities / Towns', compute='_compute_ff_territory_ids', store=True,
+                                        readonly=False,
+                                        help='Fetched from the primary and secondary Districts / Territories: the '
+                                             'cities / towns inside them.')
     ff_district_ids = fields.Many2many('ff.district', 'ff_employee_district_rel', 'employee_id', 'district_id',
                                        string='Primary Districts / Territories',
                                        help='The District / Territory master this person works in: the app shows these as '
@@ -110,17 +109,28 @@ class HrEmployee(models.Model):
         string='Secondary Districts / Territories',
         help='Districts / Territories the employee also works in, besides the primary ones.')
 
+    @api.depends('ff_district_ids', 'ff_secondary_district_ids')
+    def _compute_ff_territory_ids(self):
+        Territory = self.env['ff.territory'].sudo()
+        for employee in self:
+            districts = employee.ff_district_ids | employee.ff_secondary_district_ids
+            if districts:
+                employee.ff_territory_ids = Territory.search([('district_id', 'in', districts.ids)])
+            else:
+                # No district chosen: whatever was set before stays.
+                employee.ff_territory_ids = employee._origin.ff_territory_ids
+
     def _ff_has_company_location(self):
         """True if any primary or secondary territory mapped to this employee has Company Location enabled."""
         for employee in self:
-            territories = employee.ff_territory_ids | employee.ff_secondary_territory
+            territories = employee.ff_territory_ids
             if any(territories.mapped('is_company_location')):
                 return True
         return False
 
     def _ff_territory_beats(self):
         """The beats of the primary and secondary territories."""
-        territories = self.ff_territory_ids | self.ff_secondary_territory
+        territories = self.ff_territory_ids
         return self.env['ff.beat'].sudo().search([('territory_id', 'in', territories.ids)]) \
             if territories else self.env['ff.beat']
 
@@ -131,7 +141,7 @@ class HrEmployee(models.Model):
             if beats:
                 employee.sudo().write({'ff_route_ids': [(4, b.id) for b in beats]})
 
-    @api.onchange('ff_territory_ids', 'ff_secondary_territory')
+    @api.onchange('ff_territory_ids')
     def _onchange_territory_beats(self):
         beats = self._ff_territory_beats()
         if beats:
@@ -140,11 +150,11 @@ class HrEmployee(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         employees = super().create(vals_list)
-        employees.filtered(lambda e: e.ff_territory_ids or e.ff_secondary_territory)._ff_assign_territory_beats()
+        employees.filtered('ff_territory_ids')._ff_assign_territory_beats()
         return employees
 
     def write(self, vals):
         result = super().write(vals)
-        if 'ff_territory_ids' in vals or 'ff_secondary_territory' in vals:
+        if {'ff_territory_ids', 'ff_district_ids', 'ff_secondary_district_ids'} & set(vals):
             self._ff_assign_territory_beats()
         return result

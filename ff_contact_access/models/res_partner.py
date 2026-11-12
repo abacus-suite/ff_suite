@@ -76,7 +76,7 @@ class ResPartner(models.Model):
                     city_conds.append(Domain([('ff_secondary_district_ids', 'in', cities.ids)]))
                 places = [Domain.OR(city_conds)]
             else:
-                territories = team.mapped('ff_territory_ids') | team.mapped('ff_secondary_territory')
+                territories = team.mapped('ff_territory_ids')
                 # Territory-wise: the primary and secondary territories only. Nobody with none set sees the whole
                 # company; they see what they added or are assigned to (a contact rule or the employee's
                 # allocation switches widen that on purpose).

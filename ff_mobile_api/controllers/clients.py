@@ -421,8 +421,7 @@ class FieldForceClientsApi(http.Controller):
             'allocated_distributors': bool(emp.ff_allocated_distributors),
             'count': Partner.search_count(domain),
             'team_people': len(emp._ff_subordinates()),
-            'team_territories': sorted(set((emp._ff_subordinates().mapped('ff_territory_ids') |
-                                            emp._ff_subordinates().mapped('ff_secondary_territory')).mapped('name'))),
+            'team_territories': sorted(set(emp._ff_subordinates().mapped('ff_territory_ids').mapped('name'))),
             'why_not': _why_not(emp),
             'by_territory': {(t.name or '?'): n for t, n in Partner._read_group(domain, ['ff_territory_id'], ['__count'])},
         })
@@ -440,7 +439,7 @@ class FieldForceClientsApi(http.Controller):
         mine = (primary | secondary) if Territory else primary
         others = Territory.browse() if Territory else primary.browse()
         if 'ff_territory_ids' in e._fields:
-            others = (team.mapped('ff_territory_ids') | team.mapped('ff_secondary_territory') |
+            others = (team.mapped('ff_territory_ids') |
                       beats.mapped('territory_id')) - mine
         beats = beats | (mine | others).mapped('beat_ids') if (mine or others) else beats
         # The Area master of each territory, so the filter lists the real areas (empty ones too).

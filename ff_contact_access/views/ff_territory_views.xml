@@ -133,10 +133,9 @@
         <field name="inherit_id" ref="ff_base.hr_employee_view_form_ff"/>
         <field name="arch" type="xml">
             <xpath expr="//group[@name='ff_org']" position="inside">
-                <field name="ff_territory_ids" widget="many2many_tags" options="{'no_create': True}"/>
-                <field name="ff_secondary_territory" widget="many2many_tags" options="{'no_create': True}"/>
                 <field name="ff_district_ids" widget="many2many_tags" options="{'no_create': True}"/>
                 <field name="ff_secondary_district_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                <field name="ff_territory_ids" widget="many2many_tags" readonly="1"/>
             </xpath>
         </field>
     </record>
