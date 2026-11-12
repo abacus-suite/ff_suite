@@ -400,9 +400,13 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
   /// Beats to choose from: only the ones that repeat (not one-time beats), and those of the chosen region.
   List<Map<String, dynamic>> _beatOptions() {
     final region = _a['region_id'] as int?;
+    final territory = _a['territory_id'] as int?;
     return [
       for (final r in _routes)
-        if (r['schedule'] != 'one_time' && (region == null || r['team_id'] == null || r['team_id'] == region)) r,
+        if (r['schedule'] != 'one_time' &&
+            (region == null || r['team_id'] == null || r['team_id'] == region) &&
+            (territory == null || r['territory_id'] == null || r['territory_id'] == territory))
+          r,
     ];
   }
 
@@ -467,6 +471,8 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       _a['territory_id'] = id;
       // An area of another territory no longer applies.
       if (!_areaOptions().any((a) => a['id'] == _a['area_id'])) _a['area_id'] = null;
+      // A beat of another territory no longer applies.
+      if (!_beatOptions().any((r) => r['id'] == _a['beat_id'])) _a['beat_id'] = null;
       if (id != null) _a['district_id'] = _districtOf(id) ?? _a['district_id'];
     });
   }
@@ -976,10 +982,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
               _dropdown('Region', _regions, _a['region_id'] as int?, _pickRegion,
                   hint: _regions.isEmpty ? 'No region is set for you' : null),
               const SizedBox(height: 10),
-              _dropdown('Beat *', _beatOptions(), _a['beat_id'] as int?, _pickBeat),
-              const SizedBox(height: 10),
-              _dropdown('Area', _areaOptions(), _a['area_id'] as int?, _pickArea),
-              const SizedBox(height: 10),
+              // Region, then Territory, then Area, then Beat (only the person's allowed beats of that territory).
               // Their own territories; without the territory list (an older server) the districts stand in.
               _territories.isNotEmpty
                   ? _dropdown(
@@ -992,6 +995,10 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
                       _pickTerritory)
                   : _dropdown('Territory *', _cities, _a['district_id'] as int?,
                       (v) => setState(() => _a['district_id'] = v)),
+              const SizedBox(height: 10),
+              _dropdown('Area', _areaOptions(), _a['area_id'] as int?, _pickArea),
+              const SizedBox(height: 10),
+              _dropdown('Beat *', _beatOptions(), _a['beat_id'] as int?, _pickBeat),
             ],
           ),
         ),
