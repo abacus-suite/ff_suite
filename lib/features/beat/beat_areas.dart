@@ -36,12 +36,15 @@ class _AreaPickerScreenState extends State<_AreaPickerScreen> {
       appBar: AppBar(
         title: const Text('Areas of this beat', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
         actions: [
-          TextButton(
-              onPressed: () => setState(() => _picked.addAll([for (final a in shown) a['id'] as int])),
-              child: const Text('Select all')),
-          TextButton(
-              onPressed: () => setState(() => _picked.removeAll([for (final a in shown) a['id'] as int])),
-              child: const Text('Clear all')),
+          // Select all only while something shown is not ticked; Clear all only while something shown is ticked.
+          if (shown.any((a) => !_picked.contains(a['id'])))
+            TextButton(
+                onPressed: () => setState(() => _picked.addAll([for (final a in shown) a['id'] as int])),
+                child: const Text('Select all')),
+          if (shown.any((a) => _picked.contains(a['id'])))
+            TextButton(
+                onPressed: () => setState(() => _picked.removeAll([for (final a in shown) a['id'] as int])),
+                child: const Text('Clear all')),
         ],
       ),
       bottomNavigationBar: SafeArea(
