@@ -168,8 +168,12 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
       } catch (_) {}
     }
     if (!mounted) return;
+    // With areas chosen, only the outlets of those areas.
+    if (_areas.isNotEmpty) {
+      allOutlets = allOutlets.where((o) => _areas.contains((o['area'] as Map?)?['id'])).toList();
+    }
     if (allOutlets.isEmpty) {
-      showProblem(context, 'No outlets found for this District / Territory.');
+      showProblem(context, _areas.isEmpty ? 'No outlets found for this District / Territory.' : 'No outlets in the chosen areas.');
       return;
     }
 
@@ -179,7 +183,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
         outlets: allOutlets,
         selected: _outlets,
         title: territoryLabel(_territory!),
-        areas: ((_territory!['areas'] as List?) ?? const []).cast<Map<String, dynamic>>(),
+        areas: [for (final a in ((_territory!['areas'] as List?) ?? const []).cast<Map<String, dynamic>>()) if (_areas.isEmpty || _areas.contains(a['id'])) a],
         noAreaCount: (_territory!['no_area_count'] as num?)?.toInt(),
       ),
     ));
@@ -570,9 +574,8 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
     setState(() {
       _territory = picked;
       final outletsList = ((picked['outlets'] as List?) ?? []).cast<Map<String, dynamic>>();
-      _outlets
-        ..clear()
-        ..addAll(outletsList.map((o) => o['id'] as int));
+      // Nothing is ticked: the person chooses the outlets (after the areas, if any).
+      _outlets.clear();
       _areas.clear();
     });
   }
@@ -587,6 +590,14 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
         _areas
           ..clear()
           ..addAll(picked);
+        // Outlets of areas that are no longer chosen are taken off.
+        if (_areas.isNotEmpty) {
+          final keep = {
+            for (final o in ((_territory?['outlets'] as List?) ?? const []).cast<Map<String, dynamic>>())
+              if (_areas.contains((o['area'] as Map?)?['id'])) o['id'] as int,
+          };
+          _outlets.removeWhere((id) => !keep.contains(id));
+        }
       });
     }
   }

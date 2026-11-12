@@ -27,6 +27,12 @@ Future<Set<int>?> pickBeatAreas(BuildContext context, List<Map<String, dynamic>>
                 ]),
         ),
         actions: [
+          if (areas.isNotEmpty) ...[
+            TextButton(
+                onPressed: () => setDialog(() => picked.addAll([for (final a in areas) a['id'] as int])),
+                child: const Text('Select all')),
+            TextButton(onPressed: () => setDialog(picked.clear), child: const Text('Clear all')),
+          ],
           TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(dialog, picked), child: const Text('Done')),
         ],
