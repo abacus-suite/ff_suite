@@ -8,7 +8,11 @@ import 'beat_areas.dart';
 
 /// Screen to create a new Beat matching client design specifications.
 class CreateBeatScreen extends StatefulWidget {
-  const CreateBeatScreen({super.key, this.member, this.memberName});
+  const CreateBeatScreen({super.key, this.member, this.memberName, this.existing, this.existingOutlets});
+
+  /// A beat being edited: the form opens with its values, and saving sends it for approval again.
+  final Map<String, dynamic>? existing;
+  final List<Map<String, dynamic>>? existingOutlets;
 
   /// A manager drawing the beat for somebody in the team: their id and name. The beat is theirs, with no approval.
   final String? member;
@@ -40,6 +44,21 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
   @override
   void initState() {
     super.initState();
+    final b = widget.existing;
+    if (b != null) {
+      _name.text = '${b['name'] ?? ''}';
+      _code.text = '${b['code'] ?? ''}';
+      _schedule = '${b['schedule']}' == 'one_time' ? 'one_time' : 'recurrent';
+      final days = [for (final d in (b['weekdays'] as List?) ?? const []) (d as num).toInt()];
+      _repeat = days.isNotEmpty;
+      _days
+        ..clear()
+        ..addAll(days);
+      final date = DateTime.tryParse('${b['date'] ?? ''}');
+      if (date != null) _date = date;
+      _areas.addAll([for (final a in (b['area_ids'] as List?) ?? const []) (a as num).toInt()]);
+      _outlets.addAll([for (final o in widget.existingOutlets ?? const <Map<String, dynamic>>[]) o['id'] as int]);
+    }
     _loadTerritories();
   }
 
@@ -50,6 +69,10 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
       if (mounted) {
         setState(() {
           _territories = list.cast<Map<String, dynamic>>();
+          final b = widget.existing;
+          if (b != null && _territory == null) {
+            _territory = _territories.where((t) => t['id'] == b['territory_id']).firstOrNull;
+          }
         });
       }
     } catch (_) {
@@ -229,7 +252,8 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
 
     setState(() => _busy = true);
     try {
-      final beat = await Services.api.post('/api/v1/beats', {
+      final existing = widget.existing;
+      final beat = await Services.api.post(existing == null ? '/api/v1/beats' : '/api/v1/beats/${existing['id']}/update', {
         if (widget.member != null) 'member': widget.member,
         'name': name,
         'code': code,
@@ -245,7 +269,12 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
         if (_schedule == 'recurrent') 'weekdays': _repeat ? (_days.toList()..sort()) : <int>[],
       }) as Map<String, dynamic>;
       if (!mounted) return;
-      Navigator.of(context).pop(beat);
+      if (existing != null) {
+        showSnack(context, 'Sent to your manager for approval');
+        Navigator.of(context).pop(true);
+      } else {
+        Navigator.of(context).pop(beat);
+      }
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
     } finally {
@@ -268,7 +297,9 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          widget.memberName == null ? 'Create Beat' : 'Create Beat · ${widget.memberName}',
+          widget.existing != null
+              ? 'Edit Beat'
+              : (widget.memberName == null ? 'Create Beat' : 'Create Beat · ${widget.memberName}'),
           style: const TextStyle(
             color: Color(0xFF0F1B3D),
             fontSize: 18,

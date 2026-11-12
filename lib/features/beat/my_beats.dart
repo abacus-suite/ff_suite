@@ -9,6 +9,7 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'beat_areas.dart';
+import 'create_beat_screen.dart';
 
 /// Beats edited on this phone and sent back for approval, with the day of the last edit: shown as
 /// "Pending re-approval" while the server still has them waiting, and "edited 19 Oct" on the list.
@@ -326,7 +327,7 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
           borderRadius: BorderRadius.circular(20),
           onTap: () {
             setState(() => _tab = index);
-            if (index == 1 && _plans == null && !_plansLoading) _loadPlans();
+            if (index == 2 && _plans == null && !_plansLoading) _loadPlans();
           },
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 9),
@@ -350,7 +351,7 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
         borderRadius: BorderRadius.circular(23),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(children: [half('Outlets', 0), half('Plan dates', 1)]),
+      child: Row(children: [half('Details', 0), half('Outlets', 1), half('Plan dates', 2)]),
     );
   }
 
@@ -543,7 +544,7 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
 
   Future<void> _edit() async {
     final saved = await Navigator.of(context)
-        .push<bool>(MaterialPageRoute(builder: (_) => EditBeatScreen(beat: widget.beat, outlets: _outlets)));
+        .push<bool>(MaterialPageRoute(builder: (_) => CreateBeatScreen(existing: widget.beat, existingOutlets: _outlets)));
     if (saved == true) {
       _changed = true;
       await _load();
@@ -573,6 +574,10 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
       decoration: BoxDecoration(
           color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
       child: Column(children: [
+        line('Beat', '${b['name']}'),
+        line('Code', asText(b['code']) ?? ''),
+        line('Status', '${b['approval_state']}' == 'pending' ? 'Pending approval' : 'Approved'),
+        line('Outlets', '${_loading ? (b['customer_count'] ?? 0) : _outlets.length}'),
         line('Territory', asText(b['territory']) ?? asText(b['city']) ?? ''),
         line('Area', areas.join(', ')),
         line('Schedule', oneTime ? 'One time' : 'Recurrent'),
@@ -618,17 +623,17 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
         body: RefreshIndicator(
           onRefresh: () async {
             await _load();
-            if (_tab == 1) await _loadPlans();
+            if (_tab == 2) await _loadPlans();
           },
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
-            _info(),
             _tabs(),
-            if (_tab == 1) ...[
+            if (_tab == 0) _info(),
+            if (_tab == 2) ...[
               if (_plansLoading) const LinearProgressIndicator(minHeight: 2),
               if (_plansError != null) ErrorView(message: _plansError!, onRetry: _loadPlans),
               ..._planRows(),
             ],
-            if (_tab == 0) ...[
+            if (_tab == 1) ...[
             if (_loading) const LinearProgressIndicator(minHeight: 2),
             if (_error != null) ErrorView(message: _error!, onRetry: _load),
             if (!_loading && _error == null && _outlets.isEmpty)
