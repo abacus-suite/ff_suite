@@ -282,6 +282,23 @@ class FfBeatApp(models.Model):
             raise UserError(self.env._('%s is waiting to be deleted; it cannot be changed.', beat.display_name))
         changed = False
 
+        # The form is the create form: the name, the code and the District / Territory can change too.
+        vals = {}
+        name = (data.get('name') or '').strip()
+        if name and name != beat.name:
+            vals['name'] = name
+        if 'code' in data and ((data.get('code') or '').strip() or False) != (beat.code or False):
+            vals['code'] = (data.get('code') or '').strip() or False
+        did = int(data.get('territory_id') or data.get('district_id') or 0)
+        if did and did != beat.district_id.id:
+            district = self.env['ff.district'].sudo().browse(did).exists()
+            if district:
+                vals.update({'district_id': district.id, 'state_id': district.state_id.id,
+                             'country_id': district.country_id.id})
+        if vals:
+            beat.write(vals)
+            changed = True
+
         if data.get('partner_ids') is not None:
             Partner = self.env['res.partner'].sudo()
             wanted = {int(p) for p in data.get('partner_ids') or []}
