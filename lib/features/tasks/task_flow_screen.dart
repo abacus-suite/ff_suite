@@ -983,14 +983,14 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
               // Their own territories; without the territory list (an older server) the districts stand in.
               _territories.isNotEmpty
                   ? _dropdown(
-                      'City / Town *',
+                      'Territory *',
                       [
                         for (final t in _territories)
                           {'id': t['id'], 'name': '${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}'},
                       ],
                       _a['territory_id'] as int?,
                       _pickTerritory)
-                  : _dropdown('City / Town *', _cities, _a['district_id'] as int?,
+                  : _dropdown('Territory *', _cities, _a['district_id'] as int?,
                       (v) => setState(() => _a['district_id'] = v)),
             ],
           ),

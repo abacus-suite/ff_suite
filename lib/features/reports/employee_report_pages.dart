@@ -91,7 +91,7 @@ class _EmployeeVisitsScreenState extends State<EmployeeVisitsScreen> {
         'distributor' => 'Distributor Visit',
         'new' => 'New Visit',
         'follow' => 'Follow up',
-        _ => 'Beat',
+        _ => 'Beat Route',
       };
 
   static bool _pending(Map<String, dynamic> v) =>
@@ -129,7 +129,7 @@ class _EmployeeVisitsScreenState extends State<EmployeeVisitsScreen> {
       appBar: AppBar(title: _header('Visits', widget.name, widget.rangeText)),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
         _twoColumns([
-          count('beat', Icons.event_note_rounded, AppColors.primary, 'Beat'),
+          count('beat', Icons.event_note_rounded, AppColors.primary, 'Beat Route'),
           count('distributor', Icons.local_shipping_rounded, AppColors.warning, 'Distributor Visit'),
           count('new', Icons.storefront_rounded, AppColors.success, 'New Visits'),
           count('follow', Icons.check_circle_rounded, AppColors.purple, 'Follow up'),

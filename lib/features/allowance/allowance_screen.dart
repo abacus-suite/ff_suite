@@ -11,7 +11,7 @@ import 'travel_form_screen.dart';
 const _basisLabels = {
   'gps': 'GPS distance',
   'client': 'Client to client',
-  'route': 'Beat to beat',
+  'route': 'Route to route',
   'fixed': 'Fixed per day',
   'odometer': 'Odometer',
 };

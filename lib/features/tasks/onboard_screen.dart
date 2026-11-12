@@ -221,7 +221,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
     try {
       territories = [
         for (final t in (await Services.api.get('/api/v1/territories') as List).cast<Map<String, dynamic>>())
-          // Only the person's own cities / towns (primary, secondary or granted), never the whole company's list; the
+          // Only the person's own territories (primary, secondary or granted), never the whole company's list; the
           // lead's own territory is kept too, so its area is there.
           if ((t['kind'] == null || t['kind'] == 'primary' || t['kind'] == 'secondary') &&
               (t['assigned'] != false || t['id'] == _idOf(widget.client['territory'])))
@@ -381,9 +381,9 @@ class _OnboardScreenState extends State<OnboardScreen> {
         if (_v('billing_address').isEmpty) bad.add('Billing address');
         if (_v('zip').length != 6) bad.add('PIN code: 6 digits');
         if (_regions.isNotEmpty && _regionId == null) bad.add('Region');
-        if (_territoryId == null) bad.add('City / Town');
+        if (_territoryId == null) bad.add('Territory');
         // The city comes from the territory (or, failing that, the PIN code).
-        if (_districtId == null && asText(_pinInfo['district']) == null) bad.add('City: choose a city / town that has one, or enter a valid PIN code');
+        if (_districtId == null && asText(_pinInfo['district']) == null) bad.add('City: choose a territory that has one, or enter a valid PIN code');
         if (_allAreas().isNotEmpty && _areaId == null) bad.add('Area');
         if (_v('door').isEmpty) bad.add('Door / TC No.');
       case 'delivery':
@@ -650,14 +650,14 @@ class _OnboardScreenState extends State<OnboardScreen> {
         // territory, which the area fills in.
         _field('door', 'Door / TC No.', required: true),
         _dropId('Area', _allAreas(), _areaId, _pickArea,
-            required: _allAreas().isNotEmpty, helper: _allAreas().isEmpty ? 'No areas are set for your cities / towns yet' : null),
+            required: _allAreas().isNotEmpty, helper: _allAreas().isEmpty ? 'No areas are set for your territories yet' : null),
         _field('billing_address', 'Billing address', required: true, lines: 3),
         _field('zip', 'PIN code', required: true, type: TextInputType.number, maxLength: 6, onChanged: (v) {
           if (v.length == 6) _lookupPin();
         }),
         _dropId('Region', _regions, _regionId, (v) => setState(() => _regionId = v),
             required: _regions.isNotEmpty, helper: _regions.isEmpty ? 'No region is set for you' : null),
-        _dropId('City / Town', [
+        _dropId('Territory', [
           for (final t in _territories) {'id': t['id'], 'name': '${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}'},
         ], _territoryId, _pickTerritory),
         _same(),
@@ -695,7 +695,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
         if (_categoryNeedsNote) _field('outlet_category_note', 'Describe the category', required: true),
       ],
       _drop('MRP', [for (final o in _list('mrp')) ('${o['code']}', '${o['name']}')], _mrp, (v) => setState(() => _mrp = v),
-          helper: _mrp != null && _mrp == _territoryMrp(_territoryId) ? 'From the city / town' : null),
+          helper: _mrp != null && _mrp == _territoryMrp(_territoryId) ? 'From the territory' : null),
       if (_outlet)
         Padding(
           padding: const EdgeInsets.only(bottom: 14),

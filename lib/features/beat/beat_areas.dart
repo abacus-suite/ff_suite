@@ -58,7 +58,7 @@ class BeatAreaField extends StatelessWidget {
           child: Row(children: [
             Expanded(
               child: names.isEmpty
-                  ? Text(enabled ? 'Choose the areas' : 'Choose a City / Town first',
+                  ? Text(enabled ? 'Choose the areas' : 'Choose a District / Territory first',
                       style: const TextStyle(fontSize: 14, color: Color(0xFF94A3B8)))
                   : Wrap(spacing: 6, runSpacing: 6, children: [
                       for (final n in names)

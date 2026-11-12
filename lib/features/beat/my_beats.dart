@@ -573,7 +573,7 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
       decoration: BoxDecoration(
           color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
       child: Column(children: [
-        line('City / Town', asText(b['territory']) ?? asText(b['city']) ?? ''),
+        line('Territory', asText(b['territory']) ?? asText(b['city']) ?? ''),
         line('Area', areas.join(', ')),
         line('Schedule', oneTime ? 'One time' : 'Recurrent'),
         if (oneTime) line('Day', _niceDay('${b['date'] ?? ''}')),
@@ -771,7 +771,7 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
     return list.cast<Map<String, dynamic>>();
   }
 
-  /// Tick the outlets that stay and tick new ones: the beat's own outlets first, then the city / town's, searched on
+  /// Tick the outlets that stay and tick new ones: the beat's own outlets first, then the territory's, searched on
   /// the server as you type.
   Future<void> _pickOutlets() async {
     final picked = Set<int>.from(_chosen);
@@ -983,7 +983,7 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
         ),
       ),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
-        _label('City / Town'),
+        _label('District / Territory'),
         _field(territory, locked: true),
         const SizedBox(height: 16),
         Padding(

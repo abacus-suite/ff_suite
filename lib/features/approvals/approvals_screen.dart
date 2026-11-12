@@ -43,7 +43,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     ('da', 'DA', 'Daily allowance claims', Icons.restaurant_rounded, Color(0xFF0F766E)),
     ('handovers', 'Payment Handovered', 'Outlet money given to distributors', Icons.handshake_rounded, Color(0xFF0E9F6E)),
     ('deposits', 'Payment in Hand', 'Cash the team submitted to the office', Icons.account_balance_rounded, Color(0xFF0891B2)),
-    ('access', 'Contact Access', 'City / Town, beat or district requests', Icons.lock_open_rounded, Color(0xFF2563EB)),
+    ('access', 'Contact Access', 'Territory, beat or city requests', Icons.lock_open_rounded, Color(0xFF2563EB)),
   ];
 
   @override
@@ -554,7 +554,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                   facts: [
                     ('Week', '${w['week_start']} to ${w['week_end']}'),
                     ('Days', '${(w['days'] as List).length}'),
-                    ('Outside city / town', '${w['outside_days']} day(s)'),
+                    ('Outside territory', '${w['outside_days']} day(s)'),
                   ],
                   lineHead: const ['Day', 'Amount'],
                   lines: [
@@ -571,7 +571,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
               amount: fmtMoney(w['total'] as num?, w['currency'] as String?),
               lines: [
                 'Week ${w['week_start']} to ${w['week_end']}',
-                '${(w['days'] as List).length} day(s) \u00B7 ${w['outside_days']} outside city / town',
+                '${(w['days'] as List).length} day(s) \u00B7 ${w['outside_days']} outside territory',
               ],
             ),
         ];

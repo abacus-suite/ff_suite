@@ -737,9 +737,9 @@ class _ManagerEmployeeReportScreenState extends State<ManagerEmployeeReportScree
 
                   // 2. Territory and Route cards
                   Row(children: [
-                    detail('City / Town', territories, 'Cities / Towns'),
+                    detail('Territory', territories, 'Territories'),
                     const SizedBox(width: 8),
-                    detail('Beat', routes, 'Beats'),
+                    detail('Route', routes, 'Routes'),
                   ]),
                   const SizedBox(height: 10),
 

@@ -301,7 +301,7 @@ class _RequestSheetState extends State<_RequestSheet> {
             SegmentedButton<String>(
               segments: const [
                 ButtonSegment(value: 'city', label: Text('City')),
-                ButtonSegment(value: 'territory', label: Text('City / Town')),
+                ButtonSegment(value: 'territory', label: Text('Territory')),
                 ButtonSegment(value: 'beat', label: Text('Beat')),
               ],
               selected: {_scope},

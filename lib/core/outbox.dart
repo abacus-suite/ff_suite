@@ -76,7 +76,7 @@ class Outbox {
       '/api/v1/expenses': 'Expense claim',
       '/api/v1/clients': 'New customer',
       '/api/v1/leaves': 'Leave request',
-      '/api/v1/route-plan/days': 'Beat plan',
+      '/api/v1/route-plan/days': 'Route plan',
       '/api/v1/stock/counts': 'Stock count',
       '/api/v1/tasks': 'New task',
     };
