@@ -557,7 +557,7 @@ class _LeadFollowUpScreenState extends State<_LeadFollowUpScreen> {
         default:
           refs = [for (final r in ((lead['routes'] as List?) ?? const [])) if (ref(r, 'b') != null) ref(r, 'b')!];
       }
-      final none = const {'territory': 'No territory', 'area': 'No area', 'beat': 'No beat'}[_group] ?? 'None';
+      final none = const {'territory': 'No city / town', 'area': 'No area', 'beat': 'No beat'}[_group] ?? 'None';
       if (refs.isEmpty) {
         groups.putIfAbsent('~none', () => (none, [])).$2.add(lead);
       } else {
@@ -739,12 +739,12 @@ class _LeadFollowUpScreenState extends State<_LeadFollowUpScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    heading(Icons.location_on_outlined, 'Territory'),
+                    heading(Icons.location_on_outlined, 'City / Town'),
                     dropdown<int>(
                       value: _territoryId,
-                      hint: 'All territories',
+                      hint: 'All cities / towns',
                       items: [
-                        const DropdownMenuItem(value: 0, child: Text('All territories')),
+                        const DropdownMenuItem(value: 0, child: Text('All cities / towns')),
                         for (final t in _territories..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase())))
                           DropdownMenuItem(
                               value: t['id'] as int,
@@ -765,7 +765,7 @@ class _LeadFollowUpScreenState extends State<_LeadFollowUpScreen> {
                     heading(Icons.map_outlined, 'Area'),
                     dropdown<String>(
                       value: areas.contains(_area) ? _area : null,
-                      hint: _territoryId == null ? 'Choose a territory first' : (areas.isEmpty ? 'No areas for this territory yet' : 'All areas'),
+                      hint: _territoryId == null ? 'Choose a city / town first' : (areas.isEmpty ? 'No areas for this city / town yet' : 'All areas'),
                       items: [
                         if (areas.isNotEmpty) const DropdownMenuItem(value: _allAreas, child: Text('All areas')),
                         for (final a in areas) DropdownMenuItem(value: a, child: Text(a, overflow: TextOverflow.ellipsis)),
@@ -792,7 +792,7 @@ class _LeadFollowUpScreenState extends State<_LeadFollowUpScreen> {
                     const SizedBox(height: 22),
                     heading(Icons.grid_view_rounded, 'Group by'),
                     Wrap(spacing: 8, runSpacing: 6, children: [
-                      for (final (label, value) in const [('None', 'none'), ('Territory', 'territory'), ('Area', 'area'), ('Beat', 'beat')])
+                      for (final (label, value) in const [('None', 'none'), ('City / Town', 'territory'), ('Area', 'area'), ('Beat', 'beat')])
                         ChoiceChip(label: Text(label), selected: _group == value, onSelected: (_) => setSheet(() => _group = value)),
                     ]),
                   ]),

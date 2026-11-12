@@ -371,7 +371,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           const SizedBox(height: 16),
 
           // District / Territory *: a page of its own, with a search, as the list can be long.
-          _label('District / Territory', required: true),
+          _label('City / Town', required: true),
           InkWell(
             borderRadius: BorderRadius.circular(10),
             onTap: _pickTerritory,
@@ -385,7 +385,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
               child: Row(children: [
                 Expanded(
                   child: Text(
-                    _territory == null ? 'Choose a District / Territory' : territoryLabel(_territory!),
+                    _territory == null ? 'Choose a City / Town' : territoryLabel(_territory!),
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
@@ -426,7 +426,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
                   Expanded(
                     child: Text(
                       _territory == null
-                          ? 'Select District / Territory first'
+                          ? 'Select City / Town first'
                           : '${_outlets.length} outlets selected',
                       style: TextStyle(
                         fontSize: 14,
@@ -687,7 +687,7 @@ class _TerritoryPickerScreenState extends State<TerritoryPickerScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFF8FAFC),
         title: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('District / Territory', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          Text('City / Town', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
           Text('Search and pick one', style: TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
         ]),
       ),
@@ -697,7 +697,7 @@ class _TerritoryPickerScreenState extends State<TerritoryPickerScreen> {
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.search_rounded, color: AppColors.muted),
-            hintText: 'Search District / Territory…',
+            hintText: 'Search City / Town…',
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
@@ -732,7 +732,7 @@ class _TerritoryPickerScreenState extends State<TerritoryPickerScreen> {
         if (widget.territories.isNotEmpty)
           const Padding(
             padding: EdgeInsets.fromLTRB(4, 8, 4, 0),
-            child: Text('Only the Districts / Territories assigned to you',
+            child: Text('Only the Cities / Towns assigned to you',
                 style: TextStyle(fontSize: 11.5, fontStyle: FontStyle.italic, color: AppColors.muted)),
           ),
       ]),

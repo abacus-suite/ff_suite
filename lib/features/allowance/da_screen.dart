@@ -138,7 +138,7 @@ class _DailyAllowanceScreenState extends State<DailyAllowanceScreen> {
                             title: Text('${w['week_start']} to ${w['week_end']}',
                                 style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5)),
                             subtitle: Text(
-                                '${(w['days'] as List).length} day(s) · ${w['outside_days']} outside territory',
+                                '${(w['days'] as List).length} day(s) · ${w['outside_days']} outside city / town',
                                 style: const TextStyle(fontSize: 12)),
                             trailing: Column(
                               mainAxisAlignment: MainAxisAlignment.center,

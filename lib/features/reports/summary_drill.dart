@@ -689,7 +689,7 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
         if (extra > 0)
           InkWell(
             borderRadius: BorderRadius.circular(14),
-            onTap: () => _groupSheet(route ? 'Route' : 'Territory', groups, route: route),
+            onTap: () => _groupSheet(route ? 'Beat' : 'City / Town', groups, route: route),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.warning)),
@@ -933,8 +933,8 @@ class _EmployeeReportScreenState extends State<EmployeeReportScreen> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
                         child: Row(children: [
-                          _placeCell('Territory', 'territory', route: false),
-                          _placeCell('Route', 'route', route: true),
+                          _placeCell('City / Town', 'territory', route: false),
+                          _placeCell('Beat', 'route', route: true),
                         ]),
                       ),
                     ),

@@ -523,7 +523,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   /// The filter beside the search: Territory, with Area inside (and beat / group by below them).
   Widget _territoryButton(BoxDecoration box) {
     final on = _territoryId != null || _area != null || _beatIds.isNotEmpty || _group != 'none';
-    final label = _area ?? (_territory == null ? 'Territory' : '${_territory!['name']}');
+    final label = _area ?? (_territory == null ? 'City / Town' : '${_territory!['name']}');
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -751,10 +751,10 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    heading(Icons.location_on_outlined, 'Territory'),
+                    heading(Icons.location_on_outlined, 'City / Town'),
                     dropdown<int>(
                       value: _territoryId,
-                      hint: 'All territories',
+                      hint: 'All cities / towns',
                       items: _territoryItems(),
                       onChanged: (v) {
                         final picked = (v == null || v <= 0) ? null : v;
@@ -771,8 +771,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
                     dropdown<String>(
                       value: areas.contains(_area) ? _area : null,
                       hint: _territoryId == null
-                          ? 'Choose a territory first'
-                          : (areas.isEmpty ? 'No areas for this territory yet' : 'All areas'),
+                          ? 'Choose a city / town first'
+                          : (areas.isEmpty ? 'No areas for this city / town yet' : 'All areas'),
                       items: [
                         if (areas.isNotEmpty) const DropdownMenuItem(value: _allAreas, child: Text('All areas')),
                         for (final a in areas) DropdownMenuItem(value: a, child: Text(a, overflow: TextOverflow.ellipsis)),
@@ -824,7 +824,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                     Row(children: [
                       groupOption('None', 'none'),
                       const SizedBox(width: 10),
-                      groupOption('Territory', 'territory'),
+                      groupOption('City / Town', 'territory'),
                     ]),
                     const SizedBox(height: 10),
                     Row(children: [
@@ -885,12 +885,12 @@ class _ClientsScreenState extends State<ClientsScreen> {
     Widget label(String text) => Text(text.toUpperCase(),
         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.6, color: AppColors.muted));
     final items = <DropdownMenuItem<int>>[
-      const DropdownMenuItem(value: 0, child: Text('All territories')),
+      const DropdownMenuItem(value: 0, child: Text('All cities / towns')),
     ];
     var header = -1;
     for (final (kind, title) in const [
-      ('primary', 'Primary Territory'),
-      ('secondary', 'Secondary Territory'),
+      ('primary', 'Primary City / Town'),
+      ('secondary', 'Secondary City / Town'),
       ('other', 'Other (team / beat)'),
     ]) {
       final rows = _territories.where((t) => (t['kind'] ?? 'primary') == kind).toList()..sort(byName);
@@ -1340,7 +1340,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   List<Object> _groupedRows() {
     if (_group == 'none') return List<Object>.from(_shownClients);
     final groups = <String, _Group>{};
-    final none = _Group('none', const {'territory': 'No territory', 'area': 'No area', 'beat': 'No beat'}[_group] ?? 'None');
+    final none = _Group('none', const {'territory': 'No city / town', 'area': 'No area', 'beat': 'No beat'}[_group] ?? 'None');
 
     // The masters in scope, so a group with nobody in it is still listed.
     // In employee mode (a manager too) the territory groups are the person's own, however many secondary

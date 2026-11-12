@@ -100,7 +100,7 @@ class _EmployeeVisitsScreenState extends State<EmployeeVisitsScreen> {
         'distributor' => 'Distributor Visit',
         'new' => 'New Visit',
         'follow' => 'Follow up',
-        'beat' => 'Beat Route',
+        'beat' => 'Beat',
         _ => '',
       };
 
@@ -134,7 +134,7 @@ class _EmployeeVisitsScreenState extends State<EmployeeVisitsScreen> {
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
         if (typed)
           _twoColumns([
-            count('beat', Icons.event_note_rounded, AppColors.primary, 'Beat Route'),
+            count('beat', Icons.event_note_rounded, AppColors.primary, 'Beat'),
             count('distributor', Icons.local_shipping_rounded, AppColors.warning, 'Distributor Visit'),
             count('new', Icons.storefront_rounded, AppColors.success, 'New Visits'),
             count('follow', Icons.check_circle_rounded, AppColors.purple, 'Follow up'),

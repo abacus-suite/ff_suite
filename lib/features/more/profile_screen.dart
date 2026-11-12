@@ -388,15 +388,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         cell(Icons.public_rounded, 'Region', regionName ?? '—', AppColors.primary,
             () => _openRegion(names.isEmpty && regionName != null ? [regionName] : names)),
         const SizedBox(width: 10),
-        cell(Icons.place_rounded, 'Territory',
+        cell(Icons.place_rounded, 'City / Town',
             count(primary.length + secondary.length + outside.length, 'territory', 'territories'), AppColors.success,
-            () => _openList('My Territories', 'Opened by tapping “Territory”', null, [
+            () => _openList('My Cities / Towns', 'Opened by tapping “City / Town”', null, [
                   if (primary.isNotEmpty)
-                    ('Primary territory', [for (final t in primary) ('${t['name']}', '${t['region'] ?? ''}', 'Primary')]),
+                    ('Primary city / town', [for (final t in primary) ('${t['name']}', '${t['region'] ?? ''}', 'Primary')]),
                   if (secondary.isNotEmpty)
-                    ('Secondary territory', [for (final t in secondary) ('${t['name']}', '${t['region'] ?? ''}', 'Secondary')]),
+                    ('Secondary city / town', [for (final t in secondary) ('${t['name']}', '${t['region'] ?? ''}', 'Secondary')]),
                   if (outside.isNotEmpty)
-                    ('Outside territory', [for (final t in outside) ('${t['name']}', '${t['region'] ?? ''}', 'Outside')]),
+                    ('Outside city / town', [for (final t in outside) ('${t['name']}', '${t['region'] ?? ''}', 'Outside')]),
                 ])),
         const SizedBox(width: 10),
         cell(Icons.route_rounded, profile.routeLabel == 'Beat' ? 'Beats' : '${profile.routeLabel}s',

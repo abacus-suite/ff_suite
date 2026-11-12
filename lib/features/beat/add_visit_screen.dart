@@ -198,7 +198,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
     final shown = _nearOnly ? rows.where(isNear).toList() : rows;
     final groups = <String, _VGroup>{};
-    final none = _VGroup('none', const {'territory': 'No territory', 'area': 'No area', 'beat': 'No beat', 'category': 'No category'}[_group] ?? 'None');
+    final none = _VGroup('none', const {'territory': 'No city / town', 'area': 'No area', 'beat': 'No beat', 'category': 'No category'}[_group] ?? 'None');
 
     List<(String, String)> refsOf(Map<String, dynamic> c) {
       (String, String)? ref(Object? r, String prefix) =>
@@ -428,11 +428,11 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         territoryLabel(a).toLowerCase().compareTo(territoryLabel(b).toLowerCase());
     Widget label(String text) => Text(text.toUpperCase(),
         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 0.6, color: AppColors.muted));
-    final items = <DropdownMenuItem<int>>[const DropdownMenuItem(value: 0, child: Text('All territories'))];
+    final items = <DropdownMenuItem<int>>[const DropdownMenuItem(value: 0, child: Text('All cities / towns'))];
     var header = -1;
     for (final (kind, title) in const [
-      ('primary', 'Primary Territory'),
-      ('secondary', 'Secondary Territory'),
+      ('primary', 'Primary City / Town'),
+      ('secondary', 'Secondary City / Town'),
       ('other', 'Other (team / beat)'),
     ]) {
       final rows = _territories.where((t) => (t['kind'] ?? 'primary') == kind).toList()..sort(byName);
@@ -594,10 +594,10 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                         chip('${c['name']}', _categoryId == c['id'], () => _categoryId = c['id'] as int),
                     ]),
                     const SizedBox(height: 22),
-                    heading(Icons.location_on_outlined, 'Territory'),
+                    heading(Icons.location_on_outlined, 'City / Town'),
                     dropdown<int>(
                       value: _territoryId,
-                      hint: 'All territories',
+                      hint: 'All cities / towns',
                       items: _territoryItems(),
                       onChanged: (v) {
                         final picked = (v == null || v <= 0) ? null : v;
@@ -614,8 +614,8 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                     dropdown<String>(
                       value: areas.contains(_area) ? _area : null,
                       hint: _territoryId == null
-                          ? 'Choose a territory first'
-                          : (areas.isEmpty ? 'No areas for this territory yet' : 'All areas'),
+                          ? 'Choose a city / town first'
+                          : (areas.isEmpty ? 'No areas for this city / town yet' : 'All areas'),
                       items: [
                         if (areas.isNotEmpty) const DropdownMenuItem(value: _allAreas, child: Text('All areas')),
                         for (final a in areas) DropdownMenuItem(value: a, child: Text(a, overflow: TextOverflow.ellipsis)),
@@ -643,7 +643,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                     heading(Icons.grid_view_rounded, 'Group by'),
                     Wrap(spacing: 8, runSpacing: 6, children: [
                       chip('Distance', _group == 'distance', () => _group = 'distance'),
-                      chip('Territory', _group == 'territory', () => _group = 'territory'),
+                      chip('City / Town', _group == 'territory', () => _group = 'territory'),
                       chip('Area', _group == 'area', () => _group = 'area'),
                       chip('Beat', _group == 'beat', () => _group = 'beat'),
                       chip('Category', _group == 'category', () => _group = 'category'),

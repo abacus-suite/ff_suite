@@ -584,7 +584,7 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
             ],
           ),
           _card(
-            title: 'Type & route',
+            title: 'Type & beat',
             icon: Icons.category_rounded,
             children: [
               if (_categories.isNotEmpty)
@@ -611,7 +611,7 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
                     child: DropdownButtonFormField<int>(
                       initialValue: _routes.any((r) => r['id'] == _routeId) ? _routeId : null,
                       decoration: const InputDecoration(
-                        labelText: 'Beat / route',
+                        labelText: 'Beat',
                         prefixIcon: Icon(Icons.route_rounded, size: 19, color: AppColors.primary),
                         filled: true,
                         fillColor: Colors.white,
@@ -624,7 +624,7 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
                             child: Text('${route['name']}', maxLines: 1, overflow: TextOverflow.ellipsis),
                           ),
                       ],
-                      // The address city is left alone: it is the shop's, not the route's.
+                      // The address city is left alone: it is the shop's, not the beat's.
                       onChanged: (value) => setState(() => _routeId = value),
                     ),
                   ),

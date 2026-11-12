@@ -691,7 +691,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             const SizedBox(height: 10),
             if (_fullAddress(c) != null)
               _infoRow(Icons.location_on_rounded, _fullAddress(c)!, 'Address', fullTitle: true),
-            if (_territoryName(c) != null) _infoRow(Icons.map_rounded, _territoryName(c)!, 'Territory'),
+            if (_territoryName(c) != null) _infoRow(Icons.map_rounded, _territoryName(c)!, 'City / Town'),
             if (_areaName(c) != null) _infoRow(Icons.pin_drop_rounded, _areaName(c)!, 'Area'),
             if (asText(c['phone']) != null)
               _infoRow(Icons.call_rounded, '${c['phone']}', '',

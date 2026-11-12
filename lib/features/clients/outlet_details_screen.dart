@@ -125,7 +125,7 @@ class OutletDetailsScreen extends StatelessWidget {
           ('Name as per GST', asText(ob['gst_name']) ?? _first(c, ['gst_name', 'legal_name', 'company_registry_name', 'trade_name'])),
           ('GSTIN', ob['has_gst'] == false ? 'No GST' : _first(c, ['gst', 'gstin', 'vat'])),
           ('Region', _first(c, ['region', 'region_name'])),
-          ('District / Territory', _districtTerritory),
+          ('City / Town', _districtTerritory),
           if (_onboardedOn != null) ('Onboarded on', _onboardedOn),
         ]),
         _Section(title: 'Contact & commercials', rows: [

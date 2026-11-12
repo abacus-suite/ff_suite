@@ -268,9 +268,9 @@ class _AddClientScreenState extends State<AddClientScreen> {
         DropdownButtonFormField<int?>(
           initialValue: _territories.any((t) => t['id'] == _territoryId) ? _territoryId : null,
           isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Territory'),
+          decoration: const InputDecoration(labelText: 'City / Town'),
           items: [
-            const DropdownMenuItem<int?>(value: null, child: Text('No territory')),
+            const DropdownMenuItem<int?>(value: null, child: Text('No city / town')),
             for (final t in _territories)
               DropdownMenuItem<int?>(
                   value: t['id'] as int,
@@ -292,7 +292,7 @@ class _AddClientScreenState extends State<AddClientScreen> {
           isExpanded: true,
           decoration: InputDecoration(
               labelText: 'Area',
-              helperText: _territoryId == null ? 'Choose a territory first' : (areas.isEmpty ? 'No areas in this territory yet' : null)),
+              helperText: _territoryId == null ? 'Choose a city / town first' : (areas.isEmpty ? 'No areas in this city / town yet' : null)),
           items: [
             const DropdownMenuItem<int?>(value: null, child: Text('No area')),
             for (final a in areas) DropdownMenuItem<int?>(value: a['id'] as int, child: Text('${a['name']}', overflow: TextOverflow.ellipsis)),
