@@ -26,11 +26,12 @@ class FfBeatAccess(models.Model):
         employee = employee.sudo()
         Beat = self.sudo()
         everything = Beat.search([('company_id', 'in', (False, employee.company_id.id))])
-        shared = self.env['res.partner']._ff_contact_access() == 'open'
+        # Only the Allowed Beats of the employee, and the ones they drew that still wait for approval (so they can see
+        # them). Taking a beat off the employee takes it out of their app; there is no "all beats" fallback.
         own = self._ff_beat_usable(employee.ff_route_ids, employee)
-        if shared or not own:
-            return self._ff_beat_usable(everything, employee)
-        return own | self._ff_beat_usable(everything.filtered(lambda b: b.ff_created_by_employee_id == employee), employee)
+        waiting = self._ff_beat_usable(everything.filtered(
+            lambda b: b.ff_created_by_employee_id == employee and b.ff_approval_state == 'pending'), employee)
+        return own | waiting
 
     @api.model
     def ff_can_use_beat(self, employee, beat, date=None):
