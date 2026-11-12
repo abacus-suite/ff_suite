@@ -814,7 +814,23 @@ class _AddExistingBeatScreenState extends State<AddExistingBeatScreen> {
         // Only approved beats can be planned: one waiting for approval (new or edited) is not listed.
         if (r['approval_state'] != 'pending' &&
             (needle.isEmpty || '${r['name']} ${r['city'] ?? ''}'.toLowerCase().contains(needle))) r,
-    ]..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+    ];
+    // The order to choose from: 1) recurrent beats that repeat on this day (and a one-time beat for this very day),
+    // 2) other recurrent beats that repeat on other days, 3) recurrent beats with no fixed days (Repeat: No), and
+    // last any other one-time beat. Each group A to Z.
+    final weekday = d.weekday - 1;
+    final dayText = fmtDate(d);
+    int rank(Map<String, dynamic> r) {
+      final days = [for (final x in (r['weekdays'] as List?) ?? const []) (x as num).toInt()];
+      if ('${r['schedule']}' == 'one_time') return '${r['date']}' == dayText ? 0 : 3;
+      if (days.contains(weekday)) return 0;
+      return days.isNotEmpty ? 1 : 2;
+    }
+
+    beats.sort((a, b) {
+      final byRank = rank(a).compareTo(rank(b));
+      return byRank != 0 ? byRank : '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase());
+    });
     final outletCount = _chosen.values.fold<int>(0, (sum, s) => sum + s.length);
     return Scaffold(
       backgroundColor: AppColors.background,
