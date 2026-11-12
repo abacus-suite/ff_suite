@@ -120,6 +120,14 @@ class HrEmployee(models.Model):
                 # No district chosen: whatever was set before stays.
                 employee.ff_territory_ids = employee._origin.ff_territory_ids
 
+    @api.onchange('ff_team_ids')
+    def _onchange_ff_team_ids_districts(self):
+        """Only the Districts / Territories of the chosen Regions stay chosen."""
+        if self.ff_team_ids:
+            self.ff_district_ids = self.ff_district_ids.filtered(lambda d: d.team_id in self.ff_team_ids)
+            self.ff_secondary_district_ids = self.ff_secondary_district_ids.filtered(
+                lambda d: d.team_id in self.ff_team_ids)
+
     def _ff_has_company_location(self):
         """True if any primary or secondary territory mapped to this employee has Company Location enabled."""
         for employee in self:

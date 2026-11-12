@@ -132,9 +132,12 @@
         <field name="model">hr.employee</field>
         <field name="inherit_id" ref="ff_base.hr_employee_view_form_ff"/>
         <field name="arch" type="xml">
-            <xpath expr="//group[@name='ff_org']" position="inside">
-                <field name="ff_district_ids" widget="many2many_tags" options="{'no_create': True}"/>
-                <field name="ff_secondary_district_ids" widget="many2many_tags" options="{'no_create': True}"/>
+            <!-- Right under the Regions: their Districts / Territories (of those Regions), then the Cities / Towns they give. -->
+            <xpath expr="//group[@name='ff_org']//field[@name='ff_team_ids']" position="after">
+                <field name="ff_district_ids" widget="many2many_tags" options="{'no_create': True}"
+                       domain="[('team_id', 'in', ff_team_ids)] if ff_team_ids else []"/>
+                <field name="ff_secondary_district_ids" widget="many2many_tags" options="{'no_create': True}"
+                       domain="[('team_id', 'in', ff_team_ids)] if ff_team_ids else []"/>
                 <field name="ff_territory_ids" widget="many2many_tags" readonly="1"/>
             </xpath>
         </field>
