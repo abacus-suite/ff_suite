@@ -365,7 +365,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Icon(icon, size: 22, color: tint),
                   const SizedBox(height: 6),
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                  Text(title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                   Text(value,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -441,6 +444,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                   // The Districts / Territories of this region that are the employee's, tagged Primary or Secondary.
                   children: [
+                    // The heading, then the employee's values under it.
+                    if ([...primary, ...secondary].any((t) => asText(t['region']) == name || regions.length == 1))
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('District / Territory',
+                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: AppColors.muted)),
+                        ),
+                      ),
                     for (final (t, kind) in [
                       for (final t in primary) if (asText(t['region']) == name || regions.length == 1) (t, 'Primary'),
                       for (final t in secondary) if (asText(t['region']) == name || regions.length == 1) (t, 'Secondary'),
