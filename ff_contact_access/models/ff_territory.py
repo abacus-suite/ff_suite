@@ -102,9 +102,13 @@ class HrEmployee(models.Model):
         string='Secondary Cities / Towns',
         help='Territories the employee also works in, besides the primary ones above.')
     ff_district_ids = fields.Many2many('ff.district', 'ff_employee_district_rel', 'employee_id', 'district_id',
-                                       string='Districts / Territories',
+                                       string='Primary Districts / Territories',
                                        help='The District / Territory master this person works in: the app shows these as '
-                                            'their Territories.')
+                                            'their primary Territories.')
+    ff_secondary_district_ids = fields.Many2many(
+        'ff.district', 'ff_employee_secondary_district_rel', 'employee_id', 'district_id',
+        string='Secondary Districts / Territories',
+        help='Districts / Territories the employee also works in, besides the primary ones.')
 
     def _ff_has_company_location(self):
         """True if any primary or secondary territory mapped to this employee has Company Location enabled."""

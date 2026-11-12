@@ -166,7 +166,9 @@ class FieldForceProfileApi(http.Controller):
             'territories': {
                 'primary': [{'id': d.id, 'name': d.name, 'region': None}
                             for d in (e.ff_district_ids if 'ff_district_ids' in e._fields else request.env['res.partner'].browse())],
-                'secondary': [],
+                'secondary': [{'id': d.id, 'name': d.name, 'region': None}
+                              for d in ((e.ff_secondary_district_ids - e.ff_district_ids)
+                                        if 'ff_secondary_district_ids' in e._fields else request.env['res.partner'].browse())],
                 'outside': [],
             },
             'beats': [{

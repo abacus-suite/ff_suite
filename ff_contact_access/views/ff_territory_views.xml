@@ -136,6 +136,7 @@
                 <field name="ff_territory_ids" widget="many2many_tags" options="{'no_create': True}"/>
                 <field name="ff_secondary_territory" widget="many2many_tags" options="{'no_create': True}"/>
                 <field name="ff_district_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                <field name="ff_secondary_district_ids" widget="many2many_tags" options="{'no_create': True}"/>
             </xpath>
         </field>
     </record>
