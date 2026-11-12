@@ -162,11 +162,12 @@ class FieldForceProfileApi(http.Controller):
             'colour': {'start': colours[0], 'end': colours[1]},
             'teams': [{'id': t.id, 'name': t.name, 'lead': t.manager_id.name or None,
                        'members': len(t.member_ids)} for t in teams],
+            # The app's "Territory" is the District / Territory master: the employee's own list of it.
             'territories': {
-                'primary': [{'id': t.id, 'name': t.name, 'region': (t.district_id.name if 'district_id' in t._fields and t.district_id else None)} for t in territories],
-                'secondary': [{'id': t.id, 'name': t.name, 'region': (t.district_id.name if 'district_id' in t._fields and t.district_id else None)}
-                              for t in secondary],
-                'outside': [{'id': t.id, 'name': t.name, 'region': (t.district_id.name if 'district_id' in t._fields and t.district_id else None)} for t in outside],
+                'primary': [{'id': d.id, 'name': d.name, 'region': None}
+                            for d in (e.ff_district_ids if 'ff_district_ids' in e._fields else request.env['res.partner'].browse())],
+                'secondary': [],
+                'outside': [],
             },
             'beats': [{
                 'id': b.id, 'name': b.name,
