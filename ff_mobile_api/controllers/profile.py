@@ -121,16 +121,7 @@ class FieldForceProfileApi(http.Controller):
         # Beats
         Beat = request.env.get('ff.beat', request.env['res.partner']).sudo()
         beats = e.ff_route_ids.filtered(lambda b: b.exists()) if 'ff_route_ids' in e._fields else Beat.browse()
-        if hasattr(e, '_ff_territory_beats'):
-            try:
-                beats |= e._ff_territory_beats().filtered(lambda b: b.exists())
-            except Exception:
-                pass
-        if hasattr(Beat, 'ff_beats_for'):
-            try:
-                beats |= Beat.ff_beats_for(e).filtered(lambda b: b.exists())
-            except Exception:
-                pass
+        # The profile lists the Assigned Beats of the employee and nothing else.
 
         # A one-time beat is for its date only: it is not listed with the person's beats.
         beats = beats.filtered(lambda b: getattr(b, 'ff_schedule', False) != 'one_time' or getattr(b, 'ff_approval_state', 'approved') != 'approved')
