@@ -2,43 +2,84 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
 
-/// Tick the areas a beat covers, from the areas of its territory. Null when cancelled.
+/// Tick the areas a beat covers, on a page of its own (as the District / Territory is chosen), with a search and
+/// Select all / Clear all. Null when the person goes back without Done.
 Future<Set<int>?> pickBeatAreas(BuildContext context, List<Map<String, dynamic>> areas, Set<int> selected) {
-  final picked = Set<int>.from(selected);
-  return showDialog<Set<int>>(
-    context: context,
-    builder: (dialog) => StatefulBuilder(
-      builder: (context, setDialog) => AlertDialog(
-        title: const Text('Areas of this beat'),
-        contentPadding: const EdgeInsets.only(top: 8),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: areas.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.all(20), child: Text('This territory has no areas set up yet.'))
-              : ListView(shrinkWrap: true, children: [
-                  for (final a in areas)
-                    CheckboxListTile(
-                      value: picked.contains(a['id']),
-                      title: Text('${a['name']}'),
-                      onChanged: (on) =>
-                          setDialog(() => on == true ? picked.add(a['id'] as int) : picked.remove(a['id'])),
-                    ),
-                ]),
-        ),
+  return Navigator.of(context).push<Set<int>>(MaterialPageRoute(
+    builder: (_) => _AreaPickerScreen(areas: areas, selected: selected),
+  ));
+}
+
+class _AreaPickerScreen extends StatefulWidget {
+  const _AreaPickerScreen({required this.areas, required this.selected});
+
+  final List<Map<String, dynamic>> areas;
+  final Set<int> selected;
+
+  @override
+  State<_AreaPickerScreen> createState() => _AreaPickerScreenState();
+}
+
+class _AreaPickerScreenState extends State<_AreaPickerScreen> {
+  late final Set<int> _picked = {...widget.selected};
+  String _query = '';
+
+  List<Map<String, dynamic>> get _shown => [
+        for (final a in widget.areas)
+          if (_query.isEmpty || '${a['name']}'.toLowerCase().contains(_query.toLowerCase())) a,
+      ];
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = _shown;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Areas of this beat', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
         actions: [
-          if (areas.isNotEmpty) ...[
-            TextButton(
-                onPressed: () => setDialog(() => picked.addAll([for (final a in areas) a['id'] as int])),
-                child: const Text('Select all')),
-            TextButton(onPressed: () => setDialog(picked.clear), child: const Text('Clear all')),
-          ],
-          TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(dialog, picked), child: const Text('Done')),
+          TextButton(
+              onPressed: () => setState(() => _picked.addAll([for (final a in shown) a['id'] as int])),
+              child: const Text('Select all')),
+          TextButton(
+              onPressed: () => setState(() => _picked.removeAll([for (final a in shown) a['id'] as int])),
+              child: const Text('Clear all')),
         ],
       ),
-    ),
-  );
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+          child: FilledButton(
+            onPressed: () => Navigator.pop(context, _picked),
+            child: Text('Done (${_picked.length} selected)'),
+          ),
+        ),
+      ),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: TextField(
+            onChanged: (v) => setState(() => _query = v.trim()),
+            decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Search area…', isDense: true),
+          ),
+        ),
+        Expanded(
+          child: widget.areas.isEmpty
+              ? const Center(child: Text('This District / Territory has no areas set up yet.'))
+              : ListView.builder(
+                  itemCount: shown.length,
+                  itemBuilder: (_, i) {
+                    final a = shown[i];
+                    final id = a['id'] as int;
+                    return CheckboxListTile(
+                      value: _picked.contains(id),
+                      title: Text('${a['name']}'),
+                      onChanged: (on) => setState(() => on == true ? _picked.add(id) : _picked.remove(id)),
+                    );
+                  },
+                ),
+        ),
+      ]),
+    );
+  }
 }
 
 /// The areas picked, as chips, with a button to change them.
