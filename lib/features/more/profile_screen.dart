@@ -386,17 +386,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Row(
       children: [
         cell(Icons.public_rounded, 'Region', regionName ?? '—', AppColors.primary,
-            () => _openRegion(names.isEmpty && regionName != null ? [regionName] : names)),
+            () => _openRegion(names.isEmpty && regionName != null ? [regionName] : names, primary, secondary)),
         const SizedBox(width: 10),
-        cell(Icons.place_rounded, 'Territory',
+        cell(Icons.place_rounded, 'District / Territory',
             count(primary.length + secondary.length + outside.length, 'territory', 'territories'), AppColors.success,
-            () => _openList('My Territories', 'Opened by tapping “Territory”', null, [
+            () => _openList('My Districts / Territories', 'Opened by tapping “District / Territory”', null, [
                   if (primary.isNotEmpty)
-                    ('Primary territory', [for (final t in primary) ('${t['name']}', '${t['region'] ?? ''}', 'Primary')]),
+                    ('Primary District / Territory', [for (final t in primary) ('${t['name']}', '${t['region'] ?? ''}', 'Primary')]),
                   if (secondary.isNotEmpty)
-                    ('Secondary territory', [for (final t in secondary) ('${t['name']}', '${t['region'] ?? ''}', 'Secondary')]),
+                    ('Secondary District / Territory', [for (final t in secondary) ('${t['name']}', '${t['region'] ?? ''}', 'Secondary')]),
                   if (outside.isNotEmpty)
-                    ('Outside territory', [for (final t in outside) ('${t['name']}', '${t['region'] ?? ''}', 'Outside')]),
+                    ('Outside District / Territory', [for (final t in outside) ('${t['name']}', '${t['region'] ?? ''}', 'Outside')]),
                 ])),
         const SizedBox(width: 10),
         cell(Icons.route_rounded, profile.routeLabel == 'Beat' ? 'Beats' : '${profile.routeLabel}s',
@@ -416,7 +416,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   /// My Regions: the names of the Regions the employee covers, nothing else.
-  void _openRegion(List<String> regions) {
+  void _openRegion(List<String> regions, List<Map<String, dynamic>> primary, List<Map<String, dynamic>> secondary) {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => Scaffold(
         backgroundColor: AppColors.background,
@@ -432,14 +432,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
           for (final name in regions)
             Container(
               margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
               decoration: BoxDecoration(
                   color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-              child: Row(children: [
-                const Icon(Icons.public_rounded, size: 20, color: AppColors.primary),
-                const SizedBox(width: 12),
-                Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
-              ]),
+              child: Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  leading: const Icon(Icons.public_rounded, size: 20, color: AppColors.primary),
+                  title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                  // The Districts / Territories of this region that are the employee's, tagged Primary or Secondary.
+                  children: [
+                    for (final (t, kind) in [
+                      for (final t in primary) if (asText(t['region']) == name || regions.length == 1) (t, 'Primary'),
+                      for (final t in secondary) if (asText(t['region']) == name || regions.length == 1) (t, 'Secondary'),
+                    ])
+                      ListTile(
+                        dense: true,
+                        title: Text('${t['name']}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: (kind == 'Primary' ? AppColors.primary : AppColors.purple).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(kind,
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 11.5,
+                                  color: kind == 'Primary' ? AppColors.primary : AppColors.purple)),
+                        ),
+                      ),
+                    if (![...primary, ...secondary].any((t) => asText(t['region']) == name || regions.length == 1))
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: Text('No District / Territory of yours in this region.',
+                            style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                      ),
+                  ],
+                ),
+              ),
             ),
         ]),
       ),
