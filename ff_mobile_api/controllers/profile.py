@@ -155,9 +155,9 @@ class FieldForceProfileApi(http.Controller):
                        'members': len(t.member_ids)} for t in teams],
             # The app's "Territory" is the District / Territory master: the employee's own list of it.
             'territories': {
-                'primary': [{'id': d.id, 'name': d.name, 'region': None}
+                'primary': [{'id': d.id, 'name': d.name, 'region': d.team_id.name or None}
                             for d in (e.ff_district_ids if 'ff_district_ids' in e._fields else request.env['res.partner'].browse())],
-                'secondary': [{'id': d.id, 'name': d.name, 'region': None}
+                'secondary': [{'id': d.id, 'name': d.name, 'region': d.team_id.name or None}
                               for d in ((e.ff_secondary_district_ids - e.ff_district_ids)
                                         if 'ff_secondary_district_ids' in e._fields else request.env['res.partner'].browse())],
                 'outside': [],
