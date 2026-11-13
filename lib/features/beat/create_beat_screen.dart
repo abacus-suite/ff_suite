@@ -58,8 +58,21 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
       if (date != null) _date = date;
       _areas.addAll([for (final a in (b['area_ids'] as List?) ?? const []) (a as num).toInt()]);
       _outlets.addAll([for (final o in widget.existingOutlets ?? const <Map<String, dynamic>>[]) o['id'] as int]);
+      if (widget.existingOutlets == null) _loadExistingOutlets();
     }
     _loadTerritories();
+  }
+
+  /// Opened from the list of beats: the beat's outlets are fetched here.
+  Future<void> _loadExistingOutlets() async {
+    try {
+      final data = await Services.api.get('/api/v1/route-plan/customers',
+          query: {'beat_id': widget.existing!['id'], 'date': fmtDate(DateTime.now()), 'member': 'me'}) as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _outlets.addAll([for (final o in ((data['customers'] as List?) ?? const []).cast<Map<String, dynamic>>()) o['id'] as int]);
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadTerritories() async {
@@ -403,6 +416,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           _label('Beat name', required: true),
           TextField(
             controller: _name,
+            readOnly: widget.existing != null,
             textCapitalization: TextCapitalization.words,
             style: const TextStyle(fontSize: 14, color: Color(0xFF0F1B3D)),
             decoration: _fieldDecoration('Beat 10 – Palarivattom'),
@@ -413,6 +427,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           _label('Beat code', required: true),
           TextField(
             controller: _code,
+            readOnly: widget.existing != null,
             textCapitalization: TextCapitalization.characters,
             style: const TextStyle(fontSize: 14, color: Color(0xFF0F1B3D)),
             decoration: _fieldDecoration('KOC-B10'),
@@ -423,7 +438,8 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           _label('District / Territory', required: true),
           InkWell(
             borderRadius: BorderRadius.circular(10),
-            onTap: _pickTerritory,
+            // The details (name, code, District / Territory) are read only when editing a beat.
+            onTap: widget.existing != null ? null : _pickTerritory,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(

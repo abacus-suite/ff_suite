@@ -154,7 +154,7 @@ class _MyBeatsListState extends State<MyBeatsList> {
 
   Future<void> _edit(Map<String, dynamic> beat) async {
     final changed =
-        await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => EditBeatScreen(beat: beat)));
+        await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => CreateBeatScreen(existing: beat)));
     if (changed == true) _changed();
   }
 
