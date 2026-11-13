@@ -17,19 +17,14 @@ class FfBeatPlanApp(models.Model):
     def ff_app_routes(self, employee):
         """Routes this employee may plan.
 
-        With shared contacts the whole field plans from every beat; otherwise
-        they plan their own, and only fall back to all when they have none.
+        The employee's Allowed Beats, plus the ones they drew that still wait for approval.
         """
         routes = self.env['ff.beat'].ff_beats_for(employee)
         # A one-time beat is listed with its expiry date; once that day has passed it leaves the list.
         today = fields.Date.context_today(self)
         routes = routes.filtered(lambda b: not b.ff_expiry() or b.ff_expiry() >= today)
-        # A beat the manager put on this person's day is theirs to see too (locked as "assigned by manager").
-        planned = self.sudo().search([
-            ('employee_id', '=', employee.id), ('beat_id', '!=', False),
-            ('date', '>=', fields.Date.context_today(self) - timedelta(days=90))]).beat_id
-        routes |= self.env['ff.beat'].sudo()._ff_beat_usable(planned, employee).filtered(
-            lambda b: not b.ff_expiry() or b.ff_expiry() >= today)
+        # Only the Allowed Beats (and their own waiting for approval): a beat they once planned, or that was taken off
+        # them, is not offered.
         # Alphabetical, whoever drew the beat.
         return routes.sorted(lambda route: (route.display_name or '').lower())
 
