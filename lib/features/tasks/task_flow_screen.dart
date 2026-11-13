@@ -427,7 +427,8 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       for (final area in ((t['areas'] as List?) ?? const []).cast<Map<String, dynamic>>()) {
         rows.add({
           'id': area['id'],
-          'name': chosen == null ? '${area['name']} · ${t['name']}' : '${area['name']}',
+          // The area with its City / Town, so areas of the same name in different towns can be told apart.
+          'name': asText(area['town']) != null ? '${area['name']} · ${area['town']}' : '${area['name']}',
           'plain': '${area['name']}',
           'territory_id': t['id'],
         });

@@ -291,13 +291,13 @@ class _OnboardScreenState extends State<OnboardScreen> {
       if (_territoryId != null && t['id'] != _territoryId) continue;
       for (final a in ((t['areas'] as List?) ?? const []).cast<Map<String, dynamic>>()) {
         final id = (a['id'] as num).toInt();
-        rows.putIfAbsent(id, () => {'id': id, 'name': '${a['name']}', 'territory': t['id'], 'territory_name': '${t['name']}'});
+        rows.putIfAbsent(id, () => {'id': id, 'name': '${a['name']}', 'territory': t['id'], 'territory_name': asText(a['town']) ?? '${t['name']}'});
         names['${a['name']}'.toLowerCase()] = (names['${a['name']}'.toLowerCase()] ?? 0) + 1;
       }
     }
     return [
       for (final r in rows.values)
-        {...r, 'name': (names['${r['name']}'.toLowerCase()] ?? 0) > 1 ? '${r['name']} · ${r['territory_name']}' : r['name']},
+        {...r, 'name': '${r['name']} · ${r['territory_name']}'},
     ]..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
   }
 
