@@ -32,6 +32,25 @@ class FfPartnerOption(models.Model):
         string='Needs a Description',
         help='Whoever picks this must also describe it, as with "Others".')
     active = fields.Boolean(default=True)
+    line_ids = fields.One2many('ff.mrp.line', 'option_id', string='Products & Prices',
+                               help='For an MRP: the products this MRP sells, each with its price.')
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        options = super().create(vals_list)
+        for option in options.filtered(lambda o: o.kind == 'mrp' and not o.line_ids):
+            option.ff_load_products()
+        return options
+
+    def ff_load_products(self):
+        """Put every product the app sells on this MRP, at the price it has now (to be changed per product)."""
+        Product = self.env['product.product'].sudo()
+        for option in self:
+            have = option.line_ids.product_id
+            for product in Product.search([('sale_ok', '=', True)]) - have:
+                tmpl = product.product_tmpl_id
+                price = tmpl.ff_mrp if 'ff_mrp' in tmpl._fields and tmpl.ff_mrp else product.list_price
+                self.env['ff.mrp.line'].create({'option_id': option.id, 'product_id': product.id, 'mrp': price})
 
     def ff_scheme_value(self):
         """The rupees off every bottle: the amount entered, else a number the name is made of ("20", "Rs 30 per bottle")."""
@@ -62,3 +81,19 @@ class FfPartnerOption(models.Model):
                  # A scheme is shown as its amount with the company's currency symbol.
                  'value': o.ff_scheme_value() if o.kind == 'scheme' else None}
                 for o in self.sudo().search([('kind', '=', kind)])]
+
+
+class FfMrpLine(models.Model):
+    """One product of an MRP master, with its price."""
+    _name = 'ff.mrp.line'
+    _description = 'MRP Product Price'
+    _order = 'option_id, product_id'
+
+    option_id = fields.Many2one('ff.partner.option', required=True, ondelete='cascade', index=True)
+    product_id = fields.Many2one('product.product', string='Product', required=True, ondelete='cascade',
+                                 domain=[('sale_ok', '=', True)])
+    code = fields.Char(related='product_id.default_code', string='Product Code', readonly=True)
+    product_name = fields.Char(related='product_id.name', string='Product Name', readonly=True)
+    mrp = fields.Float(string='MRP', digits=(10, 2))
+
+    _option_product_uniq = models.Constraint('UNIQUE(option_id, product_id)', 'This product is already on the MRP.')

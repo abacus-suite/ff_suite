@@ -3,3 +3,5 @@ access_ff_partner_terms_history_officer,ff.partner.terms.history officer,model_f
 access_ff_partner_terms_history_admin,ff.partner.terms.history admin,model_ff_partner_terms_history,ff_base.group_ff_admin,1,1,1,1
 access_ff_partner_option_user,ff.partner.option user,model_ff_partner_option,base.group_user,1,0,0,0
 access_ff_partner_option_admin,ff.partner.option admin,model_ff_partner_option,ff_base.group_ff_admin,1,1,1,1
+access_ff_mrp_line_user,ff.mrp.line user,model_ff_mrp_line,base.group_user,1,0,0,0
+access_ff_mrp_line_admin,ff.mrp.line admin,model_ff_mrp_line,ff_base.group_ff_admin,1,1,1,1

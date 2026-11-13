@@ -320,9 +320,21 @@ class FieldForceOrdersApi(http.Controller):
         if commercials and commercials.get('price_category'):
             # An outlet is shown the products of its own price category only (149 or 179).
             domain.append(('product_tmpl_id.ff_mrp', '=', float(commercials['price_category'])))
+        # The contact's MRP master: only the products on it, at the prices it gives.
+        mrp_lines = {}
+        mrp = partner.ff_mrp_id if partner and 'ff_mrp_id' in partner._fields else None
+        if mrp and 'line_ids' in mrp._fields and mrp.sudo().line_ids:
+            mrp_lines = {line.product_id.id: line.mrp for line in mrp.sudo().line_ids}
+            domain = [d for d in domain if not (isinstance(d, tuple) and d[0] == 'product_tmpl_id.ff_mrp')]
+            domain.append(('id', 'in', list(mrp_lines)))
         products = Product.search(domain, order='name', limit=limit, offset=offset)
-        return ok({'total': Product.search_count(domain), 'commercials': commercials,
-                   'products': [product_data(p, partner) for p in products]})
+        rows = [product_data(p, partner) for p in products]
+        for row in rows:
+            if row.get('id') in mrp_lines:
+                row['mrp'] = mrp_lines[row['id']]
+                if 'price' in row:
+                    row['price'] = mrp_lines[row['id']]
+        return ok({'total': Product.search_count(domain), 'commercials': commercials, 'products': rows})
 
     @api_route('/api/v1/products/categories', methods=('GET',))
     def categories(self, employee, **kw):

@@ -28,10 +28,57 @@
             </search>
         </field>
     </record>
+    <record id="ff_partner_option_view_list_mrp" model="ir.ui.view">
+        <field name="name">ff.partner.option.list.mrp</field>
+        <field name="model">ff.partner.option</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ff_partner_option_view_form_mrp" model="ir.ui.view">
+        <field name="name">ff.partner.option.form.mrp</field>
+        <field name="model">ff.partner.option</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="kind" invisible="1"/>
+                        <field name="name"/>
+                        <field name="code"/>
+                        <field name="active"/>
+                    </group>
+                    <notebook>
+                        <page string="Products &amp; Prices" name="products">
+                            <button name="ff_load_products" type="object" string="Add all app products"
+                                    class="btn-secondary"/>
+                            <field name="line_ids">
+                                <list editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="code"/>
+                                    <field name="product_name"/>
+                                    <field name="mrp"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
     <record id="ff_option_mrp_action" model="ir.actions.act_window">
         <field name="name">MRP</field>
         <field name="res_model">ff.partner.option</field>
-        <field name="view_mode">list</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('ff_partner_option_view_list_mrp')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('ff_partner_option_view_form_mrp')})]"/>
         <field name="domain">[('kind', '=', 'mrp')]</field>
         <field name="context">{'default_kind': 'mrp'}</field>
     </record>
