@@ -1034,7 +1034,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: visited,
                     label: 'Visited',
                     percent: share(visited),
-                    footer: ((_today?['tasks_onsite'] as num?) ?? 0) > 0 ? 'Onsite - ${(_today!['tasks_onsite'] as num).toInt()}' : null,
+                    footer: ((_today?['tasks_onsite'] as num?) ?? 0) > 0 ? 'Task - ${(_today!['tasks_onsite'] as num).toInt()}' : null,
                   )),
                 ),
                 const SizedBox(width: 8),
