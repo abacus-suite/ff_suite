@@ -1023,6 +1023,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: planned,
                     label: 'Planned',
                     percent: planned == 0 ? 0 : 1,
+                    footer: ((_today?['tasks_done'] as num?) ?? 0) > 0 ? 'Tasks - ${(_today!['tasks_done'] as num).toInt()}' : null,
                   )),
                 ),
                 const SizedBox(width: 8),

@@ -337,7 +337,11 @@ class SummaryTile extends StatelessWidget {
     required this.value,
     required this.label,
     required this.percent,
+    this.footer,
   });
+
+  /// A line under the progress bar, such as "Tasks - 5".
+  final String? footer;
 
   final IconData icon;
   final Color colour;
@@ -401,6 +405,10 @@ class SummaryTile extends StatelessWidget {
               valueColor: AlwaysStoppedAnimation<Color>(colour),
             ),
           ),
+          if (footer != null) ...[
+            const SizedBox(height: 4),
+            Text(footer!, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: colour)),
+          ],
         ],
       ),
     );
