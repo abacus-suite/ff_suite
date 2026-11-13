@@ -124,7 +124,7 @@
                 <filter string="Employee Health Cards" name="filter_health_card" domain="[('certificate_type', '=', 'health_card')]"/>
                 <filter string="Water Lab Tests" name="filter_water_lab" domain="[('certificate_type', '=', 'water_lab')]"/>
 
-                <group expand="0" string="Group By">
+                <group>
                     <filter string="Certificate Type" name="group_type" context="{'group_by': 'certificate_type'}"/>
                     <filter string="Responsible Person" name="group_responsible" context="{'group_by': 'responsible_id'}"/>
                     <filter string="Status" name="group_status" context="{'group_by': 'state'}"/>
