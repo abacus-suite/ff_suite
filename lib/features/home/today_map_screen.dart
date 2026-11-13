@@ -7,6 +7,7 @@ import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/map.dart';
+import '../beat/added_visits.dart';
 import '../clients/client_detail_screen.dart';
 
 /// Where the person is, the outlets of today's beat plan and the other outlets, each in its own colour.
@@ -97,11 +98,17 @@ class _TodayMapScreenState extends State<TodayMapScreen> {
             const SizedBox(height: 12),
             FilledButton(
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(46)),
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(sheet);
+                if (kind == 'Other outlet') {
+                  // Not in today's beat: it joins it as an added visit, as with "Add a Visit".
+                  await AddedVisits.add([c]);
+                  if (mounted) showSnack(context, '${c['name']} added to today's beat');
+                  return;
+                }
                 Navigator.of(context).push(MaterialPageRoute(builder: (_) => ClientDetailScreen(clientId: c['id'] as int)));
               },
-              child: const Text('Open'),
+              child: Text(kind == 'Other outlet' ? 'Add a Visit' : 'Open'),
             ),
           ]),
         ),
