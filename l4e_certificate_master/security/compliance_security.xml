@@ -8,19 +8,30 @@
             <field name="sequence">50</field>
         </record>
 
+        <!-- Module Privilege for Odoo 19 -->
+        <record id="res_groups_privilege_compliance" model="res.groups.privilege">
+            <field name="name">Compliance &amp; Licensing</field>
+            <field name="category_id" ref="module_category_compliance"/>
+            <field name="sequence">50</field>
+        </record>
+
         <!-- Compliance User Group -->
         <record id="group_compliance_user" model="res.groups">
             <field name="name">Officer / User</field>
-            <field name="category_id" ref="module_category_compliance"/>
+            <field name="privilege_id" ref="res_groups_privilege_compliance"/>
             <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
         </record>
 
         <!-- Compliance Manager Group -->
         <record id="group_compliance_manager" model="res.groups">
             <field name="name">Manager / Admin</field>
-            <field name="category_id" ref="module_category_compliance"/>
+            <field name="privilege_id" ref="res_groups_privilege_compliance"/>
             <field name="implied_ids" eval="[(4, ref('group_compliance_user'))]"/>
-            <field name="users" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+        </record>
+
+        <!-- System administrators automatically get Manager rights -->
+        <record id="base.group_system" model="res.groups">
+            <field name="implied_ids" eval="[(4, ref('group_compliance_manager'))]"/>
         </record>
 
         <!-- Multi-Company Record Rule -->
