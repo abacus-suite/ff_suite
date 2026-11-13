@@ -705,7 +705,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
     }
   }
 
-s about itself.
+  /// What the GSTIN says about itself.
   String? _gstHelper() {
     final info = _gstInfo;
     if (info == null) return _v('gstin').length == 15 ? 'Checking…' : '15 characters, e.g. 32ABCDE1234F1Z5';
