@@ -147,6 +147,27 @@ class ResPartner(models.Model):
         if (email_required or email) and (not email or not EMAIL.match(email.strip())):
             missing.append('%s email' % label)
 
+    @staticmethod
+    def _ff_digits(number):
+        """A phone number as its last ten digits, so +91 98765 43210 and 9876543210 are the same number."""
+        digits = re.sub(r'\D', '', number or '')
+        return digits[-10:] if len(digits) >= 10 else digits
+
+    @api.constrains('ff_poc_phone')
+    def _check_ff_poc_phone_unique(self):
+        """The POC contact number belongs to one contact: it cannot be entered on a second one."""
+        for partner in self:
+            key = self._ff_digits(partner.ff_poc_phone)
+            if not key:
+                continue
+            others = self.sudo().with_context(active_test=False).search(
+                [('id', '!=', partner.id), ('ff_poc_phone', '!=', False)])
+            clash = others.filtered(lambda o: self._ff_digits(o.ff_poc_phone) == key)[:1]
+            if clash:
+                raise ValidationError(self.env._(
+                    'The POC contact number %(number)s is already used by %(name)s. A POC number must be unique.',
+                    number=partner.ff_poc_phone, name=clash.display_name))
+
     @api.constrains('ff_status', 'ff_outlet_category_id', 'ff_outlet_category_note', 'ff_not_interested_reason')
     def _check_status_details(self):
         """Every status needs the outlet category; Not Interested needs its reason."""
