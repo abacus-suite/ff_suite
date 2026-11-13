@@ -643,27 +643,69 @@ class _OnboardScreenState extends State<OnboardScreen> {
         _label('GST', required: true),
         _pill(const [('GSTIN', true), ('No GST', false)], _hasGst, (v) => setState(() => _hasGst = v)),
         if (_hasGst) ...[
-          _field('gstin', 'GSTIN', required: true, maxLength: 15, onChanged: (_) => _checkGst(), helper: _gstHelper()),
-          _field('gst_name', 'Name as per GST', required: true),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+                child: _field('gstin', 'GSTIN',
+                    required: true, maxLength: 15, onChanged: (_) => _checkGst(), helper: _gstHelper())),
+            Padding(
+              padding: const EdgeInsets.only(left: 8, top: 6),
+              child: FilledButton.tonal(
+                onPressed: _verifying ? null : _verifyGst,
+                child: _verifying
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Verify'),
+              ),
+            ),
+          ]),
         ],
-        // After the GST choice: the door number, the area, the billing address, the PIN code, then the region and the
-        // territory, which the area fills in.
-        _field('door', 'Door / TC No.', required: true),
-        _dropId('Area', _allAreas(), _areaId, _pickArea,
-            required: _allAreas().isNotEmpty, helper: _allAreas().isEmpty ? 'No areas are set for your territories yet' : null),
-        _field('billing_address', 'Billing address', required: true, lines: 3),
+        // After the GSTIN: Name, PIN code, Region, Territory / District, Area, Door number, Billing address, then the
+        // delivery address choice.
+        _field('gst_name', _hasGst ? 'Name as per GST' : 'Name', required: true),
         _field('zip', 'PIN code', required: true, type: TextInputType.number, maxLength: 6, onChanged: (v) {
           if (v.length == 6) _lookupPin();
         }),
         _dropId('Region', _regions, _regionId, (v) => setState(() => _regionId = v),
             required: _regions.isNotEmpty, helper: _regions.isEmpty ? 'No region is set for you' : null),
-        _dropId('Territory', [
+        _dropId('Territory / District', [
           for (final t in _territories) {'id': t['id'], 'name': '${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}'},
         ], _territoryId, _pickTerritory),
+        _dropId('Area', _allAreas(), _areaId, _pickArea,
+            required: _allAreas().isNotEmpty, helper: _allAreas().isEmpty ? 'No areas are set for your territories yet' : null),
+        _field('door', 'Door / TC No.', required: true),
+        _field('billing_address', 'Billing address', required: true, lines: 3),
         _same(),
       ]);
 
-  /// What the GSTIN says about itself.
+  bool _verifying = false;
+
+  /// Verify: the GST service gives the registered name, PIN code and address, which fill the form (the region and
+  /// territory then follow from the PIN code).
+  Future<void> _verifyGst() async {
+    final text = _v('gstin').toUpperCase();
+    if (!_gstin.hasMatch(text)) {
+      showProblem(context, 'Enter a valid 15-character GSTIN first.');
+      return;
+    }
+    setState(() => _verifying = true);
+    try {
+      final d = await Services.api.get('/api/v1/gst/verify', query: {'gstin': text}) as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        if (asText(d['name']) != null) _t('gst_name').text = '${d['name']}';
+        if (asText(d['pin']) != null) _t('zip').text = '${d['pin']}';
+        if (asText(d['address']) != null) _t('billing_address').text = '${d['address']}';
+        if (asText(d['door']) != null && _v('door').isEmpty) _t('door').text = '${d['door']}';
+      });
+      if (_v('zip').length == 6) _lookupPin();
+      showSnack(context, 'GST verified: name, PIN code and address filled in.');
+    } catch (e) {
+      if (mounted) showProblem(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _verifying = false);
+    }
+  }
+
+s about itself.
   String? _gstHelper() {
     final info = _gstInfo;
     if (info == null) return _v('gstin').length == 15 ? 'Checking…' : '15 characters, e.g. 32ABCDE1234F1Z5';
