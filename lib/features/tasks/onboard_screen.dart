@@ -287,6 +287,8 @@ class _OnboardScreenState extends State<OnboardScreen> {
     final rows = <int, Map<String, dynamic>>{};
     final names = <String, int>{};
     for (final t in _territories) {
+      // With a Territory chosen, only its own areas.
+      if (_territoryId != null && t['id'] != _territoryId) continue;
       for (final a in ((t['areas'] as List?) ?? const []).cast<Map<String, dynamic>>()) {
         final id = (a['id'] as num).toInt();
         rows.putIfAbsent(id, () => {'id': id, 'name': '${a['name']}', 'territory': t['id'], 'territory_name': '${t['name']}'});
@@ -326,7 +328,11 @@ class _OnboardScreenState extends State<OnboardScreen> {
       if (city != null) _districtId = city;
       final mrp = _territoryMrp(id);
       if (mrp != null) _mrp = mrp;
-      if (!_areaOptions().any((a) => a['id'] == _areaId)) _areaId = null;
+      // An Area of another Territory no longer applies; the Region follows the Territory.
+      if (!_allAreas().any((a) => a['id'] == _areaId)) _areaId = null;
+      final owner = _territories.where((t) => t['id'] == id).firstOrNull;
+      final region = _idOf(owner?['region']);
+      if (region != null && _regions.any((r) => r['id'] == region)) _regionId = region;
     });
   }
 
@@ -664,10 +670,21 @@ class _OnboardScreenState extends State<OnboardScreen> {
         _field('zip', 'PIN code', required: true, type: TextInputType.number, maxLength: 6, onChanged: (v) {
           if (v.length == 6) _lookupPin();
         }),
-        _dropId('Region', _regions, _regionId, (v) => setState(() => _regionId = v),
+        _dropId('Region', _regions, _regionId, (v) => setState(() {
+              _regionId = v;
+              // A Territory of another Region (and its Area) no longer applies.
+              final stay = _territories.any((t) => t['id'] == _territoryId && (v == null || _idOf(t['region']) == v));
+              if (!stay) {
+                _territoryId = null;
+                _areaId = null;
+              }
+            }),
             required: _regions.isNotEmpty, helper: _regions.isEmpty ? 'No region is set for you' : null),
+        // Only the Territories of the chosen Region.
         _dropId('Territory / District', [
-          for (final t in _territories) {'id': t['id'], 'name': '${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}'},
+          for (final t in _territories)
+            if (_regionId == null || _idOf(t['region']) == null || _idOf(t['region']) == _regionId)
+              {'id': t['id'], 'name': '${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}'},
         ], _territoryId, _pickTerritory),
         _dropId('Area', _allAreas(), _areaId, _pickArea,
             required: _allAreas().isNotEmpty, helper: _allAreas().isEmpty ? 'No areas are set for your territories yet' : null),
