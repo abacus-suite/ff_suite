@@ -5,15 +5,17 @@ class FfBeatArea(models.Model):
     """The areas a beat covers (inside its territory), chosen in the app."""
     _inherit = 'ff.beat'
 
-    ff_area_ids = fields.Many2many('ff.area', 'ff_beat_area_rel', 'beat_id', 'area_id', string='Areas')
+    ff_area_ids = fields.Many2many('ff.area', 'ff_beat_area_rel', 'beat_id', 'area_id', string='Areas',
+                                   help='The areas of the District / Territory this beat covers (chosen in the app).')
 
     def _ff_set_areas(self, area_ids):
         """Only areas of the beat's own territory are kept. True when the list changed."""
         self.ensure_one()
         beat = self.sudo()
         areas = self.env['ff.area'].sudo().browse([int(a) for a in (area_ids or [])]).exists()
-        if 'territory_id' in beat._fields and beat.territory_id:
-            areas = areas.filtered(lambda a: a.territory_id == beat.territory_id)
+        # Only areas of the beat's District / Territory (the app's Territory) are kept.
+        if beat.district_id:
+            areas = areas.filtered(lambda a: a.district_id == beat.district_id)
         if set(areas.ids) == set(beat.ff_area_ids.ids):
             return False
         beat.write({'ff_area_ids': [(6, 0, areas.ids)]})

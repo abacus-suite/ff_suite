@@ -127,6 +127,18 @@
         </field>
     </record>
 
+    <record id="ff_beat_view_form_areas" model="ir.ui.view">
+        <field name="name">ff.beat.form.areas</field>
+        <field name="model">ff.beat</field>
+        <field name="inherit_id" ref="ff_beat.ff_beat_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='district_id']" position="after">
+                <field name="ff_area_ids" widget="many2many_tags" options="{'no_create': True}"
+                       domain="[('district_id', '=', district_id)]"/>
+            </xpath>
+        </field>
+    </record>
+
     <record id="hr_employee_view_form_contact_access" model="ir.ui.view">
         <field name="name">hr.employee.form.contact_access</field>
         <field name="model">hr.employee</field>
