@@ -482,7 +482,8 @@ class FfBeatApp(models.Model):
                 weekdays = [int(d) for d in (beat.ff_weekdays or '').split(',') if d.isdigit()]
                 if not weekdays:
                     # Repeat off: only the days it was planned for, though it stays in the beat list.
-                    chosen = [fields.Date.to_date(d) for d in (beat.ff_plan_dates or '').split(',') if d] or [start_date]
+                    # With no planned days either, nothing is planned: the beat is only created.
+                    chosen = [fields.Date.to_date(d) for d in (beat.ff_plan_dates or '').split(',') if d]
                     target_dates = sorted({d for d in chosen if d and d >= today})
                 else:
                     cur = start_date if start_date >= today else today
@@ -493,8 +494,7 @@ class FfBeatApp(models.Model):
                             target_dates.append(cur)
                         cur += timedelta(days=1)
 
-                    if start_date >= today and start_date not in target_dates:
-                        target_dates.append(start_date)
+                    # The day it was created on is not planned unless it is one of the repeat weekdays.
                     target_dates.sort()
 
             # Create daily beat plans for the target dates
