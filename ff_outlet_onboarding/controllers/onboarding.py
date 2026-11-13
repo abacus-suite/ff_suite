@@ -70,7 +70,7 @@ class FieldForceOnboardingApi(http.Controller):
         try:
             reply = requests.get(url.replace('{gstin}', text) if '{gstin}' in url else url,
                                  params=None if '{gstin}' in url else {'gstin': text},
-                                 headers={'Authorization': key, 'X-API-Key': key} if key else {}, timeout=12)
+                                 headers={'X-API-Key': key} if key else {}, timeout=12)
             payload = reply.json()
         except (requests.RequestException, ValueError) as error:
             _logger.warning('Field Force: GST lookup failed (%s)', error)
@@ -81,9 +81,11 @@ class FieldForceOnboardingApi(http.Controller):
                                        address.get('dst'), address.get('stcd')) if x)
         name = data.get('tradeNam') or data.get('lgnm') or data.get('legal_name') or data.get('trade_name')
         pin = address.get('pncd') or data.get('pincode') or data.get('pinCode') or ''
-        if not (name or street):
-            raise ApiError(payload.get('message') or 'This GSTIN was not found.')
-        return ok({'name': name, 'legal_name': data.get('lgnm') or data.get('legal_name'),
+        if payload.get('success') is False or not (name or street):
+            raise ApiError(payload.get('message') or (payload.get('error') or {}).get('message')
+                           if isinstance(payload.get('error'), dict) else payload.get('message') or 'This GSTIN was not found.')
+        return ok({'status': data.get('status'), 'state': data.get('state'), 'taxpayer_type': data.get('taxpayer_type'),
+                   'name': name, 'legal_name': data.get('lgnm') or data.get('legal_name'),
                    'pin': str(pin or ''), 'address': street or data.get('address') or '',
                    'door': ', '.join(x for x in (address.get('bno'), address.get('bnm')) if x)})
 
