@@ -71,7 +71,21 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           _territories = list.cast<Map<String, dynamic>>();
           final b = widget.existing;
           if (b != null && _territory == null) {
-            _territory = _territories.where((t) => t['id'] == b['territory_id']).firstOrNull;
+            // The beat's own District / Territory: by id, by its district, or by name (an older server).
+            _territory = _territories
+                .where((t) =>
+                    (b['territory_id'] != null && t['id'] == b['territory_id']) ||
+                    (b['district_id'] != null && t['id'] == b['district_id']) ||
+                    (asText(b['territory']) != null && t['name'] == b['territory']) ||
+                    (asText(b['city']) != null && t['name'] == b['city']))
+                .firstOrNull;
+            // Areas not saved on the beat yet: taken from the areas of its own outlets.
+            if (_areas.isEmpty && _territory != null) {
+              for (final o in ((_territory!['outlets'] as List?) ?? const []).cast<Map<String, dynamic>>()) {
+                final area = (o['area'] as Map?)?['id'];
+                if (_outlets.contains(o['id']) && area != null) _areas.add((area as num).toInt());
+              }
+            }
           }
         });
       }
