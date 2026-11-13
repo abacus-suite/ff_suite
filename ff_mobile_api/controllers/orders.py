@@ -420,6 +420,10 @@ class FieldForceOrdersApi(http.Controller):
                     if 'ff_secondary_territory_ids' in Partner._fields:
                         places = ['|'] + places + [('ff_secondary_territory_ids', 'in', territories.ids)]
                     domain += places
+        # A Territory chosen on the form (onboarding): only the distributors of that District / Territory.
+        if kw.get('territory_id'):
+            tid = int(kw['territory_id'])
+            domain += ['|', ('ff_district_id', '=', tid), ('ff_secondary_district_ids', 'in', [tid])]
         rows = Partner.search(domain, order='name', limit=200)
 
         suggested = Partner.browse()
