@@ -1,6 +1,8 @@
 from odoo import fields, http
 from odoo.http import request
 
+from odoo.addons.ff_base.tools import to_iso
+
 from .clients import to_float, visible_client
 from odoo.addons.ff_visits.models.ff_visit import PURPOSES, OffsiteConfirmation
 
@@ -150,13 +152,23 @@ class FieldForceVisitsApi(http.Controller):
         planned_partners = lines.partner_id
         ongoing = visits.filtered(lambda v: v.state == 'ongoing')[:1]
         # The tasks done today, for the Planned card (a task at a contact that was not planned counts too).
-        tasks_done = 0
+        tasks = []
         if 'ff.task.log' in request.env:
             low, high = employee._ff_day_bounds(day)
-            tasks_done = request.env['ff.task.log'].sudo().search_count([
-                ('employee_id', '=', employee.id), ('date', '>=', low), ('date', '<', high)])
+            for log in request.env['ff.task.log'].sudo().search([
+                    ('employee_id', '=', employee.id), ('date', '>=', low), ('date', '<', high)], order='date asc'):
+                tasks.append({
+                    'id': log.id,
+                    'time': to_iso(log.date),
+                    'partner_id': log.partner_id.id or None,
+                    'customer': log.partner_id.display_name or '',
+                    'task': log.task_type_id.name or '',
+                    'visit_type': 'Onsite' if (log.visit_id and log.visit_id.visit_type == 'onsite') else 'Offsite',
+                })
         return ok({
-            'tasks_done': tasks_done,
+            'tasks': tasks,
+            'tasks_done': len(tasks),
+            'tasks_onsite': sum(1 for t in tasks if t['visit_type'] == 'Onsite'),
             'date': day.isoformat(),
             'plan': plan_data(plans[:1]),
             'plans': [plan_data(p) for p in plans],
