@@ -5,6 +5,15 @@
         <field name="model">res.partner</field>
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_fetch_postal_info" type="object" class="oe_stat_button" icon="fa-map-marker"
+                        invisible="not zip">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Fetch Postal</span>
+                        <span class="o_stat_text">Details</span>
+                    </div>
+                </button>
+            </xpath>
             <xpath expr="//notebook" position="inside">
                 <page string="Field Force" name="ff_client" groups="ff_base.group_ff_officer">
                     <div class="mb-2" invisible="ff_approval_state != 'pending'" groups="ff_base.group_ff_manager">
@@ -31,7 +40,6 @@
                             <field name="partner_longitude"/>
                             <field name="ff_geofence_radius"/>
                             <field name="ff_map_url" widget="url" text="Open in Google Maps" invisible="not ff_map_url"/>
-                            <button name="action_fetch_postal_info" type="object" string="Fetch Postal Details" class="btn-sm btn-link" icon="fa-refresh" invisible="not zip"/>
                             <field name="postal_district"/>
                             <field name="postal_city"/>
                             <field name="postal_area"/>

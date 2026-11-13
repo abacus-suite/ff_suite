@@ -350,6 +350,7 @@ class ResPartner(models.Model):
 
         district = None
         taluk = None
+        state = None
         localities = []
         seen_localities = set()
 
@@ -358,6 +359,8 @@ class ResPartner(models.Model):
                 district = office["District"].strip()
             if not taluk and office.get("Block") and office["Block"].strip().upper() not in ('NA', ''):
                 taluk = office["Block"].strip()
+            if not state and office.get("State"):
+                state = office["State"].strip()
             name = (office.get("Name") or '').strip()
             if name and name.upper() not in seen_localities:
                 seen_localities.add(name.upper())
@@ -373,6 +376,7 @@ class ResPartner(models.Model):
         return {
             'district': district,
             'taluk': taluk,
+            'state': state,
             'localities': localities,
         }
 
@@ -407,13 +411,94 @@ class ResPartner(models.Model):
         info = self._fetch_postal_info(raw_pin)
         if not info:
             return
-        if info.get('district'):
-            self.postal_district = info['district']
-        if info.get('taluk'):
-            self.postal_city = info['taluk']
-        area = self._match_postal_locality(self, info.get('localities', []))
-        if area:
-            self.postal_area = area
+
+        district_name = info.get('district') or False
+        city_name = info.get('taluk') or False
+        state_name = info.get('state') or False
+        area_name = self._match_postal_locality(self, info.get('localities', []))
+
+        # 1. Update text fields
+        if district_name:
+            self.postal_district = district_name
+        if city_name:
+            self.postal_city = city_name
+        if area_name:
+            self.postal_area = area_name
+
+        # 2. Sync to Masters (check if exists, create only if new)
+        # State
+        state_rec = self.state_id
+        if not state_rec and state_name:
+            state_rec = self.env['res.country.state'].sudo().search([
+                ('country_id.code', '=', 'IN'),
+                '|', ('name', '=ilike', state_name.strip()), ('code', '=ilike', state_name.strip())
+            ], limit=1)
+            if state_rec:
+                self.state_id = state_rec.id
+
+        # District Master (ff.district)
+        district_rec = self.ff_district_id if 'ff_district_id' in self._fields else False
+        if 'ff.district' in self.env and district_name:
+            District = self.env['ff.district'].sudo()
+            d_clean = district_name.strip()
+            domain = [('name', '=ilike', d_clean)]
+            if state_rec:
+                domain.append(('state_id', '=', state_rec.id))
+            existing_d = District.search(domain, limit=1) or District.search([('name', '=ilike', d_clean)], limit=1)
+            if existing_d:
+                district_rec = existing_d
+            elif state_rec:
+                existing_team = District.search([('state_id', '=', state_rec.id), ('team_id', '!=', False)], limit=1).team_id
+                if not existing_team and 'ff.team' in self.env:
+                    existing_team = self.env['ff.team'].sudo().search([], limit=1)
+                district_rec = District.create({
+                    'name': d_clean.upper(),
+                    'code': d_clean.upper(),
+                    'state_id': state_rec.id,
+                    'team_id': existing_team.id if existing_team else False,
+                })
+            if district_rec and 'ff_district_id' in self._fields:
+                self.ff_district_id = district_rec.id
+
+        # City / Town Master (ff.territory)
+        territory_rec = self.ff_territory_id if 'ff_territory_id' in self._fields else False
+        if 'ff.territory' in self.env and city_name:
+            Territory = self.env['ff.territory'].sudo()
+            c_clean = city_name.strip()
+            domain = [('name', '=ilike', c_clean)]
+            if district_rec:
+                domain.append(('district_id', '=', district_rec.id))
+            existing_t = Territory.search(domain, limit=1) or Territory.search([('name', '=ilike', c_clean)], limit=1)
+            if existing_t:
+                territory_rec = existing_t
+            elif district_rec:
+                territory_rec = Territory.create({
+                    'name': c_clean.upper(),
+                    'code': c_clean.upper(),
+                    'district_id': district_rec.id,
+                })
+            if territory_rec and 'ff_territory_id' in self._fields:
+                self.ff_territory_id = territory_rec.id
+
+        # Area Master (ff.area)
+        if 'ff.area' in self.env and area_name:
+            Area = self.env['ff.area'].sudo()
+            a_clean = area_name.strip()
+            domain = [('name', '=ilike', a_clean)]
+            if territory_rec:
+                domain.append(('territory_id', '=', territory_rec.id))
+            existing_a = Area.search(domain, limit=1) or Area.search([('name', '=ilike', a_clean)], limit=1)
+            if existing_a:
+                area_rec = existing_a
+            elif territory_rec:
+                area_rec = Area.create({
+                    'name': a_clean.upper(),
+                    'territory_id': territory_rec.id,
+                })
+            else:
+                area_rec = False
+            if area_rec and 'ff_area_id' in self._fields:
+                self.ff_area_id = area_rec.id
 
     @api.onchange('zip')
     def _onchange_zip_postal(self):
@@ -439,33 +524,8 @@ class ResPartner(models.Model):
         if not partners:
             return
 
-        pincode_cache = {}
-
         for partner in partners:
-            raw_pin = (partner.zip or '').strip()
-            if raw_pin.endswith('.0'):
-                raw_pin = raw_pin[:-2].strip()
-            if len(raw_pin) != 6 or not raw_pin.isdigit():
-                continue
-
-            if raw_pin not in pincode_cache:
-                pincode_cache[raw_pin] = self._fetch_postal_info(raw_pin)
-
-            info = pincode_cache[raw_pin]
-            if not info:
-                continue
-
-            area = self._match_postal_locality(partner, info.get('localities', []))
-            district = info.get('district') or False
-            city = info.get('taluk') or False
-
-            vals = {}
-            if district and not partner.postal_district:
-                vals['postal_district'] = district
-            if city and not partner.postal_city:
-                vals['postal_city'] = city
-            if area and not partner.postal_area:
-                vals['postal_area'] = area
-
-            if vals:
-                partner.write(vals)
+            try:
+                partner._apply_postal_info()
+            except Exception as e:
+                _logger.warning("Error applying postal info for partner %s: %s", partner.id, e)
