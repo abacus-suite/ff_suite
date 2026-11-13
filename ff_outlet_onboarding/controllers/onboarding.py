@@ -54,6 +54,39 @@ class FieldForceOnboardingApi(http.Controller):
             result['warning'] = 'The check digit does not match. Please re-check the GSTIN.'
         return ok(result)
 
+    @api_route('/api/v1/gst/verify', methods=('GET',))
+    def gst_verify(self, employee, gstin=None, **kw):
+        """Look a GSTIN up with the GST service the office has set up (System Parameters ``ff_base.gst_api_url`` and
+        ``ff_base.gst_api_key``): the registered name, PIN code and address, to fill the onboarding form."""
+        text = (gstin or '').strip().upper()
+        if not GSTIN_RE.match(text):
+            raise ApiError('Enter a valid 15-character GSTIN first.')
+        params = request.env['ir.config_parameter'].sudo()
+        url = (params.get_param('ff_base.gst_api_url') or '').strip()
+        key = (params.get_param('ff_base.gst_api_key') or '').strip()
+        if not url:
+            raise ApiError('GST verification is not set up yet: the office has to add the GST service URL and key '
+                           '(ff_base.gst_api_url, ff_base.gst_api_key).')
+        try:
+            reply = requests.get(url.replace('{gstin}', text) if '{gstin}' in url else url,
+                                 params=None if '{gstin}' in url else {'gstin': text},
+                                 headers={'Authorization': key, 'X-API-Key': key} if key else {}, timeout=12)
+            payload = reply.json()
+        except (requests.RequestException, ValueError) as error:
+            _logger.warning('Field Force: GST lookup failed (%s)', error)
+            raise ApiError('The GST service could not be reached. Try again, or type the details.')
+        data = payload.get('data') if isinstance(payload.get('data'), dict) else payload
+        address = ((data.get('pradr') or {}).get('addr') or {}) if isinstance(data.get('pradr'), dict) else {}
+        street = ', '.join(x for x in (address.get('bno'), address.get('bnm'), address.get('st'), address.get('loc'),
+                                       address.get('dst'), address.get('stcd')) if x)
+        name = data.get('tradeNam') or data.get('lgnm') or data.get('legal_name') or data.get('trade_name')
+        pin = address.get('pncd') or data.get('pincode') or data.get('pinCode') or ''
+        if not (name or street):
+            raise ApiError(payload.get('message') or 'This GSTIN was not found.')
+        return ok({'name': name, 'legal_name': data.get('lgnm') or data.get('legal_name'),
+                   'pin': str(pin or ''), 'address': street or data.get('address') or '',
+                   'door': ', '.join(x for x in (address.get('bno'), address.get('bnm')) if x)})
+
     @api_route('/api/v1/geo/pincode', methods=('GET',))
     def pincode(self, employee, pin=None, **kw):
         """State, district and the places of a PIN code, from India Post's free lookup. Empty when it cannot say."""
