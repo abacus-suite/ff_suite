@@ -376,7 +376,8 @@ class ResPartner(models.Model):
         area = self.env['ff.area'].sudo().browse(int(data.get('area_id') or 0)).exists() if 'ff.area' in self.env else None
         if area and 'ff_area_id' in Partner._fields:
             values['ff_area_id'] = area.id
-            if not territory and 'ff_territory_id' in Partner._fields:
+            # The area belongs to a City / Town: the contact takes it.
+            if 'ff_territory_id' in Partner._fields and area.territory_id:
                 values['ff_territory_id'] = area.territory_id.id
         city = self.env['ff.district'].sudo().browse(int(data.get('district_id') or 0)).exists()
         if city:
