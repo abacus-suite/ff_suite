@@ -365,6 +365,9 @@ class _DayBeat {
           if (o['visited'] == true) o['id'] as int,
       };
 
+  /// Work has started on this beat today (an outlet was visited): nothing on it can be unplanned any more.
+  bool get started => visited.isNotEmpty;
+
   /// What the beat's own tick shows: all planned, some, or none.
   bool? get value {
     if (removed) return false;
@@ -622,7 +625,7 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
                 Checkbox(
                   tristate: true,
                   value: b.value,
-                  onChanged: b.canEdit ? (_) => _toggleBeat(b) : null,
+                  onChanged: (b.canEdit && !b.started) ? (_) => _toggleBeat(b) : null,
                 ),
               Container(
                 margin: const EdgeInsets.only(right: 10),
@@ -667,7 +670,10 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
               contentPadding: const EdgeInsets.only(left: 30, right: 14),
               controlAffinity: ListTileControlAffinity.leading,
               value: b.sel.contains(o['id']),
-              onChanged: (b.canEdit && o['visited'] != true) ? (v) => _toggleOutlet(b, o['id'] as int, v == true) : null,
+              // Once work has started on the beat, a planned outlet cannot be unticked (more can still be added).
+              onChanged: (b.canEdit && o['visited'] != true && !(b.started && b.sel.contains(o['id'])))
+                  ? (v) => _toggleOutlet(b, o['id'] as int, v == true)
+                  : null,
               title: Text('${o['name']}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
               subtitle: o['visited'] == true ? const Text('Visited', style: TextStyle(fontSize: 11.5, color: AppColors.success)) : null,
               ),
