@@ -100,7 +100,7 @@ class FieldForceRoutePlanApi(http.Controller):
                     counts[p.ff_area_id.id] = counts.get(p.ff_area_id.id, 0) + 1
             areas = []
             if 'ff.area' in env:
-                areas = [{'id': a.id, 'name': a.name, 'count': counts.get(a.id, 0)}
+                areas = [{'id': a.id, 'name': a.name, 'town': a.territory_id.name or None, 'count': counts.get(a.id, 0)}
                          for a in env['ff.area'].sudo().search([('district_id', '=', district.id)])]
                 areas.sort(key=lambda a: a['name'].lower())
             is_sec = district.id in secondary_ids
