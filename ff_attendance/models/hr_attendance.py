@@ -1,7 +1,7 @@
 import logging
 from datetime import timedelta
 
-from odoo import api, fields, models
+from odoo import api, fields, models, tools
 
 _logger = logging.getLogger(__name__)
 
@@ -27,6 +27,7 @@ DAY_STATUSES = [
 
 
 class HrAttendance(models.Model):
+    _name = 'hr.attendance'
     _inherit = ['hr.attendance', 'mail.thread']
 
     ff_source = fields.Selection([
@@ -91,21 +92,24 @@ class HrAttendance(models.Model):
     def _auto_init(self):
         res = super()._auto_init()
         try:
-            self._cr.execute("""
-                UPDATE hr_attendance a
-                SET ff_shift_id = e.ff_shift_id
-                FROM hr_employee e
-                WHERE a.employee_id = e.id
-                  AND a.ff_shift_id IS NULL
-                  AND e.ff_shift_id IS NOT NULL
-            """)
-            records = self.search([('ff_shift_id', '!=', False), ('ff_late_minutes', '=', 0)])
-            if records:
-                records._compute_ff_day_status()
+            with self.env.cr.savepoint():
+                if tools.column_exists(self.env.cr, 'hr_employee', 'ff_shift_id') and tools.column_exists(self.env.cr, 'hr_attendance', 'ff_shift_id'):
+                    self.env.cr.execute("""
+                        UPDATE hr_attendance a
+                        SET ff_shift_id = e.ff_shift_id
+                        FROM hr_employee e
+                        WHERE a.employee_id = e.id
+                          AND a.ff_shift_id IS NULL
+                          AND e.ff_shift_id IS NOT NULL
+                    """)
+                    records = self.search([('ff_shift_id', '!=', False), ('ff_late_minutes', '=', 0)])
+                    if records:
+                        records._compute_ff_day_status()
         except Exception as e:
             _logger.exception("Error backfilling ff_shift_id in hr_attendance: %s", e)
         try:
-            self._cron_close_open_days()
+            with self.env.cr.savepoint():
+                self._cron_close_open_days()
         except Exception as e:
             _logger.exception("Error auto-closing past days in _auto_init: %s", e)
         return res
