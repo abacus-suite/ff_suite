@@ -644,6 +644,8 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           _outlets.removeWhere((id) => !keep.contains(id));
         }
       });
+      // On to the outlets of those areas, so they can be ticked and the beat saved.
+      if (_areas.isNotEmpty) await _pickOutlets();
     }
   }
 
