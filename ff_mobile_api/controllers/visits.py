@@ -149,7 +149,14 @@ class FieldForceVisitsApi(http.Controller):
 
         planned_partners = lines.partner_id
         ongoing = visits.filtered(lambda v: v.state == 'ongoing')[:1]
+        # The tasks done today, for the Planned card (a task at a contact that was not planned counts too).
+        tasks_done = 0
+        if 'ff.task.log' in request.env:
+            low, high = employee._ff_day_bounds(day)
+            tasks_done = request.env['ff.task.log'].sudo().search_count([
+                ('employee_id', '=', employee.id), ('date', '>=', low), ('date', '<', high)])
         return ok({
+            'tasks_done': tasks_done,
             'date': day.isoformat(),
             'plan': plan_data(plans[:1]),
             'plans': [plan_data(p) for p in plans],
