@@ -30,7 +30,13 @@ class FieldForceRoutePlanApi(http.Controller):
             'added_by': ref(route.ff_created_by_employee_id) or {'id': 0, 'name': 'Office'},
             'code': route.code or None,
             'expires': route.ff_expiry().isoformat() if route.ff_expiry() else None,
-            'territory': ref(route.territory_id) if 'territory_id' in route._fields else None,
+            # The app's Territory is the District / Territory master, and the beat's areas are under it.
+            'territory': ref(route.district_id),
+            'territory_id': route.district_id.id or None,
+            'district_id': route.district_id.id or None,
+            'areas': [{'id': a.id, 'name': a.name} for a in route.sudo().ff_area_ids] if 'ff_area_ids' in route._fields else [],
+            'area_ids': route.sudo().ff_area_ids.ids if 'ff_area_ids' in route._fields else [],
+            'date': route.ff_one_time_date.isoformat() if route.ff_one_time_date else None,
             # Repeat on or off: a recurrent beat with weekdays repeats on them; without, it repeats on none.
             'schedule': route.ff_schedule or None,
             'weekdays': [int(d) for d in (route.ff_weekdays or '').split(',') if d],

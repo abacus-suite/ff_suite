@@ -59,6 +59,11 @@
                             <field name="code"/>
                             <field name="team_id"/>
                             <field name="allowance_km"/>
+                            <field name="ff_schedule"/>
+                            <field name="ff_one_time_date" invisible="ff_schedule != 'one_time'"/>
+                            <field name="ff_weekdays" invisible="ff_schedule != 'recurrent'"
+                                   placeholder="0 = Monday ... 6 = Sunday, comma separated"/>
+                            <field name="ff_plan_dates" invisible="ff_schedule != 'recurrent'"/>
                         </group>
                         <group string="Location">
                             <field name="country_id"/>
