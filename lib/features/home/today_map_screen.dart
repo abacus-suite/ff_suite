@@ -62,7 +62,9 @@ class _TodayMapScreenState extends State<TodayMapScreen> {
       }
       final found = await Services.api.get('/api/v1/clients', query: {'limit': 500});
       final list = found is Map ? (found['clients'] as List? ?? []) : (found as List? ?? []);
-      final plannedIds = {for (final c in widget.planned) c['id']};
+      // What was added with "Add a Visit" counts as planned: planned colour, and it opens.
+      _added = await AddedVisits.today();
+      final plannedIds = {for (final c in widget.planned) c['id'], for (final c in _added) c['id']};
       _others = [
         for (final c in list.cast<Map<String, dynamic>>())
           if (!plannedIds.contains(c['id']) && _point(c) != null) c,
@@ -73,6 +75,8 @@ class _TodayMapScreenState extends State<TodayMapScreen> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  List<Map<String, dynamic>> _added = [];
 
   bool _done(Map<String, dynamic> c) => c['visit_status'] == 'done' || c['plan_status'] == 'visited';
 
@@ -104,6 +108,12 @@ class _TodayMapScreenState extends State<TodayMapScreen> {
                 if (kind == 'Other outlet') {
                   // Not in today's beat: it joins it as an added visit, as with "Add a Visit".
                   await AddedVisits.add([c]);
+                  if (mounted) {
+                    setState(() {
+                      _added = [..._added, c];
+                      _others = [for (final o in _others) if (o['id'] != c['id']) o];
+                    });
+                  }
                   if (mounted) showSnack(context, '${c['name']} added to the beat of the day');
                   return;
                 }
@@ -129,7 +139,7 @@ class _TodayMapScreenState extends State<TodayMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final planned = [for (final c in widget.planned) if (_point(c) != null) c];
+    final planned = [for (final c in [...widget.planned, ..._added]) if (_point(c) != null) c];
     final others = _showOthers ? _others : const <Map<String, dynamic>>[];
     final all = <LatLng>[
       if (_me != null) _me!,
