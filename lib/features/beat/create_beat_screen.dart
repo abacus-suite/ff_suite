@@ -277,6 +277,20 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
       return;
     }
 
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Save this beat?'),
+        content: Text(widget.existing != null
+            ? 'Do you want to save the changes? The beat goes to your manager for approval again.'
+            : 'Do you want to save this beat? It goes to your manager for approval.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('No')),
+          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Yes, save')),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
     setState(() => _busy = true);
     try {
       final existing = widget.existing;
