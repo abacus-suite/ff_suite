@@ -91,10 +91,8 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
         if (pos != null) 'lat': pos.latitude,
         if (pos != null) 'lng': pos.longitude,
       }) as Map<String, dynamic>;
-      try {
-        final done = await Services.api.get('/api/v1/field-tasks/today', query: {'date': fmtDate(_day)});
-        _tasks = ((done as List?) ?? const []).cast<Map<String, dynamic>>();
-      } catch (_) {}
+      // The same list the Planned card counts, so the tab, the card and the report agree.
+      _tasks = ((data['tasks'] as List?) ?? const []).cast<Map<String, dynamic>>();
       if (mounted) setState(() => (_data = data, _error = null));
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
