@@ -7,8 +7,8 @@ class FfDistrict(models.Model):
     _order = 'name'
 
     name = fields.Char(required=True)
-    code = fields.Char()
-    team_id = fields.Many2one('ff.team', string='Region', ondelete='set null', index=True)
+    code = fields.Char(required=True)
+    team_id = fields.Many2one('ff.team', string='Region', required=True, ondelete='restrict', index=True)
     state_id = fields.Many2one('res.country.state', string='State', required=True, index=True)
     country_id = fields.Many2one(related='state_id.country_id', store=True, string='Country')
     active = fields.Boolean(default=True)
