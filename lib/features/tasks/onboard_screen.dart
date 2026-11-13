@@ -761,7 +761,11 @@ class _OnboardScreenState extends State<OnboardScreen> {
               final d = await pickFromList(context,
                   title: 'Distributor',
                   load: () async {
-                    final res = await Services.api.get('/api/v1/distributors', query: {'mode': Services.managerMode.value ? 'manager' : 'employee'});
+                    final res = await Services.api.get('/api/v1/distributors', query: {
+                      'mode': Services.managerMode.value ? 'manager' : 'employee',
+                      // Only the distributors of the Territory chosen on this form.
+                      if (_territoryId != null) 'territory_id': _territoryId,
+                    });
                     final list = res is Map ? ((res['distributors'] as List?) ?? []) : (res as List);
                     return list.cast<Map<String, dynamic>>();
                   },
