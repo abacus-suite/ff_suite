@@ -397,8 +397,36 @@ class ResPartner(models.Model):
 
         return localities[0]
 
+    def _apply_postal_info(self):
+        self.ensure_one()
+        raw_pin = (self.zip or '').strip()
+        if raw_pin.endswith('.0'):
+            raw_pin = raw_pin[:-2].strip()
+        if len(raw_pin) != 6 or not raw_pin.isdigit():
+            return
+        info = self._fetch_postal_info(raw_pin)
+        if not info:
+            return
+        if info.get('district'):
+            self.postal_district = info['district']
+        if info.get('taluk'):
+            self.postal_city = info['taluk']
+        area = self._match_postal_locality(self, info.get('localities', []))
+        if area:
+            self.postal_area = area
+
+    @api.onchange('zip')
+    def _onchange_zip_postal(self):
+        if self.zip:
+            self._apply_postal_info()
+
+    def action_fetch_postal_info(self):
+        """Button action on contact form to immediately fetch postal details."""
+        for partner in self:
+            partner._apply_postal_info()
+
     @api.model
-    def cron_fetch_postal_data(self, batch_size=200):
+    def cron_fetch_postal_data(self, batch_size=30):
         """Fetch district, city/taluk, and area/locality from postal API for contacts with zip."""
         domain = [
             ('zip', '!=', False),
@@ -407,7 +435,7 @@ class ResPartner(models.Model):
             ('postal_city', '=', False),
             ('postal_district', '=', False),
         ]
-        partners = self.search(domain, limit=batch_size)
+        partners = self.search(domain, limit=batch_size, order='write_date desc, id desc')
         if not partners:
             return
 

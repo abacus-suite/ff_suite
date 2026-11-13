@@ -31,6 +31,7 @@
                             <field name="partner_longitude"/>
                             <field name="ff_geofence_radius"/>
                             <field name="ff_map_url" widget="url" text="Open in Google Maps" invisible="not ff_map_url"/>
+                            <button name="action_fetch_postal_info" type="object" string="Fetch Postal Details" class="btn-sm btn-link" icon="fa-refresh" invisible="not zip"/>
                             <field name="postal_district"/>
                             <field name="postal_city"/>
                             <field name="postal_area"/>
