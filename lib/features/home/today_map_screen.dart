@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/format.dart';
 import '../../core/geo.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
@@ -103,7 +104,7 @@ class _TodayMapScreenState extends State<TodayMapScreen> {
                 if (kind == 'Other outlet') {
                   // Not in today's beat: it joins it as an added visit, as with "Add a Visit".
                   await AddedVisits.add([c]);
-                  if (mounted) showSnack(context, '${c['name']} added to today's beat');
+                  if (mounted) showSnack(context, '${c['name']} added to the beat of the day');
                   return;
                 }
                 Navigator.of(context).push(MaterialPageRoute(builder: (_) => ClientDetailScreen(clientId: c['id'] as int)));
