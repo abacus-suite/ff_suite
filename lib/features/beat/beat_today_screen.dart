@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../widgets/report_download.dart';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -38,6 +39,10 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
   Map<String, dynamic>? _data;
   bool _loading = true;
   String? _error;
+
+  /// 0: the planned customers, 1: the tasks completed today (one row per task, onsite or offsite).
+  int _tab = 0;
+  List<Map<String, dynamic>> _tasks = [];
 
   /// Where the phone is: today's outlets are listed nearest first from here.
   Position? _here;
@@ -86,6 +91,10 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
         if (pos != null) 'lat': pos.latitude,
         if (pos != null) 'lng': pos.longitude,
       }) as Map<String, dynamic>;
+      try {
+        final done = await Services.api.get('/api/v1/field-tasks/today', query: {'date': fmtDate(_day)});
+        _tasks = ((done as List?) ?? const []).cast<Map<String, dynamic>>();
+      } catch (_) {}
       if (mounted) setState(() => (_data = data, _error = null));
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -173,6 +182,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     final label = Services.auth.profile!.routeLabel;
     return Scaffold(
       appBar: AppBar(
+        actions: [const ReportDownloadButton(reportKey: 'tasks', title: 'Tasks summary')],
         automaticallyImplyLeading: !widget.embedded,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +306,8 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     // Visits added by hand belong to no beat: they are left out while one beat is chosen.
     final rows = nearestFirst([...clients, if (_beat == null) ...added, if (_beat == null) ...waiting], _here);
     return [
-      _statBoxes(plans),
+      _tabSwitch(),
+      if (_tab == 1) ..._completedTasks() else ...[
       if (plans.isEmpty && rows.isEmpty && _filter == 'all')
         EmptyView(icon: Icons.event_busy_rounded,
             text: 'No $label planned for this day.\nUse "Add a Visit" to visit anyone.'),
@@ -324,6 +335,57 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
               style: TextStyle(fontSize: 12, color: Color(0xFF9A3412))),
         ),
       ],
+      ],
+    ];
+  }
+
+  Widget _tabSwitch() => Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+            color: Colors.white, borderRadius: BorderRadius.circular(23), border: Border.all(color: AppColors.border)),
+        child: Row(children: [
+          for (final (i, text) in const [(0, 'Planned customers'), (1, 'Completed Task')])
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => setState(() => _tab = i),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _tab == i ? AppColors.primary.withValues(alpha: 0.12) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(i == 1 ? '$text (${_tasks.length})' : text,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.5,
+                          color: _tab == i ? AppColors.primary : AppColors.text)),
+                ),
+              ),
+            ),
+        ]),
+      );
+
+  /// Every task completed today, whoever the customer is (planned or not) and onsite or offsite: one row per task.
+  List<Widget> _completedTasks() {
+    if (_tasks.isEmpty) {
+      return const [EmptyView(icon: Icons.task_alt_rounded, text: 'No task completed yet.')];
+    }
+    return [
+      for (final (i, t) in _tasks.indexed)
+        _tileRow(
+          color: AppColors.success,
+          number: '${i + 1}',
+          name: '${t['customer']}',
+          details: [asText(t['task']), fmtTime(t['time']), asText(t['visit_type'])].whereType<String>().join(' · '),
+          badge: StatusBadge(t['visit_type'] == 'Onsite' ? 'visited' : 'cancelled', label: '${t['visit_type']}'),
+          onTap: () {
+            final id = t['partner_id'];
+            if (id is int) _openClient(id);
+          },
+        ),
     ];
   }
 
