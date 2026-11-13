@@ -452,8 +452,7 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           _label('District / Territory', required: true),
           InkWell(
             borderRadius: BorderRadius.circular(10),
-            // The details (name, code, District / Territory) are read only when editing a beat.
-            onTap: widget.existing != null ? null : _pickTerritory,
+            onTap: _pickTerritory,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
@@ -809,9 +808,11 @@ class _TerritoryPickerScreenState extends State<TerritoryPickerScreen> {
             child: ListTile(
               onTap: () => Navigator.pop(context, t),
               title: Text(territoryLabel(t), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-              subtitle: t['is_secondary'] == true || t['kind'] == 'secondary'
-                  ? const Text('Secondary', style: TextStyle(fontSize: 11.5, color: Color(0xFF1D4ED8)))
-                  : null,
+              // The tag: Primary or Secondary (not shown when the person has none of their own).
+              subtitle: t['assigned'] == false
+                  ? null
+                  : Text(t['is_secondary'] == true || t['kind'] == 'secondary' ? 'Secondary' : 'Primary',
+                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF1D4ED8))),
               trailing: t['id'] == widget.selectedId
                   ? const Icon(Icons.check_circle_rounded, color: Color(0xFF1E5BE3))
                   : null,
