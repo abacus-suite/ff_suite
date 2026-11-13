@@ -8,6 +8,7 @@
     'data': [
         'security/ir.model.access.csv',
         'data/ff_clients_data.xml',
+        'data/ff_postal_cron.xml',
         'views/ff_contact_category_views.xml',
         'views/ff_district_views.xml',
         'views/res_partner_views.xml',

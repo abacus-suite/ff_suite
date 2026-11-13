@@ -1,8 +1,18 @@
+import json
+import logging
+import urllib.request
+try:
+    import requests
+except ImportError:
+    requests = None
+
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tools.safe_eval import safe_eval
 
 from odoo.addons.ff_base.tools import get_param, map_link
+
+_logger = logging.getLogger(__name__)
 
 APPROVAL_STATES = [
     ('approved', 'Approved'),
@@ -13,6 +23,10 @@ APPROVAL_STATES = [
 
 class ResPartner(models.Model):
     _inherit = 'res.partner'
+
+    postal_district = fields.Char(string='Postal District', index=True)
+    postal_city = fields.Char(string='Postal City / Taluk', index=True)
+    postal_area = fields.Char(string='Postal Area / Locality', index=True)
 
     ff_is_client = fields.Boolean(string='Field Contact', index=True,
                                   help='Visible to field staff in the mobile app.')
@@ -305,3 +319,125 @@ class ResPartner(models.Model):
         if self.ff_approval_state != 'pending' or not self._ff_can_be_decided_by(employee):
             raise AccessError(self.env._('This contact is outside your data access.'))
         self._ff_decide(approve)
+
+    # -------------------------------------------------------------------------
+    # Postal API & Locality Cron (Option B: Smart match or first unique)
+    # -------------------------------------------------------------------------
+    @api.model
+    def _fetch_postal_info(self, pincode):
+        """Call postal API and return district, taluk/block, and unique localities."""
+        url = f"https://api.postalpincode.in/pincode/{pincode}"
+        data = None
+        try:
+            if requests:
+                resp = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+                if resp.status_code == 200:
+                    data = resp.json()
+            else:
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=10) as r:
+                    data = json.loads(r.read().decode('utf-8'))
+        except Exception as e:
+            _logger.warning("Failed to fetch postal info for PIN %s: %s", pincode, e)
+            return None
+
+        if not data or not isinstance(data, list) or not data[0].get("Status") == "Success":
+            return None
+
+        post_offices = data[0].get("PostOffice") or []
+        if not post_offices:
+            return None
+
+        district = None
+        taluk = None
+        localities = []
+        seen_localities = set()
+
+        for office in post_offices:
+            if not district and office.get("District"):
+                district = office["District"].strip()
+            if not taluk and office.get("Block") and office["Block"].strip().upper() not in ('NA', ''):
+                taluk = office["Block"].strip()
+            name = (office.get("Name") or '').strip()
+            if name and name.upper() not in seen_localities:
+                seen_localities.add(name.upper())
+                localities.append(name)
+
+        if not taluk:
+            for office in post_offices:
+                div = (office.get("Division") or '').strip()
+                if div and div.upper() not in ('NA', ''):
+                    taluk = div
+                    break
+
+        return {
+            'district': district,
+            'taluk': taluk,
+            'localities': localities,
+        }
+
+    @api.model
+    def _match_postal_locality(self, partner, localities):
+        """Option B: Smart match with contact address / name, or first unique locality."""
+        if not localities:
+            return False
+        if len(localities) == 1:
+            return localities[0]
+
+        search_text = " ".join([
+            partner.name or '',
+            partner.street or '',
+            partner.street2 or '',
+            partner.city or '',
+        ]).upper()
+
+        for loc in localities:
+            if loc.upper() in search_text:
+                return loc
+
+        return localities[0]
+
+    @api.model
+    def cron_fetch_postal_data(self, batch_size=200):
+        """Fetch district, city/taluk, and area/locality from postal API for contacts with zip."""
+        domain = [
+            ('zip', '!=', False),
+            '|', '|',
+            ('postal_area', '=', False),
+            ('postal_city', '=', False),
+            ('postal_district', '=', False),
+        ]
+        partners = self.search(domain, limit=batch_size)
+        if not partners:
+            return
+
+        pincode_cache = {}
+
+        for partner in partners:
+            raw_pin = (partner.zip or '').strip()
+            if raw_pin.endswith('.0'):
+                raw_pin = raw_pin[:-2].strip()
+            if len(raw_pin) != 6 or not raw_pin.isdigit():
+                continue
+
+            if raw_pin not in pincode_cache:
+                pincode_cache[raw_pin] = self._fetch_postal_info(raw_pin)
+
+            info = pincode_cache[raw_pin]
+            if not info:
+                continue
+
+            area = self._match_postal_locality(partner, info.get('localities', []))
+            district = info.get('district') or False
+            city = info.get('taluk') or False
+
+            vals = {}
+            if district and not partner.postal_district:
+                vals['postal_district'] = district
+            if city and not partner.postal_city:
+                vals['postal_city'] = city
+            if area and not partner.postal_area:
+                vals['postal_area'] = area
+
+            if vals:
+                partner.write(vals)

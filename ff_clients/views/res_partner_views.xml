@@ -31,6 +31,9 @@
                             <field name="partner_longitude"/>
                             <field name="ff_geofence_radius"/>
                             <field name="ff_map_url" widget="url" text="Open in Google Maps" invisible="not ff_map_url"/>
+                            <field name="postal_district"/>
+                            <field name="postal_city"/>
+                            <field name="postal_area"/>
                         </group>
                     </group>
                 </page>
@@ -54,6 +57,9 @@
                 <field name="ff_secondary_district_ids" widget="many2many_tags" optional="hide"/>
                 <field name="state_id" optional="hide"/>
                 <field name="ff_team_ids" widget="many2many_tags" optional="hide"/>
+                <field name="postal_district" optional="hide"/>
+                <field name="postal_city" optional="hide"/>
+                <field name="postal_area" optional="hide"/>
                 <field name="partner_latitude" optional="hide"/>
                 <field name="partner_longitude" optional="hide"/>
                 <field name="ff_created_by_employee_id" optional="hide"/>
