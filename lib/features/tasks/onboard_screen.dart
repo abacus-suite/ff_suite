@@ -697,7 +697,14 @@ class _OnboardScreenState extends State<OnboardScreen> {
         if (asText(d['door']) != null && _v('door').isEmpty) _t('door').text = '${d['door']}';
       });
       if (_v('zip').length == 6) _lookupPin();
-      showSnack(context, 'GST verified: name, PIN code and address filled in.');
+      final status = asText(d['status']);
+      final filled = [
+        if (asText(d['name']) != null) 'name',
+        if (asText(d['pin']) != null) 'PIN code',
+        if (asText(d['address']) != null) 'address',
+      ];
+      showSnack(context, 'GST verified${status == null ? '' : ' · $status'}: ${filled.join(', ')} filled in.'
+          '${asText(d['pin']) == null ? ' Type the PIN code and address.' : ''}');
     } catch (e) {
       if (mounted) showProblem(context, e.toString());
     } finally {
