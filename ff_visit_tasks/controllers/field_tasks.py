@@ -101,6 +101,23 @@ class FieldForceFieldTasksApi(http.Controller):
             'taken': sum(r['taken'] for r in rows), 'given': sum(r['given'] for r in rows), 'moves': [],
         })
 
+    @api_route('/api/v1/field-tasks/today', methods=('GET',))
+    def tasks_today(self, employee, date=None, **kw):
+        """The tasks completed on a day, one row per task (a customer with two tasks has two rows)."""
+        from odoo import fields as odoo_fields
+        day = odoo_fields.Date.to_date(date) if date else employee._ff_today()
+        low, high = employee._ff_day_bounds(day)
+        logs = request.env['ff.task.log'].sudo().search([
+            ('employee_id', '=', employee.id), ('date', '>=', low), ('date', '<', high)], order='date asc')
+        return ok([{
+            'id': log.id,
+            'time': to_iso(log.date),
+            'partner_id': log.partner_id.id or None,
+            'customer': log.partner_id.display_name or '',
+            'task': log.task_type_id.name or '',
+            'visit_type': 'Onsite' if (log.visit_id and log.visit_id.visit_type == 'onsite') else 'Offsite',
+        } for log in logs])
+
     @api_route('/api/v1/field-tasks/leads-due', methods=('GET',))
     def leads_due(self, employee, **kw):
         """Leads waiting for a follow-up, with how overdue each is."""

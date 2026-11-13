@@ -76,7 +76,7 @@ class FfAppReport(models.AbstractModel):
         }
         if 'ff.task.log' in self.env:
             defs['tasks'] = ('Tasks', 'Field tasks completed in visits and ad-hoc', 'assignment', 'ff.task.log', [
-                col('date', 'Date', DATE), col('employee', 'Employee'), col('number', 'Number'),
+                col('date', 'Date', DATE), col('time', 'Time', TIME), col('employee', 'Employee'), col('number', 'Number'),
                 col('task', 'Task'), col('customer', 'Contact'),
                 col('visit_type', 'Type', STATUS), col('result', 'Result'),
             ], self._tasks)
@@ -280,6 +280,7 @@ class FfAppReport(models.AbstractModel):
 
         return [{
             'date': self._local(l.employee_id, l.date).date().isoformat(),
+            'time': self._local(l.employee_id, l.date).strftime('%H:%M'),
             'employee': l.employee_id.name,
             'number': l.name,
             'task': l.task_type_id.name or '',
