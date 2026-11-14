@@ -151,23 +151,31 @@ class FieldForceVisitsApi(http.Controller):
 
         planned_partners = lines.partner_id
         ongoing = visits.filtered(lambda v: v.state == 'ongoing')[:1]
-        # The tasks done today, for the Planned card (a task at a contact that was not planned counts too).
+        # The tasks done today: unplanned completed tasks count as extra visits towards planned & visited
         tasks = []
         if 'ff.task.log' in request.env:
             low, high = employee._ff_day_bounds(day)
             for log in request.env['ff.task.log'].sudo().search([
                     ('employee_id', '=', employee.id), ('date', '>=', low), ('date', '<', high)], order='date asc'):
+                is_onsite = bool(log.visit_id and log.visit_id.visit_type == 'onsite')
+                is_planned_partner = bool(log.partner_id and log.partner_id in planned_partners)
+                # Unplanned if completed offsite or at a contact not in today's planned beat
+                is_unplanned = not (is_onsite and is_planned_partner)
                 tasks.append({
                     'id': log.id,
                     'time': to_iso(log.date),
                     'partner_id': log.partner_id.id or None,
                     'customer': log.partner_id.display_name or '',
                     'task': log.task_type_id.name or '',
-                    'visit_type': 'Onsite' if (log.visit_id and log.visit_id.visit_type == 'onsite') else 'Offsite',
+                    'visit_type': 'Onsite' if is_onsite else 'Offsite',
+                    'is_unplanned': is_unplanned,
                 })
+        unplanned_count = sum(1 for t in tasks if t['is_unplanned'])
         return ok({
             'tasks': tasks,
-            'tasks_done': len(tasks),
+            'tasks_done': unplanned_count,
+            'tasks_unplanned': unplanned_count,
+            'tasks_total': len(tasks),
             'tasks_onsite': sum(1 for t in tasks if t['visit_type'] == 'Onsite'),
             'date': day.isoformat(),
             'plan': plan_data(plans[:1]),
