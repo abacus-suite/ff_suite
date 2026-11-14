@@ -1,5 +1,4 @@
 import 'dart:convert';
-import '../../widgets/report_download.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -11,19 +10,13 @@ import '../../core/format.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/report_download.dart';
 import '../../widgets/skeleton.dart';
 import '../tasks/task_widgets.dart';
 
 /// Expense Payment Request: the company pays the vendor directly, with a tax invoice or a quotation.
 /// With a quotation, accounts pay and set a due date for the tax invoice; the request is completed only
 /// once the tax invoice is uploaded, with a reminder till then.
-///
-/// Server calls (to be added in Odoo; until then the screens say so plainly):
-///   POST /api/v1/expense-requests             {uuid, category_id, sub_category_id, date, amount, document, photo}
-///   GET  /api/v1/expense-requests             {requests: [{id, category, sub_category, amount, state,
-///                                               document, paid_on, invoice_due}]}
-///   POST /api/v1/expense-requests/{id}/invoice {photo}
-/// state: requested (with accounts) · invoice_pending (paid, tax invoice still to come) · completed.
 
 const _purple = Color(0xFF7C3AED);
 const _orange = Color(0xFFD97706);
@@ -41,20 +34,22 @@ String _notYet(Object e) => e is ApiException && e.status == 404
     ? 'Expense payment requests are not switched on yet. Please ask the office.'
     : e.toString();
 
-/// "Event · Stall Fees".
+/// "Event • Stall Fees".
 String requestTitle(Map<String, dynamic> r) => [
       asText((r['category'] as Map?)?['name']),
       asText((r['sub_category'] as Map?)?['name'])?.split(' / ').last.trim(),
-    ].whereType<String>().join(' · ');
+    ].whereType<String>().join(' • ');
 
 Widget _pageTitle(String title, String subtitle) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
       Text(subtitle, style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
     ]);
 
-// ==================================================================== the new request
+// ==================================================================== the form screen (new or edit/raise again)
 class PaymentRequestFormScreen extends StatefulWidget {
-  const PaymentRequestFormScreen({super.key});
+  const PaymentRequestFormScreen({super.key, this.existing});
+
+  final Map<String, dynamic>? existing;
 
   @override
   State<PaymentRequestFormScreen> createState() => _PaymentRequestFormScreenState();
@@ -77,11 +72,25 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
   bool _loaded = false;
   bool _busy = false;
 
-  List<Map<String, dynamic>> get _children => ((_category?['children'] as List?) ?? []).cast<Map<String, dynamic>>();
+  List<Map<String, dynamic>> get _children {
+    final list = ((_category?['children'] as List?) ?? []).cast<Map<String, dynamic>>().toList()
+      ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+    return list;
+  }
 
   @override
   void initState() {
     super.initState();
+    if (widget.existing != null) {
+      final r = widget.existing!;
+      _amount.text = '${r['amount'] ?? ''}';
+      if (r['date'] != null) {
+        _date = DateTime.tryParse('${r['date']}') ?? _date;
+      }
+      if (r['document'] != null) {
+        _document = '${r['document']}';
+      }
+    }
     _load();
   }
 
@@ -95,7 +104,23 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
   Future<void> _load() async {
     try {
       final data = await Services.api.get('/api/v1/expense-categories') as Map<String, dynamic>;
-      if (mounted) setState(() => _categories = ((data['categories'] as List?) ?? []).cast<Map<String, dynamic>>());
+      if (mounted) {
+        final cats = ((data['categories'] as List?) ?? []).cast<Map<String, dynamic>>().toList()
+          ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+        setState(() {
+          _categories = cats;
+          if (widget.existing != null) {
+            final catId = (widget.existing!['category'] as Map?)?['id'];
+            if (catId != null) {
+              _category = cats.where((c) => c['id'] == catId).firstOrNull;
+              final subId = (widget.existing!['sub_category'] as Map?)?['id'];
+              if (subId != null && _category != null) {
+                _sub = _children.where((s) => s['id'] == subId).firstOrNull;
+              }
+            }
+          }
+        });
+      }
     } catch (e) {
       if (mounted) await showProblem(context, e.toString());
     } finally {
@@ -110,7 +135,7 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
       if (_category == null) 'Expense category',
       if (_category != null && _children.isNotEmpty && _sub == null) 'Sub category',
       if ((double.tryParse(_amount.text.trim()) ?? 0) <= 0) 'Amount',
-      if (_photos.isEmpty && _doc == null) 'Photo or document of the $_docName',
+      if (widget.existing == null && _photos.isEmpty && _doc == null) 'Photo or document of the $_docName',
     ];
     if (problems.isNotEmpty) {
       await showProblem(context, problems, title: 'Still needed');
@@ -118,18 +143,37 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
     }
     setState(() => _busy = true);
     try {
-      await Services.api.post('/api/v1/expense-requests', {
-        'uuid': _uuid,
-        'category_id': _category!['id'],
-        if (_sub != null) 'sub_category_id': _sub!['id'],
-        'date': fmtDate(_date),
-        'amount': double.parse(_amount.text.trim()),
-        'document': _document,
-        'photo': _doc != null ? _doc!.dataUrl : base64Encode(_photos.first),
-      });
-      if (!mounted) return;
-      showSnack(context, 'Request sent');
-      Navigator.of(context).pop(true);
+      if (widget.existing != null) {
+        final payload = <String, dynamic>{
+          'category_id': _category!['id'],
+          if (_sub != null) 'sub_category_id': _sub!['id'],
+          'date': fmtDate(_date),
+          'amount': double.parse(_amount.text.trim()),
+          'document': _document,
+        };
+        if (_doc != null) {
+          payload['photo'] = _doc!.dataUrl;
+        } else if (_photos.isNotEmpty) {
+          payload['photo'] = base64Encode(_photos.first);
+        }
+        await Services.api.post('/api/v1/expense-requests/${widget.existing!['id']}/resubmit', payload);
+        if (!mounted) return;
+        showSnack(context, 'Request updated and raised again');
+        Navigator.of(context).pop(true);
+      } else {
+        await Services.api.post('/api/v1/expense-requests', {
+          'uuid': _uuid,
+          'category_id': _category!['id'],
+          if (_sub != null) 'sub_category_id': _sub!['id'],
+          'date': fmtDate(_date),
+          'amount': double.parse(_amount.text.trim()),
+          'document': _document,
+          'photo': _doc != null ? _doc!.dataUrl : base64Encode(_photos.first),
+        });
+        if (!mounted) return;
+        showSnack(context, 'Request sent');
+        Navigator.of(context).pop(true);
+      }
     } catch (e) {
       if (mounted) await showProblem(context, _notYet(e));
     } finally {
@@ -138,25 +182,28 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
   }
 
   Widget _dropdown(Map<String, dynamic>? value, List<Map<String, dynamic>> items, bool sub,
-          ValueChanged<Map<String, dynamic>?> onChanged) =>
-      DropdownButtonFormField<int>(
-        key: ValueKey('${sub ? 's' : 'c'}${_category?['id']}'),
-        initialValue: value?['id'] as int?,
-        isExpanded: true,
-        hint: const Text('Choose'),
-        decoration: InputDecoration(
-          isDense: true,
-          filled: true,
-          fillColor: AppColors.background,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-        ),
-        items: [
-          for (final c in items)
-            DropdownMenuItem(
-                value: c['id'] as int, child: Text(sub ? '${c['name']}'.split(' / ').last.trim() : '${c['name']}')),
-        ],
-        onChanged: (id) => onChanged(items.where((c) => c['id'] == id).firstOrNull),
-      );
+          ValueChanged<Map<String, dynamic>?> onChanged) {
+    final sorted = items.toList()
+      ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+    return DropdownButtonFormField<int>(
+      key: ValueKey('${sub ? 's' : 'c'}${_category?['id']}'),
+      initialValue: value?['id'] as int?,
+      isExpanded: true,
+      hint: const Text('Choose'),
+      decoration: InputDecoration(
+        isDense: true,
+        filled: true,
+        fillColor: AppColors.background,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+      ),
+      items: [
+        for (final c in sorted)
+          DropdownMenuItem(
+              value: c['id'] as int, child: Text(sub ? '${c['name']}'.split(' / ').last.trim() : '${c['name']}')),
+      ],
+      onChanged: (id) => onChanged(sorted.where((c) => c['id'] == id).firstOrNull),
+    );
+  }
 
   /// Tax invoice | Quotation, as two halves of one pill.
   Widget _documentSwitch() {
@@ -168,6 +215,7 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
           onTap: () => setState(() {
             _document = code;
             _photos.clear();
+            _doc = null;
           }),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -196,20 +244,49 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEdit = widget.existing != null;
+    final rejectReason = widget.existing?['reason'] as String?;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: _pageTitle('Expense Payment Request', 'New request')),
+      appBar: AppBar(title: _pageTitle('Expense Payment Request', isEdit ? 'Update & Raise Again' : 'New request')),
       bottomNavigationBar: !_loaded
           ? null
           : SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-                child: GradientButton(label: 'Send request', busy: _busy, onPressed: _busy ? null : _send),
+                child: GradientButton(
+                  label: isEdit ? 'Raise again' : 'Send request',
+                  icon: isEdit ? Icons.refresh_rounded : Icons.send_rounded,
+                  busy: _busy,
+                  onPressed: _busy ? null : _send,
+                ),
               ),
             ),
       body: !_loaded
           ? const LoadingView()
           : ListView(padding: const EdgeInsets.all(14), children: [
+              if (isEdit && rejectReason != null && rejectReason.trim().isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.danger.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.info_outline_rounded, color: AppColors.danger, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Rejection Reason',
+                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.danger)),
+                        const SizedBox(height: 2),
+                        Text(rejectReason, style: const TextStyle(fontSize: 12.5, color: AppColors.danger)),
+                      ]),
+                    ),
+                  ]),
+                ),
               StepCard(
                 title: 'Expense category *',
                 child: _dropdown(_category, _categories, false, (c) => setState(() {
@@ -252,7 +329,10 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
                   controller: _amount,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
-                    prefixText: '₹ ',
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.only(left: 14, right: 8),
+                      child: Center(widthFactor: 1, child: Text('₹', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+                    ),
                     isDense: true,
                     filled: true,
                     fillColor: AppColors.background,
@@ -272,13 +352,12 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
                   if (_doc == null)
                     PhotoSlot(
                       key: ValueKey(_document),
-                      label: 'Photo of the $_docName',
+                      label: isEdit ? 'Photo of the $_docName (optional if unchanged)' : 'Photo of the $_docName',
                       photos: _photos,
                       onChanged: () => setState(() {}),
                       max: 1,
                     ),
                   const SizedBox(height: 8),
-                  // Or a file from the phone: a PDF, Word or Excel document, or a picture.
                   if (_doc != null)
                     ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -291,14 +370,23 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
                     OutlinedButton.icon(
                       onPressed: () async {
                         final picked = await pickDocument();
+                        if (!context.mounted) return;
                         if (picked == null) {
-                          if (mounted) showSnack(context, 'Choose a PDF, Word, Excel or picture file under 10 MB.');
+                          showSnack(context, 'Choose a PDF, Word, Excel or picture file under 10 MB.');
                           return;
                         }
-                        if (mounted) setState(() => _doc = picked);
+                        setState(() => _doc = picked);
                       },
                       icon: const Icon(Icons.attach_file_rounded),
                       label: const Text('Or attach a document (PDF, Word, Excel)'),
+                    ),
+                  if (isEdit && _photos.isEmpty && _doc == null)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Original document is attached on server. You can upload a new photo or document to replace it.',
+                        style: TextStyle(fontSize: 12, color: AppColors.muted),
+                      ),
                     ),
                 ]),
               ),
@@ -307,7 +395,7 @@ class _PaymentRequestFormScreenState extends State<PaymentRequestFormScreen> {
   }
 }
 
-// ==================================================================== My Expense · Payment requests
+// ==================================================================== My Expense • Payment requests
 class PaymentRequestsScreen extends StatefulWidget {
   const PaymentRequestsScreen({super.key});
 
@@ -318,9 +406,8 @@ class PaymentRequestsScreen extends StatefulWidget {
 class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
   List<Map<String, dynamic>>? _rows;
   String? _note;
-
-  /// Reminders closed with ×: they come back the next time the list opens, till the invoice is uploaded.
-  final Set<Object?> _hidden = {};
+  final Set<int> _hidden = {};
+  String _filter = 'all'; // 'all', 'pending', 'completed', 'rejected'
 
   @override
   void initState() {
@@ -354,10 +441,78 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
     if (sent == true) _load();
   }
 
+  List<Map<String, dynamic>> _filterRows(List<Map<String, dynamic>> list) {
+    switch (_filter) {
+      case 'rejected':
+        return list.where((r) => r['state'] == 'rejected').toList();
+      case 'completed':
+        return list.where((r) => r['state'] == 'completed').toList();
+      case 'pending':
+        return list.where((r) => r['state'] != 'rejected' && r['state'] != 'completed').toList();
+      default:
+        return list;
+    }
+  }
+
+  Widget _filterPill(String key, String label, int count, {Color? activeColor}) {
+    final active = _filter == key;
+    final color = activeColor ?? AppColors.primary;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => setState(() => _filter = key),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: active ? color : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: active ? color : AppColors.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: active ? Colors.white : AppColors.text,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: active ? Colors.white.withValues(alpha: 0.25) : color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: active ? Colors.white : color,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final rows = _rows;
+    final totalCount = rows?.length ?? 0;
+    final pendingCount = (rows ?? const []).where((r) => r['state'] != 'rejected' && r['state'] != 'completed').length;
+    final completedCount = (rows ?? const []).where((r) => r['state'] == 'completed').length;
+    final rejectedCount = (rows ?? const []).where((r) => r['state'] == 'rejected').length;
+    final displayed = rows == null ? const <Map<String, dynamic>>[] : _filterRows(rows);
     final pending = (rows ?? const []).where((r) => r['state'] == 'invoice_pending' && !_hidden.contains(r['id']));
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -373,17 +528,40 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(padding: const EdgeInsets.fromLTRB(14, 8, 14, 96), children: [
+                if (rows.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: [
+                        _filterPill('all', 'All', totalCount),
+                        _filterPill('pending', 'Pending', pendingCount, activeColor: _orange),
+                        _filterPill('completed', 'Completed', completedCount, activeColor: AppColors.success),
+                        _filterPill('rejected', 'Rejected', rejectedCount, activeColor: AppColors.danger),
+                      ]),
+                    ),
+                  ),
                 if (_note != null)
                   Padding(
                     padding: const EdgeInsets.all(20),
                     child: Text(_note!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted)),
                   )
-                else if (rows.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(30),
-                    child: Text('No payment requests yet.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
+                else if (displayed.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(30),
+                    child: Text(
+                      _filter == 'rejected'
+                          ? 'No rejected payment requests.'
+                          : _filter == 'completed'
+                              ? 'No completed payment requests.'
+                              : _filter == 'pending'
+                                  ? 'No pending payment requests.'
+                                  : 'No payment requests yet.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: AppColors.muted),
+                    ),
                   ),
-                for (final r in rows) ...[
+                for (final r in displayed) ...[
                   _tile(r),
                   // The reminder sits right under the request it is about, till the invoice is in.
                   if (pending.contains(r)) _reminder(r),
@@ -397,17 +575,25 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
         'completed' => (AppColors.success, 'Completed', 'Tax invoice uploaded'),
         'approval' => (_orange, 'With manager', 'Waiting for your manager to approve'),
         'requested' when r['invoice_uploaded'] == true && r['document'] == 'quotation' => (
-            AppColors.primary, 'With accounts', 'Tax invoice uploaded · waiting for accounts to pay'),
+            AppColors.primary, 'With accounts', 'Tax invoice uploaded • waiting for accounts to pay'),
         'invoice_pending' => (
             _orange,
             'Invoice pending',
-            ['Paid by accounts', if (_short(r['invoice_due']).isNotEmpty) 'invoice due ${_short(r['invoice_due'])}'].join(' · ')
+            ['Paid by accounts', if (_short(r['invoice_due']).isNotEmpty) 'invoice due ${_short(r['invoice_due'])}'].join(' • ')
+          ),
+        'rejected' => (
+            AppColors.danger,
+            'Rejected',
+            r['reason'] != null && '${r['reason']}'.trim().isNotEmpty
+                ? 'Reason: ${r['reason']}'
+                : 'Rejected by approver / accounts',
           ),
         _ => (AppColors.primary, 'With accounts', 'Waiting for accounts to pay'),
       };
 
   Widget _tile(Map<String, dynamic> r) {
     final (tint, status, line) = _look(r);
+    final isRejected = r['state'] == 'rejected';
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       clipBehavior: Clip.antiAlias,
@@ -419,20 +605,57 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                child: Row(children: [
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(requestTitle(r), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(requestTitle(r), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                        const SizedBox(height: 2),
+                        Text(line, style: TextStyle(fontSize: 11.5, color: isRejected ? AppColors.danger : AppColors.muted)),
+                      ]),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text(fmtMoney(r['amount'] as num?), style: const TextStyle(fontWeight: FontWeight.w900)),
                       const SizedBox(height: 2),
-                      Text(line, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                      Text(status, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: tint)),
                     ]),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text(fmtMoney(r['amount'] as num?), style: const TextStyle(fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 2),
-                    Text(status, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: tint)),
                   ]),
+                  if (isRejected) ...[
+                    const Divider(height: 16),
+                    Row(children: [
+                      const Icon(Icons.error_outline_rounded, size: 16, color: AppColors.danger),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          r['reason'] != null && '${r['reason']}'.trim().isNotEmpty
+                              ? 'Rejected: ${r['reason']}'
+                              : 'Request was rejected',
+                          style: const TextStyle(fontSize: 12, color: AppColors.danger, fontWeight: FontWeight.w600),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: () async {
+                          final nav = Navigator.of(context);
+                          final changed = await nav.push<bool>(
+                            MaterialPageRoute(builder: (_) => PaymentRequestFormScreen(existing: r)),
+                          );
+                          if (changed == true && mounted) _load();
+                        },
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('Raise Again', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                      ),
+                    ]),
+                  ],
                 ]),
               ),
             ),
@@ -442,7 +665,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
     );
   }
 
-  /// "Upload the tax invoice · Stall Fees ₹15,000 · due 31-Oct", with × to put it away for now.
+  /// Quotation paid: upload the tax invoice reminder.
   Widget _reminder(Map<String, dynamic> r) {
     final sub = asText((r['sub_category'] as Map?)?['name'])?.split(' / ').last.trim() ?? requestTitle(r);
     final due = _short(r['invoice_due']);
@@ -476,8 +699,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Text('Upload the tax invoice', style: TextStyle(fontWeight: FontWeight.w800)),
                 Text(
-                    [sub, fmtMoney(r['amount'] as num?), if (due.isNotEmpty) 'due $due'].join(' · ')
-                        .replaceFirst(' · ₹', ' ₹'),
+                    [sub, fmtMoney(r['amount'] as num?), if (due.isNotEmpty) 'due $due'].join(' • '),
                     style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
               ]),
             ),
@@ -546,20 +768,64 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
     final waitingInvoice = _r['document'] == 'quotation' &&
         (state == 'invoice_pending' || state == 'requested' || state == 'approval') &&
         _r['invoice_uploaded'] != true;
+    final isRejected = state == 'rejected';
     final paid = DateTime.tryParse('${_r['paid_on'] ?? ''}');
     final due = DateTime.tryParse('${_r['invoice_due'] ?? ''}');
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: _pageTitle(requestTitle(_r), 'Payment request')),
-      bottomNavigationBar: !waitingInvoice
-          ? null
-          : SafeArea(
+      bottomNavigationBar: isRejected
+          ? SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-                child: GradientButton(label: 'Submit tax invoice', busy: _busy, onPressed: _busy ? null : _submit),
+                child: GradientButton(
+                  label: 'Raise Again (Update & Resubmit)',
+                  icon: Icons.refresh_rounded,
+                  onPressed: () async {
+                    final nav = Navigator.of(context);
+                    final resubmitted = await nav.push<bool>(
+                      MaterialPageRoute(builder: (_) => PaymentRequestFormScreen(existing: _r)),
+                    );
+                    if (resubmitted == true && mounted) {
+                      nav.pop(true);
+                    }
+                  },
+                ),
               ),
-            ),
+            )
+          : !waitingInvoice
+              ? null
+              : SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+                    child: GradientButton(label: 'Submit tax invoice', busy: _busy, onPressed: _busy ? null : _submit),
+                  ),
+                ),
       body: ListView(padding: const EdgeInsets.all(14), children: [
+        if (isRejected)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.danger.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Row(children: [
+                Icon(Icons.cancel_rounded, color: AppColors.danger, size: 20),
+                SizedBox(width: 8),
+                Text('Request Rejected', style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w800, fontSize: 14)),
+              ]),
+              if (_r['reason'] != null && '${_r['reason']}'.trim().isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text('Reason: ${_r['reason']}', style: const TextStyle(fontSize: 13, color: AppColors.danger, fontWeight: FontWeight.w600)),
+              ],
+              const SizedBox(height: 8),
+              const Text('Tap "Raise Again" below to update details and resubmit for approval.',
+                  style: TextStyle(fontSize: 12, color: AppColors.muted)),
+            ]),
+          ),
         Container(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
@@ -596,8 +862,10 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
                 ),
             ]),
           )
+        else if (isRejected)
+          const SizedBox.shrink()
         else if (state == 'completed')
-          _banner('Completed · tax invoice uploaded.', AppColors.success)
+          _banner('Completed • tax invoice uploaded.', AppColors.success)
         else if (state == 'approval')
           _banner('With your manager. It goes to accounts once it is approved.', _orange)
         else if (state == 'requested' && _r['invoice_uploaded'] == true)
