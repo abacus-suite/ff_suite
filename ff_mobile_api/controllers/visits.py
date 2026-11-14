@@ -246,7 +246,7 @@ class FieldForceVisitsApi(http.Controller):
                 'category': cat_label,
                 'beat': line.beat_id.name or '',
                 'address': address,
-                'phone': p.phone or p.mobile or '',
+                'phone': getattr(p, 'phone', None) or getattr(p, 'mobile', None) or '',
                 'status': status,
                 'time': visited_time,
                 'visit_type': visit_type,
