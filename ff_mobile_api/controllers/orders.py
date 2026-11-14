@@ -335,7 +335,9 @@ class FieldForceOrdersApi(http.Controller):
                 raise ApiError('category_id must be a number.')
 
         MrpOption = request.env['ff.partner.option'].sudo() if 'ff.partner.option' in request.env else None
-        mrp_options_recs = MrpOption.search([('kind', '=', 'mrp'), ('active', '=', True)], order='sequence, name, id') if MrpOption else []
+        # "is not None": an empty model object is falsy, which would make this a plain list with no .filtered().
+        mrp_options_recs = (MrpOption.search([('kind', '=', 'mrp'), ('active', '=', True)], order='sequence, name, id')
+                            if MrpOption is not None else request.env['res.partner'].browse())
         mrp_options = [{'id': o.id, 'name': o.name, 'code': o.code} for o in mrp_options_recs]
 
         mrp_opt = None
