@@ -64,10 +64,13 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
       if (!mounted) return;
       setState(() {
         if (res is Map) {
-          _distributors = ((res['distributors'] as List?) ?? []).cast<Map<String, dynamic>>();
+          final list = ((res['distributors'] as List?) ?? []).cast<Map<String, dynamic>>().toList()
+            ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+          _distributors = list;
           _distributorId = res['suggested_id'] as int?;
         } else if (res is List) {
-          _distributors = res.cast<Map<String, dynamic>>();
+          _distributors = res.cast<Map<String, dynamic>>().toList()
+            ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
         }
       });
     } catch (_) {

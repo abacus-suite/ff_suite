@@ -281,6 +281,7 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
   late final Map<String, dynamic>? _ob = widget.client['onboarding'] as Map<String, dynamic>?;
   final _d = <String, TextEditingController>{};
   String? _outletCategory;
+  String? _riskLevel;
   String? _mrp;
   String? _scheme;
   String? _chillerModel;
@@ -310,6 +311,7 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
     final ob = _ob;
     if (ob != null) {
       _outletCategory = (ob['outlet_category'] as Map?)?['code'] as String?;
+      _riskLevel = asText(ob['risk_level']) ?? asText(widget.client['risk_level']) ?? 'low';
       _mrp = (ob['mrp'] as Map?)?['code'] as String?;
       _scheme = (ob['scheme'] as Map?)?['code'] as String?;
       _chillerModel = (ob['chiller_model'] as Map?)?['code'] as String?;
@@ -333,13 +335,21 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
     _loadChoices();
   }
 
-  List<Map<String, dynamic>> _list(String key) => ((_options[key] as List?) ?? const []).cast<Map<String, dynamic>>();
+  List<Map<String, dynamic>> _list(String key) {
+    final list = ((_options[key] as List?) ?? const []).cast<Map<String, dynamic>>().toList();
+    list.sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+    return list;
+  }
 
   /// The kinds of contact and the routes this person may pick from.
   Future<void> _loadChoices() async {
     try {
       final categories = await Services.api.get('/api/v1/contact-categories') as List;
-      if (mounted) setState(() => _categories = categories.cast<Map<String, dynamic>>());
+      if (mounted) {
+        final sortedCats = categories.cast<Map<String, dynamic>>().toList()
+          ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+        setState(() => _categories = sortedCats);
+      }
     } catch (_) {
       // The chooser simply stays on what the contact already has.
     }
@@ -349,7 +359,11 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
   Future<void> _loadRoutes() async {
     try {
       final routes = await Services.api.get('/api/v1/my-routes') as List;
-      if (mounted) setState(() => _routes = routes.cast<Map<String, dynamic>>());
+      if (mounted) {
+        final sortedRoutes = routes.cast<Map<String, dynamic>>().toList()
+          ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+        setState(() => _routes = sortedRoutes);
+      }
     } catch (_) {}
   }
 
@@ -406,6 +420,7 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
         },
         'swiggy_zomato': _swiggy == true,
         'swiggy_zomato_id': _v('swiggy_zomato_id'),
+        if (_riskLevel != null) 'risk_level': _riskLevel,
         if (_mrp != null) 'mrp': _mrp,
         if (_scheme != null) 'scheme': _scheme,
         if (_v('credit_days').isNotEmpty) 'credit_days': _v('credit_days'),
@@ -781,6 +796,17 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
             title: 'Pricing',
             icon: Icons.sell_rounded,
             children: [
+              _label('Risk Category Level'),
+              Choice(
+                options: const [
+                  {'code': 'low', 'name': 'Low'},
+                  {'code': 'medium', 'name': 'Medium'},
+                  {'code': 'high', 'name': 'High'},
+                ],
+                value: _riskLevel,
+                onChanged: (v) => setState(() => _riskLevel = v),
+              ),
+              const SizedBox(height: 14),
               _label('MRP'),
               Choice(options: _list('mrp'), value: _mrp, onChanged: (v) => setState(() => _mrp = v)),
               const SizedBox(height: 14),

@@ -282,7 +282,6 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
 
   /// The boxes across the top, named after the states this flow really uses.
   List<(IconData, List<String>, String, Color)> get _statBoxes => [
-        (Icons.description_rounded, const ['draft', 'submitted', 'sent'], 'To Submit', AppColors.primary),
         (Icons.local_shipping_rounded, const ['waiting', 'quoted', 'partial'], 'With distributor', AppColors.warning),
         // With no demand step, a confirmed order counts as approved.
         (Icons.thumb_up_alt_rounded, _demandFlow ? const ['approved'] : const ['approved', 'sale', 'done'], 'Approved', AppColors.primary),
@@ -719,19 +718,19 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
                   padding: const EdgeInsets.all(8),
                   child: Column(
                     children: [
-                      for (var start = 0; start < _statBoxes.length; start += 3)
-                        Padding(
-                          padding: EdgeInsets.only(top: start == 0 ? 0 : 6),
-                          child: Row(
-                            children: [
-                              for (final box in _statBoxes.skip(start).take(3))
-                                _statBox(box.$1, '${_countOf(box.$2)}', box.$3, box.$4, box.$2),
-                              // A short last row keeps the boxes the same width as the rest.
-                              for (var pad = _statBoxes.skip(start).take(3).length; pad < 3 && _statBoxes.length > 3; pad++)
-                                const Expanded(child: SizedBox()),
-                            ],
-                          ),
-                        ),
+                      Row(
+                        children: [
+                          for (final box in _statBoxes.take(2))
+                            _statBox(box.$1, '${_countOf(box.$2)}', box.$3, box.$4, box.$2),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          for (final box in _statBoxes.skip(2).take(3))
+                            _statBox(box.$1, '${_countOf(box.$2)}', box.$3, box.$4, box.$2),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -887,9 +886,10 @@ class _OrderDetail extends StatelessWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary),
-                    tooltip: 'Download PDF',
-                    onPressed: () => downloadAndSavePdf(
+                    tooltip: 'Preview PDF',
+                    onPressed: () => openPdfPreview(
                       context,
+                      title: '${demandFlow ? 'Demand' : 'Order'} ${o['name']}',
                       endpoint: demandFlow ? '/api/v1/demands/$orderId/pdf' : '/api/v1/orders/$orderId/pdf',
                       filename: '${demandFlow ? 'Demand' : 'Order'}_${o['name']}.pdf',
                     ),
@@ -937,13 +937,14 @@ class _OrderDetail extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.bold))),
               const SizedBox(height: 14),
               OutlinedButton.icon(
-                onPressed: () => downloadAndSavePdf(
+                onPressed: () => openPdfPreview(
                   context,
+                  title: '${demandFlow ? 'Demand' : 'Order'} ${o['name']}',
                   endpoint: demandFlow ? '/api/v1/demands/$orderId/pdf' : '/api/v1/orders/$orderId/pdf',
                   filename: '${demandFlow ? 'Demand' : 'Order'}_${o['name']}.pdf',
                 ),
                 icon: const Icon(Icons.picture_as_pdf_rounded),
-                label: Text('Download ${demandFlow ? 'Demand' : 'Order'} PDF'),
+                label: Text('View / Download ${demandFlow ? 'Demand' : 'Order'} PDF'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(44),
                   foregroundColor: AppColors.primary,

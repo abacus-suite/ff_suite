@@ -140,16 +140,27 @@ class _CatalogScreenState extends State<CatalogScreen> {
     });
   }
 
-  double get _total =>
-      _cart.entries.fold(0.0, (sum, e) => sum + ((_known[e.key]?['price'] as num?) ?? 0) * (e.value > 0 ? e.value : 0));
+  static double _round2(double v) => (v * 100).roundToDouble() / 100;
+
+  /// A product's lines worked out as the PO Summary does: when the rate already includes the GST, the price before
+  /// tax is the rate less its GST, and the tax is added on that, so the two screens always show the same total.
+  (double, double) _lineFigures(int id, double qty) {
+    final p = _known[id];
+    final rate = ((p?['price'] as num?) ?? 0).toDouble();
+    final gst = ((p?['tax_percent'] as num?) ?? 0).toDouble();
+    final q = qty > 0 ? qty : 0.0;
+    if (_commercials != null) {
+      final unit = gst > 0 ? _round2(rate / (1 + gst / 100)) : rate;
+      final base = _round2(unit * q);
+      return (base, _round2(base * gst / 100));
+    }
+    return (rate * q, rate * q * gst / 100);
+  }
+
+  double get _total => _cart.entries.fold(0.0, (sum, e) => sum + _lineFigures(e.key, e.value).$1);
 
   /// The taxes the products carry, on what is in the cart. The server works out the real figure.
-  double get _tax => _cart.entries.fold(0.0, (sum, e) {
-        final p = _known[e.key];
-        final price = (p?['price'] as num?) ?? 0;
-        final rate = (p?['tax_percent'] as num?) ?? 0;
-        return sum + price * (e.value > 0 ? e.value : 0) * rate / 100;
-      });
+  double get _tax => _cart.entries.fold(0.0, (sum, e) => sum + _lineFigures(e.key, e.value).$2);
 
   double get _units => _cart.values.fold(0.0, (a, b) => a + (b > 0 ? b : 0));
 

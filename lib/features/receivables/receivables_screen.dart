@@ -571,10 +571,18 @@ class _StatementScreenState extends State<StatementScreen> {
         title: const Text('Statement of account'),
         actions: [
           IconButton(
-            tooltip: 'Open invoices',
-            icon: const Icon(Icons.receipt_long_rounded),
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => ReceivablesScreen(partnerId: widget.partnerId, partnerName: widget.name))),
+            tooltip: 'Preview PDF',
+            icon: const Icon(Icons.picture_as_pdf_rounded),
+            onPressed: () {
+              final startStr = fmtDate(_range.start);
+              final endStr = fmtDate(_range.end);
+              openPdfPreview(
+                context,
+                title: 'Statement - ${widget.name}',
+                endpoint: '/api/v1/clients/${widget.partnerId}/soa/pdf?start=$startStr&end=$endStr',
+                filename: 'SOA_${widget.name.replaceAll(RegExp(r"[^a-zA-Z0-9_-]"), "_")}_${startStr}_$endStr.pdf',
+              );
+            },
           ),
         ],
       ),
@@ -730,9 +738,10 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           if (d != null)
             IconButton(
               icon: const Icon(Icons.picture_as_pdf_rounded),
-              tooltip: 'Download PDF',
-              onPressed: () => downloadAndSavePdf(
+              tooltip: 'Preview PDF',
+              onPressed: () => openPdfPreview(
                 context,
+                title: '${d['is_refund'] == true ? 'Credit Note' : 'Invoice'} ${widget.number}',
                 endpoint: widget.source == 'outlet'
                     ? '/api/v1/receivables/outlet-invoice/${widget.id}/pdf'
                     : '/api/v1/receivables/invoice/${widget.id}/pdf',

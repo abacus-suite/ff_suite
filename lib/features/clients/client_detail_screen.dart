@@ -528,6 +528,19 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                     _heroChip(pending ? 'Pending' : 'Active',
                         dot: pending ? AppColors.warning : AppColors.success),
                     if (c['code'] != null) _heroChip('${c['code']}'),
+                    if (c['risk_level'] != null || (c['onboarding'] as Map?)?['risk_level'] != null) ...[
+                      () {
+                        final risk = '${c['risk_level'] ?? (c['onboarding'] as Map?)?['risk_level']}'.toLowerCase();
+                        return _heroChip(
+                          'Risk: ${risk[0].toUpperCase()}${risk.substring(1)}',
+                          dot: switch (risk) {
+                            'high' => AppColors.danger,
+                            'medium' => AppColors.warning,
+                            _ => AppColors.success,
+                          },
+                        );
+                      }(),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -912,7 +925,6 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
               trailing: FilledButton(
                 onPressed: () async {
                   await completeOnboarding(context, c);
-                  if (mounted) _load();
                 },
                 child: const Text('Start'),
               ),

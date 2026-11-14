@@ -222,6 +222,14 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
     if (_areas.isNotEmpty) {
       allOutlets = allOutlets.where((o) => _areas.contains((o['area'] as Map?)?['id'])).toList();
     }
+    if (widget.existingOutlets != null) {
+      final existingIds = allOutlets.map((o) => o['id']).toSet();
+      for (final eo in widget.existingOutlets!) {
+        if (!existingIds.contains(eo['id']) && _outlets.contains(eo['id'])) {
+          allOutlets.add(eo);
+        }
+      }
+    }
     if (allOutlets.isEmpty) {
       showProblem(context, _areas.isEmpty ? 'No outlets found for this District / Territory.' : 'No outlets in the chosen areas.');
       return;
@@ -647,7 +655,6 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
     if (picked == null || !mounted) return;
     setState(() {
       _territory = picked;
-      final outletsList = ((picked['outlets'] as List?) ?? []).cast<Map<String, dynamic>>();
       // Nothing is ticked: the person chooses the outlets (after the areas, if any).
       _outlets.clear();
       _areas.clear();
@@ -862,6 +869,20 @@ class _ChooseOutletsScreenState extends State<ChooseOutletsScreen> {
   final Set<String> _areas = {};
   bool _areaOpen = false;
 
+  late final List<Map<String, dynamic>> _orderedOutlets = () {
+    final list = widget.outlets.toList();
+    list.sort((a, b) {
+      final aSel = widget.selected.contains(a['id']);
+      final bSel = widget.selected.contains(b['id']);
+      if (aSel && !bSel) return -1;
+      if (!aSel && bSel) return 1;
+      final nameA = (a['name'] ?? '').toString().toLowerCase();
+      final nameB = (b['name'] ?? '').toString().toLowerCase();
+      return nameA.compareTo(nameB);
+    });
+    return list;
+  }();
+
   bool get _master => (widget.areas ?? const []).isNotEmpty;
 
   /// What an outlet is filed under: its Area (master) or, without the master, its city.
@@ -905,7 +926,7 @@ class _ChooseOutletsScreenState extends State<ChooseOutletsScreen> {
   List<Map<String, dynamic>> get _shown {
     final needle = _search.text.trim().toLowerCase();
     return [
-      for (final o in widget.outlets)
+      for (final o in _orderedOutlets)
         if ((needle.isEmpty || '${o['name']}'.toLowerCase().contains(needle)) &&
             (_areas.isEmpty || _areas.contains(_areaKey(o))))
           o,

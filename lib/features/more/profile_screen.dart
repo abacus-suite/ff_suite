@@ -450,7 +450,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
                         child: Align(
                           alignment: Alignment.centerLeft,
-                          child: Text('District / Territory',
+                          child: Text('Your District/Territories in this region',
                               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: AppColors.muted)),
                         ),
                       ),

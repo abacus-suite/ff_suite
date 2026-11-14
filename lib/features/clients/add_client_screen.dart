@@ -143,7 +143,8 @@ class _AddClientScreenState extends State<AddClientScreen> {
   /// Every route this person may use, with the city each one covers.
   Future<void> _loadRoutes() async {
     try {
-      final list = (await Services.api.get('/api/v1/route-plan/routes') as List).cast<Map<String, dynamic>>();
+      final list = (await Services.api.get('/api/v1/route-plan/routes') as List).cast<Map<String, dynamic>>().toList()
+        ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
       if (mounted) setState(() => _routes = list);
     } catch (_) {
       // No routes module or no access: the form works without one.
@@ -181,7 +182,8 @@ class _AddClientScreenState extends State<AddClientScreen> {
 
   Future<void> _loadCategories() async {
     try {
-      final list = (await Services.api.get('/api/v1/contact-categories') as List).cast<Map<String, dynamic>>();
+      final list = (await Services.api.get('/api/v1/contact-categories') as List).cast<Map<String, dynamic>>().toList()
+        ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
       if (!mounted) return;
       setState(() {
         _categories = list;

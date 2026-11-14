@@ -184,8 +184,11 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
 
   Map<String, dynamic> get _lists => (widget.config['lists'] as Map).cast<String, dynamic>();
 
-  List<Map<String, dynamic>> _list(String key) =>
-      ((_lists[key] as List?) ?? []).cast<Map<String, dynamic>>();
+  List<Map<String, dynamic>> _list(String key) {
+    final list = ((_lists[key] as List?) ?? []).cast<Map<String, dynamic>>().toList();
+    list.sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+    return list;
+  }
 
   List<Map<String, dynamic>> get _flavours =>
       ((widget.config['flavours'] as List?) ?? []).cast<Map<String, dynamic>>();
@@ -1025,18 +1028,21 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
       );
 
   Widget _dropdown(String label, List<Map<String, dynamic>> items, int? value, ValueChanged<int?> onChanged,
-          {String? hint}) =>
-      DropdownButtonFormField<int>(
-        initialValue: items.any((i) => i['id'] == value) ? value : null,
-        isExpanded: true,
-        decoration: InputDecoration(labelText: label, isDense: true, helperText: hint),
-        items: [
-          for (final i in items)
-            DropdownMenuItem(
-                value: i['id'] as int, child: Text('${i['name']}', maxLines: 1, overflow: TextOverflow.ellipsis)),
-        ],
-        onChanged: onChanged,
-      );
+          {String? hint}) {
+    final sorted = items.toList()
+      ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+    return DropdownButtonFormField<int>(
+      initialValue: sorted.any((i) => i['id'] == value) ? value : null,
+      isExpanded: true,
+      decoration: InputDecoration(labelText: label, isDense: true, helperText: hint),
+      items: [
+        for (final i in sorted)
+          DropdownMenuItem(
+              value: i['id'] as int, child: Text('${i['name']}', maxLines: 1, overflow: TextOverflow.ellipsis)),
+      ],
+      onChanged: onChanged,
+    );
+  }
 
   String? _checkContact() {
     if (_s('name').isEmpty) return 'Give the lead a name.';

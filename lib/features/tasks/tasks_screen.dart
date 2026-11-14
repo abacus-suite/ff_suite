@@ -538,7 +538,8 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
   void initState() {
     super.initState();
     Services.api.get('/api/v1/reports').then((data) {
-      final members = (((data as Map)['members'] as List?) ?? []).cast<Map<String, dynamic>>();
+      final members = (((data as Map)['members'] as List?) ?? []).cast<Map<String, dynamic>>().toList()
+        ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
       if (mounted) setState(() => _members = members);
     }).catchError((Object e) {
       if (mounted) showProblem(context, e.toString());

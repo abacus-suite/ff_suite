@@ -58,6 +58,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
   int? _areaId;
 
   // Step 3
+  String? _riskLevel;
   String? _mrp;
   String? _category;
   String? _scheme;
@@ -91,13 +92,13 @@ class _OnboardScreenState extends State<OnboardScreen> {
 
   bool get _filled =>
       _c.entries.any((e) => e.value.text.trim().isNotEmpty && e.value.text.trim() != _starting[e.key]) ||
-      _swiggy != null || _zomato != null || _chiller != null || _mrp != null || _category != null ||
+      _swiggy != null || _zomato != null || _chiller != null || _riskLevel != null || _mrp != null || _category != null ||
       _scheme != null || _chillerModel != null || _distributor != null;
 
   Map<String, dynamic> _toDraft() => {
         'kind': _kind, 'step': _step, 'has_gst': _hasGst, 'same': _sameAsBilling,
         'text': {for (final e in _c.entries) e.key: e.value.text},
-        'swiggy': _swiggy, 'zomato': _zomato, 'chiller': _chiller, 'mrp': _mrp, 'category': _category,
+        'swiggy': _swiggy, 'zomato': _zomato, 'chiller': _chiller, 'risk_level': _riskLevel, 'mrp': _mrp, 'category': _category,
         'scheme': _scheme, 'chiller_model': _chillerModel, 'distributor': _distributor,
         'region': _regionId, 'territory': _territoryId, 'district': _districtId, 'area': _areaId,
         'date': fmtDate(_onboardedOn),
@@ -117,6 +118,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
       _swiggy = d['swiggy'] as bool?;
       _zomato = d['zomato'] as bool?;
       _chiller = d['chiller'] as bool?;
+      _riskLevel = d['risk_level'] as String?;
       _mrp = d['mrp'] as String?;
       _category = d['category'] as String?;
       _scheme = d['scheme'] as String?;
@@ -173,7 +175,8 @@ class _OnboardScreenState extends State<OnboardScreen> {
     super.initState();
     final c = widget.client;
     _t('gstin', '${c['gst'] ?? ''}');
-    _t('street_name', '${c['street'] ?? ''}');
+    _t('door', '${c['door_no'] ?? ''}');
+    _t('street_name', '${c['street_name'] ?? c['street'] ?? ''}');
     _t('zip', '${c['zip'] ?? ''}');
     _t('poc_phone', '${c['phone'] ?? ''}');
     _t('poc_email', '${c['email'] ?? ''}');
@@ -203,7 +206,11 @@ class _OnboardScreenState extends State<OnboardScreen> {
   }
 
   String _v(String k) => (_c[k]?.text ?? '').trim();
-  List<Map<String, dynamic>> _list(String k) => ((_options[k] as List?) ?? []).cast<Map<String, dynamic>>();
+  List<Map<String, dynamic>> _list(String k) {
+    final list = ((_options[k] as List?) ?? []).cast<Map<String, dynamic>>().toList();
+    list.sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+    return list;
+  }
 
   bool get _outlet => _kind == 'outlet';
   bool get _categoryNeedsNote =>
@@ -255,8 +262,12 @@ class _OnboardScreenState extends State<OnboardScreen> {
       _districtId ??= _idOf(c['district']) ?? _districtOfTerritory(_territoryId);
       // The outlet category and MRP the lead was created with come first; the territory's MRP only fills a gap.
       final ob = c['onboarding'] as Map?;
+      if (_v('door').isEmpty && ob?['door_no'] != null) _t('door').text = '${ob!['door_no']}';
+      if (_v('street_name').isEmpty && ob?['street_name'] != null) _t('street_name').text = '${ob!['street_name']}';
+      if (_v('billing_address').isEmpty && ob?['billing_address'] != null) _t('billing_address').text = '${ob!['billing_address']}';
       String? code(Object? o) => o is Map ? asText(o['code']) : null;
       _category ??= code(ob?['outlet_category']) ?? code(c['outlet_category']);
+      _riskLevel ??= asText(ob?['risk_level']) ?? asText(c['risk_level']) ?? 'low';
       _mrp ??= code(ob?['mrp']) ?? code(c['mrp']) ?? _territoryMrp(_territoryId);
       final area = _idOf(c['area_master']);
       if (_areaId == null && area != null && _areaOptions().any((a) => a['id'] == area)) _areaId = area;
@@ -340,6 +351,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
 
   /// A 15-character GSTIN is checked, and its state shown. (The registered name and address are typed for now.)
   Future<void> _checkGst() async {
+    if (_gstVerified) setState(() => _gstVerified = false);
     final text = _v('gstin').toUpperCase();
     if (text.length != 15) {
       if (_gstInfo != null) setState(() => _gstInfo = null);
@@ -400,6 +412,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
           if (_category == null) bad.add('Outlet category');
           if (_categoryNeedsNote && _v('outlet_category_note').isEmpty) bad.add('Outlet category: describe it');
         }
+        if (_riskLevel == null) bad.add('Risk Category Level');
         if (_mrp == null) bad.add('MRP');
         if (_outlet && _distributor == null) bad.add('Distributor');
         if (_scheme == null) bad.add('Scheme');
@@ -465,9 +478,12 @@ class _OnboardScreenState extends State<OnboardScreen> {
               if (_hasGst) 'gstin': _v('gstin').toUpperCase(),
               'gst_name': _v('gst_name'),
               'billing_address': _v('billing_address'),
-              'street': [_v('door'), _firstLine(_v('billing_address'))].where((e) => e.isNotEmpty).join(', '),
+              'street': [
+                _v('door'),
+                _v('street_name').isNotEmpty ? _v('street_name') : _firstLine(_v('billing_address'))
+              ].where((e) => e.isNotEmpty).join(', '),
               'door_no': _v('door'),
-              'street_name': _firstLine(_v('billing_address')),
+              'street_name': _v('street_name').isNotEmpty ? _v('street_name') : _firstLine(_v('billing_address')),
               'delivery_same': _sameAsBilling,
               if (!_sameAsBilling) 'delivery_address': _v('delivery_address'),
               if (!_sameAsBilling) 'delivery_zip': _v('delivery_zip'),
@@ -487,6 +503,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
               'accounts_poc_email': _v('accounts_poc_email'),
               'outlet_category': _category,
               'outlet_category_note': _v('outlet_category_note'),
+              'risk_level': _riskLevel,
               'mrp': _mrp,
               'scheme': _scheme,
               'distributor_id': _distributor?['id'],
@@ -653,15 +670,25 @@ class _OnboardScreenState extends State<OnboardScreen> {
             Expanded(
                 child: _field('gstin', 'GSTIN',
                     required: true, maxLength: 15, onChanged: (_) => _checkGst(), helper: _gstHelper())),
-            Padding(
-              padding: const EdgeInsets.only(left: 8, top: 6),
-              child: FilledButton.tonal(
-                onPressed: _verifying ? null : _verifyGst,
-                child: _verifying
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Verify'),
+            if (_gstVerified)
+              const Padding(
+                padding: EdgeInsets.only(left: 8, top: 12),
+                child: Icon(Icons.check_circle_rounded, color: AppColors.success, size: 28),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(left: 8, top: 6),
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: _verifying ? null : _verifyGst,
+                  child: _verifying
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Verify', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
               ),
-            ),
           ]),
         ],
         // After the GSTIN: Name, PIN code, Region, Territory / District, Area, Door number, Billing address, then the
@@ -689,11 +716,13 @@ class _OnboardScreenState extends State<OnboardScreen> {
         _dropId('Area', _allAreas(), _areaId, _pickArea,
             required: _allAreas().isNotEmpty, helper: _allAreas().isEmpty ? 'No areas are set for your territories yet' : null),
         _field('door', 'Door / TC No.', required: true),
+        _field('street_name', 'Street Name'),
         _field('billing_address', 'Billing address', required: true, lines: 3),
         _same(),
       ]);
 
   bool _verifying = false;
+  bool _gstVerified = false;
 
   /// Verify: the GST service gives the registered name, PIN code and address, which fill the form (the region and
   /// territory then follow from the PIN code).
@@ -708,10 +737,12 @@ class _OnboardScreenState extends State<OnboardScreen> {
       final d = await Services.api.get('/api/v1/gst/verify', query: {'gstin': text}) as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {
+        _gstVerified = true;
         if (asText(d['name']) != null) _t('gst_name').text = '${d['name']}';
         if (asText(d['pin']) != null) _t('zip').text = '${d['pin']}';
         if (asText(d['address']) != null) _t('billing_address').text = '${d['address']}';
         if (asText(d['door']) != null && _v('door').isEmpty) _t('door').text = '${d['door']}';
+        if (asText(d['street_name']) != null && _v('street_name').isEmpty) _t('street_name').text = '${d['street_name']}';
       });
       if (_v('zip').length == 6) _lookupPin();
       final status = asText(d['status']);
@@ -741,10 +772,13 @@ class _OnboardScreenState extends State<OnboardScreen> {
 
   /// A dropdown over {id, name} rows, the id as its value.
   Widget _dropId(String label, List<Map<String, dynamic>> rows, int? value, ValueChanged<int?> onChanged,
-          {bool required = true, String? helper}) =>
-      _drop(label, [for (final r in rows) ('${r['id']}', '${r['name']}')], value?.toString(),
-          (v) => onChanged(v == null ? null : int.tryParse(v)),
-          required: required, helper: helper);
+          {bool required = true, String? helper}) {
+    final sorted = rows.toList()
+      ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+    return _drop(label, [for (final r in sorted) ('${r['id']}', '${r['name']}')], value?.toString(),
+        (v) => onChanged(v == null ? null : int.tryParse(v)),
+        required: required, helper: helper);
+  }
 
   /// Only when the delivery address is not the billing address.
   Widget _step2() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -760,6 +794,16 @@ class _OnboardScreenState extends State<OnboardScreen> {
             (v) => setState(() => _category = v)),
         if (_categoryNeedsNote) _field('outlet_category_note', 'Describe the category', required: true),
       ],
+      _drop(
+        'Risk Category Level *',
+        const [
+          ('low', 'Low'),
+          ('medium', 'Medium'),
+          ('high', 'High'),
+        ],
+        _riskLevel,
+        (v) => setState(() => _riskLevel = v),
+      ),
       _drop('MRP', [for (final o in _list('mrp')) ('${o['code']}', '${o['name']}')], _mrp, (v) => setState(() => _mrp = v),
           helper: _mrp != null && _mrp == _territoryMrp(_territoryId) ? 'From the territory' : null),
       if (_outlet)
@@ -784,7 +828,9 @@ class _OnboardScreenState extends State<OnboardScreen> {
                       if (_territoryId != null) 'territory_id': _territoryId,
                     });
                     final list = res is Map ? ((res['distributors'] as List?) ?? []) : (res as List);
-                    return list.cast<Map<String, dynamic>>();
+                    final sorted = list.cast<Map<String, dynamic>>().toList()
+                      ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+                    return sorted;
                   },
                   subtitle: distributorSubtitle);
               if (d != null) setState(() => _distributor = d);

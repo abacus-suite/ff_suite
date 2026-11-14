@@ -415,9 +415,12 @@ Future<void> completeOnboarding(BuildContext context, Map<String, dynamic> clien
     final done = await Navigator.of(context)
         .push<Map<String, dynamic>>(MaterialPageRoute(builder: (_) => OnboardScreen(client: full)));
     if (done == null || !context.mounted) return;
-    // The contact is an outlet or distributor now. The visit that follows is the
-    // person's to start: check in, then choose the task.
-    if (context.mounted) showSnack(context, '${done['name']} is onboarded. Check in to start a visit.');
+    // The contact is onboarded. Pop back to Home so the person starts fresh.
+    final messenger = ScaffoldMessenger.of(context);
+    goToHome();
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(content: Text('${done['name']} is onboarded!')));
   } catch (e) {
     if (context.mounted) showProblem(context, e.toString());
   }

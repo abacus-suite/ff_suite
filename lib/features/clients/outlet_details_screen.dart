@@ -130,6 +130,9 @@ class OutletDetailsScreen extends StatelessWidget {
         ]),
         _Section(title: 'Contact & commercials', rows: [
           ('POC', poc.isEmpty ? _poc : poc.join(' · ')),
+          ('Risk Category Level', (ob['risk_level'] ?? c['risk_level']) != null
+              ? '${'${ob['risk_level'] ?? c['risk_level']}'[0].toUpperCase()}${'${ob['risk_level'] ?? c['risk_level']}'.substring(1)}'
+              : 'Low'),
           ('MRP category', mrpText),
           ('Scheme · Margin', schemeMargin),
           ('Credit days', ob['credit_days'] is num ? fmtQty(ob['credit_days'] as num) : _creditDays),

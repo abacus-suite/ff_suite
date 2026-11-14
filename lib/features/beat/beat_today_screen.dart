@@ -1,5 +1,5 @@
 import 'dart:async';
-import '../../widgets/report_download.dart';
+import '../../core/pdf_download.dart';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -167,7 +167,6 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     final data = _data;
     final skip = <Object?>{
       for (final c in ((data?['clients'] as List?) ?? []).cast<Map>()) c['id'],
-      for (final v in ((data?['adhoc_visits'] as List?) ?? []).cast<Map>()) (v['client'] as Map?)?['id'],
       for (final a in _added) a['id'],
     };
     final added = await Navigator.of(context)
@@ -180,7 +179,19 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     final label = Services.auth.profile!.routeLabel;
     return Scaffold(
       appBar: AppBar(
-        actions: [const ReportDownloadButton(reportKey: 'tasks', title: 'Tasks summary')],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download_rounded),
+            tooltip: 'Download Beat Plan report',
+            onPressed: () {
+              downloadAndSaveExcel(
+                context,
+                endpoint: '/api/v1/beat/today/excel?date=${fmtDate(_day)}',
+                filename: 'Today_Beat_Plan_${fmtDate(_day)}.xlsx',
+              );
+            },
+          ),
+        ],
         automaticallyImplyLeading: !widget.embedded,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,14 +277,16 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
   /// nearest outlet is always on top. Other days keep the planned order.
   List<Widget> _todayContent(List<Map<String, dynamic>> plans, List<Map<String, dynamic>> clients,
       List<Map<String, dynamic>> adhoc, String label) {
-    // An added visit counts as pending while it runs and as visited once it is closed.
+    // Only visits for contacts that were explicitly added to today's beat via "Add a Visit"
+    final addedIds = {for (final a in _added) a['id']};
     final every = [
       for (final visit in adhoc)
-        if (_filter == 'all' ||
-            (_filter == 'visited' && visit['state'] != 'ongoing' && '${visit['visit_type']}' != 'offsite') ||
-            (_filter == 'offsite' && visit['state'] != 'ongoing' && '${visit['visit_type']}' == 'offsite') ||
-            ((_filter == 'pending' || _filter == 'planned') && visit['state'] == 'ongoing'))
-          {...(visit['client'] as Map).cast<String, dynamic>(), '_visit': visit},
+        if (addedIds.contains((visit['client'] as Map?)?['id']))
+          if (_filter == 'all' ||
+              (_filter == 'visited' && visit['state'] != 'ongoing' && '${visit['visit_type']}' != 'offsite') ||
+              (_filter == 'offsite' && visit['state'] != 'ongoing' && '${visit['visit_type']}' == 'offsite') ||
+              ((_filter == 'pending' || _filter == 'planned') && visit['state'] == 'ongoing'))
+            {...(visit['client'] as Map).cast<String, dynamic>(), '_visit': visit},
     ];
     // A customer visited more than once today is one row (the timeline has each visit): the one still running,
     // otherwise the latest, with how many visits there were.
@@ -294,7 +307,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       for (final e in byClient.entries) {...e.value, '_visits': counts[e.key] ?? 1},
     ];
     // Added with "Add a Visit" and not visited yet: pending, until the server has the visit.
-    final visited = {for (final v in adhoc) (v['client'] as Map?)?['id']};
+    final visited = {for (final v in adhoc) if (addedIds.contains((v['client'] as Map?)?['id'])) (v['client'] as Map?)?['id']};
     final planned = {for (final c in ((_data?['clients'] as List?) ?? []).cast<Map>()) c['id']};
     final waiting = [
       if (_filter == 'all' || _filter == 'pending' || _filter == 'planned')
@@ -366,25 +379,108 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
         ]),
       );
 
-  /// Every task completed today, whoever the customer is (planned or not) and onsite or offsite: one row per task.
+  Set<int> get _plannedPartnerIds => {
+        for (final c in ((_data?['clients'] as List?) ?? const []).cast<Map>())
+          if (c['id'] is int) c['id'] as int,
+      };
+
+  bool _isTaskPlanned(Map<String, dynamic> t) {
+    if (t['is_planned'] != null) return t['is_planned'] == true;
+    final id = t['partner_id'];
+    return id is int && _plannedPartnerIds.contains(id);
+  }
+
+  /// Every task completed today, grouped into Planned and Unplanned with counts.
   List<Widget> _completedTasks() {
     if (_tasks.isEmpty) {
       return const [EmptyView(icon: Icons.task_alt_rounded, text: 'No task completed yet.')];
     }
+    final planned = _tasks.where(_isTaskPlanned).toList();
+    final unplanned = _tasks.where((t) => !_isTaskPlanned(t)).toList();
+
     return [
-      for (final (i, t) in _tasks.indexed)
-        _tileRow(
-          color: AppColors.success,
-          number: '${i + 1}',
-          name: '${t['customer']}',
-          details: [asText(t['task']), fmtTime(t['time']), asText(t['visit_type'])].whereType<String>().join(' · '),
-          badge: StatusBadge(t['visit_type'] == 'Onsite' ? 'visited' : 'cancelled', label: '${t['visit_type']}'),
-          onTap: () {
-            final id = t['partner_id'];
-            if (id is int) _openClient(id);
-          },
-        ),
+      _taskGroupCard(
+        title: 'Planned Tasks',
+        count: planned.length,
+        color: AppColors.primary,
+        icon: Icons.assignment_turned_in_rounded,
+        tasks: planned,
+      ),
+      _taskGroupCard(
+        title: 'Unplanned Tasks',
+        count: unplanned.length,
+        color: AppColors.warning,
+        icon: Icons.bolt_rounded,
+        tasks: unplanned,
+      ),
     ];
+  }
+
+  Widget _taskGroupCard({
+    required String title,
+    required int count,
+    required Color color,
+    required IconData icon,
+    required List<Map<String, dynamic>> tasks,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: false,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          leading: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text('$count',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: color)),
+          ),
+          children: [
+            if (tasks.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Text('No $title completed.', style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+                ),
+              )
+            else
+              for (final (i, t) in tasks.indexed)
+                _tileRow(
+                  color: color,
+                  number: '${i + 1}',
+                  name: '${t['customer']}',
+                  details: [asText(t['task']), fmtTime(t['time']), asText(t['visit_type'])].whereType<String>().join(' · '),
+                  badge: StatusBadge(t['visit_type'] == 'Onsite' ? 'visited' : 'cancelled', label: '${t['visit_type']}'),
+                  categoryType: t['category_type'] as String?,
+                  onTap: () {
+                    final id = t['partner_id'];
+                    if (id is int) _openClient(id);
+                  },
+                ),
+          ],
+        ),
+      ),
+    );
   }
 
   String _planKey(Map<String, dynamic> plan) => '${(plan['beat'] as Map?)?['id'] ?? 'none'}';
@@ -514,6 +610,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       number: '$number',
       name: '${row['name']}',
       details: details,
+      categoryType: row['category_type'] as String? ?? (row['is_distributor'] == true ? 'distributor' : 'outlet'),
       // Added and waiting, at the client now, or visited.
       badge: offsite
           ? const StatusBadge('cancelled', label: 'Offsite')
@@ -532,7 +629,14 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     required Widget badge,
     required VoidCallback onTap,
     Widget? menu,
+    String? categoryType,
   }) {
+    final cat = categoryType?.toLowerCase();
+    final (typeLabel, typeColor) = switch (cat) {
+      'lead' => ('Lead', AppColors.purple),
+      'distributor' => ('Distributor', AppColors.warning),
+      _ => ('Outlet', AppColors.primary),
+    };
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -547,8 +651,22 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text(name, maxLines: 2, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                Row(children: [
+                  Expanded(
+                    child: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: typeColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(typeLabel,
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: typeColor)),
+                  ),
+                ]),
                 const SizedBox(height: 3),
                 Text(details, maxLines: 2, overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
@@ -588,6 +706,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       name: '${client['name']}',
       details: details.isEmpty ? lastVisitLabel(client) : details,
       badge: StatusBadge(status),
+      categoryType: client['category_type'] as String? ?? (client['is_distributor'] == true ? 'distributor' : 'outlet'),
       // A planned visit that has not started can be cancelled; a cancelled one planned again.
       menu: (_isToday && (status == 'planned' || status == 'cancelled'))
           ? PopupMenuButton<String>(

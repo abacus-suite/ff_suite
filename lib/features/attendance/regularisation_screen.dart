@@ -56,17 +56,19 @@ class _RegularisationScreenState extends State<RegularisationScreen> {
 
   Future<void> _create() async {
     final created = await Navigator.of(context)
-        .push<bool>(MaterialPageRoute(builder: (_) => const _RegularisationForm()));
+        .push<bool>(MaterialPageRoute(builder: (_) => const RegularisationForm()));
     if (created == true) _load();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Attendance Correction')),
+      appBar: AppBar(
+        title: const Text('Attendance Correction'),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _create,
-        icon: const Icon(Icons.add),
+        icon: const Icon(Icons.add_rounded),
         label: const Text('New request'),
       ),
       body: RefreshIndicator(
@@ -84,12 +86,8 @@ class _RegularisationScreenState extends State<RegularisationScreen> {
                       child: ListTile(
                         title: Text('${item['date']} · ${reasons[item['reason']] ?? item['reason']}'),
                         subtitle: Text(
-                            (item['which'] == 'in'
-                                    ? 'Punch-in corrected to ${fmtTime(item['check_in'])}'
-                                    : item['which'] == 'out'
-                                        ? 'Punch-out corrected to ${fmtTime(item['check_out'])}'
-                                        : 'In ${fmtTime(item['check_in'])} · Out ${fmtTime(item['check_out'])}') +
-                                '${item['note'] != null ? '\n${item['note']}' : ''}'),
+                          '${item["which"] == "in" ? "Punch-in corrected to ${fmtTime(item["check_in"])}" : item["which"] == "out" ? "Punch-out corrected to ${fmtTime(item["check_out"])}" : "In ${fmtTime(item["check_in"])} · Out ${fmtTime(item["check_out"])}"}${item["note"] != null ? "\n${item["note"]}" : ""}',
+                        ),
                         trailing: Chip(
                           label: Text('${item['state']}'.toUpperCase(), style: const TextStyle(fontSize: 11)),
                           backgroundColor: (_stateColors[item['state']] ?? Colors.grey).withValues(alpha: 0.15),
@@ -103,17 +101,18 @@ class _RegularisationScreenState extends State<RegularisationScreen> {
   }
 }
 
-class _RegularisationForm extends StatefulWidget {
-  const _RegularisationForm();
+class RegularisationForm extends StatefulWidget {
+  final DateTime? initialDate;
+  const RegularisationForm({super.key, this.initialDate});
 
   @override
-  State<_RegularisationForm> createState() => _RegularisationFormState();
+  State<RegularisationForm> createState() => _RegularisationFormState();
 }
 
 /// One punch is corrected at a time: the other stays as it was recorded. The reason is compulsory and goes to
 /// the manager with the request.
-class _RegularisationFormState extends State<_RegularisationForm> {
-  DateTime _date = DateTime.now();
+class _RegularisationFormState extends State<RegularisationForm> {
+  late DateTime _date;
   Map<String, dynamic>? _recorded;
   bool _loadingDay = true;
   String _which = 'out';
@@ -121,9 +120,39 @@ class _RegularisationFormState extends State<_RegularisationForm> {
   final _reasonText = TextEditingController();
   bool _busy = false;
 
+  bool get _isDateInFuture {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return DateTime(_date.year, _date.month, _date.day).isAfter(today);
+  }
+
+  bool get _isCurrentPunchPending {
+    final pending = ((_recorded?['pending_requests'] as List?) ?? []).cast<Map<String, dynamic>>();
+    return pending.any((p) {
+      final w = p['which'];
+      return w == 'both' || w == _which;
+    });
+  }
+
+  String? get _pendingMessage {
+    final pending = ((_recorded?['pending_requests'] as List?) ?? []).cast<Map<String, dynamic>>();
+    for (final p in pending) {
+      final w = p['which'];
+      if (w == 'both' || w == _which) {
+        final label = w == 'in' ? 'Punch-in' : (w == 'out' ? 'Punch-out' : 'Attendance');
+        return '$label correction for this date is already pending approval. Please wait until approved or rejected.';
+      }
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final init = widget.initialDate ?? now;
+    _date = DateTime(init.year, init.month, init.day).isAfter(today) ? now : init;
     _loadDay();
   }
 
@@ -158,11 +187,12 @@ class _RegularisationFormState extends State<_RegularisationForm> {
   }
 
   Future<void> _pickDate() async {
+    final today = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _date,
-      firstDate: DateTime.now().subtract(const Duration(days: 60)),
-      lastDate: DateTime.now(),
+      initialDate: _date.isAfter(today) ? today : _date,
+      firstDate: today.subtract(const Duration(days: 60)),
+      lastDate: today,
     );
     if (picked != null) {
       setState(() => _date = picked);
@@ -171,6 +201,14 @@ class _RegularisationFormState extends State<_RegularisationForm> {
   }
 
   Future<void> _submit() async {
+    if (_isDateInFuture) {
+      showSnack(context, 'Attendance correction cannot be requested for future dates.');
+      return;
+    }
+    if (_isCurrentPunchPending) {
+      showSnack(context, _pendingMessage ?? 'A request is already pending for this date.');
+      return;
+    }
     if (_time == null) {
       showSnack(context, 'Enter the correct punch-${_which == 'in' ? 'in' : 'out'} time.');
       return;
@@ -315,8 +353,53 @@ class _RegularisationFormState extends State<_RegularisationForm> {
             ),
           ),
           const SizedBox(height: 24),
+          if (_isDateInFuture) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.muted.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, size: 18, color: AppColors.muted),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Attendance correction is only available for today and past dates.',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.muted),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ] else if (_isCurrentPunchPending) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.shade700.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.hourglass_top_rounded, size: 20, color: Colors.amber.shade800),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _pendingMessage ?? 'A correction request for this date is already pending approval.',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Colors.amber.shade900),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           FilledButton(
-            onPressed: _busy ? null : _submit,
+            onPressed: (_busy || _isDateInFuture || _isCurrentPunchPending) ? null : _submit,
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Text(_busy ? 'Sending...' : 'Send to manager'),

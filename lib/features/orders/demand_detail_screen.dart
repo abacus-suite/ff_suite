@@ -461,13 +461,14 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
       row('Total', d['amount_total'] as num?, strong: true),
       const SizedBox(height: 12),
       OutlinedButton.icon(
-        onPressed: () => downloadAndSavePdf(
+        onPressed: () => openPdfPreview(
           context,
+          title: 'Demand ${d['name']}',
           endpoint: '/api/v1/demands/${d['id']}/pdf',
           filename: 'Demand_${d['name']}.pdf',
         ),
         icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
-        label: const Text('Download Demand PDF'),
+        label: const Text('View / Download PDF'),
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(42),
           foregroundColor: AppColors.primary,
@@ -524,8 +525,9 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
             label: const Text('Summary'),
           ),
           OutlinedButton.icon(
-            onPressed: () => downloadAndSavePdf(
+            onPressed: () => openPdfPreview(
               context,
+              title: 'Order ${o['name']}',
               endpoint: '/api/v1/orders/${o['id']}/pdf',
               filename: 'Order_${o['name']}.pdf',
             ),
@@ -592,9 +594,10 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
             if (d != null)
               IconButton(
                 icon: const Icon(Icons.picture_as_pdf_rounded),
-                tooltip: 'Download PDF',
-                onPressed: () => downloadAndSavePdf(
+                tooltip: 'Preview PDF',
+                onPressed: () => openPdfPreview(
                   context,
+                  title: 'Demand ${d['name']}',
                   endpoint: '/api/v1/demands/${d['id']}/pdf',
                   filename: 'Demand_${d['name']}.pdf',
                 ),

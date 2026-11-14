@@ -68,7 +68,9 @@ class _CollectionsScreenState extends State<CollectionsScreen> with SingleTicker
       }
       if (_modes.isEmpty) {
         try {
-          _modes = await _list('/api/v1/collection-modes');
+          final modes = await _list('/api/v1/collection-modes');
+          modes.sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+          _modes = modes;
         } catch (_) {}
       }
       if (!mounted) return;

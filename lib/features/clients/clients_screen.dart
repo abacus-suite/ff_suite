@@ -11,13 +11,11 @@ import '../../core/geo.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
-import '../../widgets/hide_when_typing.dart';
 import '../../widgets/map.dart';
 import '../../widgets/map_clusters.dart';
 import '../../widgets/sdk_map.dart';
 import '../../widgets/member_picker.dart';
 import '../beat/create_beat_screen.dart' show outletArea, territoryLabel;
-import 'add_client_screen.dart';
 import 'client_detail_screen.dart';
 import '../../widgets/skeleton.dart';
 
@@ -330,12 +328,6 @@ class _ClientsScreenState extends State<ClientsScreen> {
     _load();
   }
 
-  Future<void> _add() async {
-    final created =
-        await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const AddClientScreen()));
-    if (created == true) _load();
-  }
-
   /// Newest first, nearest first, or by name.
   void _sortClients() {
     switch (_sort) {
@@ -369,13 +361,6 @@ class _ClientsScreenState extends State<ClientsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Gone while the keyboard is up (typing in the search box): it would ride up above the keyboard.
-      floatingActionButton: HideWhenTyping(
-        child: FloatingActionButton(
-          onPressed: _add,
-          child: const Icon(Icons.add_rounded, size: 28),
-        ),
-      ),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -1732,6 +1717,17 @@ class ClientTile extends StatelessWidget {
                             if (category != null) _tag(category, AppColors.muted, AppColors.background),
                             _dotTag(pending ? 'Pending' : 'Active',
                                 pending ? AppColors.warning : AppColors.success),
+                            if (client['risk_level'] != null) ...[
+                              () {
+                                final risk = '${client['risk_level']}'.toLowerCase();
+                                final color = switch (risk) {
+                                  'high' => AppColors.danger,
+                                  'medium' => AppColors.warning,
+                                  _ => AppColors.success,
+                                };
+                                return _tag('Risk: ${risk[0].toUpperCase()}${risk.substring(1)}', color, color.withValues(alpha: 0.12));
+                              }(),
+                            ],
                           ],
                         ),
                         if (address.isNotEmpty) ...[

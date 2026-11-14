@@ -423,8 +423,9 @@ class _DistributorOrdersScreenState extends State<DistributorOrdersScreen> with 
                       const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => downloadAndSavePdf(
+                          onPressed: () => openPdfPreview(
                             context,
+                            title: 'Order ${o['name']}',
                             endpoint: '/api/v1/orders/${o['id']}/pdf',
                             filename: 'Order_${o['name']}.pdf',
                           ),

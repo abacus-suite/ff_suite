@@ -441,11 +441,51 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> get _plannedClients =>
       ((_today?['clients'] as List?) ?? []).cast<Map<String, dynamic>>();
 
+  int get _unplannedTasksTotal {
+    if (_today == null) return 0;
+    if (_today!['tasks_unplanned_total'] is num) {
+      return (_today!['tasks_unplanned_total'] as num).toInt();
+    }
+    if (_today!['tasks_unplanned'] is num) {
+      return (_today!['tasks_unplanned'] as num).toInt();
+    }
+    final tasks = (_today!['tasks'] as List?)?.whereType<Map>().toList();
+    if (tasks != null && tasks.isNotEmpty) {
+      final plannedIds = {for (final c in _plannedClients) c['id']};
+      return tasks.where((t) {
+        if (t['is_unplanned'] != null) return t['is_unplanned'] == true;
+        final partnerId = t['partner_id'];
+        return partnerId == null || !plannedIds.contains(partnerId);
+      }).length;
+    }
+    return ((_today!['tasks_done'] as num?) ?? 0).toInt();
+  }
+
+  int get _unplannedTasksOnsite {
+    if (_today == null) return 0;
+    if (_today!['tasks_unplanned_onsite'] is num) {
+      return (_today!['tasks_unplanned_onsite'] as num).toInt();
+    }
+    final tasks = (_today!['tasks'] as List?)?.whereType<Map>().toList();
+    if (tasks != null && tasks.isNotEmpty) {
+      final plannedIds = {for (final c in _plannedClients) c['id']};
+      return tasks.where((t) {
+        final isOffsite = '${t['visit_type']}'.toLowerCase() == 'offsite';
+        if (isOffsite) return false;
+        if (t['is_unplanned'] != null) return t['is_unplanned'] == true;
+        final partnerId = t['partner_id'];
+        return partnerId == null || !plannedIds.contains(partnerId);
+      }).length;
+    }
+    return ((_today!['tasks_onsite'] as num?) ?? 0).toInt();
+  }
+
   int get _plannedVisits => _plannedClients.length;
 
-  int get _doneVisits => _plannedClients
-      .where((c) => c['visit_status'] == 'done' || c['plan_status'] == 'visited')
-      .length;
+  int get _doneVisits =>
+      _plannedClients
+          .where((c) => c['visit_status'] == 'done' || c['plan_status'] == 'visited')
+          .length;
 
   Future<void> _push(Widget screen) async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
@@ -646,7 +686,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _hero(Profile profile) {
     final punchedIn = _day?['punched_in'] == true;
     final current = _day?['current'] as Map<String, dynamic>?;
-    final planned = ((_today?['clients'] as List?) ?? []).length;
+    final planned = _plannedVisits;
     final punches = ((_day?['punch_count'] as num?) ?? 0).toInt();
     return CheckInHero(
       punchedIn: punchedIn,
@@ -925,14 +965,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// How the day is going against the plan, in one line.
   Widget _targetBanner() {
-    final clients =
-        ((_today?['clients'] as List?) ?? []).cast<Map<String, dynamic>>();
-    final planned = clients.length;
-    final visited = clients
-        .where((client) =>
-            client['visit_status'] == 'done' ||
-            client['plan_status'] == 'visited')
-        .length;
+    final planned = _plannedVisits;
+    final visited = _doneVisits;
     if (planned == 0) {
       return const SizedBox.shrink();
     }
@@ -988,8 +1022,11 @@ class _HomeScreenState extends State<HomeScreen> {
         pending++;
       }
     }
-    final planned = clients.length;
-    double share(int value) => planned == 0 ? 0 : value / planned;
+    final totalPlannedTasks = _unplannedTasksTotal;
+    final onsiteTasks = _unplannedTasksOnsite;
+    final totalPlanned = clients.length + totalPlannedTasks;
+    final totalVisited = visited + onsiteTasks;
+    double share(int value) => totalPlanned == 0 ? 0 : value / totalPlanned;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1020,10 +1057,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: _drill('all', SummaryTile(
                     icon: Icons.event_note_rounded,
                     colour: AppColors.primary,
-                    value: planned,
+                    value: totalPlanned,
                     label: 'Planned',
-                    percent: planned == 0 ? 0 : 1,
-                    footer: ((_today?['tasks_done'] as num?) ?? 0) > 0 ? 'Tasks - ${(_today!['tasks_done'] as num).toInt()}' : null,
+                    percent: totalPlanned == 0 ? 0 : 1,
+                    footer: 'Task - $totalPlannedTasks',
                   )),
                 ),
                 const SizedBox(width: 8),
@@ -1031,10 +1068,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: _drill('visited', SummaryTile(
                     icon: Icons.check_circle_rounded,
                     colour: AppColors.success,
-                    value: visited,
+                    value: totalVisited,
                     label: 'Visited',
-                    percent: share(visited),
-                    footer: ((_today?['tasks_onsite'] as num?) ?? 0) > 0 ? 'Task - ${(_today!['tasks_onsite'] as num).toInt()}' : null,
+                    percent: share(totalVisited),
+                    footer: 'Task - $onsiteTasks',
                   )),
                 ),
                 const SizedBox(width: 8),

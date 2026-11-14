@@ -430,7 +430,7 @@ class _StockEditorState extends State<_StockEditor> {
         isExpanded: true,
         decoration: _field('Select distributor'),
         items: [
-          for (final d in widget.distributors)
+          for (final d in widget.distributors.toList()..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase())))
             DropdownMenuItem(value: d['id'] as int, child: Text('${d['name']}', overflow: TextOverflow.ellipsis)),
         ],
         onChanged: (v) {

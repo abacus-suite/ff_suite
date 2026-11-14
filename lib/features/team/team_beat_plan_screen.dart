@@ -126,7 +126,7 @@ class _TeamBeatPlanScreenState extends State<TeamBeatPlanScreen> {
   @override
   Widget build(BuildContext context) {
     final d = _data;
-    final members = _rows(d?['members']);
+    final members = _rows(d?['members'])..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
     final people = _rows(d?['people']);
     final outlets = _rows(d?['outlets']);
     final summary = (d?['summary'] as Map?)?.cast<String, dynamic>() ?? const {};

@@ -530,7 +530,11 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
     try {
       final data = await Services.api.get('/api/v1/route-plan/customers',
           query: {'beat_id': widget.beat['id'], 'date': fmtDate(DateTime.now()), 'member': 'me'}) as Map<String, dynamic>;
-      if (mounted) setState(() => _outlets = ((data['customers'] as List?) ?? []).cast<Map<String, dynamic>>());
+      if (mounted) {
+        final list = ((data['customers'] as List?) ?? []).cast<Map<String, dynamic>>().toList()
+          ..sort((a, b) => (a['name'] ?? '').toString().toLowerCase().compareTo((b['name'] ?? '').toString().toLowerCase()));
+        setState(() => _outlets = list);
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {

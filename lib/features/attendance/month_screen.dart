@@ -36,6 +36,9 @@ class _MonthScreenState extends State<MonthScreen> {
   /// The status whose days are highlighted and listed under the calendar.
   String? _selected;
 
+  /// A specific day selected on the calendar for details / correction.
+  Map<String, dynamic>? _selectedDay;
+
   @override
   void initState() {
     super.initState();
@@ -68,7 +71,19 @@ class _MonthScreenState extends State<MonthScreen> {
     final now = DateTime.now();
     final isCurrent = _month.year == now.year && _month.month == now.month;
     return Scaffold(
-      appBar: AppBar(title: const Text('My Attendance'), actions: [const ReportDownloadButton(reportKey: 'attendance', title: 'Attendance')]),
+      appBar: AppBar(
+        title: const Text('My Attendance'),
+        actions: [
+          IconButton(
+            tooltip: 'Correction history',
+            icon: const Icon(Icons.history_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const RegularisationScreen()),
+            ),
+          ),
+          const ReportDownloadButton(reportKey: 'attendance', title: 'Attendance'),
+        ],
+      ),
       body: Column(
         children: [
           Row(
@@ -85,6 +100,13 @@ class _MonthScreenState extends State<MonthScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _openCorrection([DateTime? date]) async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => RegularisationForm(initialDate: date)),
+    );
+    if (created == true) _load();
   }
 
   Widget _calendar(BuildContext context, Map<String, dynamic> data) {
@@ -108,9 +130,133 @@ class _MonthScreenState extends State<MonthScreen> {
           crossAxisSpacing: 4,
           children: [
             for (var i = 0; i < leading; i++) const SizedBox.shrink(),
-            for (final day in days) _DayCell(day: day, dim: _selected != null && day['status'] != _selected),
+            for (final day in days)
+              _DayCell(
+                day: day,
+                dim: _selected != null && day['status'] != _selected,
+                isSelected: _selectedDay?['date'] == day['date'],
+                onTap: () => setState(() => _selectedDay = _selectedDay?['date'] == day['date'] ? null : day),
+              ),
           ],
         ),
+        if (_selectedDay != null) ...[
+          const SizedBox(height: 10),
+          Card(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: AppColors.primary, width: 1.5),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _longDate(_selectedDay!['date'] as String),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (_statusStyle[_selectedDay!['status']]?.$2 ?? Colors.grey).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _statusStyle[_selectedDay!['status']]?.$1 ?? '${_selectedDay!['status']}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _statusStyle[_selectedDay!['status']]?.$2 ?? Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    (_selectedDay!['first_in'] == null && _selectedDay!['last_out'] == null)
+                        ? 'No check-in recorded'
+                        : 'In: ${fmtTime(_selectedDay!['first_in'])} · Out: ${fmtTime(_selectedDay!['last_out'])} · Worked: ${fmtHours(_selectedDay!['worked_hours'] as num?)}',
+                    style: const TextStyle(fontSize: 13, color: AppColors.muted),
+                  ),
+                  const SizedBox(height: 10),
+                  Builder(builder: (_) {
+                    final dayDate = DateTime.tryParse('${_selectedDay!['date']}');
+                    final now = DateTime.now();
+                    final todayDate = DateTime(now.year, now.month, now.day);
+                    final isFuture = dayDate != null && DateTime(dayDate.year, dayDate.month, dayDate.day).isAfter(todayDate);
+                    final hasPending = _selectedDay!['has_pending'] == true;
+
+                    if (isFuture) {
+                      return Container(
+                        margin: const EdgeInsets.only(top: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.muted.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline_rounded, size: 16, color: AppColors.muted),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Attendance correction is not available for future dates.',
+                                style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    if (hasPending) {
+                      return Container(
+                        margin: const EdgeInsets.only(top: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.amber.shade700.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.hourglass_top_rounded, size: 18, color: Colors.amber.shade800),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'Correction request already pending for this day. Please wait until approved or rejected.',
+                                style: TextStyle(fontSize: 12, color: Color(0xFF78350F), fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: FilledButton.icon(
+                        onPressed: () => _openCorrection(dayDate),
+                        icon: const Icon(Icons.edit_calendar_rounded, size: 18),
+                        label: Text('Correct ${(_selectedDay!['date'] as String).substring(5)} Attendance'),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(42),
+                          backgroundColor: AppColors.primary,
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 14),
         // The month so far, by the working schedule: hours worked against the hours expected, and the overtime.
         Container(
@@ -177,19 +323,28 @@ class _MonthScreenState extends State<MonthScreen> {
           label: const Text('Overtime'),
         ),
         const SizedBox(height: 10),
-        // Below the calendar there are only two ways on.
+        // Below the calendar: hide Attendance Correction if a day is already selected above
         Row(
           children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => Navigator.of(context)
-                    .push(MaterialPageRoute(builder: (_) => const RegularisationScreen())),
-                style: OutlinedButton.styleFrom(fixedSize: const Size.fromHeight(52), padding: const EdgeInsets.symmetric(horizontal: 10)),
-                icon: const Icon(Icons.edit_calendar_rounded),
-                label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Attendance Correction', maxLines: 1)),
+            if (_selectedDay == null) ...[
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const RegularisationScreen()),
+                  ),
+                  style: OutlinedButton.styleFrom(fixedSize: const Size.fromHeight(52), padding: const EdgeInsets.symmetric(horizontal: 10)),
+                  icon: const Icon(Icons.history_rounded),
+                  label: const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Attendance Correction',
+                      maxLines: 1,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
+              const SizedBox(width: 10),
+            ],
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () =>
@@ -207,12 +362,22 @@ class _MonthScreenState extends State<MonthScreen> {
 }
 
 class _DayCell extends StatelessWidget {
-  const _DayCell({required this.day, this.dim = false});
+  const _DayCell({
+    required this.day,
+    this.dim = false,
+    this.isSelected = false,
+    this.onTap,
+  });
 
   final Map<String, dynamic> day;
 
   /// Another status is selected: this day fades back.
   final bool dim;
+
+  /// Selected for details / correction.
+  final bool isSelected;
+
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -224,15 +389,27 @@ class _DayCell extends StatelessWidget {
     return Opacity(
       opacity: dim ? 0.3 : 1,
       child: InkWell(
-      onTap: status == 'upcoming'
-          ? null
-          : () => showSnack(context,
-              '${day['date']}: ${style.$1} · In ${fmtTime(day['first_in'])} · Out ${fmtTime(day['last_out'])} · ${fmtHours(day['worked_hours'] as num?)}'),
+      onTap: status == 'upcoming' ? null : onTap,
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         decoration: BoxDecoration(
           color: style.$2.withValues(alpha: status == 'upcoming' ? 0 : 0.2),
-          border: Border.all(color: style.$2 == Colors.transparent ? Colors.black12 : style.$2),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primary
+                : (style.$2 == Colors.transparent ? Colors.black12 : style.$2),
+            width: isSelected ? 2.5 : 1,
+          ),
           borderRadius: BorderRadius.circular(8),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                    blurRadius: 4,
+                    spreadRadius: 1,
+                  )
+                ]
+              : null,
         ),
         alignment: Alignment.center,
         child: FittedBox(

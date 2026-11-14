@@ -218,7 +218,11 @@ class _RequestSheetState extends State<_RequestSheet> {
     super.initState();
     if (widget.assign) {
       Services.api.get('/api/v1/team/members').then((d) {
-        if (mounted) setState(() => _members = ((d as Map)['members'] as List?) ?? []);
+        if (mounted) {
+          final members = (((d as Map)['members'] as List?) ?? []).toList()
+            ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+          setState(() => _members = members);
+        }
       }).catchError((_) {});
     }
     Services.api.get('/api/v1/contact-access/options').then((d) {
@@ -232,7 +236,11 @@ class _RequestSheetState extends State<_RequestSheet> {
     super.dispose();
   }
 
-  List get _choices => (_options[{'territory': 'territories', 'beat': 'beats', 'city': 'cities'}[_scope]] as List?) ?? [];
+  List get _choices {
+    final list = (((_options[{'territory': 'territories', 'beat': 'beats', 'city': 'cities'}[_scope]] as List?) ?? []).toList())
+      ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+    return list;
+  }
 
   Future<void> _pick(bool from) async {
     final d = await showDatePicker(

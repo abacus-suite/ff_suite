@@ -63,15 +63,23 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _children => ((_category?['children'] as List?) ?? []).cast<Map<String, dynamic>>();
+  List<Map<String, dynamic>> get _children {
+    final list = ((_category?['children'] as List?) ?? []).cast<Map<String, dynamic>>().toList()
+      ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+    return list;
+  }
 
   Future<void> _load() async {
     try {
       final data = await Services.api.get('/api/v1/expense-categories') as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {
-        _categories = ((data['categories'] as List?) ?? []).cast<Map<String, dynamic>>();
-        _cards = ((data['cards'] as List?) ?? []).cast<Map<String, dynamic>>();
+        final cats = ((data['categories'] as List?) ?? []).cast<Map<String, dynamic>>().toList()
+          ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+        _categories = cats;
+        final cds = ((data['cards'] as List?) ?? []).cast<Map<String, dynamic>>().toList()
+          ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
+        _cards = cds;
         final e = widget.existing;
         if (e != null) {
           final cid = (e['category'] as Map?)?['id'];
@@ -217,6 +225,8 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
 
   Widget _dropdown(String label, Map<String, dynamic>? value, List<Map<String, dynamic>> items,
       ValueChanged<Map<String, dynamic>?> onChanged) {
+    final sorted = items.toList()
+      ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
     return DropdownButtonFormField<int>(
       initialValue: value?['id'] as int?,
       isExpanded: true,
@@ -226,15 +236,15 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
         fillColor: AppColors.background,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
       ),
-      hint: Text('Choose'),
+      hint: const Text('Choose'),
       // A sub category shows only its own name: the category above is already chosen.
       items: [
-        for (final c in items)
+        for (final c in sorted)
           DropdownMenuItem(
               value: c['id'] as int,
               child: Text(label == 'Sub category' ? '${c['name']}'.split(' / ').last.trim() : '${c['name']}')),
       ],
-      onChanged: (id) => onChanged(items.where((c) => c['id'] == id).firstOrNull),
+      onChanged: (id) => onChanged(sorted.where((c) => c['id'] == id).firstOrNull),
     );
   }
 
