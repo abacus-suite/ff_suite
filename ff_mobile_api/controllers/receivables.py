@@ -68,6 +68,215 @@ def _reach(employee, partner_id=None):
 
 
 
+
+
+def _soa_html(partner, company, start_date, end_date, opening, rows, closing, currency):
+    logo_html = ''
+    if getattr(company, 'logo', False):
+        try:
+            logo_bytes = company.logo
+            logo_b64 = logo_bytes if isinstance(logo_bytes, str) else logo_bytes.decode('ascii')
+            logo_html = '<img src="data:image/png;base64,%s" style="max-height:55px;max-width:180px;object-fit:contain;"/>' % logo_b64
+        except Exception:
+            logo_html = '<h2 style="margin:0;color:#1B3A7A;font-size:18pt;font-weight:bold;">%s</h2>' % escape(company.name or '')
+    else:
+        logo_html = '<h2 style="margin:0;color:#1B3A7A;font-size:18pt;font-weight:bold;">%s</h2>' % escape(company.name or '')
+
+    company_addr = ', '.join(filter(None, [company.street, company.street2, company.city, company.zip]))
+    cust_addr = ', '.join(filter(None, [partner.street, partner.street2, partner.city, partner.zip])) if partner else ''
+
+    total_debit = sum(r['debit'] for r in rows)
+    total_credit = sum(r['credit'] for r in rows)
+
+    start_str = start_date.strftime('%d-%b-%Y') if start_date else ''
+    end_str = end_date.strftime('%d-%b-%Y') if end_date else ''
+
+    lines_html = []
+    # Opening balance
+    lines_html.append("""
+        <tr style="background:#f8fafc;font-weight:bold;">
+            <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">%s</td>
+            <td style="border:1px solid #cbd5e1;padding:6px 8px;" colspan="2">Opening Balance</td>
+            <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">-</td>
+            <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">-</td>
+            <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">-</td>
+            <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">%s %.2f</td>
+        </tr>
+    """ % (start_str, currency, opening))
+
+    for r in rows:
+        d_str = r['date'][:10] if r.get('date') else ''
+        try:
+            d_obj = fields.Date.to_date(d_str)
+            d_fmt = d_obj.strftime('%d-%b-%Y') if d_obj else d_str
+        except Exception:
+            d_fmt = d_str
+
+        due_str = r['due_date'][:10] if r.get('due_date') else '-'
+        try:
+            due_obj = fields.Date.to_date(due_str)
+            due_fmt = due_obj.strftime('%d-%b-%Y') if due_obj else due_str
+        except Exception:
+            due_fmt = due_str
+
+        num_str = escape(r['number'] or '')
+        ref_str = escape(r.get('reference') or '')
+        particulars = num_str
+        if ref_str and ref_str != num_str:
+            particulars += '<br/><span style="font-size:8pt;color:#64748b;">Ref: %s</span>' % ref_str
+
+        kind_str = escape(r.get('kind') or '')
+        debit_str = ('%.2f' % r['debit']) if r.get('debit') else '-'
+        credit_str = ('%.2f' % r['credit']) if r.get('credit') else '-'
+
+        lines_html.append("""
+            <tr>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">%s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;"><b>%s</b></td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;"><span style="font-size:8pt;background:#e2e8f0;padding:2px 6px;border-radius:4px;">%s</span></td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;">%s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;color:#0f172a;">%s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;color:#16a34a;">%s</td>
+                <td style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;font-weight:bold;">%s %.2f</td>
+            </tr>
+        """ % (d_fmt, particulars, kind_str, due_fmt, debit_str, credit_str, currency, r['balance']))
+
+    lines_html.append("""
+        <tr style="background:#f1f5f9;font-weight:bold;">
+            <td colspan="4" style="border:1px solid #cbd5e1;padding:8px;text-align:right;">TOTALS / CLOSING BALANCE</td>
+            <td style="border:1px solid #cbd5e1;padding:8px;text-align:right;">%s %.2f</td>
+            <td style="border:1px solid #cbd5e1;padding:8px;text-align:right;color:#16a34a;">%s %.2f</td>
+            <td style="border:1px solid #cbd5e1;padding:8px;text-align:right;color:#1B3A7A;font-size:10.5pt;">%s %.2f</td>
+        </tr>
+    """ % (currency, total_debit, currency, total_credit, currency, closing))
+
+    now_str = fields.Datetime.now().strftime('%d-%b-%Y %I:%M %p')
+
+    html_doc = """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Statement of Account - %(cust_name)s</title>
+    <style>
+        @page { size: A4 portrait; margin: 10mm; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #1e293b; font-size: 9pt; line-height: 1.35; margin: 0; padding: 20px 24px; }
+        .page-wrap { width: 100%%; box-sizing: border-box; }
+        .header-table { width: 100%%; border-collapse: collapse; margin-bottom: 14px; }
+        .cards-table { width: 100%%; border-collapse: collapse; margin-bottom: 14px; }
+        .party-card { border: 1px solid #cbd5e1; border-radius: 6px; vertical-align: top; width: 100%%; background: #fff; }
+        .party-header { background: #f1f5f9; padding: 6px 10px; font-weight: bold; font-size: 8.5pt; border-bottom: 1px solid #cbd5e1; color: #334155; }
+        .party-body { padding: 8px 10px; }
+        .summary-table { width: 100%%; border-collapse: collapse; margin-bottom: 14px; }
+        .summary-table td { padding: 8px 12px; border: 1px solid #cbd5e1; text-align: center; }
+        .summary-val { font-size: 11pt; font-weight: bold; margin-top: 4px; }
+        .items-table { width: 100%%; border-collapse: collapse; margin-bottom: 14px; }
+        .items-table th { background: #1B3A7A; color: #ffffff; border: 1px solid #1B3A7A; padding: 6px 8px; font-size: 8.5pt; font-weight: bold; }
+        .footer { clear: both; padding-top: 14px; border-top: 1px dashed #cbd5e1; font-size: 8pt; color: #64748b; text-align: center; }
+    </style>
+</head>
+<body>
+<div class="page-wrap">
+    <table class="header-table">
+        <tr>
+            <td style="vertical-align:top;width:55%%;">
+                %(logo_html)s
+                <div style="color:#64748b;font-size:8.5pt;margin-top:4px;">
+                    %(company_addr)s<br/>
+                    %(company_phone)s%(company_gst)s
+                </div>
+            </td>
+            <td style="vertical-align:top;text-align:right;width:45%%;">
+                <h2 style="margin:0;color:#1B3A7A;font-size:16pt;font-weight:900;letter-spacing:0.5px;">STATEMENT OF ACCOUNT</h2>
+                <div style="margin-top:6px;font-size:9pt;color:#334155;">
+                    <b>Period:</b> %(start_str)s to %(end_str)s<br/>
+                    <b>Date Generated:</b> %(now_str)s
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="cards-table">
+        <tr>
+            <td style="width:100%%;vertical-align:top;">
+                <div class="party-card">
+                    <div class="party-header">CUSTOMER DETAILS</div>
+                    <div class="party-body">
+                        <b style="font-size:10.5pt;color:#0f172a;">%(cust_name)s</b><br/>
+                        %(cust_addr)s<br/>
+                        %(cust_phone)s%(cust_gst)s
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="summary-table">
+        <tr style="background:#f8fafc;">
+            <td style="width:25%%;">
+                <div style="font-size:8pt;color:#64748b;text-transform:uppercase;font-weight:bold;">Opening Balance</div>
+                <div class="summary-val" style="color:#334155;">%(currency)s %(opening_fmt)s</div>
+            </td>
+            <td style="width:25%%;">
+                <div style="font-size:8pt;color:#64748b;text-transform:uppercase;font-weight:bold;">Total Billed (Dr)</div>
+                <div class="summary-val" style="color:#0f172a;">%(currency)s %(total_debit_fmt)s</div>
+            </td>
+            <td style="width:25%%;">
+                <div style="font-size:8pt;color:#64748b;text-transform:uppercase;font-weight:bold;">Total Paid (Cr)</div>
+                <div class="summary-val" style="color:#16a34a;">%(currency)s %(total_credit_fmt)s</div>
+            </td>
+            <td style="width:25%%;background:#eff6ff;">
+                <div style="font-size:8pt;color:#1e40af;text-transform:uppercase;font-weight:bold;">Closing Balance</div>
+                <div class="summary-val" style="color:#1B3A7A;">%(currency)s %(closing_fmt)s</div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width:11%%;text-align:center;">Date</th>
+                <th style="width:28%%;text-align:left;">Particulars / Ref</th>
+                <th style="width:13%%;text-align:center;">Type</th>
+                <th style="width:11%%;text-align:center;">Due Date</th>
+                <th style="width:12%%;text-align:right;">Debit (Dr)</th>
+                <th style="width:12%%;text-align:right;">Credit (Cr)</th>
+                <th style="width:13%%;text-align:right;">Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            %(lines_html)s
+        </tbody>
+    </table>
+
+    <div class="footer">
+        This is a computer generated statement and requires no physical signature.<br/>
+        %(company_name)s &bull; Generated on %(now_str)s
+    </div>
+</div>
+</body>
+</html>
+""" % {
+        'cust_name': escape(partner.name or ''),
+        'cust_addr': escape(cust_addr),
+        'cust_phone': ('Phone: %s<br/>' % escape(partner.phone)) if partner.phone else '',
+        'cust_gst': ('GSTIN: %s' % escape(partner.vat)) if partner.vat else '',
+        'logo_html': logo_html,
+        'company_name': escape(company.name or ''),
+        'company_addr': escape(company_addr),
+        'company_phone': ('Phone: %s ' % escape(company.phone)) if company.phone else '',
+        'company_gst': ('| GSTIN: %s' % escape(company.vat)) if company.vat else '',
+        'start_str': start_str,
+        'end_str': end_str,
+        'now_str': now_str,
+        'currency': currency,
+        'opening_fmt': '%.2f' % opening,
+        'total_debit_fmt': '%.2f' % total_debit,
+        'total_credit_fmt': '%.2f' % total_credit,
+        'closing_fmt': '%.2f' % closing,
+        'lines_html': chr(10).join(lines_html),
+    }
+    return html_doc
+
 def _invoice_html(move):
     company = move.company_id
     currency = move.currency_id.symbol or move.currency_id.name or '₹'
@@ -532,3 +741,54 @@ class FieldForceReceivablesApi(http.Controller):
             'credit': round(sum(r['credit'] for r in rows), 2),
             'lines': rows,
         })
+
+    @api_route('/api/v1/clients/<int:partner_id>/soa/pdf', methods=('GET',))
+    def statement_pdf(self, employee, partner_id, start=None, end=None, **kw):
+        """Statement of account PDF download."""
+        _check_accounting()
+        partner = visible_client(employee, partner_id).commercial_partner_id
+        today = employee._ff_today()
+        try:
+            end_date = fields.Date.to_date(end) if end else today
+            start_date = fields.Date.to_date(start) if start else end_date.replace(day=1) - timedelta(days=90)
+        except ValueError:
+            raise ApiError('Dates must be YYYY-MM-DD.')
+        company = employee.company_id
+        Line = request.env['account.move.line'].sudo()
+        base = [('partner_id', 'child_of', partner.id), ('account_id.account_type', '=', 'asset_receivable'),
+                ('parent_state', '=', 'posted'), ('company_id', '=', company.id)]
+        opening = sum(Line.search(base + [('date', '<', start_date)]).mapped('balance'))
+        running = opening
+        rows = []
+        for line in Line.search(base + [('date', '>=', start_date), ('date', '<=', end_date)], order='date asc, id asc'):
+            running += line.balance
+            move = line.move_id
+            kind = {'out_invoice': 'Invoice', 'out_refund': 'Credit note'}.get(
+                move.move_type, 'Payment' if line.credit else 'Adjustment')
+            rows.append({
+                'date': to_iso(line.date),
+                'number': move.name,
+                'kind': kind,
+                'reference': move.ref or line.name or None,
+                'due_date': to_iso(line.date_maturity),
+                'debit': round(line.debit, 2),
+                'credit': round(line.credit, 2),
+                'balance': round(running, 2),
+            })
+        currency = company.currency_id.symbol or company.currency_id.name or '₹'
+        html = _soa_html(partner, company, start_date, end_date, opening, rows, running, currency)
+        try:
+            pdf = request.env['ir.actions.report'].sudo()._run_wkhtmltopdf([html])
+        except Exception as error:
+            raise ApiError('Failed to generate Statement PDF: %s' % error, 500, 'pdf_error')
+
+        name = 'SOA_%s_%s_%s.pdf' % (
+            re.sub(r'[^a-zA-Z0-9_-]', '_', partner.name or str(partner_id)),
+            start_date.strftime('%Y%m%d'),
+            end_date.strftime('%Y%m%d')
+        )
+        return request.make_response(pdf, headers=[
+            ('Content-Type', 'application/pdf'),
+            ('Content-Length', len(pdf)),
+            ('Content-Disposition', 'inline; filename="%s"' % name),
+        ])
