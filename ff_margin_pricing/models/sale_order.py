@@ -19,4 +19,14 @@ class SaleOrder(models.Model):
                 rate = sum(t.amount for t in line.tax_ids if t.amount_type == 'percent')
                 if rate:
                     line.price_unit = round(line.price_unit / (1.0 + rate / 100.0), 2)
+        # The contact's MRP master has the final say: each product it lists is sold at the price entered there (the
+        # price the app shows, before tax), whatever the margin formula worked out.
+        if not resent:
+            contact = (order.ff_outlet_id or order.partner_id).sudo()
+            mrp = contact.ff_mrp_id if 'ff_mrp_id' in contact._fields else False
+            prices = {l.product_id.id: l.mrp for l in mrp.line_ids} if mrp and 'line_ids' in mrp._fields else {}
+            if prices:
+                for line in order.sudo().order_line.filtered(lambda l: not getattr(l, 'ff_is_foc', False)):
+                    if line.product_id.id in prices and prices[line.product_id.id] > 0:
+                        line.price_unit = prices[line.product_id.id]
         return order
