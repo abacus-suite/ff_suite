@@ -23,6 +23,7 @@ def request_data(rec):
         'invoice_due': to_iso(rec.invoice_due),
         'invoice_uploaded': bool(rec.invoice_uploaded) or rec.state == 'completed',
         'reason': rec.reject_reason or None,
+        'note': rec.note or None,
     }
 
 
@@ -126,6 +127,60 @@ class FieldForceExpenseRequestsApi(http.Controller):
         try:
             rec.ff_upload_invoice(body().get('photo'))
         except UserError as error:
+            request.env.cr.rollback()
+            raise ApiError(str(error), 400, 'invalid')
+        return ok(request_data(rec))
+
+    @api_route('/api/v1/expense-requests/<int:request_id>/resubmit', methods=('POST',))
+    @api_route('/api/v1/expense-requests/<int:request_id>/update', methods=('POST',))
+    def resubmit(self, employee, request_id, **kw):
+        rec = request.env['ff.expense.request'].sudo().browse(request_id).exists()
+        if not rec or rec.employee_id != employee:
+            raise ApiError('Request not found.', 404, 'not_found')
+        if rec.state != 'rejected':
+            raise ApiError('Only rejected requests can be resubmitted.', 400, 'invalid')
+        data = body()
+        Category = request.env['ff.expense.category'].sudo()
+        vals = {}
+        if data.get('category_id'):
+            category = Category.browse(to_int(data.get('category_id'))).exists()
+            if not category or category.parent_id:
+                raise ApiError('Choose the expense category.')
+            if category.employee_ids and employee not in category.employee_ids:
+                raise ApiError('You do not have access to this expense category.')
+            if category.department_ids and employee.department_id not in category.department_ids:
+                raise ApiError('You do not have access to this expense category.')
+            vals['category_id'] = category.id
+            sub = Category.browse(to_int(data.get('sub_category_id'))).exists() if data.get('sub_category_id') else Category
+            if sub and sub.parent_id != category:
+                raise ApiError('That sub category does not belong to the category.')
+            if sub and sub.employee_ids and employee not in sub.employee_ids:
+                raise ApiError('You do not have access to this sub category.')
+            if sub and sub.department_ids and employee.department_id not in sub.department_ids:
+                raise ApiError('You do not have access to this sub category.')
+            if category.child_ids and not sub:
+                raise ApiError('Choose the sub category.')
+            vals['sub_category_id'] = sub.id or False
+        if data.get('amount') is not None:
+            try:
+                amount = float(data.get('amount'))
+            except (TypeError, ValueError):
+                raise ApiError('The amount must be a number.')
+            if amount <= 0:
+                raise ApiError('The amount must be more than zero.')
+            vals['amount'] = amount
+        if data.get('document'):
+            if data['document'] not in ('tax_invoice', 'quotation'):
+                raise ApiError('Choose tax invoice or quotation.')
+            vals['document'] = data['document']
+        if data.get('date'):
+            vals['date'] = data['date']
+        if 'note' in data:
+            vals['note'] = data['note']
+
+        try:
+            rec.ff_resubmit(vals, photo=data.get('photo'))
+        except (UserError, AccessError) as error:
             request.env.cr.rollback()
             raise ApiError(str(error), 400, 'invalid')
         return ok(request_data(rec))

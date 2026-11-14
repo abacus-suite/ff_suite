@@ -133,7 +133,40 @@ class FfExpenseRequest(models.Model):
                                       why=(': ' + rec.reject_reason) if rec.reject_reason else ''))
 
     def action_reset(self):
-        self.filtered(lambda r: r.state == 'rejected').write({'state': 'requested'})
+        for rec in self.filtered(lambda r: r.state == 'rejected'):
+            rec.write({'state': 'requested', 'reject_reason': False})
+            if hasattr(rec, '_ff_start_approval'):
+                if hasattr(rec, 'approval_line_ids') and rec.approval_line_ids:
+                    rec.approval_line_ids.unlink()
+                started = rec._ff_start_approval()
+                if started or rec.employee_id.parent_id:
+                    rec.write({'state': 'approval'})
+
+    def ff_resubmit(self, vals, photo=None):
+        self.ensure_one()
+        if self.state != 'rejected':
+            raise UserError(self.env._('Only rejected requests can be resubmitted.'))
+        write_vals = {
+            'state': 'requested',
+            'reject_reason': False,
+            'paid_on': False,
+            'invoice_uploaded': False,
+        }
+        for k in ('category_id', 'sub_category_id', 'amount', 'document', 'date', 'note'):
+            if k in vals:
+                write_vals[k] = vals[k]
+        self.write(write_vals)
+        if photo:
+            label = 'tax invoice' if self.document == 'tax_invoice' else 'quotation'
+            self._ff_attach(photo, label)
+        if hasattr(self, '_ff_start_approval'):
+            if hasattr(self, 'approval_line_ids') and self.approval_line_ids:
+                self.approval_line_ids.unlink()
+            started = self._ff_start_approval()
+            if started or self.employee_id.parent_id:
+                self.write({'state': 'approval'})
+        self.message_post(body=self.env._('Request updated and resubmitted by %s', self.employee_id.name))
+        return self
 
     # ------------------------------------------------------------------ salesperson
     def ff_upload_invoice(self, photo):
