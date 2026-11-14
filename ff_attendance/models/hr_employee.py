@@ -297,6 +297,16 @@ class HrEmployee(models.Model):
             else:
                 entry['open'] = True
 
+        # Check pending regularisation requests for this month
+        pending_reg_days = set()
+        if 'ff.regularisation' in self.env:
+            pending_regs = self.env['ff.regularisation'].sudo().search([
+                ('employee_id', '=', employee.id),
+                ('date', '>=', first), ('date', '<=', last),
+                ('state', 'in', ('draft', 'submitted')),
+            ])
+            pending_reg_days = set(pending_regs.mapped('date'))
+
         # Approved time off: every day it covers, in the employee's local time.
         leave_days = set()
         if 'hr.leave' in self.env:
@@ -349,6 +359,8 @@ class HrEmployee(models.Model):
             days.append({
                 'date': day.isoformat(),
                 'status': status,
+                'has_pending': day in pending_reg_days,
+                'is_future': day > today,
                 'worked_hours': worked,
                 'expected_hours': expected,
                 'overtime_hours': extra,
