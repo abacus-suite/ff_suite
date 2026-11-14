@@ -57,6 +57,11 @@ class _OnboardScreenState extends State<OnboardScreen> {
   int? _districtId;
   int? _areaId;
 
+  /// The delivery address (when it is not the billing address): its own Region, Territory / District and Area.
+  int? _dRegionId;
+  int? _dTerritoryId;
+  int? _dAreaId;
+
   // Step 3
   String? _riskLevel;
   String? _mrp;
@@ -487,6 +492,11 @@ class _OnboardScreenState extends State<OnboardScreen> {
               'delivery_same': _sameAsBilling,
               if (!_sameAsBilling) 'delivery_address': _v('delivery_address'),
               if (!_sameAsBilling) 'delivery_zip': _v('delivery_zip'),
+              if (!_sameAsBilling) 'delivery_door': _v('delivery_door'),
+              if (!_sameAsBilling) 'delivery_street': _v('delivery_street'),
+              if (!_sameAsBilling && _dRegionId != null) 'delivery_region_id': _dRegionId,
+              if (!_sameAsBilling && _dTerritoryId != null) 'delivery_territory_id': _dTerritoryId,
+              if (!_sameAsBilling && _dAreaId != null) 'delivery_area_id': _dAreaId,
               'street2': area,
               'city': city,
               'zip': _v('zip'),
@@ -782,8 +792,25 @@ class _OnboardScreenState extends State<OnboardScreen> {
 
   /// Only when the delivery address is not the billing address.
   Widget _step2() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _field('delivery_address', 'Delivery address', required: true, lines: 3),
+        _field('delivery_address', 'Address', required: true, lines: 3),
         _field('delivery_zip', 'PIN code', required: true, type: TextInputType.number, maxLength: 6),
+        _dropId('Region', _regions, _dRegionId, (v) => setState(() => _dRegionId = v), required: false),
+        _dropId('Territory / District', [
+          for (final t in _territories)
+            if (_dRegionId == null || _idOf(t['region']) == null || _idOf(t['region']) == _dRegionId)
+              {'id': t['id'], 'name': '${t['name']}'},
+        ], _dTerritoryId, (v) => setState(() {
+              _dTerritoryId = v;
+              _dAreaId = null;
+            }), required: false),
+        _dropId('Area', [
+          for (final t in _territories)
+            if (_dTerritoryId == null || t['id'] == _dTerritoryId)
+              for (final a in ((t['areas'] as List?) ?? const []).cast<Map<String, dynamic>>())
+                {'id': a['id'], 'name': '${a['name']}${asText(a['town']) != null ? ' · ${a['town']}' : ''}'},
+        ], _dAreaId, (v) => setState(() => _dAreaId = v), required: false),
+        _field('delivery_door', 'Door / TC No.'),
+        _field('delivery_street', 'Street name'),
       ]);
 
   Widget _step3() {
