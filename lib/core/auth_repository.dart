@@ -27,13 +27,14 @@ class AuthRepository {
     }
   }
 
-  Future<Profile> login(String baseUrl, String login, String password, {String? db}) async {
+  Future<Profile> login(String baseUrl, String login, String password, {String? db, bool force = false}) async {
     await _storage.saveBaseUrl(baseUrl);
     await _storage.saveDb(db);
     final device = await _deviceMeta();
     final data = await _api.post('/api/v1/auth/login', {
       'login': login.trim(),
       'password': password,
+      if (force) 'force_login': true,
       ...device,
     }) as Map<String, dynamic>;
     await _storage.saveToken(data['token'] as String);

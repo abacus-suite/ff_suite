@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/api_client.dart';
 import '../../core/security_guard.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
@@ -85,7 +86,26 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      await Services.auth.login(_server.text, _login.text, _password.text, db: _db);
+      try {
+        await Services.auth.login(_server.text, _login.text, _password.text, db: _db);
+      } on ApiException catch (e) {
+        if (e.code != 'already_logged_in') rethrow;
+        // Signed in on another phone: ask, then sign that one out and continue here.
+        final yes = await showDialog<bool>(
+          context: context,
+          builder: (d) => AlertDialog(
+            icon: const Icon(Icons.phonelink_erase_rounded, size: 36),
+            title: const Text('Already signed in'),
+            content: Text('${e.message}\n\nIf you continue, you are signed out on the other device.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('No')),
+              FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Yes, continue here')),
+            ],
+          ),
+        );
+        if (yes != true) return;
+        await Services.auth.login(_server.text, _login.text, _password.text, db: _db, force: true);
+      }
       Services.notifications.start();
       await Services.outbox.start();
       await SecurityGuard.instance.start();
