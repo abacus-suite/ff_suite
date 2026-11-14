@@ -55,12 +55,19 @@ class FfExpenseCategory(models.Model):
 
 
 class FfExpenseCard(models.Model):
-    """A company card an expense can be paid with."""
+    """A credit card an expense can be paid with."""
     _name = 'ff.expense.card'
-    _description = 'Company Card'
+    _description = 'Credit Card'
     _order = 'sequence, name'
 
     name = fields.Char(required=True)
     sequence = fields.Integer(default=10)
     company_id = fields.Many2one('res.company', required=True, default=lambda self: self.env.company)
     active = fields.Boolean(default=True)
+    employee_ids = fields.Many2many(
+        'hr.employee',
+        'ff_expense_card_employee_rel',
+        'card_id', 'employee_id',
+        string='Allowed Employees',
+        help='Employees who can use this card. Leave empty to allow all employees.',
+    )

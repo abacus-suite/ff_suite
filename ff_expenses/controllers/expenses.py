@@ -75,8 +75,10 @@ class FieldForceExpensesApi(http.Controller):
                 'currency': c.currency_id.name,
                 'children': [ref(child) for child in c.child_ids],
             } for c in categories],
-            'cards': [ref(card) for card in request.env['ff.expense.card'].sudo().search(
-                [('company_id', 'in', employee.company_id.ids)])],
+            'cards': [ref(card) for card in request.env['ff.expense.card'].sudo().search([
+                ('company_id', 'in', employee.company_id.ids),
+                '|', ('employee_ids', '=', False), ('employee_ids', 'in', employee.id),
+            ])],
         })
 
     @api_route('/api/v1/expenses', methods=('GET',))

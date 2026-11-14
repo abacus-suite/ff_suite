@@ -7,7 +7,7 @@
             <list editable="bottom">
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
-                <field name="parent_id" placeholder="Category (top level)"/>
+                <field name="parent_id" string="Parent Category" placeholder="Category (top level)"/>
                 <field name="code" optional="hide"/>
                 <field name="department_ids" widget="many2many_tags" placeholder="All departments"/>
                 <field name="requires_receipt"/>

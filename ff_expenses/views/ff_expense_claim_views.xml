@@ -144,12 +144,13 @@
             <list editable="bottom">
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
+                <field name="employee_ids" widget="many2many_tags" placeholder="All employees"/>
                 <field name="active" widget="boolean_toggle"/>
             </list>
         </field>
     </record>
     <record id="ff_expense_card_master_action" model="ir.actions.act_window">
-        <field name="name">Company Cards</field>
+        <field name="name">Credit Cards</field>
         <field name="res_model">ff.expense.card</field>
         <field name="view_mode">list</field>
     </record>

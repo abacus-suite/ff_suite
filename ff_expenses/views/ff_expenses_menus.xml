@@ -4,7 +4,7 @@
               action="ff_expense_claim_action" sequence="10"/>
     <menuitem id="menu_ff_expense_categories" name="Expense Categories" parent="ff_base.menu_ff_masters"
               action="ff_expense_category_action" sequence="65" groups="ff_base.group_ff_admin"/>
-    <menuitem id="menu_ff_expense_cards" name="Company Cards" parent="ff_base.menu_ff_masters"
+    <menuitem id="menu_ff_expense_cards" name="Credit Cards" parent="ff_base.menu_ff_masters"
               action="ff_expense_card_master_action" sequence="66" groups="ff_base.group_ff_admin"/>
     <menuitem id="menu_ff_expense_card_entries" name="Expense Submissions" parent="ff_base.menu_ff_section_claims"
               action="ff_expense_card_action" sequence="20"/>

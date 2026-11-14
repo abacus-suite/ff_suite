@@ -188,6 +188,8 @@ class FfExpenseClaim(models.Model):
             mode = self.env['ff.expense.card'].sudo().browse(int(data.get('payment_mode_id') or 0)).exists()
             if not mode:
                 raise UserError(self.env._('Choose the payment mode (card).'))
+            if mode.employee_ids and employee not in mode.employee_ids:
+                raise UserError(self.env._('You do not have access to this card.'))
             if not receipts:
                 raise UserError(self.env._('Add the picture of the bill.'))
 
