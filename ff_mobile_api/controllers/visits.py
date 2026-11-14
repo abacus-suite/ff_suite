@@ -179,9 +179,10 @@ class FieldForceVisitsApi(http.Controller):
         planned_task_count = sum(1 for t in tasks if t['is_planned'])
         return ok({
             'tasks': tasks,
-            'tasks_done': unplanned_onsite_count,
-            'tasks_unplanned': unplanned_onsite_count,
+            'tasks_done': unplanned_count,
+            'tasks_unplanned': unplanned_count,
             'tasks_unplanned_total': unplanned_count,
+            'tasks_unplanned_onsite': unplanned_onsite_count,
             'tasks_planned': planned_task_count,
             'tasks_total': len(tasks),
             'tasks_onsite': sum(1 for t in tasks if t['visit_type'] == 'Onsite'),
