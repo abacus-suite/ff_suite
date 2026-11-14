@@ -467,7 +467,7 @@ class DealerHub(http.Controller):
             excess = getattr(demand, 'margin_excess', 0.0) or 0.0
             rows, mrp_value, billed = [], 0.0, 0.0
             for line in lines:
-                mrp = line.product_id.product_tmpl_id.ff_mrp or 0.0
+                mrp = line.product_id._ff_partner_mrp(demand.partner_id) if hasattr(line.product_id, '_ff_partner_mrp') else (line.product_id.product_tmpl_id.ff_mrp or 0.0)
                 after = max(mrp - scheme, 0.0)
                 worked = round(after * (1.0 - margin / 100.0), 2) if mrp else line.price_unit
                 rows.append({

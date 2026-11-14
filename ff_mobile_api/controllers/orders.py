@@ -26,6 +26,7 @@ def product_data(product, partner=None):
         # What this customer pays: a distributor its own price, an outlet its own. Margin pricing,
         # when it is switched on, changes both without this code knowing.
         price = product.ff_distributor_price(partner) if getattr(partner, 'ff_is_distributor', False) else product.ff_field_price(partner)
+    mrp = product._ff_partner_mrp(partner) if (partner and hasattr(product, '_ff_partner_mrp')) else (product.product_tmpl_id.ff_mrp or None)
     return {
         'id': product.id,
         'name': product.display_name,
@@ -36,7 +37,7 @@ def product_data(product, partner=None):
         'tax_percent': sum(t.amount for t in product.taxes_id
                            if t.amount_type == 'percent' and t.company_id == request.env.company),
         'tax_names': [t.name for t in product.taxes_id if t.company_id == request.env.company],
-        'mrp': product.product_tmpl_id.ff_mrp or None,
+        'mrp': mrp,
         'ptr': product.product_tmpl_id.ff_ptr or None,
         'pts': product.product_tmpl_id.ff_pts or None,
         'uom': product.uom_id.name,
@@ -317,23 +318,8 @@ class FieldForceOrdersApi(http.Controller):
         except ValueError:
             raise ApiError('limit and offset must be numbers.')
         commercials = partner_commercials(partner) if partner and not getattr(partner, 'ff_is_distributor', False) else None
-        if commercials and commercials.get('price_category'):
-            # An outlet is shown the products of its own price category only (149 or 179).
-            domain.append(('product_tmpl_id.ff_mrp', '=', float(commercials['price_category'])))
-        # The contact's MRP master: only the products on it, at the prices it gives.
-        mrp_lines = {}
-        mrp = partner.ff_mrp_id if partner and 'ff_mrp_id' in partner._fields else None
-        if mrp and 'line_ids' in mrp._fields and mrp.sudo().line_ids:
-            mrp_lines = {line.product_id.id: line.mrp for line in mrp.sudo().line_ids}
-            domain = [d for d in domain if not (isinstance(d, tuple) and d[0] == 'product_tmpl_id.ff_mrp')]
-            domain.append(('id', 'in', list(mrp_lines)))
         products = Product.search(domain, order='name', limit=limit, offset=offset)
         rows = [product_data(p, partner) for p in products]
-        for row in rows:
-            if row.get('id') in mrp_lines:
-                row['mrp'] = mrp_lines[row['id']]
-                if 'price' in row:
-                    row['price'] = mrp_lines[row['id']]
         return ok({'total': Product.search_count(domain), 'commercials': commercials, 'products': rows})
 
     @api_route('/api/v1/products/categories', methods=('GET',))

@@ -8,10 +8,10 @@ def price_basis(env):
 class ProductProduct(models.Model):
     _inherit = 'product.product'
 
-    def _ff_margin_price(self, margin):
+    def _ff_margin_price(self, margin, partner=None):
         """MRP less ``margin`` %, or None when the product has no MRP or there is no margin to apply."""
         self.ensure_one()
-        mrp = self.product_tmpl_id.ff_mrp
+        mrp = self._ff_partner_mrp(partner) if hasattr(self, '_ff_partner_mrp') else self.product_tmpl_id.ff_mrp
         if not mrp or not margin:
             return None
         return round(mrp * (1.0 - margin / 100.0), 2)
@@ -53,10 +53,12 @@ class ProductProduct(models.Model):
                 distributor = self.env['res.partner'].sudo().browse(distributor)
             distributor = distributor.sudo().commercial_partner_id if distributor else None
             margin = outlet.ff_margin or self._ff_pass_through_margin(distributor)
-            mrp = self.product_tmpl_id.ff_mrp
+            mrp = self._ff_partner_mrp(outlet) if hasattr(self, '_ff_partner_mrp') else self.product_tmpl_id.ff_mrp
             scheme = self._ff_scheme_amount(outlet)
             if mrp and (margin or scheme):
                 return round(max(mrp - scheme, 0.0) * (1.0 - (margin or 0.0) / 100.0), 2)
+            elif mrp:
+                return mrp
         return price
 
     def ff_distributor_price(self, partner=None):
@@ -68,7 +70,7 @@ class ProductProduct(models.Model):
         if price_basis(self.env) == 'margin':
             company = partner.company_id if partner and partner.company_id else self.env.company
             total = (getattr(partner.sudo(), 'total_margin_pct', 0.0) if partner else 0.0) or company.sudo().ff_total_margin
-            margin_price = self._ff_margin_price(total)
+            margin_price = self._ff_margin_price(total, partner=partner)
             if margin_price is not None:
                 return margin_price
         return price

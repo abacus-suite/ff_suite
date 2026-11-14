@@ -21,7 +21,7 @@ class FfDemand(models.Model):
         """MRP 100, company 30%, distributor 20%, outlet 10%: the distributor buys at 70 and sells at 80
         (profit 10 a unit); the outlet buys at 80 and sells at 90 (profit 10 a unit)."""
         for demand in self:
-            mrp_value = sum(l.quantity * (l.product_id.product_tmpl_id.ff_mrp or 0.0)
+            mrp_value = sum(l.quantity * (l.product_id._ff_partner_mrp(demand.partner_id) if hasattr(l.product_id, '_ff_partner_mrp') else (l.product_id.product_tmpl_id.ff_mrp or 0.0))
                             for l in demand.line_ids if not getattr(l, 'is_foc', False))
             demand.distributor_profit = round(mrp_value * (demand.margin_total - demand.margin_distributor) / 100.0, 2)
             demand.outlet_profit = round(mrp_value * (demand.margin_distributor - demand.margin_outlet) / 100.0, 2)

@@ -19,7 +19,9 @@ class FfDemandDelivery(models.Model):
         if not demand.margin_excess or not demand.distributor_id:
             return
         lines = self.line_ids.filtered(lambda l: not getattr(l.demand_line_id, 'is_foc', False) and l.quantity)
-        mrp_value = sum(l.quantity * (l.product_id.product_tmpl_id.ff_mrp or 0.0) for l in lines)
+        partner = demand.partner_id
+        mrp_fn = lambda p: p._ff_partner_mrp(partner) if hasattr(p, '_ff_partner_mrp') else (p.product_tmpl_id.ff_mrp or 0.0)
+        mrp_value = sum(l.quantity * mrp_fn(l.product_id) for l in lines)
         amount = round(mrp_value * demand.margin_excess / 100.0, 2)
         if amount <= 0:
             return
@@ -33,6 +35,6 @@ class FfDemandDelivery(models.Model):
             'company_id': demand.company_id.id,
             'line_ids': [(0, 0, {
                 'product_id': l.product_id.id, 'quantity': l.quantity,
-                'price_unit': round((l.product_id.product_tmpl_id.ff_mrp or 0.0) * demand.margin_excess / 100.0, 2),
+                'price_unit': round(mrp_fn(l.product_id) * demand.margin_excess / 100.0, 2),
             }) for l in lines],
         })

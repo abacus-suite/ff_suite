@@ -97,3 +97,28 @@ class FfMrpLine(models.Model):
     mrp = fields.Float(string='MRP', digits=(10, 2))
 
     _option_product_uniq = models.Constraint('UNIQUE(option_id, product_id)', 'This product is already on the MRP.')
+
+
+class ProductProduct(models.Model):
+    _inherit = 'product.product'
+
+    def _ff_partner_mrp(self, partner=None):
+        """The MRP of this product for this partner: from the partner's onboarded MRP master (ff_mrp_id)
+        if available in its product prices, otherwise the product template's default ff_mrp."""
+        self.ensure_one()
+        if partner:
+            p = partner.sudo().commercial_partner_id
+            mrp_opt = p.ff_mrp_id if 'ff_mrp_id' in p._fields else None
+            if mrp_opt and 'line_ids' in mrp_opt._fields and mrp_opt.line_ids:
+                line = mrp_opt.line_ids.filtered(lambda l: l.product_id.id == self.id)
+                if line and line[0].mrp:
+                    return line[0].mrp
+        return self.product_tmpl_id.ff_mrp or self.lst_price or 0.0
+
+    def ff_field_price(self, partner=None):
+        price = super().ff_field_price(partner)
+        if partner and not getattr(self.product_tmpl_id, 'ff_ptr', None):
+            partner_mrp = self._ff_partner_mrp(partner)
+            if partner_mrp:
+                return partner_mrp
+        return price
