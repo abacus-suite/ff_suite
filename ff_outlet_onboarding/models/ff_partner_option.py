@@ -80,7 +80,7 @@ class FfPartnerOption(models.Model):
         return [{'code': o.code, 'name': o.name, 'needs_note': o.needs_note,
                  # A scheme is shown as its amount with the company's currency symbol.
                  'value': o.ff_scheme_value() if o.kind == 'scheme' else None}
-                for o in self.sudo().search([('kind', '=', kind)])]
+                for o in self.sudo().search([('kind', '=', kind)], order='name')]
 
 
 class FfMrpLine(models.Model):

@@ -51,7 +51,7 @@ class FfExpenseCategory(models.Model):
         return self.sudo().search([
             ('company_id', 'in', employee.company_id.ids), ('parent_id', '=', False),
             '|', ('department_ids', '=', False), ('department_ids', 'in', employee.department_id.ids),
-        ])
+        ], order='name')
 
 
 class FfExpenseCard(models.Model):

@@ -64,7 +64,7 @@ class FieldForceExpensesApi(http.Controller):
     @api_route('/api/v1/expense-categories', methods=('GET',))
     def categories(self, employee, **kw):
         """Categories with their sub-categories, and the company cards."""
-        categories = request.env['ff.expense.category'].ff_for_employee(employee)
+        categories = request.env['ff.expense.category'].ff_for_employee(employee).sorted(lambda c: (c.name or '').lower())
         return ok({
             'categories': [{
                 'id': c.id,
@@ -73,12 +73,12 @@ class FieldForceExpensesApi(http.Controller):
                 'requires_client': c.requires_client,
                 'max_amount': c.max_amount or None,
                 'currency': c.currency_id.name,
-                'children': [ref(child) for child in c.child_ids],
+                'children': [ref(child) for child in c.child_ids.sorted(lambda c: (c.name or '').lower())],
             } for c in categories],
             'cards': [ref(card) for card in request.env['ff.expense.card'].sudo().search([
                 ('company_id', 'in', employee.company_id.ids),
                 '|', ('employee_ids', '=', False), ('employee_ids', 'in', employee.id),
-            ])],
+            ], order='name')],
         })
 
     @api_route('/api/v1/expenses', methods=('GET',))
