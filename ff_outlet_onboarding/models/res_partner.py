@@ -36,6 +36,11 @@ class ResPartner(models.Model):
     ff_accounts_poc_phone = fields.Char(string='Accounts POC Contact No.')
     ff_accounts_poc_email = fields.Char(string='Accounts Email')
     ff_billing_address = fields.Text(string='Billing Address')
+    ff_risk_level = fields.Selection([
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+    ], string='Risk Category Level', default='low')
     ff_mrp_id = fields.Many2one('ff.partner.option', string='MRP', domain=[('kind', '=', 'mrp')])
     ff_door_no = fields.Char(string='Door / TC No.')
     ff_street_name = fields.Char(string='Street Name')
@@ -234,6 +239,7 @@ class ResPartner(models.Model):
             'accounts_poc_email': partner.ff_accounts_poc_email or None,
             'outlet_category': option(partner.ff_outlet_category_id),
             'outlet_category_note': partner.ff_outlet_category_note or None,
+            'risk_level': partner.ff_risk_level or 'low',
             'mrp': option(partner.ff_mrp_id),
             'scheme': dict(option(partner.ff_scheme_id), value=partner.ff_scheme_id.ff_scheme_value())
             if partner.ff_scheme_id else None,
@@ -278,6 +284,8 @@ class ResPartner(models.Model):
         text('outlet_category_note', 'ff_outlet_category_note')
         text('swiggy_zomato_id', 'ff_swiggy_zomato_id')
         text('chiller_serial', 'ff_chiller_serial')
+        if 'risk_level' in data:
+            values['ff_risk_level'] = data.get('risk_level') or 'low'
         for key, kind, field in (('outlet_category', 'outlet_category', 'ff_outlet_category_id'),
                                  ('mrp', 'mrp', 'ff_mrp_id'), ('scheme', 'scheme', 'ff_scheme_id'),
                                  ('chiller_model', 'chiller_model', 'ff_chiller_model_id')):
@@ -342,6 +350,7 @@ class ResPartner(models.Model):
             'ff_delivery_zip': False if flag('delivery_same') else text('delivery_zip'),
             'ff_billing_address': text('billing_address'),
             'ff_poc_name': text('poc_name'), 'ff_poc_phone': text('poc_phone'), 'ff_poc_email': text('poc_email'),
+            'ff_risk_level': data.get('risk_level') or 'low',
             'ff_mrp_id': self.env['ff.partner.option'].ff_by_code('mrp', data.get('mrp')).id or False,
             'ff_scheme_id': self.env['ff.partner.option'].ff_by_code('scheme', data.get('scheme')).id or False,
             'ff_swiggy': swiggy, 'ff_swiggy_id': text('swiggy_id') if swiggy else False,

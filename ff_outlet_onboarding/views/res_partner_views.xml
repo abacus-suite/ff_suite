@@ -17,6 +17,7 @@
                         <field name="ff_not_interested_reason" invisible="ff_status != 'not_interested'"/>
                         <field name="ff_gst_name"/>
                         <field name="ff_billing_address"/>
+                        <field name="ff_risk_level"/>
                         <field name="ff_mrp_id" options="{'no_create': True}"/>
                         <field name="ff_scheme_id" options="{'no_create': True}"/>
                         <field name="ff_credit_days"/>

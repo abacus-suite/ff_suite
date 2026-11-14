@@ -104,6 +104,7 @@ def client_data(partner, lat=None, lng=None):
         'approval_state': partner.ff_approval_state,
         'category': ref(partner.ff_category_id),
         'category_type': partner.ff_category_type or ('distributor' if partner.ff_is_distributor else None),
+        'risk_level': getattr(partner, 'ff_risk_level', None) or 'low',
         'is_distributor': bool(partner.ff_is_distributor or partner.ff_category_type == 'distributor'),
         'is_company_location': is_company_loc,
         'district': ref(partner.ff_district_id),
