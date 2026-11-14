@@ -24,12 +24,26 @@ class _CatalogScreenState extends State<CatalogScreen> {
   final _search = TextEditingController();
   Timer? _debounce;
   List<Map<String, dynamic>> _products = [];
-  List<Map<String, dynamic>> _categories = [];
   List<Map<String, dynamic>> _schemes = [];
   int? _categoryId;
 
-  /// The price group chosen: null is All, otherwise the MRP the products carry.
-  num? _mrpTab;
+  /// The active MRP master (e.g. Pricelist A, Pricelist B).
+  int? _selectedMrpId;
+  String? _selectedMrpName;
+  List<Map<String, dynamic>> _mrpOptions = [];
+
+  int? _clientMrpId() {
+    final c = widget.client;
+    if (c == null) return null;
+    if (c['mrp_id'] is num) return (c['mrp_id'] as num).toInt();
+    if (c['mrp'] is Map && c['mrp']['id'] is num) return (c['mrp']['id'] as num).toInt();
+    final comm = c['commercials'];
+    if (comm is Map) {
+      if (comm['mrp_id'] is num) return (comm['mrp_id'] as num).toInt();
+      if (comm['mrp'] is Map && comm['mrp']['id'] is num) return (comm['mrp']['id'] as num).toInt();
+    }
+    return null;
+  }
   final Map<int, double> _cart = {};
   final Map<int, double> _freeQ = {};
   // Which of the two quantity tabs is open: false is Order Qty, true is Free Qty.
@@ -62,12 +76,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
   Future<void> _init() async {
     _base = await Services.api.url('');
     _headers = await Services.api.authHeaders();
-    try {
-      final categories = await Services.api.get('/api/v1/products/categories') as List;
-      _categories = categories.cast<Map<String, dynamic>>();
-    } catch (_) {
-      // Category chips are optional.
-    }
+
     try {
       final foc = await Services.api.get('/api/v1/foc/schemes',
           query: {if (widget.client != null) 'partner_id': widget.client!['id']}) as Map<String, dynamic>;
@@ -75,6 +84,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     } catch (_) {
       // No FOC module: no badges.
     }
+    _selectedMrpId = _clientMrpId();
     await _load();
   }
 
@@ -97,16 +107,20 @@ class _CatalogScreenState extends State<CatalogScreen> {
         if (q.isNotEmpty) 'q': q,
         if (_categoryId != null) 'category_id': _categoryId,
         if (widget.client != null) 'partner_id': widget.client!['id'],
+        if (_selectedMrpId != null) 'mrp_id': _selectedMrpId,
       }) as Map<String, dynamic>;
       final products = (data['products'] as List).cast<Map<String, dynamic>>();
       for (final p in products) {
         _known[p['id'] as int] = p;
       }
-      final shown = _mrpTab == null
-          ? products
-          : products.where((p) => ((p['mrp'] as num?) ?? 0) == _mrpTab).toList();
+      final opts = ((data['mrp_options'] as List?) ?? []).cast<Map<String, dynamic>>();
+      final serverMrpId = (data['selected_mrp_id'] as num?)?.toInt();
+      final serverMrpName = data['selected_mrp_name'] as String?;
       setState(() {
-        _products = shown;
+        _mrpOptions = opts;
+        _selectedMrpId = _selectedMrpId ?? serverMrpId ?? (_mrpOptions.isNotEmpty ? (_mrpOptions.first['id'] as int) : null);
+        _selectedMrpName = serverMrpName ?? _mrpOptions.firstWhere((o) => o['id'] == _selectedMrpId, orElse: () => {})['name'];
+        _products = products;
         _commercials = Commercials.of(data, widget.client);
       });
     } catch (e) {
@@ -379,26 +393,26 @@ class _CatalogScreenState extends State<CatalogScreen> {
         ),
       );
 
-  /// All, then one tab for each price the products carry (for example 149 and 179).
+  /// One tab for each MRP master record (e.g. Pricelist A, Pricelist B). No "All" filter.
   Widget _chips() {
-    final prices = <num>{
-      for (final p in _known.values)
-        if (((p['mrp'] as num?) ?? 0) > 0) p['mrp'] as num,
-    }.toList()
-      ..sort();
-    final tabs = <num?>[null, ...prices];
+    if (_mrpOptions.isEmpty) return const SizedBox.shrink();
     return SizedBox(
       height: 46,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
-          for (final tab in tabs)
+          for (final opt in _mrpOptions)
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: GestureDetector(
                 onTap: () {
-                  setState(() => _mrpTab = tab);
+                  final id = opt['id'] as int;
+                  if (_selectedMrpId == id) return;
+                  setState(() {
+                    _selectedMrpId = id;
+                    _selectedMrpName = opt['name']?.toString();
+                  });
                   _load();
                 },
                 child: AnimatedContainer(
@@ -406,16 +420,19 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    gradient: _mrpTab == tab ? AppColors.brandGradient : null,
-                    color: _mrpTab == tab ? null : Colors.white,
+                    gradient: _selectedMrpId == opt['id'] ? AppColors.brandGradient : null,
+                    color: _selectedMrpId == opt['id'] ? null : Colors.white,
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: _mrpTab == tab ? Colors.transparent : AppColors.border),
+                    border: Border.all(color: _selectedMrpId == opt['id'] ? Colors.transparent : AppColors.border),
                   ),
-                  child: Text(tab == null ? 'All' : '\u20B9${tab % 1 == 0 ? tab.toInt() : tab}',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                          color: _mrpTab == tab ? Colors.white : AppColors.text)),
+                  child: Text(
+                    opt['name']?.toString() ?? '',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      color: _selectedMrpId == opt['id'] ? Colors.white : AppColors.text,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -512,7 +529,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
             'Free quantity',
             'Kept apart from the order. Can go with an order or be the whole PO.',
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              QtyGrid(products: _products, values: _freeQ, onChanged: () => setState(() {})),
+              QtyGrid(products: _products, values: _freeQ, onChanged: () => setState(() {}), subtitleOf: mrpRateLine),
               if (_anyFree) ...[
                 const SizedBox(height: 12),
                 const Text('Free reason *', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
@@ -600,14 +617,14 @@ class _CatalogScreenState extends State<CatalogScreen> {
           if (widget.client != null)
             Text(
                 '${widget.client!['name']}'
-                '${_commercials?.category != null ? ' · ₹${_commercials!.category} category' : ''}',
+                '${_selectedMrpName != null ? ' · $_selectedMrpName' : (_commercials?.mrpName != null ? ' · ${_commercials!.mrpName}' : (_commercials?.category != null ? ' · ₹${_commercials!.category} category' : ''))}',
                 style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
         ]),
       ),
       bottomNavigationBar: widget.client == null ? null : _nextBar(),
       body: Column(children: [
         _searchBar(),
-        if (_categories.isNotEmpty) _chips(),
+        if (_mrpOptions.isNotEmpty) _chips(),
         if (_loading) const LinearProgressIndicator(minHeight: 2),
         if (_error != null) Padding(padding: const EdgeInsets.all(12), child: Text(_error!)),
         Expanded(

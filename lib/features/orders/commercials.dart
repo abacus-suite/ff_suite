@@ -10,21 +10,30 @@ import '../../core/theme.dart';
 /// Read from `commercials` on the products answer or on the outlet:
 /// `{price_category: "149", scheme_per_bottle: 30, margin_percent: 20}`.
 class Commercials {
-  const Commercials({this.category, this.scheme, this.margin});
+  const Commercials({this.category, this.scheme, this.margin, this.mrpId, this.mrpName});
 
   final String? category;
   final num? scheme;
   final num? margin;
+  final int? mrpId;
+  final String? mrpName;
 
-  bool get isEmpty => category == null && scheme == null && margin == null;
+  bool get isEmpty => category == null && scheme == null && margin == null && mrpName == null;
 
   static Commercials? from(dynamic raw) {
     if (raw is! Map) return null;
     num? n(dynamic v) => v is num ? v : num.tryParse('${v ?? ''}');
+    final mrpObj = raw['mrp'];
+    final mrpId = raw['mrp_id'] is num
+        ? (raw['mrp_id'] as num).toInt()
+        : (mrpObj is Map && mrpObj['id'] is num ? (mrpObj['id'] as num).toInt() : null);
+    final mrpName = asText(raw['mrp_name'] ?? (mrpObj is Map ? mrpObj['name'] : null));
     final c = Commercials(
       category: asText(raw['price_category']),
       scheme: n(raw['scheme_per_bottle']),
       margin: n(raw['margin_percent']),
+      mrpId: mrpId,
+      mrpName: mrpName,
     );
     return c.isEmpty ? null : c;
   }
@@ -53,7 +62,8 @@ class CommercialsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = commercials;
     return _Box(title: 'Outlet commercials', rows: [
-      if (c.category != null) ('Price category', '₹${c.category}', null),
+      if (c.mrpName != null) ('MRP Master', c.mrpName!, null)
+      else if (c.category != null) ('Price category', '₹${c.category}', null),
       if (c.scheme != null) ('Scheme', '${_rupees(c.scheme!).replaceAll('.00', '')} per bottle', null),
       if (c.margin != null) ('Margin', '${fmtQty(c.margin!)}%', null),
     ]);
