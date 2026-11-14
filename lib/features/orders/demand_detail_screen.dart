@@ -474,6 +474,7 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
           foregroundColor: AppColors.primary,
         ),
       ),
+      ..._notes(d),
     ]);
   }
 
@@ -575,6 +576,36 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
           ),
       ]),
     );
+  }
+
+  /// The debit and credit notes raised with this demand (sample collection, free goods): each opens its PDF in the
+  /// preview, where it can be downloaded or shared.
+  List<Widget> _notes(Map<String, dynamic> d) {
+    final notes = ((d['notes'] as List?) ?? const []).cast<Map<String, dynamic>>();
+    if (notes.isEmpty) return const [];
+    return [
+      const SizedBox(height: 14),
+      const Text('Debit / Credit Notes', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+      const SizedBox(height: 6),
+      for (final n in notes)
+        Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            dense: true,
+            leading: Icon(n['kind'] == 'credit' ? Icons.south_west_rounded : Icons.north_east_rounded,
+                color: n['kind'] == 'credit' ? AppColors.success : AppColors.warning),
+            title: Text('${n['kind_label'] ?? 'Note'} · ${n['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+            subtitle: Text('${fmtMoney(n['amount'] as num?)}${n['state'] != null ? ' · ${n['state']}' : ''}'),
+            trailing: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary),
+            onTap: () => openPdfPreview(
+              context,
+              title: '${n['kind_label'] ?? 'Note'} ${n['name']}',
+              endpoint: '/api/v1/notes/${n['id']}/pdf',
+              filename: '${n['name']}.pdf',
+            ),
+          ),
+        ),
+    ];
   }
 
   @override
