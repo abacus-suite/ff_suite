@@ -4,6 +4,7 @@ Only customers the employee can see (their Data Access) are included, in the
 company currency, from posted accounting entries.
 """
 from datetime import timedelta
+import re
 import html
 from html import escape
 
