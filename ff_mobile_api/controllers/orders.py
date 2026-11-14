@@ -20,13 +20,34 @@ def product_domain():
     return [('sale_ok', '=', True), ('product_tmpl_id.ff_show_in_app', '=', True)]
 
 
-def product_data(product, partner=None):
-    price = product.product_tmpl_id.ff_ptr or product.lst_price
-    if partner:
+def product_data(product, partner=None, mrp_val=None):
+    if mrp_val is not None:
+        mrp = mrp_val
+    else:
+        mrp = product._ff_partner_mrp(partner) if (partner and hasattr(product, '_ff_partner_mrp')) else (product.product_tmpl_id.ff_mrp or None)
+
+    if mrp_val is not None and partner:
+        if getattr(partner, 'ff_is_distributor', False):
+            pass_total = getattr(request.env['product.product'], '_ff_total_margin', None)
+            total_margin = pass_total(partner) if pass_total else 0.0
+            price = round(mrp * (1.0 - total_margin / 100.0), 2) if total_margin else (product.product_tmpl_id.ff_pts or mrp)
+        else:
+            p = partner.sudo().commercial_partner_id
+            scheme = p.ff_scheme_id.ff_scheme_value() if ('ff_scheme_id' in p._fields and p.ff_scheme_id and hasattr(p.ff_scheme_id, 'ff_scheme_value')) else 0.0
+            margin = (p.ff_margin if 'ff_margin' in p._fields else 0.0) or 0.0
+            if not margin and 'ff_distributor_id' in p._fields and p.ff_distributor_id:
+                pass_through = getattr(request.env['product.product'], '_ff_pass_through_margin', None)
+                margin = pass_through(p.ff_distributor_id.sudo().commercial_partner_id) if pass_through else 0.0
+            if margin or scheme:
+                price = round(max(mrp - scheme, 0.0) * (1.0 - (margin or 0.0) / 100.0), 2)
+            else:
+                price = mrp
+    elif partner:
         # What this customer pays: a distributor its own price, an outlet its own. Margin pricing,
         # when it is switched on, changes both without this code knowing.
         price = product.ff_distributor_price(partner) if getattr(partner, 'ff_is_distributor', False) else product.ff_field_price(partner)
-    mrp = product._ff_partner_mrp(partner) if (partner and hasattr(product, '_ff_partner_mrp')) else (product.product_tmpl_id.ff_mrp or None)
+    else:
+        price = product.product_tmpl_id.ff_ptr or mrp or product.lst_price
     return {
         'id': product.id,
         'name': product.display_name,
@@ -298,7 +319,7 @@ def _order_html(order):
 class FieldForceOrdersApi(http.Controller):
 
     @api_route('/api/v1/products', methods=('GET',))
-    def products(self, employee, q=None, category_id=None, limit=None, offset=None, partner_id=None, **kw):
+    def products(self, employee, q=None, category_id=None, limit=None, offset=None, partner_id=None, mrp_id=None, **kw):
         Product = request.env['product.product'].sudo()
         partner = None
         if partner_id:
@@ -312,6 +333,27 @@ class FieldForceOrdersApi(http.Controller):
                 domain.append(('categ_id', 'child_of', int(category_id)))
             except ValueError:
                 raise ApiError('category_id must be a number.')
+
+        MrpOption = request.env['ff.partner.option'].sudo() if 'ff.partner.option' in request.env else None
+        mrp_options_recs = MrpOption.search([('kind', '=', 'mrp'), ('active', '=', True)], order='sequence, name, id') if MrpOption else []
+        mrp_options = [{'id': o.id, 'name': o.name, 'code': o.code} for o in mrp_options_recs]
+
+        mrp_opt = None
+        if mrp_id and str(mrp_id).isdigit():
+            mrp_opt = mrp_options_recs.filtered(lambda o: o.id == int(mrp_id))[:1]
+        if not mrp_opt and partner:
+            partner_mrp = getattr(partner.sudo().commercial_partner_id, 'ff_mrp_id', None)
+            if partner_mrp and partner_mrp in mrp_options_recs:
+                mrp_opt = partner_mrp
+        if not mrp_opt and mrp_options_recs:
+            mrp_opt = mrp_options_recs[:1]
+
+        mrp_lines_map = {}
+        if mrp_opt:
+            lines = mrp_opt.line_ids.filtered(lambda l: l.product_id and l.product_id.active and l.product_id.sale_ok)
+            mrp_lines_map = {l.product_id.id: l.mrp for l in lines}
+            domain.append(('id', 'in', list(mrp_lines_map.keys())))
+
         try:
             limit = min(int(limit or 100), MAX_LIMIT)
             offset = max(int(offset or 0), 0)
@@ -319,8 +361,15 @@ class FieldForceOrdersApi(http.Controller):
             raise ApiError('limit and offset must be numbers.')
         commercials = partner_commercials(partner) if partner and not getattr(partner, 'ff_is_distributor', False) else None
         products = Product.search(domain, order='name', limit=limit, offset=offset)
-        rows = [product_data(p, partner) for p in products]
-        return ok({'total': Product.search_count(domain), 'commercials': commercials, 'products': rows})
+        rows = [product_data(p, partner, mrp_val=mrp_lines_map.get(p.id) if mrp_opt else None) for p in products]
+        return ok({
+            'total': Product.search_count(domain),
+            'commercials': commercials,
+            'products': rows,
+            'mrp_options': mrp_options,
+            'selected_mrp_id': mrp_opt.id if mrp_opt else None,
+            'selected_mrp_name': mrp_opt.name if mrp_opt else None,
+        })
 
     @api_route('/api/v1/products/categories', methods=('GET',))
     def categories(self, employee, **kw):

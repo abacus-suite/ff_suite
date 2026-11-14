@@ -18,10 +18,17 @@ def partner_commercials(partner):
     if not margin and 'ff_distributor_id' in p._fields and p.ff_distributor_id:
         pass_through = getattr(p.env['product.product'], '_ff_pass_through_margin', None)
         margin = pass_through(p.ff_distributor_id.sudo().commercial_partner_id) if pass_through else 0.0
-    if not (category or scheme or margin):
+    mrp_opt = p.ff_mrp_id if 'ff_mrp_id' in p._fields and p.ff_mrp_id else None
+    if not (category or scheme or margin or mrp_opt):
         return None
-    return {'price_category': category or None, 'scheme_per_bottle': scheme or None,
-            'margin_percent': margin or None}
+    return {
+        'price_category': category or None,
+        'scheme_per_bottle': scheme or None,
+        'margin_percent': margin or None,
+        'mrp': ref(mrp_opt) if mrp_opt else None,
+        'mrp_id': mrp_opt.id if mrp_opt else None,
+        'mrp_name': mrp_opt.name if mrp_opt else None,
+    }
 
 
 def has_location(partner):
@@ -123,6 +130,9 @@ def client_data(partner, lat=None, lng=None):
         'territories': [ref(t) for t in territories],
         'assigned_to': [ref(person) for person in partner.ff_employee_ids[:3]],
         'gst': partner.vat or None,
+        'mrp': ref(partner.ff_mrp_id) if ('ff_mrp_id' in partner._fields and partner.ff_mrp_id) else None,
+        'mrp_id': partner.ff_mrp_id.id if ('ff_mrp_id' in partner._fields and partner.ff_mrp_id) else None,
+        'mrp_name': partner.ff_mrp_id.name if ('ff_mrp_id' in partner._fields and partner.ff_mrp_id) else None,
         'commercials': partner_commercials(partner) if getattr(partner, 'ff_category_type', None) == 'outlet' else None,
         'onboard_pending': getattr(partner, 'ff_status', None) == 'onboard_pending',
         'onboarded': getattr(partner, 'ff_status', None) == 'onboarded',
