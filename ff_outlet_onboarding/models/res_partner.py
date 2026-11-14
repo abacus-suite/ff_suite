@@ -48,6 +48,11 @@ class ResPartner(models.Model):
     ff_delivery_address = fields.Text(string='Delivery Address',
                                       help='Only when the delivery address is not the billing address.')
     ff_delivery_zip = fields.Char(string='Delivery PIN Code')
+    ff_delivery_region_id = fields.Many2one('ff.team', string='Delivery Region')
+    ff_delivery_district_id = fields.Many2one('ff.district', string='Delivery District / Territory')
+    ff_delivery_area_id = fields.Many2one('ff.area', string='Delivery Area')
+    ff_delivery_door_no = fields.Char(string='Delivery Door Number')
+    ff_delivery_street_name = fields.Char(string='Delivery Street Name')
     ff_has_gst = fields.Boolean(string='GST Available', default=True,
                                 help='Off for an outlet with no GST: then no GSTIN is asked for.')
     ff_swiggy_zomato = fields.Boolean(string='Swiggy / Zomato Outlet')
@@ -233,6 +238,11 @@ class ResPartner(models.Model):
             'delivery_same': bool(partner.ff_delivery_same_billing),
             'delivery_address': partner.ff_delivery_address or None,
             'delivery_zip': partner.ff_delivery_zip or None,
+            'delivery_region_id': partner.ff_delivery_region_id.id or None,
+            'delivery_territory_id': partner.ff_delivery_district_id.id or None,
+            'delivery_area_id': partner.ff_delivery_area_id.id or None,
+            'delivery_door': partner.ff_delivery_door_no or None,
+            'delivery_street': partner.ff_delivery_street_name or None,
             'poc_name': partner.ff_poc_name or None,
             'poc_phone': partner.ff_poc_phone or None,
             'poc_email': partner.ff_poc_email or None,
@@ -352,6 +362,8 @@ class ResPartner(models.Model):
             # A delivery address of its own is kept only when it is not the billing address.
             'ff_delivery_address': False if flag('delivery_same') else text('delivery_address'),
             'ff_delivery_zip': False if flag('delivery_same') else text('delivery_zip'),
+            'ff_delivery_door_no': False if flag('delivery_same') else text('delivery_door'),
+            'ff_delivery_street_name': False if flag('delivery_same') else text('delivery_street'),
             'ff_billing_address': text('billing_address'),
             'ff_poc_name': text('poc_name'), 'ff_poc_phone': text('poc_phone'), 'ff_poc_email': text('poc_email'),
             'ff_risk_level': data.get('risk_level') or 'low',
@@ -386,6 +398,25 @@ class ResPartner(models.Model):
             int(data.get('territory_id') or data.get('district_id') or 0)).exists() if 'ff.district' in self.env else None
         if district and 'ff_district_id' in Partner._fields:
             values['ff_district_id'] = district.id
+        # The delivery address: the same details as the billing address when it is the same, else the ones entered.
+        same = flag('delivery_same')
+
+        def pick(model, key):
+            return self.env[model].sudo().browse(int(data.get(key) or 0)).exists() if model in self.env else None
+        if same:
+            values.update({
+                'ff_delivery_address': text('billing_address'), 'ff_delivery_zip': text('zip'),
+                'ff_delivery_door_no': text('door_no'), 'ff_delivery_street_name': text('street_name'),
+                'ff_delivery_region_id': pick('ff.team', 'region_id').id or False,
+                'ff_delivery_district_id': pick('ff.district', 'territory_id').id or pick('ff.district', 'district_id').id or False,
+                'ff_delivery_area_id': pick('ff.area', 'area_id').id or False,
+            })
+        else:
+            values.update({
+                'ff_delivery_region_id': pick('ff.team', 'delivery_region_id').id or False,
+                'ff_delivery_district_id': pick('ff.district', 'delivery_territory_id').id or False,
+                'ff_delivery_area_id': pick('ff.area', 'delivery_area_id').id or False,
+            })
         area = self.env['ff.area'].sudo().browse(int(data.get('area_id') or 0)).exists() if 'ff.area' in self.env else None
         if area and 'ff_area_id' in Partner._fields:
             values['ff_area_id'] = area.id

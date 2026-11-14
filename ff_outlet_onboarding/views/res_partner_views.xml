@@ -39,14 +39,30 @@
                         <field name="ff_chiller_model_id" invisible="not ff_has_chiller" options="{'no_create': True}"/>
                     </group>
                 </group>
+                <group string="Billing Address" invisible="not ff_is_client">
+                    <group>
+                        <field name="ff_billing_address" string="Address"/>
+                        <field name="zip" string="PIN Code"/>
+                        <field name="ff_team_ids" string="Region" widget="many2many_tags" options="{'no_create': True}"/>
+                        <field name="ff_district_id" string="Territory / District" options="{'no_create': True}"/>
+                        <field name="ff_area_id" string="Area" options="{'no_create': True}"/>
+                        <field name="ff_door_no" string="Door Number"/>
+                        <field name="ff_street_name" string="Street Name"/>
+                    </group>
+                </group>
                 <group string="Delivery Address" invisible="not ff_is_client">
                     <group>
                         <field name="ff_delivery_same_billing"/>
-                        <field name="ff_delivery_address" invisible="ff_delivery_same_billing"/>
-                        <field name="ff_delivery_zip" invisible="ff_delivery_same_billing"/>
-                        <field name="ff_door_no"/>
-                        <field name="ff_street_name"/>
-                        <field name="ff_area_id" options="{'no_create': True}"/>
+                        <field name="ff_delivery_address" string="Address" invisible="ff_delivery_same_billing"/>
+                        <field name="ff_delivery_zip" string="PIN Code" invisible="ff_delivery_same_billing"/>
+                        <field name="ff_delivery_region_id" string="Region" invisible="ff_delivery_same_billing"
+                               options="{'no_create': True}"/>
+                        <field name="ff_delivery_district_id" string="Territory / District" invisible="ff_delivery_same_billing"
+                               options="{'no_create': True}"/>
+                        <field name="ff_delivery_area_id" string="Area" invisible="ff_delivery_same_billing"
+                               options="{'no_create': True}"/>
+                        <field name="ff_delivery_door_no" string="Door Number" invisible="ff_delivery_same_billing"/>
+                        <field name="ff_delivery_street_name" string="Street Name" invisible="ff_delivery_same_billing"/>
                     </group>
                     <group>
                         <field name="ff_district_id" string="District / Territory" options="{'no_create': True}"/>
