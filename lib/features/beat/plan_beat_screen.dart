@@ -290,8 +290,26 @@ class _PlanBeatScreenState extends State<PlanBeatScreen> {
         final picked = {...chosenIds};
         return StatefulBuilder(builder: (context, setSheet) {
           final q = query.trim().toLowerCase();
-          // A beat waiting for approval (new or edited) is not offered for planning until it is approved.
-          final usable = _routes.where((r) => r['approval_state'] != 'pending').toList();
+          final weekday = _date.weekday - 1;
+          final dayText = fmtDate(_date);
+
+          bool canPlan(Map<String, dynamic> r) {
+            if (r['approval_state'] == 'pending') return false;
+            final schedule = '${r['schedule'] ?? 'recurrent'}';
+            if (schedule == 'one_time') {
+              final exp = (r['expires'] ?? r['date'])?.toString();
+              if (exp != null && exp.isNotEmpty) {
+                return dayText.compareTo(exp) <= 0;
+              }
+              return true;
+            }
+            final days = [for (final x in (r['weekdays'] as List?) ?? const []) (x as num).toInt()];
+            if (days.isEmpty) return true;
+            return days.contains(weekday);
+          }
+
+          final usable = _routes.where(canPlan).toList()
+            ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
           final shown = q.isEmpty
               ? usable
               : usable.where((r) => '${r['name']} ${r['city'] ?? ''}'.toLowerCase().contains(q)).toList();

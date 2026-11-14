@@ -693,7 +693,7 @@ class _BeatDayScreenState extends State<BeatDayScreen> {
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         if (_dirty && !await _confirmDiscard()) return;
-        if (mounted) Navigator.of(context).pop(_saved);
+        if (context.mounted) Navigator.of(context).pop(_saved);
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
@@ -815,28 +815,33 @@ class _AddExistingBeatScreenState extends State<AddExistingBeatScreen> {
     final d = widget.day;
     final date = '${d.day.toString().padLeft(2, '0')} ${_months[d.month - 1]} ${d.year}';
     final needle = _search.text.trim().toLowerCase();
-    final beats = [
-      for (final r in widget.routes)
-        // Only approved beats can be planned: one waiting for approval (new or edited) is not listed.
-        if (r['approval_state'] != 'pending' &&
-            (needle.isEmpty || '${r['name']} ${r['city'] ?? ''}'.toLowerCase().contains(needle))) r,
-    ];
-    // The order to choose from: 1) recurrent beats that repeat on this day (and a one-time beat for this very day),
-    // 2) other recurrent beats that repeat on other days, 3) recurrent beats with no fixed days (Repeat: No), and
-    // last any other one-time beat. Each group A to Z.
     final weekday = d.weekday - 1;
     final dayText = fmtDate(d);
-    int rank(Map<String, dynamic> r) {
+
+    bool canPlan(Map<String, dynamic> r) {
+      if (r['approval_state'] == 'pending') return false;
+      final schedule = '${r['schedule'] ?? 'recurrent'}';
+      if (schedule == 'one_time') {
+        final exp = (r['expires'] ?? r['date'])?.toString();
+        if (exp != null && exp.isNotEmpty) {
+          // Can be planned on all days up till its expire date
+          return dayText.compareTo(exp) <= 0;
+        }
+        return true;
+      }
+      // Recurrent: only show if repeat mode is enabled and this weekday is selected
       final days = [for (final x in (r['weekdays'] as List?) ?? const []) (x as num).toInt()];
-      if ('${r['schedule']}' == 'one_time') return '${r['date']}' == dayText ? 0 : 3;
-      if (days.contains(weekday)) return 0;
-      return days.isNotEmpty ? 1 : 2;
+      if (days.isEmpty) return true;
+      return days.contains(weekday);
     }
 
-    beats.sort((a, b) {
-      final byRank = rank(a).compareTo(rank(b));
-      return byRank != 0 ? byRank : '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase());
-    });
+    final beats = [
+      for (final r in widget.routes)
+        if (canPlan(r) &&
+            (needle.isEmpty || '${r['name']} ${r['city'] ?? ''}'.toLowerCase().contains(needle))) r,
+    ];
+
+    beats.sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
     final outletCount = _chosen.values.fold<int>(0, (sum, s) => sum + s.length);
     return Scaffold(
       backgroundColor: AppColors.background,

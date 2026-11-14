@@ -171,9 +171,29 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
         return StatefulBuilder(
           builder: (context, setSheet) {
             final q = query.trim().toLowerCase();
+            final weekday = _date.weekday - 1;
+            final dayText = fmtDate(_date);
+
+            bool canPlan(Map<String, dynamic> r) {
+              if (r['approval_state'] == 'pending') return false;
+              final schedule = '${r['schedule'] ?? 'recurrent'}';
+              if (schedule == 'one_time') {
+                final exp = (r['expires'] ?? r['date'])?.toString();
+                if (exp != null && exp.isNotEmpty) {
+                  return dayText.compareTo(exp) <= 0;
+                }
+                return true;
+              }
+              final days = [for (final x in (r['weekdays'] as List?) ?? const []) (x as num).toInt()];
+              if (days.isEmpty) return true;
+              return days.contains(weekday);
+            }
+
+            final usable = _routes.where(canPlan).toList()
+              ..sort((a, b) => '${a['name']}'.toLowerCase().compareTo('${b['name']}'.toLowerCase()));
             final shown = q.isEmpty
-                ? _routes
-                : _routes
+                ? usable
+                : usable
                     .where((r) => '${r['name']} ${r['route_type'] ?? ''} ${r['city'] ?? ''}'.toLowerCase().contains(q))
                     .toList();
             return SizedBox(
@@ -284,7 +304,7 @@ class _PlanDayScreenState extends State<PlanDayScreen> {
                           if (_loadingCustomers)
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 24),
-                              child: const LoadingView(),
+                              child: LoadingView(),
                             )
                           else if (_route != null)
                             SectionCard(
