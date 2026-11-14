@@ -106,26 +106,18 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     }
   }
 
-  /// "Week 28 Sep – 04 Oct: send by Mon 05 Oct, 10:00 am – then auto-rejected." for the first deadline of an
-  /// unsent expense. The deadline is the Monday 10:00 am after the week, so the week is the seven days before it.
-  String? get _deadline {
-    final dates = _claims
-        .where((c) => c['state'] == 'draft' && c['send_deadline'] != null)
-        .map((c) => parseServerTime(c['send_deadline']))
-        .whereType<DateTime>()
-        .map((d) => d.toLocal())
-        .toList()
-      ..sort();
-    if (dates.isEmpty) return null;
-    final d = dates.first;
+  /// Deadline reminder based on the current active week:
+  /// e.g. "Week 09 Nov – 15 Nov: send by Mon 16 Nov, 10:00 am – then auto-rejected."
+  String get _deadline {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final weekStart = today.subtract(Duration(days: now.weekday - 1));
+    final weekEnd = weekStart.add(const Duration(days: 6));
+    final nextMonday = weekStart.add(const Duration(days: 7));
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     String day(DateTime x) => '${x.day.toString().padLeft(2, '0')} ${monthNames[x.month - 1].substring(0, 3)}';
-    final deadlineDay = DateTime(d.year, d.month, d.day);
-    final weekStart = deadlineDay.subtract(const Duration(days: 7));
-    final weekEnd = deadlineDay.subtract(const Duration(days: 1));
-    final hour = d.hour % 12 == 0 ? 12 : d.hour % 12;
-    return 'Week ${day(weekStart)} – ${day(weekEnd)}: send by ${days[d.weekday - 1]} ${day(d)}, '
-        '$hour:${d.minute.toString().padLeft(2, '0')} ${d.hour < 12 ? 'am' : 'pm'} – then auto-rejected.';
+    return 'Week ${day(weekStart)} – ${day(weekEnd)}: send by ${days[nextMonday.weekday - 1]} ${day(nextMonday)}, '
+        '10:00 am – then auto-rejected.';
   }
 
   (Color, String) _style(String state) => switch (state) {
@@ -216,7 +208,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     final currency = data?['currency'] as String?;
     final now = DateTime.now();
     final isCurrent = _month.year == now.year && _month.month == now.month;
-    final deadline = widget.kind == 'claim' ? _deadline : null;
+    final deadline = widget.kind == 'claim' && isCurrent ? _deadline : null;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
