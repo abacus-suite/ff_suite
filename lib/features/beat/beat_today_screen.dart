@@ -241,10 +241,10 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     if (_isToday) return _todayContent(plans, clients, adhoc, label);
     return [
       _statBoxes(plans),
+      _filters(plans),
       if (plans.isEmpty)
         EmptyView(icon: Icons.event_busy_rounded,
             text: 'No $label planned for this day.\nUse "Add a Visit" to visit anyone.'),
-      _filters(plans),
       if (clients.isEmpty && _filter != 'all')
         const EmptyView(icon: Icons.filter_alt_off_rounded, text: 'Nothing in this group.'),
       if (clients.isNotEmpty) ...[
@@ -319,10 +319,10 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     return [
       _tabSwitch(),
       if (_tab == 1) ..._completedTasks() else ...[
+      _filters(plans),
       if (plans.isEmpty && rows.isEmpty && _filter == 'all')
         EmptyView(icon: Icons.event_busy_rounded,
             text: 'No $label planned for this day.\nUse "Add a Visit" to visit anyone.'),
-      _filters(plans),
       if (rows.isEmpty && _filter != 'all')
         const EmptyView(icon: Icons.filter_alt_off_rounded, text: 'Nothing in this group.'),
       if (rows.isNotEmpty) ...[
