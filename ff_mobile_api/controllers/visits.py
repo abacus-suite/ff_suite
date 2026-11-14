@@ -150,6 +150,7 @@ class FieldForceVisitsApi(http.Controller):
             rows.append(row)
 
         planned_partners = lines.partner_id
+        planned_partner_ids = set(planned_partners.ids)
         ongoing = visits.filtered(lambda v: v.state == 'ongoing')[:1]
         # The tasks done today: unplanned completed tasks count as extra visits towards planned & visited
         tasks = []
@@ -158,23 +159,28 @@ class FieldForceVisitsApi(http.Controller):
             for log in request.env['ff.task.log'].sudo().search([
                     ('employee_id', '=', employee.id), ('date', '>=', low), ('date', '<', high)], order='date asc'):
                 is_onsite = bool(log.visit_id and log.visit_id.visit_type == 'onsite')
-                is_planned_partner = bool(log.partner_id and log.partner_id in planned_partners)
-                # Unplanned if completed offsite or at a contact not in today's planned beat
-                is_unplanned = not (is_onsite and is_planned_partner)
+                # A task is planned if it is performed for a contact planned on today's beat
+                is_planned = bool(log.partner_id and log.partner_id.id in planned_partner_ids)
+                is_unplanned = not is_planned
+                cat_type = getattr(log.partner_id, 'ff_category_type', '') or 'outlet' if log.partner_id else None
                 tasks.append({
                     'id': log.id,
                     'time': to_iso(log.date),
                     'partner_id': log.partner_id.id or None,
-                    'customer': log.partner_id.display_name or '',
+                    'customer': log.partner_id.display_name or (log.partner_id.name if log.partner_id else 'No customer'),
                     'task': log.task_type_id.name or '',
                     'visit_type': 'Onsite' if is_onsite else 'Offsite',
+                    'category_type': cat_type,
+                    'is_planned': is_planned,
                     'is_unplanned': is_unplanned,
                 })
         unplanned_count = sum(1 for t in tasks if t['is_unplanned'])
+        planned_task_count = sum(1 for t in tasks if t['is_planned'])
         return ok({
             'tasks': tasks,
             'tasks_done': unplanned_count,
             'tasks_unplanned': unplanned_count,
+            'tasks_planned': planned_task_count,
             'tasks_total': len(tasks),
             'tasks_onsite': sum(1 for t in tasks if t['visit_type'] == 'Onsite'),
             'date': day.isoformat(),
