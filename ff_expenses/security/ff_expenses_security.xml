@@ -15,6 +15,7 @@
     <record id="group_ff_expense_account_approver" model="res.groups">
         <field name="name">Expense account approver</field>
         <field name="comment">Can review and approve/pay expense payment requests in Accounting.</field>
+        <field name="users" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
         <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
     </record>
     <record id="base.group_system" model="res.groups">

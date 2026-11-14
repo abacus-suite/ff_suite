@@ -5,7 +5,7 @@
     'summary': 'Field expense claims with receipt photos, expense types per department and manager approval',
     'author': 'Field Force Suite',
     # Depends on the API (not the other way round) so installing it never takes the API offline.
-    'depends': ['ff_mobile_api', 'account'],
+    'depends': ['ff_mobile_api', 'account', 'account_accountant'],
     'data': [
         'security/ff_expenses_security.xml',
         'security/ir.model.access.csv',

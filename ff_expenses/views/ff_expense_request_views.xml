@@ -99,8 +99,9 @@
 
     <menuitem id="menu_ff_expense_requests" name="Expense Payment Requests"
               parent="ff_base.menu_ff_section_claims" action="ff_expense_request_action" sequence="30"/>
+    <!-- Accounting / Pending Requests (before Configuration at sequence 100) -->
     <menuitem id="menu_account_pending_requests" name="Pending Requests"
-              parent="account.menu_finance" sequence="14"
+              parent="account_accountant.menu_accounting" sequence="90"
               action="ff_expense_request_action"
               groups="ff_expenses.group_ff_expense_account_approver"/>
     <menuitem id="menu_account_expense_requests" name="Expense Payment Requests"
