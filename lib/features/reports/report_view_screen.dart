@@ -781,7 +781,8 @@ class _ReportViewScreenState extends State<ReportViewScreen> {
                       style: const TextStyle(
                           color: AppColors.muted, fontSize: 12.5)),
                 ),
-                if (widget.canTeam)
+                // Only in Manager Mode: in employee mode (a manager too) the report is the person's own.
+                if (widget.canTeam && Services.managerMode.value)
                   ActionChip(
                     avatar: const Icon(Icons.people_alt_rounded,
                         size: 16, color: AppColors.primary),
