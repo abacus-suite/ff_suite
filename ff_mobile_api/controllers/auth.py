@@ -32,6 +32,19 @@ class FieldForceAuthApi(http.Controller):
         if not employee:
             request.env.cr.commit()  # keep the failed-attempt counter despite the error response
             raise ApiError('Invalid login or password.', 401, 'invalid_credentials')
+        # One phone at a time: when the same user is signed in on another device, the person is asked first; with
+        # ``force_login`` the other devices are signed out and this one continues.
+        Token = request.env['ff.app.token'].sudo()
+        others = Token.search([('employee_id', '=', employee.id), ('device_uid', '!=', device_uid),
+                               ('expires_at', '>', fields.Datetime.now())])
+        if others:
+            if not data.get('force_login'):
+                raise ApiError('%s is already signed in on another device (%s). Log it out there and continue here?' % (
+                    employee.name, others[:1].name or 'another phone'), 409, 'already_logged_in')
+            others.unlink()
+            request.env['ff.device'].sudo().search([
+                ('employee_id', '=', employee.id), ('device_uid', '!=', device_uid)]).write(
+                {'fcm_token': False, 'active': False})
         token, expires_at = request.env['ff.app.token'].ff_issue(employee, device_uid, data.get('device_name'))
         request.env['ff.device'].ff_register(employee, _device_vals(data))
         return ok({
