@@ -31,11 +31,11 @@
             <form>
                 <header>
                     <button name="action_mark_paid" type="object" string="Mark as Paid" class="btn-primary"
-                            invisible="state != 'requested'" groups="ff_base.group_ff_manager"/>
+                            invisible="state != 'requested'" groups="ff_base.group_ff_manager,account.group_account_invoice"/>
                     <button name="action_reject" type="object" string="Reject"
-                            invisible="state != 'requested'" groups="ff_base.group_ff_manager"/>
+                            invisible="state != 'requested'" groups="ff_base.group_ff_manager,account.group_account_invoice"/>
                     <button name="action_reset" type="object" string="Back to Accounts"
-                            invisible="state != 'rejected'" groups="ff_base.group_ff_manager"/>
+                            invisible="state != 'rejected'" groups="ff_base.group_ff_manager,account.group_account_invoice"/>
                     <field name="state" widget="statusbar" statusbar_visible="requested,invoice_pending,completed"/>
                 </header>
                 <sheet>
@@ -97,6 +97,8 @@
 
     <menuitem id="menu_ff_expense_requests" name="Expense Payment Requests"
               parent="ff_base.menu_ff_section_claims" action="ff_expense_request_action" sequence="30"/>
+    <menuitem id="menu_account_expense_requests" name="Expense Payment Requests"
+              parent="account.menu_finance_entries" action="ff_expense_request_action" sequence="50"/>
 
     <record id="ir_cron_ff_expense_request_remind" model="ir.cron">
         <field name="name">Field Force: remind about tax invoices still to be uploaded</field>
