@@ -134,6 +134,8 @@ def client_data(partner, lat=None, lng=None):
         'area_master': ref(partner.ff_area_id) if 'ff_area_id' in partner._fields and partner.ff_area_id else None,
         'zip': partner.zip or None,
         'street': partner.street or None,
+        'door_no': getattr(partner, 'ff_door_no', None) or None,
+        'street_name': getattr(partner, 'ff_street_name', None) or None,
         'distance_m': int(haversine_m(lat, lng, partner.partner_latitude, partner.partner_longitude))
         if located and lat is not None and lng is not None else None,
     }

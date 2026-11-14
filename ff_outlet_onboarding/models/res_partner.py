@@ -227,6 +227,8 @@ class ResPartner(models.Model):
             'status': partner.ff_status or None,
             'onboarded_date': partner.ff_onboarded_date.isoformat() if partner.ff_onboarded_date else None,
             'gst_name': partner.ff_gst_name or None,
+            'door_no': partner.ff_door_no or None,
+            'street_name': partner.ff_street_name or None,
             'billing_address': partner.ff_billing_address or None,
             'delivery_same': bool(partner.ff_delivery_same_billing),
             'delivery_address': partner.ff_delivery_address or None,
@@ -272,6 +274,8 @@ class ResPartner(models.Model):
                 values[field] = (data.get(key) or '').strip() or False
 
         text('gst_name', 'ff_gst_name')
+        text('door_no', 'ff_door_no')
+        text('street_name', 'ff_street_name')
         text('billing_address', 'ff_billing_address')
         for key in ('poc', 'accounts_poc'):
             text(key + '_name', 'ff_' + key + '_name')

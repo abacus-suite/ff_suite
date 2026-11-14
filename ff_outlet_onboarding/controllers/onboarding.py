@@ -87,7 +87,8 @@ class FieldForceOnboardingApi(http.Controller):
         return ok({'status': data.get('status'), 'state': data.get('state'), 'taxpayer_type': data.get('taxpayer_type'),
                    'name': name, 'legal_name': data.get('lgnm') or data.get('legal_name'),
                    'pin': str(pin or ''), 'address': street or data.get('address') or '',
-                   'door': ', '.join(x for x in (address.get('bno'), address.get('bnm')) if x)})
+                   'door': ', '.join(x for x in (address.get('bno'), address.get('bnm')) if x),
+                   'street_name': address.get('st') or ''})
 
     @api_route('/api/v1/geo/pincode', methods=('GET',))
     def pincode(self, employee, pin=None, **kw):
