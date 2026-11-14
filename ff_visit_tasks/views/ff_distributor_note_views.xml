@@ -142,4 +142,26 @@
         <field name="state">code</field>
         <field name="code">records.action_sync_stock_moves()</field>
     </record>
+    <record id="ff_demand_view_form_notes" model="ir.ui.view">
+        <field name="name">ff.demand.form.notes</field>
+        <field name="model">ff.demand</field>
+        <field name="inherit_id" ref="ff_demand.ff_demand_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <notebook>
+                    <page string="Debit / Credit Notes" name="ff_notes" invisible="not ff_note_ids">
+                        <field name="ff_note_ids">
+                            <list>
+                                <field name="name"/>
+                                <field name="kind"/>
+                                <field name="date"/>
+                                <field name="amount"/>
+                                <field name="state"/>
+                            </list>
+                        </field>
+                    </page>
+                </notebook>
+            </xpath>
+        </field>
+    </record>
 </odoo>

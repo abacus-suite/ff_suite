@@ -9,5 +9,6 @@ from . import ff_beat_plan
 from . import ff_visit
 from . import ff_task_summary
 from . import ff_demand_foc_note
+from . import ff_demand_notes
 from . import res_config_settings
 from . import stock_location
