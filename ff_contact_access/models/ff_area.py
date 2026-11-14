@@ -13,6 +13,8 @@ class FfArea(models.Model):
     territory_id = fields.Many2one('ff.territory', string='City / Town', required=True, index=True, ondelete='cascade')
     district_id = fields.Many2one(related='territory_id.district_id', string='District / Territory', store=True, index=True)
     active = fields.Boolean(default=True)
+    api_created = fields.Boolean(string='Created from PIN code', readonly=True, copy=False,
+                                 help='Made automatically from a PIN code lookup: to be checked by the office.')
     contact_count = fields.Integer(compute='_compute_contact_count')
 
     _name_territory_uniq = models.Constraint(

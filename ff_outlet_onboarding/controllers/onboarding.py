@@ -114,8 +114,15 @@ class FieldForceOnboardingApi(http.Controller):
                     out.append(value)
             return sorted(out, key=str.lower)
 
+        masters = request.env['ff.pincode.resolver'].sudo().ff_resolve(code)
         return ok({
             'found': True,
+            # The masters made or found for this PIN code: the app's Territory is the district, and each area names its
+            # City / Town; a PIN code with two localities gives two areas to choose from.
+            'district_id': masters['district'].id or None,
+            'city_ids': masters['cities'].ids,
+            'area_options': [{'id': a.id, 'name': a.name, 'town': a.territory_id.name, 'city_id': a.territory_id.id}
+                             for a in masters['areas']],
             'state': offices[0].get('State'),
             'district': offices[0].get('District'),
             # The towns and the post-office areas to choose from.

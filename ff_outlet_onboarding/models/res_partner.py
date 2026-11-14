@@ -157,6 +157,31 @@ class ResPartner(models.Model):
         if (email_required or email) and (not email or not EMAIL.match(email.strip())):
             missing.append('%s email' % label)
 
+    @api.model
+    def ff_map_from_pincode(self, limit=100):
+        """Existing contacts: from their PIN code, make the masters (flagged ``api_created``) and map the contact to
+        its District / Territory and City / Town; the Area only when the PIN code has one locality. Run in batches."""
+        resolver = self.env['ff.pincode.resolver']
+        domain = [('ff_is_client', '=', True), ('zip', '!=', False), '|', ('ff_district_id', '=', False),
+                  ('ff_area_id', '=', False)]
+        done = 0
+        for partner in self.sudo().search(domain, limit=limit, order='id'):
+            masters = resolver.ff_resolve(partner.zip)
+            if not masters['district']:
+                continue
+            vals = {}
+            if not partner.ff_district_id:
+                vals['ff_district_id'] = masters['district'].id
+            if not partner.ff_territory_id and len(masters['cities']) == 1:
+                vals['ff_territory_id'] = masters['cities'].id
+            if not partner.ff_area_id and len(masters['areas']) == 1:
+                vals['ff_area_id'] = masters['areas'].id
+                vals.setdefault('ff_territory_id', masters['areas'].territory_id.id)
+            if vals:
+                partner.write(vals)
+                done += 1
+        return done
+
     @staticmethod
     def _ff_digits(number):
         """A phone number as its last ten digits, so +91 98765 43210 and 9876543210 are the same number."""

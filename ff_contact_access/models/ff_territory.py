@@ -9,6 +9,8 @@ class FfTerritory(models.Model):
 
     name = fields.Char(required=True)
     code = fields.Char()
+    api_created = fields.Boolean(string='Created from PIN code', readonly=True, copy=False,
+                                 help='Made automatically from a PIN code lookup: to be checked by the office.')
     district_id = fields.Many2one('ff.district', string='District / Territory', index=True)
     team_id = fields.Many2one(related='district_id.team_id', string='Region', store=True, readonly=True)
     state_id = fields.Many2one(related='district_id.state_id', string='State', store=True, readonly=True)

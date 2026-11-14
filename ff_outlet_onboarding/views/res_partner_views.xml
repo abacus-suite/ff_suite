@@ -84,4 +84,15 @@
             </xpath>
         </field>
     </record>
+    <record id="action_ff_map_from_pincode" model="ir.actions.server">
+        <field name="name">Map from PIN code (200 at a time)</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="binding_model_id" ref="base.model_res_partner"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">count = env['res.partner'].ff_map_from_pincode(limit=200)
+action = {'type': 'ir.actions.client', 'tag': 'display_notification', 'params': {
+    'title': 'PIN code mapping', 'message': '%s contacts mapped. Run it again for the next batch.' % count,
+    'sticky': False}}</field>
+    </record>
 </odoo>

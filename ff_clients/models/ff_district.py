@@ -12,6 +12,8 @@ class FfDistrict(models.Model):
     state_id = fields.Many2one('res.country.state', string='State', required=True, index=True)
     country_id = fields.Many2one(related='state_id.country_id', store=True, string='Country')
     active = fields.Boolean(default=True)
+    api_created = fields.Boolean(string='Created from PIN code', readonly=True, copy=False,
+                                 help='Made automatically from a PIN code lookup: to be checked by the office.')
 
     _name_state_uniq = models.Constraint('UNIQUE(name, state_id)', 'This district / territory already exists in the state.')
 
