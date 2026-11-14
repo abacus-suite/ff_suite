@@ -20,6 +20,13 @@ class FfExpenseCategory(models.Model):
     child_ids = fields.One2many('ff.expense.category', 'parent_id', string='Sub-categories')
     department_ids = fields.Many2many('hr.department', string='Departments',
                                       help='Leave empty for every department.')
+    employee_ids = fields.Many2many(
+        'hr.employee',
+        'ff_expense_category_employee_rel',
+        'category_id', 'employee_id',
+        string='Employees',
+        help='Employees who can use this category. Leave empty for all employees.',
+    )
     requires_receipt = fields.Boolean(string='Receipt Required', default=True)
     requires_client = fields.Boolean(string='Contact Required',
                                      help='The claim must be linked to a contact (e.g. client entertainment).')
@@ -48,10 +55,24 @@ class FfExpenseCategory(models.Model):
     def ff_for_employee(self, employee):
         """Top-level categories this person may use (their sub-categories hang off them)."""
         employee = employee.sudo()
-        return self.sudo().search([
+        categories = self.sudo().search([
             ('company_id', 'in', employee.company_id.ids), ('parent_id', '=', False),
             '|', ('department_ids', '=', False), ('department_ids', 'in', employee.department_id.ids),
+            '|', ('employee_ids', '=', False), ('employee_ids', 'in', employee.id),
         ], order='name')
+
+        def allowed_child(ch):
+            if not ch.active:
+                return False
+            if ch.department_ids and employee.department_id not in ch.department_ids:
+                return False
+            if ch.employee_ids and employee not in ch.employee_ids:
+                return False
+            return True
+
+        return categories.filtered(
+            lambda c: not c.child_ids or any(allowed_child(ch) for ch in c.child_ids)
+        )
 
 
 class FfExpenseCard(models.Model):

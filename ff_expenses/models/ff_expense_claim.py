@@ -132,7 +132,12 @@ class FfExpenseClaim(models.Model):
             raise UserError(self.env._('Choose an expense category you have access to.'))
         sub = self.env['ff.expense.category']
         if category.child_ids:
-            sub = category.child_ids.filtered(lambda c: str(c.id) == str(data.get('sub_category_id')))
+            allowed_subs = category.child_ids.filtered(
+                lambda c: c.active
+                and (not c.department_ids or employee.department_id in c.department_ids)
+                and (not c.employee_ids or employee in c.employee_ids)
+            )
+            sub = allowed_subs.filtered(lambda c: str(c.id) == str(data.get('sub_category_id')))
             if not sub:
                 raise UserError(self.env._('Choose the sub category.'))
         try:

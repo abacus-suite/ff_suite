@@ -73,7 +73,11 @@ class FieldForceExpensesApi(http.Controller):
                 'requires_client': c.requires_client,
                 'max_amount': c.max_amount or None,
                 'currency': c.currency_id.name,
-                'children': [ref(child) for child in c.child_ids.sorted(lambda c: (c.name or '').lower())],
+                'children': [ref(child) for child in c.child_ids.filtered(
+                    lambda ch: ch.active
+                    and (not ch.department_ids or employee.department_id in ch.department_ids)
+                    and (not ch.employee_ids or employee in ch.employee_ids)
+                ).sorted(lambda c: (c.name or '').lower())],
             } for c in categories],
             'cards': [ref(card) for card in request.env['ff.expense.card'].sudo().search([
                 ('company_id', 'in', employee.company_id.ids),

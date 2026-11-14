@@ -10,12 +10,30 @@
                 <field name="parent_id" string="Parent Category" placeholder="Category (top level)"/>
                 <field name="code" optional="hide"/>
                 <field name="department_ids" widget="many2many_tags" placeholder="All departments"/>
+                <field name="employee_ids" widget="many2many_tags" placeholder="All employees"/>
                 <field name="requires_receipt"/>
                 <field name="requires_client"/>
                 <field name="max_amount"/>
                 <field name="currency_id" column_invisible="1"/>
                 <field name="active" widget="boolean_toggle" optional="hide"/>
             </list>
+        </field>
+    </record>
+
+    <record id="ff_expense_category_view_search" model="ir.ui.view">
+        <field name="name">ff.expense.category.search</field>
+        <field name="model">ff.expense.category</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="parent_id"/>
+                <field name="department_ids"/>
+                <field name="employee_ids"/>
+                <filter name="parent" string="Top-level Categories" domain="[('parent_id', '=', False)]"/>
+                <filter name="sub" string="Sub-categories" domain="[('parent_id', '!=', False)]"/>
+                <separator/>
+                <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
+            </search>
         </field>
     </record>
 

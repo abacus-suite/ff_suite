@@ -79,9 +79,17 @@ class FieldForceExpenseRequestsApi(http.Controller):
         category = Category.browse(to_int(data.get('category_id'))).exists()
         if not category or category.parent_id:
             raise ApiError('Choose the expense category.')
+        if category.employee_ids and employee not in category.employee_ids:
+            raise ApiError('You do not have access to this expense category.')
+        if category.department_ids and employee.department_id not in category.department_ids:
+            raise ApiError('You do not have access to this expense category.')
         sub = Category.browse(to_int(data.get('sub_category_id'))).exists() if data.get('sub_category_id') else Category
         if sub and sub.parent_id != category:
             raise ApiError('That sub category does not belong to the category.')
+        if sub and sub.employee_ids and employee not in sub.employee_ids:
+            raise ApiError('You do not have access to this sub category.')
+        if sub and sub.department_ids and employee.department_id not in sub.department_ids:
+            raise ApiError('You do not have access to this sub category.')
         if category.child_ids and not sub:
             raise ApiError('Choose the sub category.')
         try:
