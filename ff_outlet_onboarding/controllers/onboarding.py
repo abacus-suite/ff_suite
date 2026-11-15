@@ -91,36 +91,34 @@ class FieldForceOnboardingApi(http.Controller):
                    'street_name': address.get('st') or ''})
 
     @api_route('/api/v1/geo/pincode', methods=('GET',))
-    def pincode(self, employee, pin=None, **kw):
-        """State, district and the places of a PIN code, from India Post's free lookup. Empty when it cannot say."""
+    def pincode(self, employee, pin=None, region_id=None, **kw):
+        """A PIN code gives the Territory (district), City / Town and Areas: found in the masters or made there, so the
+        app shows and saves real records. ``region_id`` is the Region a new Territory goes under."""
         code = (pin or '').strip()
         if not re.fullmatch(r'[0-9]{6}', code):
             raise ApiError('A PIN code has 6 digits.')
-        try:
-            payload = requests.get('https://api.postalpincode.in/pincode/%s' % code, timeout=6).json()
-        except (requests.RequestException, ValueError) as error:
-            _logger.warning('Field Force: PIN lookup failed (%s)', error)
+        env = request.env
+        region = env['ff.team'].sudo().browse(int(region_id)).exists() if str(region_id or '').isdigit() else env['ff.team']
+        masters = env['ff.pincode.resolver'].sudo().ff_resolve(code, region=region)
+        if not masters['found']:
             return ok({'found': False})
-        offices = ((payload[0] if isinstance(payload, list) and payload else {}).get('PostOffice')) or []
-        if not offices:
-            return ok({'found': False})
-
-        def unique(values):
-            seen, out = set(), []
-            for value in values:
-                value = (value or '').strip()
-                if value and value.lower() not in seen:
-                    seen.add(value.lower())
-                    out.append(value)
-            return sorted(out, key=str.lower)
-
+        district = masters['district']
+        if not district:
+            return ok({'found': True, 'territory': None, 'reason': masters['why']})
+        areas = env['ff.area'].sudo().search([('district_id', '=', district.id)])
         return ok({
             'found': True,
-            'state': offices[0].get('State'),
-            'district': offices[0].get('District'),
-            # The towns and the post-office areas to choose from.
-            'cities': unique([o.get('Block') for o in offices] + [offices[0].get('District')]),
-            'areas': unique([o.get('Name') for o in offices]),
+            'state': district.state_id.name or None,
+            'district': district.name,
+            'territory': {
+                'id': district.id, 'name': district.name, 'district_id': district.id, 'kind': 'primary', 'assigned': True,
+                'region': {'id': district.team_id.id, 'name': district.team_id.name} if district.team_id else None,
+                'areas': sorted(({'id': a.id, 'name': a.name, 'town': a.territory_id.name or None, 'count': 0}
+                                 for a in areas), key=lambda a: a['name'].lower()),
+            },
+            # The areas of this PIN code, to choose from when there are several.
+            'area_ids': masters['areas'].ids,
+            'city': masters['cities'][:1].name or None,
         })
 
     @api_route('/api/v1/onboarding/options', methods=('GET',))
