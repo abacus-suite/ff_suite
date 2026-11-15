@@ -78,26 +78,123 @@ class FfDistributorNote(models.Model):
             pending.sudo().write({'state': 'approved', 'decided_at': fields.Datetime.now()})
             for note in pending:
                 note.message_post(body=self.env._('Approved automatically.'))
-                if not note.move_id and 'account.move' in self.env:
-                    note._create_account_credit_note()
-                note._create_dealer_stock_moves()
-        if 'ff.notification' in self.env:
-            for note in notes.filtered(lambda n: n.state == 'pending'):
-                manager = note.employee_id.parent_id
-                if manager:
-                    self.env['ff.notification'].sudo().ff_push(
-                        title=self.env._('Note to Approve'),
-                        body=self.env._('%(who)s raised %(kind)s note %(name)s (%(symbol)s%(amount).2f)',
-                                        who=note.employee_id.name,
-                                        kind=note.kind,
-                                        name=note.name,
-                                        symbol=note.currency_id.symbol or '₹',
-                                        amount=note.amount),
-                        kind='approval',
-                        employee=manager,
-                        record=note,
-                    )
+                note._ff_approved_effects()
+        notes.filtered(lambda n: n.state == 'pending')._ff_notify_manager()
         return notes
+
+    def _ff_notify_manager(self):
+        if 'ff.notification' not in self.env:
+            return
+        for note in self:
+            manager = note.employee_id.parent_id
+            if manager:
+                self.env['ff.notification'].sudo().ff_push(
+                    title=self.env._('Note to Approve'),
+                    body=self.env._('%(who)s raised %(kind)s note %(name)s (%(symbol)s%(amount).2f)',
+                                    who=note.employee_id.name,
+                                    kind=note.kind,
+                                    name=note.name,
+                                    symbol=note.currency_id.symbol or '₹',
+                                    amount=note.amount),
+                    kind='approval',
+                    employee=manager,
+                    record=note,
+                )
+
+    def _ff_approved_effects(self):
+        """What approval does. A field credit note already waiting in Accounting (a sample collection) is only cleared
+        for the accounts team to post; any other note makes its posted credit note now."""
+        for note in self:
+            move = note.move_id
+            if move and move.ff_approval_state:
+                move.sudo().write({'ff_approval_state': 'approved'})
+                note.message_post(body=self.env._('Approved: the accounts team can now post the credit note.'))
+            elif not move and 'account.move' in self.env:
+                note._create_account_credit_note()
+            note._create_dealer_stock_moves()
+
+    @api.model
+    def ff_sample_credit(self, employee, rows, *, distributor=None, partner=None, reason=None, task_log=None,
+                         demand=None):
+        """A sample collection: a draft Credit Note in Accounting for the distributor (or, with none yet, the outlet),
+        and the manager's approval request beside it. Accounts cannot post it until the manager approves."""
+        Product = self.env['product.product'].sudo()
+        lines = []
+        for row in rows or []:
+            product = Product.browse(int(row.get('product_id') or 0)).exists()
+            try:
+                quantity = float(row.get('qty') or 0)
+            except (TypeError, ValueError):
+                continue
+            if product and quantity > 0:
+                price = product.ff_distributor_price(distributor) if distributor else product.ff_field_price(partner or None)
+                lines.append((product, quantity, price))
+        if not lines:
+            return self.browse()
+        company = employee.sudo().company_id
+        billed = distributor or partner
+        move = False
+        if billed and 'account.move' in self.env:
+            move = self.env['account.move'].sudo().with_company(company).create(
+                self._ff_sample_move_vals(billed, lines, reason, task_log, demand, employee, company))
+        return self.sudo().create({
+            'kind': 'credit', 'source': 'sample', 'company_id': company.id,
+            'distributor_id': distributor.id if distributor else False,
+            'partner_id': partner.id if partner else False,
+            'employee_id': employee.id, 'reason': reason or False,
+            'task_log_id': task_log.id if task_log else False, 'demand_id': demand.id if demand else False,
+            'move_id': move.id if move else False,
+            'line_ids': [(0, 0, {'product_id': p.id, 'quantity': q, 'price_unit': pr}) for p, q, pr in lines],
+        })
+
+    @api.model
+    def _ff_sample_move_vals(self, billed, lines, reason, task_log, demand, employee, company):
+        parts = ['Samples', ('Demand %s' % demand.name) if demand else '',
+                 ('Task %s' % task_log.name) if task_log else '', ('Raised by %s' % employee.name)]
+        return {
+            'move_type': 'out_refund', 'partner_id': billed.sudo().commercial_partner_id.id or billed.id,
+            'company_id': company.id, 'invoice_date': fields.Date.context_today(self),
+            'invoice_origin': (task_log.name if task_log else False) or (demand.name if demand else False),
+            'ref': ('Samples - %s' % reason) if reason else 'Samples',
+            'narration': ' | '.join(x for x in parts if x), 'ff_approval_state': 'pending',
+            'invoice_line_ids': [(0, 0, {
+                'product_id': p.id, 'quantity': q, 'price_unit': pr, 'product_uom_id': p.uom_id.id,
+                'name': '%s - samples' % p.display_name}) for p, q, pr in lines],
+        }
+
+    def ff_sample_reassign(self, distributor):
+        """The demand goes to a distributor (the same one again, or another): its credit note takes that distributor's
+        name and rates and goes back to draft, waiting for the manager."""
+        for note in self.sudo().filtered(lambda n: n.source == 'sample' and n.move_id and n.move_id.state != 'posted'):
+            move = note.move_id
+            if move.state == 'cancel':
+                move.button_draft()
+            lines = []
+            for line in note.line_ids:
+                price = line.product_id.ff_distributor_price(distributor)
+                line.price_unit = price
+                lines.append((line.product_id, line.quantity, price))
+            vals = self._ff_sample_move_vals(distributor, lines, note.reason, note.task_log_id, note.demand_id,
+                                             note.employee_id, note.company_id)
+            for key in ('move_type', 'company_id', 'invoice_date'):
+                vals.pop(key)
+            vals['invoice_line_ids'] = [(5, 0, 0)] + vals['invoice_line_ids']
+            move.write(vals)
+            note.write({'distributor_id': distributor.id, 'state': 'pending', 'decided_by_id': False,
+                        'decided_at': False})
+            note.message_post(body=self.env._('Sent to %s: the credit note is back in draft, waiting for the manager.',
+                                              distributor.display_name))
+            note._ff_notify_manager()
+
+    def ff_sample_cancel(self):
+        """The distributor rejected the demand: the draft credit note is cancelled with it."""
+        for note in self.sudo().filtered(lambda n: n.source == 'sample' and n.move_id and n.state != 'rejected'):
+            move = note.move_id
+            if move.state == 'draft':
+                move.write({'ff_approval_state': 'rejected'})
+                move.button_cancel()
+                note.write({'state': 'rejected'})
+                note.message_post(body=self.env._('The distributor rejected the demand: the credit note is cancelled.'))
 
     @api.model
     def ff_raise(self, employee, kind, rows, *, distributor=None, partner=None, reason=None,
@@ -132,7 +229,7 @@ class FfDistributorNote(models.Model):
     def _ff_check_decider(self):
         if self.env.context.get('ff_skip_decider'):
             return
-        if not (self.env.user.has_group('ff_base.group_ff_manager') or self.env.user.has_group('account.group_account_user')):
+        if not self.env.user.has_group('ff_base.group_ff_manager'):
             raise AccessError(self.env._('Only a manager can decide on this.'))
 
     def ff_decide_as(self, employee, approve):
@@ -272,10 +369,11 @@ class FfDistributorNote(models.Model):
         self.sudo().write({'state': state, 'decided_by_id': self.env.uid,
                            'decided_at': fields.Datetime.now()})
         if state == 'approved':
-            for note in self:
-                if not note.move_id and 'account.move' in self.env:
-                    note._create_account_credit_note()
-                note._create_dealer_stock_moves()
+            self._ff_approved_effects()
+        else:
+            for note in self.filtered(lambda n: n.move_id and n.move_id.state == 'draft' and n.move_id.ff_approval_state):
+                note.move_id.sudo().write({'ff_approval_state': 'rejected'})
+                note.move_id.sudo().button_cancel()
         if 'ff.notification' in self.env:
             for note in self:
                 if note.employee_id:

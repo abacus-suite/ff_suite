@@ -611,9 +611,10 @@ class FfTaskLog(models.Model):
             self._ff_require(distributor, 'Choose the distributor.')
             log.distributor_id = distributor.id
             log.sample_source_partner_id = distributor.id
-            # Their stock was given away, so they are not to pay the company for it.
-            self.env['ff.distributor.note'].ff_raise(
-                employee, 'debit', rows, distributor=distributor, reason=reason, task_log=log)
+            # Their stock was given away, so the company credits them: a draft Credit Note in Accounting, which the
+            # manager must approve before accounts can post it.
+            self.env['ff.distributor.note'].ff_sample_credit(
+                employee, rows, distributor=distributor, reason=reason, task_log=log)
         elif source == 'outlet':
             # The outlet the samples come from is not necessarily the one being visited:
             # the person may be standing at a new shop with samples taken from a
@@ -631,9 +632,9 @@ class FfTaskLog(models.Model):
             demand = self._ff_make_demand(employee, partner, visit, [], rows, log.name, free_reason=reason)
             if demand:
                 log.demand_ids = [(4, demand.id)]
-            self.env['ff.distributor.note'].ff_raise(
-                employee, 'debit', rows, distributor=distributor or None, partner=partner,
-                reason=reason, task_log=log, demand=demand or None)
+            self.env['ff.distributor.note'].ff_sample_credit(
+                employee, rows, distributor=distributor or None, partner=partner, reason=reason, task_log=log,
+                demand=demand or None)
         else:
             can_company = bool(employee.sudo().ff_team_id.ff_company_samples)
             if not can_company:

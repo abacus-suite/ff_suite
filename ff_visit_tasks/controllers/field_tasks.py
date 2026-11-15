@@ -118,6 +118,38 @@ class FieldForceFieldTasksApi(http.Controller):
             'visit_type': 'Onsite' if (log.visit_id and log.visit_id.visit_type == 'onsite') else 'Offsite',
         } for log in logs])
 
+    @api_route('/api/v1/field-tasks/<int:log_id>/docs', methods=('GET',))
+    def task_docs(self, employee, log_id, **kw):
+        """The documents of one finished task: its credit notes, demands and orders, each with where its PDF is."""
+        log = request.env['ff.task.log'].sudo().browse(log_id).exists()
+        if not log or log.employee_id not in (employee | employee._ff_subordinates()):
+            raise ApiError('Task not found.', 404, 'not_found')
+        labels = {'pending': 'Waiting for manager approval', 'approved': 'Approved by the manager',
+                  'rejected': 'Rejected'}
+        docs = []
+        for note in log.note_ids:
+            move = note.move_id
+            if move:
+                number = move.name if move.name and move.name != '/' else 'Draft'
+                status = 'Posted' if move.state == 'posted' else ('Cancelled' if move.state == 'cancel' else
+                         labels.get(move.ff_approval_state, 'Draft'))
+                title = 'Credit Note %s' % number
+            else:
+                title, status = '%s %s' % ('Credit Note' if note.kind == 'credit' else 'Debit Note', note.name),                     labels.get(note.state, '')
+            docs.append({'kind': 'credit_note' if note.kind == 'credit' or move else 'debit_note', 'title': title,
+                         'subtitle': ' · '.join(x for x in (note.distributor_id.name or note.partner_id.name, status) if x),
+                         'endpoint': '/api/v1/notes/%d/pdf' % note.id, 'filename': '%s.pdf' % (note.name or 'Note').replace('/', '_')})
+        for demand in log.demand_ids:
+            docs.append({'kind': 'demand', 'title': 'Demand %s' % demand.name,
+                         'subtitle': ' · '.join(x for x in (demand.distributor_id.name, demand.state) if x),
+                         'endpoint': '/api/v1/demands/%d/pdf' % demand.id,
+                         'filename': 'Demand_%s.pdf' % (demand.name or demand.id)})
+        for order in log.order_ids:
+            docs.append({'kind': 'order', 'title': 'Order %s' % order.name, 'subtitle': order.state,
+                         'endpoint': '/api/v1/orders/%d/summary.pdf' % order.id,
+                         'filename': 'Order_%s.pdf' % (order.name or order.id)})
+        return ok({'task': log.name, 'customer': log.partner_id.display_name or '', 'docs': docs})
+
     @api_route('/api/v1/field-tasks/leads-due', methods=('GET',))
     def leads_due(self, employee, **kw):
         """Leads waiting for a follow-up, with how overdue each is."""

@@ -36,6 +36,8 @@ class FfDemand(models.Model):
         Note = self.env['ff.distributor.note'].sudo()
         if not free or not distributor:
             return Note
+        if Note.search_count([('demand_id', '=', self.id), ('source', '=', 'sample'), ('state', '!=', 'rejected')]):
+            return Note  # a sample collection: its credit note already covers these pieces
         if Note.search_count([('demand_id', '=', self.id), ('kind', '=', 'debit'),
                               ('reason', 'like', PREFIX), ('state', '!=', 'rejected')]):
             return Note
@@ -68,7 +70,15 @@ class FfDemand(models.Model):
         request = super()._ff_make_request(distributor, employee)
         for demand in self:
             demand._ff_foc_note(distributor)
+            # A sample collection's credit note follows the distributor it is sent to, again or to another.
+            self.env['ff.distributor.note'].sudo().search([('demand_id', '=', demand.id)]).ff_sample_reassign(distributor)
         return request
+
+    def write(self, vals):
+        result = super().write(vals)
+        if vals.get('state') == 'rejected':
+            self.env['ff.distributor.note'].sudo().search([('demand_id', 'in', self.ids)]).ff_sample_cancel()
+        return result
 
 
 class FfDemandDelivery(models.Model):
