@@ -85,14 +85,15 @@
         </field>
     </record>
     <record id="action_ff_map_from_pincode" model="ir.actions.server">
-        <field name="name">Map from PIN code (200 at a time)</field>
+        <field name="name">Map from PIN code</field>
         <field name="model_id" ref="base.model_res_partner"/>
         <field name="binding_model_id" ref="base.model_res_partner"/>
         <field name="binding_view_types">list</field>
         <field name="state">code</field>
-        <field name="code">count = env['res.partner'].ff_map_from_pincode(limit=200)
+        <field name="code"># Contacts ticked in the list: just those. Nothing ticked: the next 200 contacts that are not mapped yet.
+count = (records.ff_map_from_pincode() if records else env['res.partner'].ff_map_from_pincode(limit=200))
 action = {'type': 'ir.actions.client', 'tag': 'display_notification', 'params': {
-    'title': 'PIN code mapping', 'message': '%s contacts mapped. Run it again for the next batch.' % count,
+    'title': 'PIN code mapping', 'message': '%s contacts mapped.%s' % (count, '' if records else ' Run it again for the next 200.'),
     'sticky': False}}</field>
     </record>
     <record id="cron_ff_map_from_pincode" model="ir.cron">

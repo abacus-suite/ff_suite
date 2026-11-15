@@ -157,15 +157,20 @@ class ResPartner(models.Model):
         if (email_required or email) and (not email or not EMAIL.match(email.strip())):
             missing.append('%s email' % label)
 
-    @api.model
     def ff_map_from_pincode(self, limit=100):
         """Existing contacts: from their PIN code, make the masters (flagged ``api_created``) and map the contact to
         its District / Territory and City / Town; the Area only when the PIN code has one locality. Run in batches."""
         resolver = self.env['ff.pincode.resolver']
-        domain = [('ff_is_client', '=', True), ('zip', '!=', False), '|', ('ff_district_id', '=', False),
-                  ('ff_area_id', '=', False)]
         done = 0
-        for partner in self.sudo().search(domain, limit=limit, order='id'):
+        if self:
+            # Called on chosen contacts (the list action): just those, whatever they already have; only what is empty
+            # is filled.
+            partners = self.sudo().filtered('zip')
+        else:
+            partners = self.env['res.partner'].sudo().search(
+                [('ff_is_client', '=', True), ('zip', '!=', False), '|', ('ff_district_id', '=', False),
+                 ('ff_area_id', '=', False)], limit=limit, order='id')
+        for partner in partners:
             masters = resolver.ff_resolve(partner.zip)
             if not masters['district']:
                 continue
