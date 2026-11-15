@@ -16,7 +16,6 @@
                         <field name="ff_outlet_category_note" invisible="not ff_outlet_category_needs_note"/>
                         <field name="ff_not_interested_reason" invisible="ff_status != 'not_interested'"/>
                         <field name="ff_gst_name"/>
-                        <field name="ff_billing_address"/>
                         <field name="ff_risk_level"/>
                         <field name="ff_mrp_id" options="{'no_create': True}"/>
                         <field name="ff_scheme_id" options="{'no_create': True}"/>
@@ -43,8 +42,10 @@
                     <group>
                         <field name="ff_billing_address" string="Address"/>
                         <field name="zip" string="PIN Code"/>
+                        <field name="state_id" string="State" options="{'no_create': True}"/>
                         <field name="ff_team_ids" string="Region" widget="many2many_tags" options="{'no_create': True}"/>
                         <field name="ff_district_id" string="Territory / District" options="{'no_create': True}"/>
+                        <field name="ff_territory_id" string="City / Town" options="{'no_create': True}"/>
                         <field name="ff_area_id" string="Area" options="{'no_create': True}"/>
                         <field name="ff_door_no" string="Door Number"/>
                         <field name="ff_street_name" string="Street Name"/>
@@ -63,13 +64,6 @@
                                options="{'no_create': True}"/>
                         <field name="ff_delivery_door_no" string="Door Number" invisible="ff_delivery_same_billing"/>
                         <field name="ff_delivery_street_name" string="Street Name" invisible="ff_delivery_same_billing"/>
-                    </group>
-                    <group>
-                        <field name="ff_district_id" string="District / Territory" options="{'no_create': True}"/>
-                        <field name="state_id" options="{'no_create': True}"/>
-                        <field name="zip"/>
-                        <field name="ff_team_ids" string="Region" widget="many2many_tags" options="{'no_create': True}"/>
-                        <field name="ff_territory_id" options="{'no_create': True}"/>
                     </group>
                 </group>
                 <field name="ff_terms_history_ids" invisible="not ff_terms_history_ids" readonly="1">
