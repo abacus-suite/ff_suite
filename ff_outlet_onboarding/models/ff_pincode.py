@@ -102,12 +102,13 @@ class FfPincode(models.AbstractModel):
                                 'team_id': team.id, 'api_created': True})
 
     @api.model
-    def ff_resolve(self, pin, create=True, region=None):
+    def ff_resolve(self, pin, create=True, region=None, looked_up=None):
         """Find (or, with ``create``, make) the masters of a PIN code. Returns ``{'found', 'district', 'cities', 'areas'}``
         where ``cities`` and ``areas`` are record sets; ``areas`` are all the localities of the PIN code."""
         why = []
         problems = []
-        rows = self.ff_lookup(pin, problems)
+        # ``looked_up``: the answer already fetched for this PIN code (see ``ff_map_from_pincode_report``).
+        rows = looked_up if looked_up is not None else self.ff_lookup(pin, problems)
         out = {'why': '', 'found': bool(rows), 'district': self.env['ff.district'], 'cities': self.env['ff.territory'],
                'areas': self.env['ff.area']}
         if not rows:

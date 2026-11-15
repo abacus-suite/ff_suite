@@ -177,6 +177,16 @@ class ResPartner(models.Model):
             partners = self.env['res.partner'].sudo().search(
                 [('ff_is_client', '=', True), ('zip', '!=', False), '|', ('ff_district_id', '=', False),
                  ('ff_area_id', '=', False)], limit=limit, order='zip, id')
+        # Contacts with all three already set need nothing; the PIN codes of the rest are asked in parallel (one second
+        # each, so ten at a time), then the loop below only reads the answers.
+        partners = partners.filtered(lambda p: not (p.ff_district_id and p.ff_territory_id and p.ff_area_id))
+        pins = sorted({(p.zip or '').strip() for p in partners})
+        answers = {}
+        if pins:
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=10) as pool:
+                for pin, rows in zip(pins, pool.map(lambda x: resolver.ff_lookup(x), pins)):
+                    answers[pin] = rows
         for partner in partners:
             if time.time() - started > budget:
                 # Stop before the server's time limit; what is done stays done: run it again for the rest.
@@ -184,7 +194,8 @@ class ResPartner(models.Model):
                 break
             key = ((partner.zip or '').strip(), tuple(partner.ff_team_ids.ids[:1]))
             if key not in cache:
-                cache[key] = resolver.ff_resolve(partner.zip, region=partner.ff_team_ids)
+                cache[key] = resolver.ff_resolve(partner.zip, region=partner.ff_team_ids,
+                                                 looked_up=answers.get((partner.zip or '').strip()))
             masters = cache[key]
             if not masters['district']:
                 reasons[masters['why'] or 'not found'] = reasons.get(masters['why'] or 'not found', 0) + 1
