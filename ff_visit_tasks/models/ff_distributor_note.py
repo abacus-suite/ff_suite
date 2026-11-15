@@ -132,7 +132,7 @@ class FfDistributorNote(models.Model):
     def _ff_check_decider(self):
         if self.env.context.get('ff_skip_decider'):
             return
-        if not self.env.user.has_group('ff_base.group_ff_manager'):
+        if not (self.env.user.has_group('ff_base.group_ff_manager') or self.env.user.has_group('account.group_account_user')):
             raise AccessError(self.env._('Only a manager can decide on this.'))
 
     def ff_decide_as(self, employee, approve):

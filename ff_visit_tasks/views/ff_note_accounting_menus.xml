@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- The same credit / debit note demands, for the accounts team: waiting for approval first. -->
+    <record id="ff_distributor_note_action_accounting" model="ir.actions.act_window">
+        <field name="name">Credit / Debit Note Demands</field>
+        <field name="res_model">ff.distributor.note</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_pending': 1}</field>
+    </record>
+    <menuitem id="menu_ff_note_demands_accounting" name="Credit / Debit Note Demands"
+              parent="account.menu_finance_receivables" action="ff_distributor_note_action_accounting"
+              sequence="25" groups="account.group_account_invoice,account.group_account_user"/>
+</odoo>

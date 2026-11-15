@@ -14,7 +14,7 @@ Products are listed by category: a category marked Tracking Needed is the
 flavours counted and ordered, one marked Marketing Material is the material.
 """,
     'author': 'Field Force Suite',
-    'depends': ['ff_demand', 'ff_outlet_ledger', 'ff_visit_steps', 'ff_foc', 'ff_beat', 'stock'],
+    'depends': ['account', 'ff_demand', 'ff_outlet_ledger', 'ff_visit_steps', 'ff_foc', 'ff_beat', 'stock'],
     'data': [
         'security/ir.model.access.csv',
         'security/ff_visit_tasks_security.xml',
@@ -31,6 +31,7 @@ flavours counted and ordered, one marked Marketing Material is the material.
         'views/stock_location_views.xml',
         'views/ff_task_summary_views.xml',
         'views/ff_visit_tasks_menus.xml',
+        'views/ff_note_accounting_menus.xml',
     ],
     'installable': True,
     'license': 'LGPL-3',
