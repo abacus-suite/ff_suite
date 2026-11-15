@@ -13,6 +13,7 @@ import 'add_visit_screen.dart';
 import 'added_visits.dart';
 import '../clients/client_detail_screen.dart';
 import '../clients/clients_screen.dart';
+import '../tasks/task_docs_screen.dart';
 
 const _weekdayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -472,9 +473,19 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
                   details: [asText(t['task']), fmtTime(t['time']), asText(t['visit_type'])].whereType<String>().join(' · '),
                   badge: StatusBadge(t['visit_type'] == 'Onsite' ? 'visited' : 'cancelled', label: '${t['visit_type']}'),
                   categoryType: t['category_type'] as String?,
+                  // The task's own documents (credit notes, demands, orders); the customer is one tap further.
                   onTap: () {
-                    final id = t['partner_id'];
-                    if (id is int) _openClient(id);
+                    final taskId = t['id'];
+                    final partner = t['partner_id'];
+                    if (taskId is! int) {
+                      if (partner is int) _openClient(partner);
+                      return;
+                    }
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => TaskDocsScreen(
+                            taskId: taskId,
+                            title: '${t['task'] ?? 'Task'} · ${t['customer']}',
+                            onOpenCustomer: partner is int ? () => _openClient(partner) : null)));
                   },
                 ),
           ],
