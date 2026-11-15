@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 
@@ -46,13 +47,27 @@ class FfPincode(models.AbstractModel):
         district = District.search([('name', '=ilike', row['district']), ('state_id', '=', state.id)], limit=1)
         if district or not create:
             return district
-        # A new District / Territory needs a Region: the one the other districts of that state already use.
-        regions = District.search([('state_id', '=', state.id), ('team_id', '!=', False)]).mapped('team_id')
-        if len(regions) != 1:
-            _logger.info('Field Force: %s (%s) not created: the Region of that state is not one', row['district'], row['state'])
+        # A new District / Territory needs a Region. First the office's map (System Parameter
+        # ``ff_base.pincode_region_map``, JSON such as {"ernakulam": "CENTRAL KERALA", "kerala": "SOUTH KERALA"}: a
+        # district name wins over a state name); else the one Region the other districts of that state already use.
+        team = self.env['ff.team'].browse()
+        try:
+            region_map = {str(k).strip().lower(): v for k, v in json.loads(
+                self.env['ir.config_parameter'].sudo().get_param('ff_base.pincode_region_map') or '{}').items()}
+        except ValueError:
+            region_map = {}
+        wanted = region_map.get(row['district'].strip().lower()) or region_map.get(row['state'].strip().lower())
+        if wanted:
+            team = self.env['ff.team'].sudo().search([('name', '=ilike', str(wanted))], limit=1)
+        if not team:
+            regions = District.search([('state_id', '=', state.id), ('team_id', '!=', False)]).mapped('team_id')
+            team = regions if len(regions) == 1 else self.env['ff.team'].browse()
+        if not team:
+            _logger.info('Field Force: %s (%s) not created: no Region is set for it (ff_base.pincode_region_map)',
+                         row['district'], row['state'])
             return District.browse()
         return District.create({'name': row['district'].upper(), 'code': row['district'].upper(), 'state_id': state.id,
-                                'team_id': regions.id, 'api_created': True})
+                                'team_id': team.id, 'api_created': True})
 
     @api.model
     def ff_resolve(self, pin, create=True):
