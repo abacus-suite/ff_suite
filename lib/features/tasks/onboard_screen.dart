@@ -62,6 +62,10 @@ class _OnboardScreenState extends State<OnboardScreen> {
   int? _dTerritoryId;
   int? _dAreaId;
 
+  /// The areas the PIN code names (billing / delivery), so a PIN code with several areas gives a short list to choose from.
+  Set<int>? _pinAreaIds;
+  Set<int>? _dPinAreaIds;
+
   // Step 3
   String? _riskLevel;
   String? _mrp;
@@ -307,6 +311,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
       if (_territoryId != null && t['id'] != _territoryId) continue;
       for (final a in ((t['areas'] as List?) ?? const []).cast<Map<String, dynamic>>()) {
         final id = (a['id'] as num).toInt();
+        if (_pinAreaIds != null && _pinAreaIds!.isNotEmpty && !_pinAreaIds!.contains(id)) continue;
         rows.putIfAbsent(id, () => {'id': id, 'name': '${a['name']}', 'territory': t['id'], 'territory_name': asText(a['town']) ?? '${t['name']}'});
         names['${a['name']}'.toLowerCase()] = (names['${a['name']}'.toLowerCase()] ?? 0) + 1;
       }
@@ -371,19 +376,73 @@ class _OnboardScreenState extends State<OnboardScreen> {
   }
 
   /// The PIN code gives the state and district, and the towns and areas to choose from.
-  Future<void> _lookupPin() async {
-    final pin = _v('zip');
+  Future<void> _lookupPin({bool delivery = false}) async {
+    final key = delivery ? 'delivery_zip' : 'zip';
+    final pin = _v(key);
     if (pin.length != 6) return;
     try {
-      final data = await Services.api.get('/api/v1/geo/pincode', query: {'pin': pin}) as Map<String, dynamic>;
-      if (!mounted || _v('zip') != pin) return;
-      setState(() {
-        _pinInfo = data;
-      });
+      final region = delivery ? _dRegionId : _regionId;
+      final data = await Services.api.get('/api/v1/geo/pincode',
+          query: {'pin': pin, if (region != null) 'region_id': '$region'}) as Map<String, dynamic>;
+      if (!mounted || _v(key) != pin) return;
+      if (!delivery) setState(() => _pinInfo = data);
+      _applyPin(data, delivery: delivery);
     } catch (_) {
-      if (mounted) setState(() => _pinInfo = {});
+      if (mounted && !delivery) setState(() => _pinInfo = {});
     }
   }
+
+  /// The Territory, City / Town and Areas the server found or made for the PIN code replace what was chosen: the
+  /// Territory and Region always follow the PIN code; the Area is picked when there is only one, else the person chooses.
+  void _applyPin(Map<String, dynamic> data, {required bool delivery}) {
+    final t = data['territory'];
+    if (t is! Map<String, dynamic>) return;
+    final id = (t['id'] as num).toInt();
+    final ids = {for (final a in (data['area_ids'] as List? ?? const [])) (a as num).toInt()};
+    setState(() {
+      final i = _territories.indexWhere((x) => x['id'] == id);
+      if (i >= 0) {
+        _territories[i] = t;
+      } else {
+        _territories.add(t);
+      }
+      final region = _idOf(t['region']);
+      if (region != null && !_regions.any((r) => r['id'] == region)) {
+        final r = t['region'] as Map;
+        _regions = [..._regions, {'id': region, 'name': '${r['name']}'}];
+      }
+      if (delivery) {
+        _dPinAreaIds = ids;
+        _dTerritoryId = id;
+        if (region != null) _dRegionId = region;
+        if (ids.length == 1) {
+          _dAreaId = ids.first;
+        } else if (!ids.contains(_dAreaId)) {
+          _dAreaId = null;
+        }
+      } else {
+        _pinAreaIds = ids;
+      }
+    });
+    if (delivery) return;
+    _pickTerritory(id);
+    setState(() {
+      if (ids.length == 1) {
+        _areaId = ids.first;
+      } else if (!ids.contains(_areaId)) {
+        _areaId = null;
+      }
+    });
+  }
+
+  /// The areas to choose from for the delivery address: its Territory's, or just the PIN code's when it named some.
+  List<Map<String, dynamic>> _dAreas() => [
+        for (final t in _territories)
+          if (_dTerritoryId == null || t['id'] == _dTerritoryId)
+            for (final a in ((t['areas'] as List?) ?? const []).cast<Map<String, dynamic>>())
+              if (_dPinAreaIds == null || _dPinAreaIds!.isEmpty || _dPinAreaIds!.contains((a['id'] as num).toInt()))
+                {'id': a['id'], 'name': '${a['name']}${asText(a['town']) != null ? ' · ${a['town']}' : ''}'},
+      ];
 
   /// The first line of an address: where the street is.
   String _firstLine(String address) => address.split(RegExp(r'[\n,]')).first.trim();
@@ -705,7 +764,11 @@ class _OnboardScreenState extends State<OnboardScreen> {
         // delivery address choice.
         _field('gst_name', _hasGst ? 'Name as per GST' : 'Name', required: true),
         _field('zip', 'PIN code', required: true, type: TextInputType.number, maxLength: 6, onChanged: (v) {
-          if (v.length == 6) _lookupPin();
+          if (v.length == 6) {
+            _lookupPin();
+          } else if (_pinAreaIds != null) {
+            setState(() => _pinAreaIds = null);
+          }
         }),
         _dropId('Region', _regions, _regionId, (v) => setState(() {
               _regionId = v;
@@ -793,7 +856,13 @@ class _OnboardScreenState extends State<OnboardScreen> {
   /// Only when the delivery address is not the billing address.
   Widget _step2() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _field('delivery_address', 'Address', required: true, lines: 3),
-        _field('delivery_zip', 'PIN code', required: true, type: TextInputType.number, maxLength: 6),
+        _field('delivery_zip', 'PIN code', required: true, type: TextInputType.number, maxLength: 6, onChanged: (v) {
+          if (v.length == 6) {
+            _lookupPin(delivery: true);
+          } else if (_dPinAreaIds != null) {
+            setState(() => _dPinAreaIds = null);
+          }
+        }),
         _dropId('Region', _regions, _dRegionId, (v) => setState(() => _dRegionId = v), required: false),
         _dropId('Territory / District', [
           for (final t in _territories)
@@ -802,13 +871,9 @@ class _OnboardScreenState extends State<OnboardScreen> {
         ], _dTerritoryId, (v) => setState(() {
               _dTerritoryId = v;
               _dAreaId = null;
+              _dPinAreaIds = null;
             }), required: false),
-        _dropId('Area', [
-          for (final t in _territories)
-            if (_dTerritoryId == null || t['id'] == _dTerritoryId)
-              for (final a in ((t['areas'] as List?) ?? const []).cast<Map<String, dynamic>>())
-                {'id': a['id'], 'name': '${a['name']}${asText(a['town']) != null ? ' · ${a['town']}' : ''}'},
-        ], _dAreaId, (v) => setState(() => _dAreaId = v), required: false),
+        _dropId('Area', _dAreas(), _dAreaId, (v) => setState(() => _dAreaId = v), required: false),
         _field('delivery_door', 'Door / TC No.'),
         _field('delivery_street', 'Street name'),
       ]);
