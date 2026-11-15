@@ -245,6 +245,16 @@
             .hub-page-num:hover:not(.active) { background:#f1f5f9; border-color:#cbd5e1; color:#0f172a; }
             .hub-page-num.active { background:#1d4ed8; border-color:#1d4ed8; color:#fff; font-weight:800; cursor:default; }
             .hub-page-ellipsis { display:inline-flex; align-items:center; justify-content:center; width:24px; color:#94a3b8; font-weight:800; font-size:14px; }
+            .hub-confirm { position:fixed; inset:0; z-index:2000; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.45); padding:16px; }
+            .hub-confirm.on { display:flex; }
+            .hub-confirm-box { background:#fff; border-radius:18px; max-width:420px; width:100%; padding:24px 24px 20px; box-shadow:0 20px 50px rgba(15,23,42,.3); }
+            .hub-confirm-icon { width:46px; height:46px; border-radius:14px; display:flex; align-items:center; justify-content:center; background:#fee2e2; color:#dc2626; font-size:20px; margin-bottom:12px; }
+            .hub-confirm-box h4 { font-size:18px; font-weight:900; color:#0f172a; margin:0 0 6px; }
+            .hub-confirm-box p { color:#475569; font-size:14.5px; margin:0 0 18px; }
+            .hub-confirm-actions { display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+            .hub-confirm-actions button { border-radius:11px; font-weight:800; font-size:14px; padding:9px 18px; cursor:pointer; }
+            .hub-confirm-no { background:#fff; border:1px solid #cbd5e1; color:#334155; }
+            .hub-confirm-yes { background:#dc2626; border:1px solid #dc2626; color:#fff; }
         ]]></style>
     </template>
 
@@ -566,6 +576,45 @@
                     </main>
                 </div>
             </div>
+            <div class="hub-confirm" id="hubConfirm" role="dialog" aria-modal="true">
+                <div class="hub-confirm-box">
+                    <div class="hub-confirm-icon"><i class="fa fa-exclamation-triangle"/></div>
+                    <h4 id="hubConfirmTitle">Please confirm</h4>
+                    <p id="hubConfirmText"/>
+                    <div class="hub-confirm-actions">
+                        <button type="button" class="hub-confirm-no" id="hubConfirmNo">Cancel</button>
+                        <button type="button" class="hub-confirm-yes" id="hubConfirmYes">Yes, continue</button>
+                    </div>
+                </div>
+            </div>
+            <script><![CDATA[
+            (function () {
+                var box = document.getElementById('hubConfirm');
+                if (!box) return;
+                var pending = null;
+                function close() { box.classList.remove('on'); pending = null; }
+                document.addEventListener('click', function (e) {
+                    var b = e.target.closest ? e.target.closest('[data-confirm]') : null;
+                    if (!b) return;
+                    e.preventDefault();
+                    pending = b;
+                    document.getElementById('hubConfirmTitle').textContent = b.getAttribute('data-confirm-title') || 'Please confirm';
+                    document.getElementById('hubConfirmText').textContent = b.getAttribute('data-confirm');
+                    document.getElementById('hubConfirmYes').textContent = b.getAttribute('data-confirm-ok') || 'Yes, continue';
+                    box.classList.add('on');
+                });
+                document.getElementById('hubConfirmNo').addEventListener('click', close);
+                box.addEventListener('click', function (e) { if (e.target === box) close(); });
+                document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+                document.getElementById('hubConfirmYes').addEventListener('click', function () {
+                    var b = pending;
+                    close();
+                    var f = b && b.form;
+                    if (!f) return;
+                    if (f.requestSubmit) { f.requestSubmit(b); } else { f.submit(); }
+                });
+            })();
+            ]]></script>
         </t>
     </template>
 
@@ -860,7 +909,7 @@
                     <div class="d-flex flex-wrap gap-2 mt-3">
                         <button type="submit" name="decision" value="approve" class="hub-btn fill"><i class="fa fa-check-circle"/> Approve</button>
                         <button type="submit" name="decision" value="reject" class="hub-btn" style="border-color:#dc2626;color:#dc2626;"
-                                onclick="return confirm('Reject this request? The sales team will be told.');"><i class="fa fa-times-circle"/> Reject</button>
+                                data-confirm-title="Reject this request?" data-confirm="The sales team will be told." data-confirm-ok="Yes, reject"><i class="fa fa-times-circle"/> Reject</button>
                     </div>
                 </div>
                 <div class="hub-card mb-3" t-elif="req.distributor_note">
@@ -928,7 +977,7 @@
                             <div class="d-flex flex-wrap gap-2 mt-2">
                                 <button type="submit" class="hub-btn fill"><i class="fa fa-truck"/> Save delivery</button>
                                 <button type="submit" name="close" value="1" class="hub-btn"
-                                        onclick="return confirm('The rest of this outlet will not be supplied. Close the delivery?');">Cannot supply the rest</button>
+                                        data-confirm-title="Close this delivery?" data-confirm="The rest of this outlet will not be supplied." data-confirm-ok="Yes, close it">Cannot supply the rest</button>
                             </div>
                         </t>
                         <div class="small mt-3" t-foreach="d['history']" t-as="h">
