@@ -16,15 +16,19 @@ class FfPincode(models.AbstractModel):
     _description = 'PIN code to District / City / Area'
 
     @api.model
-    def ff_lookup(self, pin):
+    def ff_lookup(self, pin, errors=None):
         """The places of a PIN code: ``[{locality, taluk_block, district, state, pincode}]`` (empty when unknown)."""
         code = (pin or '').strip()
         if not re.fullmatch(r'[0-9]{6}', code):
             return []
         try:
-            payload = requests.get('https://api.postalpincode.in/pincode/%s' % code, timeout=8).json()
+            response = requests.get('https://api.postalpincode.in/pincode/%s' % code, timeout=15,
+                                    headers={'User-Agent': 'Mozilla/5.0 (compatible; FieldForce)', 'Accept': 'application/json'})
+            payload = response.json()
         except (requests.RequestException, ValueError) as error:
             _logger.warning('Field Force: PIN lookup failed (%s)', error)
+            if errors is not None:
+                errors.append('PIN service failed: %s' % str(error)[:90])
             return []
         offices = ((payload[0] if isinstance(payload, list) and payload else {}).get('PostOffice')) or []
         seen, rows = set(), []
@@ -36,6 +40,8 @@ class FfPincode(models.AbstractModel):
             if row['locality'] and key not in seen:
                 seen.add(key)
                 rows.append(row)
+        if not rows and errors is not None:
+            errors.append('PIN service had no places for %s (%s)' % (code, str((payload[0] if isinstance(payload, list) and payload else payload).get('Message') if isinstance(payload, (list, dict)) and payload else payload)[:60]))
         return rows
 
     @api.model
@@ -83,11 +89,12 @@ class FfPincode(models.AbstractModel):
         """Find (or, with ``create``, make) the masters of a PIN code. Returns ``{'found', 'district', 'cities', 'areas'}``
         where ``cities`` and ``areas`` are record sets; ``areas`` are all the localities of the PIN code."""
         why = []
-        rows = self.ff_lookup(pin)
+        problems = []
+        rows = self.ff_lookup(pin, problems)
         out = {'why': '', 'found': bool(rows), 'district': self.env['ff.district'], 'cities': self.env['ff.territory'],
                'areas': self.env['ff.area']}
         if not rows:
-            out['why'] = 'no PIN code answer (not a 6-digit PIN, or the PIN service did not reply)'
+            out['why'] = problems[0] if problems else 'PIN code is not 6 digits'
             return out
         Territory, Area = self.env['ff.territory'].sudo(), self.env['ff.area'].sudo()
         district = self._ff_district(rows[0], create, region, why)
