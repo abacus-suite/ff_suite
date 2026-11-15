@@ -194,6 +194,11 @@ class FfDistributorNote(models.Model):
 
         note_date = self.date.date() if self.date else fields.Date.context_today(self)
         ref_text = '%s (%s)' % (self.name, self.reason) if self.reason else self.name
+        # What it is about, on the document itself: the demand, the outlet and who raised it in the field.
+        narration = ' | '.join(x for x in (
+            dict(self._fields['source'].selection).get(self.source), ('Demand %s' % self.demand_id.name) if self.demand_id else '',
+            ('Outlet: %s' % self.partner_id.name) if self.partner_id else '',
+            ('Raised by %s' % self.employee_id.name) if self.employee_id else '') if x)
         move = self.env['account.move'].sudo().with_company(self.company_id).create({
             'move_type': 'out_refund',
             'partner_id': partner.id,
@@ -202,6 +207,7 @@ class FfDistributorNote(models.Model):
             'invoice_date_due': note_date,
             'invoice_origin': self.name,
             'ref': ref_text,
+            'narration': narration,
             'invoice_line_ids': lines,
         })
         move.action_post()
