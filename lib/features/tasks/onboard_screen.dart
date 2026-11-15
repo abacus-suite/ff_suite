@@ -332,8 +332,9 @@ class _OnboardScreenState extends State<OnboardScreen> {
     _pickTerritory((area['territory'] as num).toInt());
     setState(() {
       _areaId = id;
+      // The Region follows the Territory (set by _pickTerritory); the person's own only fills a gap.
       final mine = Services.auth.profile?.teamId;
-      if (mine != null && _regions.any((r) => r['id'] == mine)) {
+      if (_regionId == null && mine != null && _regions.any((r) => r['id'] == mine)) {
         _regionId = mine;
       } else if (_regionId == null && _regions.length == 1) {
         _regionId = _regions.first['id'] as int;
