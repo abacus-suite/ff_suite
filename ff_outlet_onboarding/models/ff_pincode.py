@@ -39,7 +39,7 @@ class FfPincode(models.AbstractModel):
         return rows
 
     @api.model
-    def _ff_district(self, row, create, region=None):
+    def _ff_district(self, row, create, region=None, why=None):
         District, State = self.env['ff.district'].sudo(), self.env['res.country.state'].sudo()
         state = State.search([('country_id.code', '=', 'IN'), ('name', '=ilike', row['state'])], limit=1)
         if not state:
@@ -49,7 +49,7 @@ class FfPincode(models.AbstractModel):
             state = next((s for s in State.search([('country_id.code', '=', 'IN')]) if norm(s.name) == norm(row['state'])),
                          State.browse())
         if not state:
-            self._ff_why = 'state "%s" is not in Odoo States' % row['state']
+            why.append('state "%s" is not in Odoo States' % row['state'])
             return District.browse()
         district = District.search([('name', '=ilike', row['district']), ('state_id', '=', state.id)], limit=1)
         if district or not create:
@@ -71,7 +71,7 @@ class FfPincode(models.AbstractModel):
             regions = District.search([('state_id', '=', state.id), ('team_id', '!=', False)]).mapped('team_id')
             team = regions if len(regions) == 1 else self.env['ff.team'].browse()
         if not team:
-            self._ff_why = 'no Region for district "%s"' % row['district']
+            why.append('no Region for district "%s"' % row['district'])
             _logger.info('Field Force: %s (%s) not created: no Region is set for it (ff_base.pincode_region_map)',
                          row['district'], row['state'])
             return District.browse()
@@ -82,18 +82,18 @@ class FfPincode(models.AbstractModel):
     def ff_resolve(self, pin, create=True, region=None):
         """Find (or, with ``create``, make) the masters of a PIN code. Returns ``{'found', 'district', 'cities', 'areas'}``
         where ``cities`` and ``areas`` are record sets; ``areas`` are all the localities of the PIN code."""
-        self._ff_why = ''
+        why = []
         rows = self.ff_lookup(pin)
         out = {'why': '', 'found': bool(rows), 'district': self.env['ff.district'], 'cities': self.env['ff.territory'],
                'areas': self.env['ff.area']}
         if not rows:
-            self._ff_why = 'no PIN code answer (not a 6-digit PIN, or the PIN service did not reply)'
+            out['why'] = 'no PIN code answer (not a 6-digit PIN, or the PIN service did not reply)'
             return out
         Territory, Area = self.env['ff.territory'].sudo(), self.env['ff.area'].sudo()
-        district = self._ff_district(rows[0], create, region)
+        district = self._ff_district(rows[0], create, region, why)
         out['district'] = district
         if not district:
-            out['why'] = self._ff_why
+            out['why'] = why[0] if why else 'district not found'
             return out
         for row in rows:
             town_name = row['taluk_block'] or row['district']
