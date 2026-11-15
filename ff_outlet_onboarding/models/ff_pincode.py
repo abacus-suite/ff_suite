@@ -39,7 +39,7 @@ class FfPincode(models.AbstractModel):
         return rows
 
     @api.model
-    def _ff_district(self, row, create):
+    def _ff_district(self, row, create, region=None):
         District, State = self.env['ff.district'].sudo(), self.env['res.country.state'].sudo()
         state = State.search([('country_id.code', '=', 'IN'), ('name', '=ilike', row['state'])], limit=1)
         if not state:
@@ -50,14 +50,15 @@ class FfPincode(models.AbstractModel):
         # A new District / Territory needs a Region. First the office's map (System Parameter
         # ``ff_base.pincode_region_map``, JSON such as {"ernakulam": "CENTRAL KERALA", "kerala": "SOUTH KERALA"}: a
         # district name wins over a state name); else the one Region the other districts of that state already use.
-        team = self.env['ff.team'].browse()
+        # The contact's own Region comes first when it has one.
+        team = region[:1] if region else self.env['ff.team'].browse()
         try:
             region_map = {str(k).strip().lower(): v for k, v in json.loads(
                 self.env['ir.config_parameter'].sudo().get_param('ff_base.pincode_region_map') or '{}').items()}
         except ValueError:
             region_map = {}
         wanted = region_map.get(row['district'].strip().lower()) or region_map.get(row['state'].strip().lower())
-        if wanted:
+        if wanted and not team:
             team = self.env['ff.team'].sudo().search([('name', '=ilike', str(wanted))], limit=1)
         if not team:
             regions = District.search([('state_id', '=', state.id), ('team_id', '!=', False)]).mapped('team_id')
@@ -70,7 +71,7 @@ class FfPincode(models.AbstractModel):
                                 'team_id': team.id, 'api_created': True})
 
     @api.model
-    def ff_resolve(self, pin, create=True):
+    def ff_resolve(self, pin, create=True, region=None):
         """Find (or, with ``create``, make) the masters of a PIN code. Returns ``{'found', 'district', 'cities', 'areas'}``
         where ``cities`` and ``areas`` are record sets; ``areas`` are all the localities of the PIN code."""
         rows = self.ff_lookup(pin)
@@ -79,7 +80,7 @@ class FfPincode(models.AbstractModel):
         if not rows:
             return out
         Territory, Area = self.env['ff.territory'].sudo(), self.env['ff.area'].sudo()
-        district = self._ff_district(rows[0], create)
+        district = self._ff_district(rows[0], create, region)
         out['district'] = district
         if not district:
             return out

@@ -171,7 +171,7 @@ class ResPartner(models.Model):
                 [('ff_is_client', '=', True), ('zip', '!=', False), '|', ('ff_district_id', '=', False),
                  ('ff_area_id', '=', False)], limit=limit, order='id')
         for partner in partners:
-            masters = resolver.ff_resolve(partner.zip)
+            masters = resolver.ff_resolve(partner.zip, region=partner.ff_team_ids)
             if not masters['district']:
                 continue
             vals = {}
