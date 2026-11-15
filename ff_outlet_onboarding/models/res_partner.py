@@ -158,10 +158,14 @@ class ResPartner(models.Model):
             missing.append('%s email' % label)
 
     def ff_map_from_pincode(self, limit=100):
-        """Existing contacts: from their PIN code, make the masters (flagged ``api_created``) and map the contact to
+        return self.ff_map_from_pincode_report(limit)[0]
+
+    def ff_map_from_pincode_report(self, limit=100):
+        """Returns ``(mapped count, {reason: count})``. Existing contacts: from their PIN code, make the masters (flagged ``api_created``) and map the contact to
         its District / Territory and City / Town; the Area only when the PIN code has one locality. Run in batches."""
         resolver = self.env['ff.pincode.resolver']
         done = 0
+        reasons = {}
         if self:
             # Called on chosen contacts (the list action): just those, whatever they already have; only what is empty
             # is filled.
@@ -173,6 +177,7 @@ class ResPartner(models.Model):
         for partner in partners:
             masters = resolver.ff_resolve(partner.zip, region=partner.ff_team_ids)
             if not masters['district']:
+                reasons[masters['why'] or 'not found'] = reasons.get(masters['why'] or 'not found', 0) + 1
                 continue
             vals = {}
             if not partner.ff_district_id:
@@ -185,7 +190,9 @@ class ResPartner(models.Model):
             if vals:
                 partner.write(vals)
                 done += 1
-        return done
+            else:
+                reasons['nothing empty to fill'] = reasons.get('nothing empty to fill', 0) + 1
+        return done, reasons
 
     @staticmethod
     def _ff_digits(number):

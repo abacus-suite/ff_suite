@@ -91,9 +91,10 @@
         <field name="binding_view_types">list</field>
         <field name="state">code</field>
         <field name="code"># Contacts ticked in the list: just those. Nothing ticked: the next 200 contacts that are not mapped yet.
-count = (records.ff_map_from_pincode() if records else env['res.partner'].ff_map_from_pincode(limit=200))
+count, reasons = (records if records else env['res.partner']).ff_map_from_pincode_report(limit=200)
+skipped = '; '.join('%s: %s' % (why, n) for why, n in reasons.items())
 action = {'type': 'ir.actions.client', 'tag': 'display_notification', 'params': {
-    'title': 'PIN code mapping', 'message': '%s contacts mapped.%s' % (count, '' if records else ' Run it again for the next 200.'),
+    'title': 'PIN code mapping', 'message': '%s contacts mapped.%s%s' % (count, (' Skipped - ' + skipped + '.') if skipped else '', '' if records else ' Run it again for the next 200.'),
     'sticky': False}}</field>
     </record>
     <record id="cron_ff_map_from_pincode" model="ir.cron">
