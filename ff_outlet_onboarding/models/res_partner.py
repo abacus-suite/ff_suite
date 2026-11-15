@@ -7,6 +7,7 @@ checked when the status becomes Onboarded - never on the thousands of contacts
 that are already there.
 """
 import re
+import time
 
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
@@ -157,15 +158,17 @@ class ResPartner(models.Model):
         if (email_required or email) and (not email or not EMAIL.match(email.strip())):
             missing.append('%s email' % label)
 
-    def ff_map_from_pincode(self, limit=100):
-        return self.ff_map_from_pincode_report(limit)[0]
+    def ff_map_from_pincode(self, limit=100, budget=100):
+        return self.ff_map_from_pincode_report(limit, budget)[0]
 
-    def ff_map_from_pincode_report(self, limit=100):
+    def ff_map_from_pincode_report(self, limit=100, budget=40):
         """Returns ``(mapped count, {reason: count})``. Existing contacts: from their PIN code, make the masters (flagged ``api_created``) and map the contact to
         its District / Territory and City / Town; the Area only when the PIN code has one locality. Run in batches."""
         resolver = self.env['ff.pincode.resolver']
         done = 0
         reasons = {}
+        started = time.time()
+        cache = {}  # (PIN, Region) -> masters: many contacts share a PIN code, so each is asked once
         if self:
             # Called on chosen contacts (the list action): just those, whatever they already have; only what is empty
             # is filled.
@@ -173,9 +176,16 @@ class ResPartner(models.Model):
         else:
             partners = self.env['res.partner'].sudo().search(
                 [('ff_is_client', '=', True), ('zip', '!=', False), '|', ('ff_district_id', '=', False),
-                 ('ff_area_id', '=', False)], limit=limit, order='id')
+                 ('ff_area_id', '=', False)], limit=limit, order='zip, id')
         for partner in partners:
-            masters = resolver.ff_resolve(partner.zip, region=partner.ff_team_ids)
+            if time.time() - started > budget:
+                # Stop before the server's time limit; what is done stays done: run it again for the rest.
+                reasons['stopped on time (run again for the rest)'] = 1
+                break
+            key = ((partner.zip or '').strip(), tuple(partner.ff_team_ids.ids[:1]))
+            if key not in cache:
+                cache[key] = resolver.ff_resolve(partner.zip, region=partner.ff_team_ids)
+            masters = cache[key]
             if not masters['district']:
                 reasons[masters['why'] or 'not found'] = reasons.get(masters['why'] or 'not found', 0) + 1
                 continue
