@@ -185,8 +185,11 @@ class ResPartner(models.Model):
         if pins:
             from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor(max_workers=10) as pool:
-                for pin, rows in zip(pins, pool.map(lambda x: resolver.ff_lookup(x), pins)):
-                    answers[pin] = rows
+                def ask(pin):
+                    problems = []
+                    return resolver.ff_lookup(pin, problems), problems
+                for pin, answer in zip(pins, pool.map(ask, pins)):
+                    answers[pin] = answer
         for partner in partners:
             if time.time() - started > budget:
                 # Stop before the server's time limit; what is done stays done: run it again for the rest.

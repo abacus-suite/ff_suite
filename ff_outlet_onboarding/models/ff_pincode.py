@@ -107,8 +107,12 @@ class FfPincode(models.AbstractModel):
         where ``cities`` and ``areas`` are record sets; ``areas`` are all the localities of the PIN code."""
         why = []
         problems = []
-        # ``looked_up``: the answer already fetched for this PIN code (see ``ff_map_from_pincode_report``).
-        rows = looked_up if looked_up is not None else self.ff_lookup(pin, problems)
+        # ``looked_up``: the answer already fetched for this PIN code, as (rows, problems) - see
+        # ``ff_map_from_pincode_report``.
+        if looked_up is not None:
+            rows, problems = looked_up
+        else:
+            rows = self.ff_lookup(pin, problems)
         out = {'why': '', 'found': bool(rows), 'district': self.env['ff.district'], 'cities': self.env['ff.territory'],
                'areas': self.env['ff.area']}
         if not rows:
