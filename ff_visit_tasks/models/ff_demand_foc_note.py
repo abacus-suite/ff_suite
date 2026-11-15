@@ -51,6 +51,19 @@ class FfDemand(models.Model):
             demand._ff_foc_note()
         return True
 
+    def ff_foc_request(self, employee, distributor=None):
+        # Asking the distributor for the free goods from the app (a message, no order) also raises the debit note.
+        result = super().ff_foc_request(employee, distributor)
+        self._ff_foc_note(distributor or self.distributor_id)
+        return result
+
+    def ff_foc_deliver(self, note=None):
+        # Delivered without a note raised yet (asked before this was automatic): raise it now.
+        result = super().ff_foc_deliver(note)
+        for demand in self:
+            demand._ff_foc_note()
+        return result
+
     def _ff_make_request(self, distributor, employee=None):
         request = super()._ff_make_request(distributor, employee)
         for demand in self:
