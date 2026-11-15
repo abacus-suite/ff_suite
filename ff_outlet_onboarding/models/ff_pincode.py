@@ -54,6 +54,23 @@ class FfPincode(models.AbstractModel):
                 return re.sub(r'[^a-z]', '', (text or '').lower().replace('&', 'and'))
             state = next((s for s in State.search([('country_id.code', '=', 'IN')]) if norm(s.name) == norm(row['state'])),
                          State.browse())
+        if not state and row['state']:
+            # Older names the postal service still uses.
+            alias = {'pondicherry': 'Puducherry', 'orissa': 'Odisha', 'uttaranchal': 'Uttarakhand'}.get(row['state'].lower())
+            if alias:
+                state = State.search([('country_id.code', '=', 'IN'), ('name', '=ilike', alias)], limit=1)
+        if not state and create and row['state']:
+            # Not in Odoo yet: make it (the code is the initials, made unique).
+            india = self.env['res.country'].sudo().search([('code', '=', 'IN')], limit=1)
+            if india:
+                words = [w for w in re.split(r'\W+', row['state']) if w]
+                base = (''.join(w[0] for w in words) if len(words) > 1 else row['state'][:2]).upper()
+                taken = set(State.search([('country_id', '=', india.id)]).mapped('code'))
+                code, n = base, 1
+                while code in taken:
+                    n += 1
+                    code = '%s%s' % (base, n)
+                state = State.create({'name': row['state'], 'code': code, 'country_id': india.id})
         if not state:
             why.append('state "%s" is not in Odoo States' % row['state'])
             return District.browse()
