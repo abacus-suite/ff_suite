@@ -30,9 +30,9 @@
                             <field name="ff_client_code"/>
                             <field name="ff_approval_state"/>
                             <field name="ff_created_by_employee_id"/>
-                            <field name="ff_team_ids" widget="many2many_tags"/>
                         </group>
                         <group string="Location">
+                            <field name="ff_team_ids" string="Region" widget="many2many_tags"/>
                             <field name="ff_district_id"/>
                             <field name="ff_secondary_district_ids" widget="many2many_tags" options="{'no_create': True}"
                                    invisible="ff_category_type != 'distributor'"/>
