@@ -909,7 +909,9 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                       child: Text(
                         remaining == null
                             ? 'No limit for this type'
-                            : '${fmtQty(remaining)} ${_isHour ? 'hours' : 'days'} available · used ${fmtQty((_type!['used'] as num?) ?? 0)} of ${fmtQty((_type!['allocated'] as num?) ?? 0)}'
+                            : remaining <= 0 && asText(_type!['available_from']) != null
+                                ? 'Nothing to take yet: ${fmtQty((_type!['allocated'] as num?) ?? 0)} ${_isHour ? 'hours' : 'days'} start on ${_type!['available_from']}'
+                                : '${fmtQty(remaining)} ${_isHour ? 'hours' : 'days'} available · used ${fmtQty((_type!['used'] as num?) ?? 0)} of ${fmtQty((_type!['allocated'] as num?) ?? 0)}'
                                 '${((_type!['pending'] as num?) ?? 0) > 0 ? ' · ${fmtQty(_type!['pending'] as num)} waiting' : ''}',
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                       ),
