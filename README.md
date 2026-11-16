@@ -5,7 +5,7 @@ app (repository `ff_suite`).
  
 ## Modules   
 | Module | Purpose | 
-|---|---|
+|---|---| 
 | `ff_base` | Teams, designations, devices, groups (Officer / Manager / Admin), settings, field timezone, reference numbering |
 | `ff_tracking` | GPS pings, live status, inactive / no-signal flags, daily distance, compliance log |
 | `ff_attendance` | Selfie + GPS punch (online or queued offline), shifts, late / half-day, calendar, corrections |
