@@ -310,7 +310,10 @@ class _EventsScreenState extends State<EventsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final events = _events;
+    // As an employee only the person's own events: the team's belong to manager mode.
+    final events = _events == null
+        ? null
+        : [for (final e in _events!) if (Services.managerMode.value || e['can_act'] != false) e];
     const names = {'draft': 'Draft', 'running': 'Event Running', 'on_hold': 'On hold', 'done': 'Completed'};
     return Scaffold(
       backgroundColor: _pageBg,

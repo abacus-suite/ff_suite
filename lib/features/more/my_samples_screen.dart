@@ -32,7 +32,7 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
 
   Future<void> _load() async {
     try {
-      final d = await Services.api.get('/api/v1/field-tasks/samples', query: {'member': _member})
+      final d = await Services.api.get('/api/v1/field-tasks/samples', query: {'member': Services.managerMode.value ? _member : 'me'})
           as Map<String, dynamic>;
       if (mounted) {
         setState(() {
@@ -397,7 +397,7 @@ class _MySamplesScreenState extends State<MySamplesScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
                     sliver: SliverToBoxAdapter(
                       child: Column(children: [
-                        if (Services.auth.profile?.isManager ?? false)
+                        if ((Services.auth.profile?.isManager ?? false) && Services.managerMode.value)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: Align(

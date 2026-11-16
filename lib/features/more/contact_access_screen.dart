@@ -136,12 +136,15 @@ class _ContactAccessScreenState extends State<ContactAccessScreen> {
     );
   }
 
+  /// Deciding for, and giving access to, the team is manager mode; as an employee only the person's own requests show.
+  bool get _team => _canDecide && Services.managerMode.value;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Contact Access')),
       floatingActionButton: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
-        if (_canDecide) ...[
+        if (_team) ...[
           FloatingActionButton.extended(
             heroTag: 'assign',
             onPressed: _assign,
@@ -166,12 +169,12 @@ class _ContactAccessScreenState extends State<ContactAccessScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                     children: [
-                      if (_canDecide && _toDecide.isNotEmpty) ...[
+                      if (_team && _toDecide.isNotEmpty) ...[
                         const Text('Waiting for you', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                         for (final r in _toDecide) _row(r as Map, decide: true),
                         const SizedBox(height: 12),
                       ],
-                      if (_canDecide && _given.isNotEmpty) ...[
+                      if (_team && _given.isNotEmpty) ...[
                         const Text('Given to my team', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                         for (final r in _given) _row(r as Map, decide: false, who: true),
                         const SizedBox(height: 12),
