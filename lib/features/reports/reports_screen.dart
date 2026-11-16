@@ -125,6 +125,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final reports = ((data?['reports'] as List?) ?? []).cast<Map<String, dynamic>>();
     final members = ((data?['members'] as List?) ?? []).cast<Map<String, dynamic>>();
     final canTeam = data?['can_team'] == true;
+    // The team view (and its labels) only exists in manager mode; as an employee the reports are just the person's own.
+    final team = canTeam && Services.managerMode.value;
     return Scaffold(
       appBar: AppBar(title: const Text('Reports')),
       body: RefreshIndicator(
@@ -136,7 +138,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             if (data == null && _error == null)
               const Padding(padding: EdgeInsets.all(40), child: const LoadingView()),
             // Live map and Timeline are for the team view: hidden while working as an employee.
-            if (canTeam && Services.managerMode.value) ...[
+            if (team) ...[
               const _Section('My team'),
               Row(
                 children: [
@@ -170,7 +172,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   child: Icon(Icons.emoji_events_rounded, color: Color(0xFFF5B301)),
                 ),
                 title: const Text('Leaderboard & targets', style: TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(canTeam ? 'Top performers · split your targets' : 'Where you stand this month'),
+                subtitle: Text(team ? 'Top performers · split your targets' : 'Where you stand this month'),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => _open(const TargetsScreen()),
               ),
@@ -184,7 +186,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     child: Icon(Icons.fact_check_rounded, color: AppColors.primary),
                   ),
                   title: const Text('Approval Report', style: TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: const Text('What you approved and rejected'),
+                  subtitle: Text(team ? 'What you approved and rejected' : 'Your requests and how each ended'),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => _open(const ApprovalReportScreen()),
                 ),
@@ -201,7 +203,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 onTap: () => _open(const ReceivablesScreen()),
               ),
             ),
-            if (reports.isNotEmpty) _Section(canTeam ? 'Reports · me or my team' : 'My reports'),
+            if (reports.isNotEmpty && team) const _Section('Reports · me or my team'),
             for (var i = 0; i < reports.length; i++)
               Card(
                 child: ListTile(
@@ -218,7 +220,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   onTap: () => _open(ReportViewScreen(
                     report: reports[i],
                     members: members,
-                    canTeam: canTeam,
+                    canTeam: team,
                   )),
                 ),
               ),
