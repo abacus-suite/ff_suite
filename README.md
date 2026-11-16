@@ -4,7 +4,7 @@ Field sales force management on Odoo 19 (Odoo.sh), with the Field Force Flutter
 app (repository `ff_suite`).
  
 ## Modules   
-| Module | Purpose |
+| Module | Purpose | 
 |---|---|
 | `ff_base` | Teams, designations, devices, groups (Officer / Manager / Admin), settings, field timezone, reference numbering |
 | `ff_tracking` | GPS pings, live status, inactive / no-signal flags, daily distance, compliance log |
