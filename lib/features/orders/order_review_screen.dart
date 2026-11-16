@@ -31,6 +31,9 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
       widget.client['category_type'] != 'distributor' &&
       widget.client['is_company_location'] != true;
 
+  /// An order for a distributor is supplied by our own company: no distributor to choose.
+  bool get _forDistributor => widget.client['category_type'] == 'distributor';
+
   final _note = TextEditingController();
   // One id per review screen: retrying after a network error cannot create a duplicate order.
   final String _uuid = const Uuid().v4();
@@ -189,7 +192,8 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
         if (_manual.isNotEmpty)
           'foc': [for (final m in _manual) {'product_id': m['product_id'], 'qty': m['qty'], 'reason': m['reason']}],
         'note': _note.text.trim(),
-        if (_distributorId != null && widget.client['is_company_location'] != true) 'distributor_id': _distributorId,
+        if (_distributorId != null && widget.client['is_company_location'] != true && !_forDistributor)
+          'distributor_id': _distributorId,
         'is_company_location': widget.client['is_company_location'] == true,
         'lat': pos?.latitude,
         'lng': pos?.longitude,
@@ -332,6 +336,31 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
   /// The outlet's rate already has the GST in it: nothing is added on top of the lines.
   bool get _rateHasGst => widget.commercials != null;
 
+  /// The order is for a distributor, so our company supplies it.
+  Widget _companyCard() => Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          child: Row(children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(color: AppColors.purple.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(11)),
+              child: const Icon(Icons.local_shipping_rounded, size: 18, color: AppColors.purple),
+            ),
+            const SizedBox(width: 9),
+            const Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Supplied by', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                SizedBox(height: 2),
+                Text('Our company. This order goes straight to the company for the distributor.',
+                    style: TextStyle(fontSize: 12, color: AppColors.muted)),
+              ]),
+            ),
+          ]),
+        ),
+      );
+
   /// Who supplies the order: the field picks, the office sees it on the record.
   Widget _distributorCard() {
     final chosen = _distributors.where((d) => d['id'] == _distributorId).firstOrNull;
@@ -421,7 +450,10 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
             leading: const Icon(Icons.store),
             title: Text(widget.client['name'] as String, style: theme.textTheme.titleMedium),
           ),
-          if (widget.client['is_company_location'] != true && _distributors.isNotEmpty) _distributorCard(),
+          if (_forDistributor)
+            _companyCard()
+          else if (widget.client['is_company_location'] != true && _distributors.isNotEmpty)
+            _distributorCard(),
           const Divider(),
           for (final l in widget.lines)
             ListTile(
