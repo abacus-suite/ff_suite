@@ -165,7 +165,8 @@ class _LeavesScreenState extends State<LeavesScreen> {
             icon: const Icon(Icons.calendar_month_rounded),
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaveCalendarScreen())),
           ),
-          if (Services.auth.profile?.isManager ?? false)
+          // The team's time off is manager mode; as an employee only the person's own leaves.
+          if ((Services.auth.profile?.isManager ?? false) && Services.managerMode.value)
             IconButton(
               tooltip: 'Team time off',
               icon: const Icon(Icons.groups_rounded),
