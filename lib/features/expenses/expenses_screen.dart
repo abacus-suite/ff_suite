@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../widgets/common.dart';
 import 'expense_form_screen.dart';
 import 'payment_request_screens.dart';
+import 'rejected_requests_screen.dart';
 import '../allowance/allowance_screen.dart';
 
 /// The expenses of one kind - claims, or company card expenses: the ones not sent yet (tick and send them) and how
@@ -459,6 +460,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   AppColors.primary, ExpenseListScreen(kind: 'card', month: _month)),
             _category('request', Icons.request_quote_rounded, 'Payment requests', 'Paid directly by accounts · tax invoices',
                 const Color(0xFF7C3AED), const PaymentRequestsScreen()),
+            _category('rejected', Icons.block_rounded, 'Rejected Requests', 'Everything rejected, with the reason',
+                AppColors.danger, RejectedRequestsScreen(month: _month)),
           ],
         ),
       ),
