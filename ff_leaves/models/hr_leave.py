@@ -170,11 +170,21 @@ class HrLeave(models.Model):
                     ('employee_id', '=', employee.id), ('holiday_status_id', '=', leave_type.id),
                     ('state', '=', 'validate')])) if 'hr.leave.allocation' in self.env else 0.0
                 allocated = round(given, 2)
+                # What can be asked for now: only allocations that have started (and not ended).
+                today = fields.Date.context_today(self)
+                started = sum(a.number_of_days * per_day for a in self.env['hr.leave.allocation'].sudo().search([
+                    ('employee_id', '=', employee.id), ('holiday_status_id', '=', leave_type.id),
+                    ('state', '=', 'validate'), ('date_from', '<=', today),
+                    '|', ('date_to', '=', False), ('date_to', '>=', today)])) if 'hr.leave.allocation' in self.env else 0.0
                 used = round(sum(Leave.search([
                     ('employee_id', '=', employee.id), ('holiday_status_id', '=', leave_type.id),
                     ('state', '=', 'validate')]).mapped('number_of_hours')), 2)
                 pending_days = round(sum(pending.mapped('number_of_hours')), 2)
-                remaining = round(allocated - used - pending_days, 2)
+                remaining = round(max(started - used - pending_days, 0.0), 2)
+            upcoming = self.env['hr.leave.allocation'].sudo().search([
+                ('employee_id', '=', employee.id), ('holiday_status_id', '=', leave_type.id),
+                ('state', '=', 'validate'), ('date_from', '>', fields.Date.context_today(self))],
+                order='date_from', limit=1) if (requires and 'hr.leave.allocation' in self.env) else False
             rows.append({
                 'id': leave_type.id,
                 'name': leave_type.name,
@@ -185,6 +195,8 @@ class HrLeave(models.Model):
                 'pending': pending_days,
                 'remaining': remaining if requires else None,
                 'unit': leave_type.request_unit,
+                # When the next allocation begins, for a balance that is still waiting to start.
+                'available_from': upcoming.date_from.isoformat() if upcoming and upcoming.date_from else None,
                 'colour': leave_type.color or 0,
                 'approval': VALIDATION_LABELS.get(getattr(leave_type, 'leave_validation_type', ''), ''),
                 'can_request': (not requires) or remaining > 0,
