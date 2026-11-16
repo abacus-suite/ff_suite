@@ -7,6 +7,7 @@ import '../../core/geo.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import 'commercials.dart';
+import 'orders_screen.dart' show OrderDetailScreen;
 
 class OrderReviewScreen extends StatefulWidget {
   const OrderReviewScreen(
@@ -187,8 +188,10 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
       final result = await Services.outbox.submit('/api/v1/orders', {
         'partner_id': widget.client['id'],
         'lines': [
-          for (final l in widget.lines) {'product_id': l['id'], 'qty': l['qty']},
+          // The rate shown on this screen goes with the line, so the order is made at the same price.
+          for (final l in widget.lines) {'product_id': l['id'], 'qty': l['qty'], 'price': l['price']},
         ],
+        'rate_has_gst': _rateHasGst,
         if (_manual.isNotEmpty)
           'foc': [for (final m in _manual) {'product_id': m['product_id'], 'qty': m['qty'], 'reason': m['reason']}],
         'note': _note.text.trim(),
@@ -211,6 +214,12 @@ class _OrderReviewScreenState extends State<OrderReviewScreen> {
             actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
           ),
         );
+        if (mounted) Navigator.of(context).pop(true);
+        return;
+      }
+      // A placed sale order opens on its own page (lines, totals, PDF), not in a popup.
+      if (!demandFlow && order['id'] is int) {
+        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: order['id'] as int)));
         if (mounted) Navigator.of(context).pop(true);
         return;
       }

@@ -168,12 +168,8 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
       if (changed == true) _load();
       return;
     }
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => _OrderDetail(orderId: id, demandFlow: false),
-    );
+    // A full page, not a popup: the lines, the totals and the PDF to view, download or share.
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: id)));
   }
 
   List<GroupOption> get _groupOptions => [
@@ -856,11 +852,27 @@ class _OrdersScreenState extends State<OrdersScreen> with WidgetsBindingObserver
   }
 }
 
+/// One sale order on its own page.
+class OrderDetailScreen extends StatelessWidget {
+  const OrderDetailScreen({super.key, required this.orderId});
+
+  final int orderId;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Sale order')),
+        body: _OrderDetail(orderId: orderId, demandFlow: false, page: true),
+      );
+}
+
 class _OrderDetail extends StatelessWidget {
-  const _OrderDetail({required this.orderId, required this.demandFlow});
+  const _OrderDetail({required this.orderId, required this.demandFlow, this.page = false});
 
   final int orderId;
   final bool demandFlow;
+
+  /// On its own page rather than in a bottom sheet: it fills the screen.
+  final bool page;
 
   @override
   Widget build(BuildContext context) {
@@ -874,7 +886,7 @@ class _OrderDetail extends StatelessWidget {
         final currency = o['currency'] as String?;
         return DraggableScrollableSheet(
           expand: false,
-          initialChildSize: 0.6,
+          initialChildSize: page ? 1.0 : 0.6,
           builder: (context, controller) => ListView(
             controller: controller,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
