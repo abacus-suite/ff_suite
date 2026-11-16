@@ -29,4 +29,20 @@ class SaleOrder(models.Model):
                 for line in order.sudo().order_line.filtered(lambda l: not getattr(l, 'ff_is_foc', False)):
                     if line.product_id.id in prices and prices[line.product_id.id] > 0:
                         line.price_unit = prices[line.product_id.id]
+        # What you see is what you get: the rate the app showed for the line (before tax, or with the GST in it when
+        # the app says so) is the rate of the order, so the order total matches the PO Summary.
+        if not resent:
+            shown = {}
+            for row in data.get('lines') or []:
+                try:
+                    shown[int(row.get('product_id'))] = float(row.get('price'))
+                except (TypeError, ValueError):
+                    continue
+            for line in order.sudo().order_line.filtered(lambda l: not getattr(l, 'ff_is_foc', False)):
+                price = shown.get(line.product_id.id)
+                if price and price > 0:
+                    rate = sum(t.amount for t in line.tax_ids if t.amount_type == 'percent')
+                    if data.get('rate_has_gst') and rate:
+                        price = round(price / (1.0 + rate / 100.0), 2)
+                    line.price_unit = price
         return order
