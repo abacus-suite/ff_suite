@@ -110,6 +110,8 @@ class _ApprovalReportScreenState extends State<ApprovalReportScreen> {
       final data = await Services.api.get('/api/v1/approvals/report', query: {
         'start': fmtDate(_start),
         'end': fmtDate(_end),
+        // Working as an employee: only the person's own requests.
+        if (!Services.managerMode.value) 'scope': 'me',
       });
       if (mounted) {
         setState(() {
@@ -238,8 +240,11 @@ class _ApprovalReportScreenState extends State<ApprovalReportScreen> {
         );
     return Row(children: [
       Flexible(child: menu<String>('All types', _kind, {for (final k in kinds) k: k}, (v) => _kind = v)),
-      const SizedBox(width: 8),
-      Flexible(child: menu<int>('All employees', _employee, people, (v) => _employee = v)),
+      // Only the manager's team view has other employees to choose from.
+      if (Services.managerMode.value) ...[
+        const SizedBox(width: 8),
+        Flexible(child: menu<int>('All employees', _employee, people, (v) => _employee = v)),
+      ],
     ]);
   }
 
@@ -358,6 +363,7 @@ class _ApprovalReportScreenState extends State<ApprovalReportScreen> {
           if (_state != null) 'state': _state,
           if (_kind != null) 'kind': _kind,
           if (_employee != null) 'employee_id': _employee,
+          if (!Services.managerMode.value) 'scope': 'me',
         }) as Map<String, dynamic>;
         final response = await http.get(Uri.parse(await Services.api.url('${r['path']}')), headers: await Services.api.authHeaders());
         if (response.statusCode != 200) throw Exception('The report could not be downloaded (${response.statusCode}).');
