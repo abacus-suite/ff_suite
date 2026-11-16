@@ -135,7 +135,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
             if (_error != null) Card(child: ErrorView(message: _error!, onRetry: _load)),
             if (data == null && _error == null)
               const Padding(padding: EdgeInsets.all(40), child: const LoadingView()),
-            if (canTeam) ...[
+            // Live map and Timeline are for the team view: hidden while working as an employee.
+            if (canTeam && Services.managerMode.value) ...[
               const _Section('My team'),
               Row(
                 children: [
