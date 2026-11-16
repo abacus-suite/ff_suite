@@ -628,19 +628,6 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
         backgroundColor: AppColors.background,
         appBar: AppBar(
           title: const Text('Demand'),
-          actions: [
-            if (d != null)
-              IconButton(
-                icon: const Icon(Icons.picture_as_pdf_rounded),
-                tooltip: 'Preview PDF',
-                onPressed: () => openPdfPreview(
-                  context,
-                  title: 'Demand ${d['name']}',
-                  endpoint: '/api/v1/demands/${d['id']}/pdf',
-                  filename: 'Demand_${d['name']}.pdf',
-                ),
-              ),
-          ],
         ),
         bottomNavigationBar: sendable
             ? SafeArea(

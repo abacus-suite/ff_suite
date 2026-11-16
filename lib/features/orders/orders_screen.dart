@@ -896,16 +896,6 @@ class _OrderDetail extends StatelessWidget {
                   Expanded(
                     child: Text('${o['name']} · ${o['state_label']}', style: Theme.of(context).textTheme.titleLarge),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary),
-                    tooltip: 'Preview PDF',
-                    onPressed: () => openPdfPreview(
-                      context,
-                      title: '${demandFlow ? 'Demand' : 'Order'} ${o['name']}',
-                      endpoint: demandFlow ? '/api/v1/demands/$orderId/pdf' : '/api/v1/orders/$orderId/pdf',
-                      filename: '${demandFlow ? 'Demand' : 'Order'}_${o['name']}.pdf',
-                    ),
-                  ),
                   if (o['visit_type'] != null)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
