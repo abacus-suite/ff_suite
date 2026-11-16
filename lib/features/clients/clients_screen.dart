@@ -397,7 +397,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
         ],
       ),
     );
-    final picker = Services.auth.profile?.isManager == true
+    final picker = Services.auth.profile?.isManager == true && Services.managerMode.value
         ? MemberPicker(
             value: _member,
             dense: true,

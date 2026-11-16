@@ -112,7 +112,7 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
     final now = DateTime.now();
     final isCurrent = _month.year == now.year && _month.month == now.month;
     final data = _data;
-    final isManager = Services.auth.profile?.isManager ?? false;
+    final isManager = (Services.auth.profile?.isManager ?? false) && Services.managerMode.value;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
