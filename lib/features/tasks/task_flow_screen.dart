@@ -413,9 +413,23 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
     ];
   }
 
+  /// The Territories to choose from: those of the chosen Region (all of them while no Region is chosen).
+  List<Map<String, dynamic>> _territoryOptions() {
+    final region = _a['region_id'] as int?;
+    return [
+      for (final t in _territories)
+        if (region == null || _idOf(t['region']) == null || _idOf(t['region']) == region) t,
+    ];
+  }
+
   void _pickRegion(int? id) {
     setState(() {
       _a['region_id'] = id;
+      // A Territory of another Region (and its Area) no longer applies.
+      if (!_territoryOptions().any((t) => t['id'] == _a['territory_id'])) {
+        _a['territory_id'] = null;
+        _a['area_id'] = null;
+      }
       // A beat of another region no longer applies.
       if (!_beatOptions().any((r) => r['id'] == _a['beat_id'])) _a['beat_id'] = null;
     });
@@ -992,7 +1006,7 @@ class _TaskFlowScreenState extends State<TaskFlowScreen> {
                   ? _dropdown(
                       'Territory *',
                       [
-                        for (final t in _territories)
+                        for (final t in _territoryOptions())
                           {'id': t['id'], 'name': '${t['name']}${t['kind'] == 'secondary' ? ' (secondary)' : ''}'},
                       ],
                       _a['territory_id'] as int?,
