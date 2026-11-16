@@ -44,7 +44,8 @@ class _TasksScreenState extends State<TasksScreen> {
   String? _error;
   bool _loading = true;
 
-  bool get _isManager => Services.auth.profile!.isManager;
+  /// Team view and assigning are for manager mode; working as an employee shows only the person's own tasks.
+  bool get _isManager => Services.auth.profile!.isManager && Services.managerMode.value;
 
   @override
   void initState() {
@@ -122,7 +123,7 @@ class _TasksScreenState extends State<TasksScreen> {
   Future<void> _newTask() async {
     final created = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const NewTaskScreen()));
     if (created == true) {
-      setState(() => _scope = 'team');
+      if (_isManager) setState(() => _scope = 'team');
       _load();
     }
   }

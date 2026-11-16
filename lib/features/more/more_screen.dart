@@ -32,9 +32,7 @@ class MoreScreen extends StatelessWidget {
     // The order and names the client asked for. Planned Days, Forms, Notifications and Chat are gone.
     final menu = <(IconData, String, Color, Widget)>[
       (Icons.bar_chart_rounded, 'Reports', AppColors.primary, const ReportsScreen()),
-      // A manager working as an employee does not see the task list.
-      if (!profile.isManager || managerMode)
-        (Icons.task_alt_rounded, 'My Tasks', AppColors.success, const TasksScreen()),
+      (Icons.task_alt_rounded, 'My Tasks', AppColors.success, const TasksScreen()),
       if (profile.feature('routes'))
         (Icons.calendar_month_rounded, 'My ${profile.routeLabel} Plan', AppColors.primary, const MyBeatPlanScreen()),
       (Icons.account_balance_wallet_rounded, 'Receivables', AppColors.danger, const ReceivablesScreen()),
