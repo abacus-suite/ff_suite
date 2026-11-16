@@ -25,10 +25,19 @@ class FieldForceLeavesApi(http.Controller):
         return ok({
             'summary': {
                 'waiting': waiting, 'approved': approved, 'total': len(rows),
-                'allocated': round(sum(t['allocated'] or 0 for t in types), 2),
-                'used': round(sum(t['used'] or 0 for t in types), 2),
-                'pending': round(sum(t['pending'] or 0 for t in types), 2),
-                'remaining': round(sum(t['remaining'] or 0 for t in types if t['requires_allocation']), 2),
+                # Days only: a type asked for by the hour (compensatory off) is in hours, shown apart.
+                'allocated': round(sum(t['allocated'] or 0 for t in types if t['unit'] != 'hour'), 2),
+                'used': round(sum(t['used'] or 0 for t in types if t['unit'] != 'hour'), 2),
+                'pending': round(sum(t['pending'] or 0 for t in types if t['unit'] != 'hour'), 2),
+                'remaining': round(sum(t['remaining'] or 0 for t in types
+                                       if t['requires_allocation'] and t['unit'] != 'hour'), 2),
+                'hours': {
+                    'allocated': round(sum(t['allocated'] or 0 for t in types if t['unit'] == 'hour'), 2),
+                    'used': round(sum(t['used'] or 0 for t in types if t['unit'] == 'hour'), 2),
+                    'pending': round(sum(t['pending'] or 0 for t in types if t['unit'] == 'hour'), 2),
+                    'remaining': round(sum(t['remaining'] or 0 for t in types
+                                           if t['requires_allocation'] and t['unit'] == 'hour'), 2),
+                },
             },
             'types': types,
             'allocations': Leave.ff_allocations_for(employee),

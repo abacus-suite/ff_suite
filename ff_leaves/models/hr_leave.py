@@ -155,6 +155,14 @@ class HrLeave(models.Model):
             used = number('leaves_taken') if 'leaves_taken' in leave_type._fields else round(sum(taken.mapped('number_of_days')), 2)
             pending_days = round(sum(pending.mapped('number_of_days')), 2)
             remaining = number('virtual_remaining_leaves')
+            if requires and leave_type.request_unit != 'hour' and 'hr.leave.allocation' in self.env:
+                # What was given counts from the day it is given: an allocation that starts later is still allocated
+                # (the balance to ask from begins at its start date).
+                today = fields.Date.context_today(self)
+                given_days = self.env['hr.leave.allocation'].sudo().search([
+                    ('employee_id', '=', employee.id), ('holiday_status_id', '=', leave_type.id),
+                    ('state', '=', 'validate'), '|', ('date_to', '=', False), ('date_to', '>=', today)])
+                allocated = round(sum(given_days.mapped('number_of_days')), 2)
             if leave_type.request_unit == 'hour':
                 # Asked for by the hour: the balance is in hours too (what was given, used, waiting, left).
                 per_day = employee.sudo().resource_calendar_id.hours_per_day or 8.0
@@ -192,10 +200,21 @@ class HrLeave(models.Model):
         allowed = self._ff_app_types(employee)
         allocations = Allocation.search([('employee_id', '=', employee.id), ('state', '=', 'validate'),
                                          ('holiday_status_id', 'in', allowed.ids)], order='date_from desc')
+        def amount(allocation):
+            # A type asked for by the hour is given in hours: 45 hours is not 45 days.
+            if allocation.holiday_status_id.request_unit == 'hour':
+                hours = getattr(allocation, 'number_of_hours_display', None)
+                if not hours:
+                    per_day = allocation.employee_id.sudo().resource_calendar_id.hours_per_day or 8.0
+                    hours = (allocation.number_of_days or 0.0) * per_day
+                return round(hours, 2)
+            return round(allocation.number_of_days or 0.0, 2)
+
         return [{
             'id': allocation.id,
             'type': {'id': allocation.holiday_status_id.id, 'name': allocation.holiday_status_id.name},
-            'days': round(allocation.number_of_days or 0.0, 2),
+            'unit': allocation.holiday_status_id.request_unit,
+            'days': amount(allocation),
             'used': round(getattr(allocation, 'leaves_taken', 0.0) or 0.0, 2) if 'leaves_taken' in allocation._fields else None,
             'from': allocation.date_from.isoformat() if allocation.date_from else None,
             'to': allocation.date_to.isoformat() if allocation.date_to else None,
@@ -301,10 +320,11 @@ class HrLeave(models.Model):
             rows.append({
                 'employee': {'id': member.id, 'name': member.name, 'code': member.ff_employee_code or None,
                              'job': member.job_title or None},
-                'allocated': round(sum(t['allocated'] or 0 for t in types), 2),
-                'used': round(sum(t['used'] or 0 for t in types), 2),
-                'pending': round(sum(t['pending'] or 0 for t in types), 2),
-                'remaining': round(sum(t['remaining'] or 0 for t in types if t['requires_allocation']), 2),
+                'allocated': round(sum(t['allocated'] or 0 for t in types if t['unit'] != 'hour'), 2),
+                'used': round(sum(t['used'] or 0 for t in types if t['unit'] != 'hour'), 2),
+                'pending': round(sum(t['pending'] or 0 for t in types if t['unit'] != 'hour'), 2),
+                'remaining': round(sum(t['remaining'] or 0 for t in types
+                                       if t['requires_allocation'] and t['unit'] != 'hour'), 2),
                 'types': types,
                 'on_leave_today': current.ff_app_payload() if current else None,
                 'upcoming': [leave.ff_app_payload() for leave in upcoming],
