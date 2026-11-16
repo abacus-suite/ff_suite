@@ -301,6 +301,21 @@ class _LeavesScreenState extends State<LeavesScreen> {
             stat('Available', remaining),
           ]),
         ),
+        // Compensatory off and the like are asked for by the hour: their balance is in hours, apart from the days.
+        if (((s['hours'] as Map?)?['allocated'] as num? ?? 0) > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Row(children: [
+              const Icon(Icons.schedule_rounded, color: Colors.white70, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                    'By the hour: ${fmtQty(((s['hours'] as Map)['remaining'] as num?) ?? 0)} h available · '
+                    '${fmtQty(((s['hours'] as Map)['used'] as num?) ?? 0)} of ${fmtQty((s['hours'] as Map)['allocated'] as num)} h used',
+                    style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700)),
+              ),
+            ]),
+          ),
       ]),
     );
   }
@@ -612,7 +627,7 @@ class _LeavesScreenState extends State<LeavesScreen> {
               ]),
             ),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text('${fmtQty(a['days'] as num? ?? 0)} days', style: const TextStyle(fontWeight: FontWeight.w900)),
+              Text('${fmtQty(a['days'] as num? ?? 0)} ${a['unit'] == 'hour' ? 'hours' : 'days'}', style: const TextStyle(fontWeight: FontWeight.w900)),
               if (a['used'] != null) Text('${fmtQty(a['used'] as num)} used', style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
             ]),
           ]),
