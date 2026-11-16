@@ -595,8 +595,15 @@ class _DemandDetailScreenState extends State<DemandDetailScreen> {
             leading: Icon(n['kind'] == 'credit' ? Icons.south_west_rounded : Icons.north_east_rounded,
                 color: n['kind'] == 'credit' ? AppColors.success : AppColors.warning),
             title: Text('${n['kind_label'] ?? 'Note'} · ${n['name']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-            subtitle: Text('${fmtMoney(n['amount'] as num?)}${n['state'] != null ? ' · ${n['state']}' : ''}'),
-            trailing: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary),
+            subtitle: Text([
+              fmtMoney(n['amount'] as num?),
+              if (asText(n['status']) != null) asText(n['status'])!,
+              if (asText(n['source']) != null) asText(n['source'])!,
+            ].join(' · ')),
+            trailing: const Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.download_rounded, color: AppColors.primary),
+              Text('PDF', style: TextStyle(fontSize: 10.5, color: AppColors.primary, fontWeight: FontWeight.w800)),
+            ]),
             onTap: () => openPdfPreview(
               context,
               title: '${n['kind_label'] ?? 'Note'} ${n['name']}',
