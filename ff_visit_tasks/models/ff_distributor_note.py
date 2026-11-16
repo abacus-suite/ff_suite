@@ -306,10 +306,12 @@ class FfDistributorNote(models.Model):
             'ref': ref_text,
             'narration': narration,
             'invoice_line_ids': lines,
+            # Approved by the manager, left in draft for the accounts team to review and post by hand.
+            'ff_approval_state': 'approved',
         })
-        move.action_post()
         self.sudo().write({'move_id': move.id})
-        self.message_post(body=self.env._('Posted Credit Note %s created in Accounting.') % move.name)
+        self.message_post(body=self.env._(
+            'Draft Credit Note created in Accounting, manager approved: the accounts team will review and post it.'))
         return move
 
     def action_view_credit_note(self):
