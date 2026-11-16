@@ -180,11 +180,23 @@ class HrLeave(models.Model):
                     ('employee_id', '=', employee.id), ('holiday_status_id', '=', leave_type.id),
                     ('state', '=', 'validate')]).mapped('number_of_hours')), 2)
                 pending_days = round(sum(pending.mapped('number_of_hours')), 2)
-                remaining = round(max(started - used - pending_days, 0.0), 2)
-            upcoming = self.env['hr.leave.allocation'].sudo().search([
-                ('employee_id', '=', employee.id), ('holiday_status_id', '=', leave_type.id),
-                ('state', '=', 'validate'), ('date_from', '>', fields.Date.context_today(self))],
-                order='date_from', limit=1) if (requires and 'hr.leave.allocation' in self.env) else False
+                remaining = round(max(allocated - used - pending_days, 0.0), 2)
+            available_from = None
+            if requires and 'hr.leave.allocation' in self.env:
+                # An allocation that starts later is still part of the balance: it is only that nothing can be taken
+                # before its start date. Say when it starts when nothing has started yet.
+                Alloc = self.env['hr.leave.allocation'].sudo()
+                base = [('employee_id', '=', employee.id), ('holiday_status_id', '=', leave_type.id),
+                        ('state', '=', 'validate')]
+                today = fields.Date.context_today(self)
+                started_now = Alloc.search_count(base + [('date_from', '<=', today), '|', ('date_to', '=', False),
+                                                         ('date_to', '>=', today)])
+                if not started_now:
+                    upcoming = Alloc.search(base + [('date_from', '>', today)], order='date_from', limit=1)
+                    if upcoming:
+                        available_from = upcoming.date_from.isoformat()
+                        if leave_type.request_unit != 'hour':
+                            remaining = round(max(allocated - used - pending_days, 0.0), 2)
             rows.append({
                 'id': leave_type.id,
                 'name': leave_type.name,
@@ -196,7 +208,7 @@ class HrLeave(models.Model):
                 'remaining': remaining if requires else None,
                 'unit': leave_type.request_unit,
                 # When the next allocation begins, for a balance that is still waiting to start.
-                'available_from': upcoming.date_from.isoformat() if upcoming and upcoming.date_from else None,
+                'available_from': available_from,
                 'colour': leave_type.color or 0,
                 'approval': VALIDATION_LABELS.get(getattr(leave_type, 'leave_validation_type', ''), ''),
                 'can_request': (not requires) or remaining > 0,
