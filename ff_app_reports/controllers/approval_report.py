@@ -50,10 +50,10 @@ def _row(kind, rec_id, title, employee, detail, day, state, reason=None):
     }
 
 
-def collect(employee, start, end):
-    """Every request of the manager's team dated within the period, newest first."""
+def collect(employee, start, end, own=False):
+    """Every request of the manager's team dated within the period, newest first. ``own``: only the person's own."""
     env = request.env
-    team = employee._ff_subordinates()
+    team = employee if own else employee._ff_subordinates()
     if not team:
         return []
     rows = []
@@ -218,9 +218,9 @@ def _html(rows, low, high):
 class FieldForceApprovalReportApi(http.Controller):
 
     @api_route('/api/v1/approvals/report', methods=('GET',), manager=True)
-    def report(self, employee, start=None, end=None, **kw):
+    def report(self, employee, start=None, end=None, scope=None, **kw):
         low, high = _period(start, end)
-        rows = collect(employee, low, high)
+        rows = collect(employee, low, high, own=scope == 'me')
         return ok({'counts': counts_of(rows), 'items': rows})
 
     @api_route('/api/v1/approvals/report/export', methods=('POST',), manager=True)
@@ -230,7 +230,7 @@ class FieldForceApprovalReportApi(http.Controller):
         kind = 'pdf' if data.get('format') == 'pdf' else 'excel'
         token = _sign({
             'e': employee.id, 'ar': kind, 's': low.isoformat(), 'n': high.isoformat(),
-            'st': data.get('state') or '', 'kd': data.get('kind') or '', 'em': to_int(data.get('employee_id')) or 0,
+            'st': data.get('state') or '', 'kd': data.get('kind') or '', 'em': to_int(data.get('employee_id')) or 0, 'own': 1 if data.get('scope') == 'me' else 0,
             'x': int(clock.time()) + LINK_SECONDS})
         return ok({'path': '/api/v1/approvals/report/download?t=%s' % token, 'expires_in': LINK_SECONDS})
 
@@ -245,7 +245,7 @@ class FieldForceApprovalReportApi(http.Controller):
         if not employee:
             return request.not_found()
         low, high = fields.Date.to_date(payload['s']), fields.Date.to_date(payload['n'])
-        rows = _filtered(collect(employee, low, high), payload.get('st'), payload.get('kd') or None,
+        rows = _filtered(collect(employee, low, high, own=bool(payload.get('own'))), payload.get('st'), payload.get('kd') or None,
                          payload.get('em') or None)
         name = 'Approval_Report_%s_%s' % (low.isoformat(), high.isoformat())
         if payload['ar'] == 'pdf':
