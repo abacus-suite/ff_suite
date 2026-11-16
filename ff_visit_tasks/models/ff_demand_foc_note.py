@@ -36,8 +36,11 @@ class FfDemand(models.Model):
         Note = self.env['ff.distributor.note'].sudo()
         if not free or not distributor:
             return Note
-        if Note.search_count([('demand_id', '=', self.id), ('source', '=', 'sample'), ('state', '!=', 'rejected')]):
-            return Note  # a sample collection: its credit note already covers these pieces
+        # A sample collection's free demand is covered by its credit note: never a free-goods debit note as well, whether
+        # or not that credit note exists yet or is still waiting.
+        if Note.search_count([('demand_id', '=', self.id), ('source', '=', 'sample'), ('state', '!=', 'rejected')])                 or self.env['ff.task.log'].sudo().search_count([('demand_ids', 'in', self.ids),
+                                                                 ('sample_source', '=', 'outlet')]):
+            return Note
         if Note.search_count([('demand_id', '=', self.id), ('kind', '=', 'debit'),
                               ('reason', 'like', PREFIX), ('state', '!=', 'rejected')]):
             return Note
