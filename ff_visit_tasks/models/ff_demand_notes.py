@@ -7,7 +7,9 @@ class FfDemandNotes(models.Model):
 
     ff_note_ids = fields.One2many('ff.distributor.note', 'demand_id', string='Debit / Credit Notes', readonly=True)
 
-    def ff_app_payload(self, with_lines=True):
+    def ff_notes_payload(self):
+        """The notes of this demand for the phone (and the missing free-goods note raised first)."""
+        self.ensure_one()
         # A demand with free goods that has gone to a distributor always has its debit note: one sent before notes were
         # automatic gets it the first time it is opened.
         for demand in self.sudo().filtered(lambda d: d.request_id and d.distributor_id
@@ -17,7 +19,6 @@ class FfDemandNotes(models.Model):
                     demand._ff_foc_note()
             except Exception:  # noqa: BLE001 - the screen must open even when the note cannot be raised
                 pass
-        payload = super().ff_app_payload(with_lines=with_lines)
         kinds = {'credit': 'Credit Note', 'debit': 'Debit Note'}
         waiting = {'pending': 'Waiting for manager approval', 'approved': 'Approved by the manager - accounts to post',
                    'rejected': 'Rejected'}
@@ -32,7 +33,7 @@ class FfDemandNotes(models.Model):
                 return waiting.get(move.ff_approval_state, 'Draft')
             return {'pending': 'Waiting for approval', 'approved': 'Approved', 'rejected': 'Rejected'}.get(note.state, '')
 
-        payload['notes'] = [{
+        return [{
             'id': note.id,
             # The accounting number once posted, else the note's own.
             'name': note.move_id.name if note.move_id and note.move_id.state == 'posted' else note.name,
@@ -40,4 +41,8 @@ class FfDemandNotes(models.Model):
             'amount': note.amount, 'state': note.state, 'status': status(note),
             'source': dict(note._fields['source'].selection).get(note.source, ''),
         } for note in self.sudo().ff_note_ids]
+
+    def ff_app_payload(self, with_lines=True):
+        payload = super().ff_app_payload(with_lines=with_lines)
+        payload['notes'] = self.ff_notes_payload()
         return payload

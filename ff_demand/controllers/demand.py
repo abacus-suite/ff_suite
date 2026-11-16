@@ -103,6 +103,9 @@ def demand_data(demand, with_lines=False):
             'discount': getattr(line, 'discount', 0.0),
             'foc_note': (line.foc_scheme_id.name or line.foc_reason or None) if getattr(line, 'is_foc', False) else None,
         } for line in demand.line_ids]
+    # The credit / debit notes raised with the demand (a module that has them adds this).
+    if with_lines and hasattr(demand, 'ff_notes_payload'):
+        data['notes'] = demand.ff_notes_payload()
     return data
 
 
