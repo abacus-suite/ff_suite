@@ -813,6 +813,12 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       showProblem(context, 'The end time must be after the start time.');
       return;
     }
+    // The balance may be there but start later: nothing can be taken before its first day.
+    final startsOn = DateTime.tryParse('${_type?['available_from'] ?? ''}');
+    if (startsOn != null && DateTime(_from.year, _from.month, _from.day).isBefore(startsOn)) {
+      showProblem(context, '${_type!['name']} starts on ${_type!['available_from']}. Choose a day on or after it.');
+      return;
+    }
     if (_overBalance) {
       showProblem(context, 'You are asking for ${fmtQty(_amount)} $_unit and have ${fmtQty(_remaining!)} left of ${_type!['name']}.');
       return;
@@ -909,10 +915,9 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                       child: Text(
                         remaining == null
                             ? 'No limit for this type'
-                            : remaining <= 0 && asText(_type!['available_from']) != null
-                                ? 'Nothing to take yet: ${fmtQty((_type!['allocated'] as num?) ?? 0)} ${_isHour ? 'hours' : 'days'} start on ${_type!['available_from']}'
-                                : '${fmtQty(remaining)} ${_isHour ? 'hours' : 'days'} available · used ${fmtQty((_type!['used'] as num?) ?? 0)} of ${fmtQty((_type!['allocated'] as num?) ?? 0)}'
-                                '${((_type!['pending'] as num?) ?? 0) > 0 ? ' · ${fmtQty(_type!['pending'] as num)} waiting' : ''}',
+                            : '${fmtQty(remaining)} ${_isHour ? 'hours' : 'days'} available · used ${fmtQty((_type!['used'] as num?) ?? 0)} of ${fmtQty((_type!['allocated'] as num?) ?? 0)}'
+                                '${((_type!['pending'] as num?) ?? 0) > 0 ? ' · ${fmtQty(_type!['pending'] as num)} waiting' : ''}'
+                                '${asText(_type!['available_from']) != null ? ' · from ${_type!['available_from']}' : ''}',
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                       ),
                     ),
