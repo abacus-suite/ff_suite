@@ -8,6 +8,15 @@ class FfDemandNotes(models.Model):
     ff_note_ids = fields.One2many('ff.distributor.note', 'demand_id', string='Debit / Credit Notes', readonly=True)
 
     def ff_app_payload(self, with_lines=True):
+        # A demand with free goods that has gone to a distributor always has its debit note: one sent before notes were
+        # automatic gets it the first time it is opened.
+        for demand in self.sudo().filtered(lambda d: d.request_id and d.distributor_id
+                                           and d.state not in ('draft', 'cancelled', 'rejected')):
+            try:
+                with self.env.cr.savepoint():
+                    demand._ff_foc_note()
+            except Exception:  # noqa: BLE001 - the screen must open even when the note cannot be raised
+                pass
         payload = super().ff_app_payload(with_lines=with_lines)
         kinds = {'credit': 'Credit Note', 'debit': 'Debit Note'}
         waiting = {'pending': 'Waiting for manager approval', 'approved': 'Approved by the manager - accounts to post',
