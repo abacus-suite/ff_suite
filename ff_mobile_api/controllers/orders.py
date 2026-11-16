@@ -164,10 +164,12 @@ def _order_html(order):
         prod_name = escape(l.product_id.display_name or l.name or '')
         sku = escape(getattr(l.product_id.product_tmpl_id, 'ff_sku_code', '') or l.product_id.default_code or '-')
         qty = ('%.2f' % l.product_uom_qty).rstrip('0').rstrip('.')
-        uom = escape(l.product_uom.name or 'Pcs')
+        taxes_rec = l.tax_ids if 'tax_ids' in l._fields else l.tax_id
+        uom_rec = l.product_uom_id if 'product_uom_id' in l._fields else l.product_uom
+        uom = escape(uom_rec.name or 'Pcs')
         rate = '%.2f' % (l.price_unit or 0.0)
         disc = (('%.2f' % l.discount).rstrip('0').rstrip('.') + '%') if (l.discount or 0) > 0 else '-'
-        taxes = ', '.join(t.name for t in l.tax_id) if l.tax_id else '-'
+        taxes = ', '.join(t.name for t in taxes_rec) if taxes_rec else '-'
         subtotal = '%.2f' % (l.price_subtotal or 0.0)
 
         lines_html.append("""
