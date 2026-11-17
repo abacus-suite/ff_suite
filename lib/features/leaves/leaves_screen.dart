@@ -770,8 +770,19 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     return '$shown:${mm.toString().padLeft(2, '0')} $suffix';
   }
 
-  double? get _remaining =>
-      _type?['requires_allocation'] == true ? ((_type!['remaining'] as num?) ?? 0).toDouble() : null;
+  /// Is the chosen day (or days) inside the period the balance can be used?
+  bool get _inValidity {
+    final validFrom = DateTime.tryParse('${_type?['valid_from'] ?? ''}');
+    final validTo = DateTime.tryParse('${_type?['valid_to'] ?? ''}');
+    final first = DateTime(_from.year, _from.month, _from.day);
+    final last = DateTime(_to.year, _to.month, _to.day);
+    return !((validFrom != null && first.isBefore(validFrom)) || (validTo != null && last.isAfter(validTo)));
+  }
+
+  /// What can be taken on the chosen day: the balance, or nothing when the day is outside its validity.
+  double? get _remaining => _type?['requires_allocation'] == true
+      ? (_inValidity ? ((_type!['remaining'] as num?) ?? 0).toDouble() : 0.0)
+      : null;
 
   bool get _overBalance => _remaining != null && _amount > _remaining!;
 
@@ -1062,9 +1073,19 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                   selected: {_halfPeriod},
                   onSelectionChanged: (v) => setState(() => _halfPeriod = v.first),
                 ),
+              // How many can be taken on the day chosen.
+              if (remaining != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    'Available on ${_short(_from)}: ${fmtQty(remaining)} $_unit'
+                    '${!_inValidity && _validity(_type!).isNotEmpty ? ' · ${_validity(_type!)}' : ''}',
+                    style: TextStyle(fontWeight: FontWeight.w800, color: remaining > 0 ? AppColors.primary : AppColors.danger),
+                  ),
+                ),
               if (after != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 10),
+                  padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     after < 0 ? 'This is ${fmtQty(-after)} more than you have.' : 'You will have ${fmtQty(after)} $_unit left after this.',
                     style: TextStyle(fontWeight: FontWeight.w700, color: after < 0 ? AppColors.danger : AppColors.success),
