@@ -937,8 +937,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                             ? 'No limit for this type'
                             : '${fmtQty(remaining)} ${_isHour ? 'hours' : 'days'} available · used ${fmtQty((_type!['used'] as num?) ?? 0)} of ${fmtQty((_type!['allocated'] as num?) ?? 0)}'
                                 '${((_type!['pending'] as num?) ?? 0) > 0 ? ' · ${fmtQty(_type!['pending'] as num)} waiting' : ''}'
-                                '${_validity(_type!).isNotEmpty ? '
-${_validity(_type!)}' : ''}',
+                                '${_validity(_type!).isNotEmpty ? '\n${_validity(_type!)}' : ''}',
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                       ),
                     ),
