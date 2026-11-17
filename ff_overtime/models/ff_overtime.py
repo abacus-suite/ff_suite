@@ -22,12 +22,19 @@ class FfOvertime(models.Model):
     approved_minutes = fields.Integer(readonly=True, tracking=True,
                                       help='What the manager approved: it can be less than the overtime, or 0.')
     state = fields.Selection([
-        ('draft', 'Not sent'), ('submitted', 'To Approve'), ('approved', 'Approved'), ('rejected', 'Rejected'),
+        ('draft', 'Not sent'), ('submitted', 'To Approve'), ('hr_pending', 'With HR'),
+        ('approved', 'Approved'), ('rejected', 'Rejected'),
     ], default='draft', required=True, index=True, tracking=True)
     decision_note = fields.Char(string='Manager\'s Reason', readonly=True, tracking=True,
                                 help='Why the overtime was approved for less, or not at all.')
-    approver_id = fields.Many2one('res.users', readonly=True, copy=False)
+    approver_id = fields.Many2one('res.users', string='Final Approver (HR)', readonly=True, copy=False)
     decided_at = fields.Datetime(readonly=True, copy=False)
+    # The first level: the manager's decision, which HR then confirms or changes.
+    manager_minutes = fields.Integer(string='Manager Approved', readonly=True, tracking=True,
+                                     help='What the manager approved; HR can raise it (up to what was sent) or lower it.')
+    manager_note = fields.Char(string='Manager\'s Reason', readonly=True)
+    manager_id = fields.Many2one('res.users', string='Manager', readonly=True, copy=False)
+    manager_decided_at = fields.Datetime(readonly=True, copy=False)
     allocation_id = fields.Many2one('hr.leave.allocation', readonly=True, copy=False, ondelete='set null')
     company_id = fields.Many2one(related='employee_id.company_id', store=True)
 
@@ -106,14 +113,24 @@ class FfOvertime(models.Model):
         if (reject or minutes < self.overtime_minutes) and not note:
             raise UserError(self.env._('Give the reason for changing the overtime.'))
         rec = self.sudo()
+        if not (reject or minutes <= 0):
+            # First level done: the manager's time goes to HR, who give the final time. Nothing is added to the
+            # compensatory off before that.
+            rec.write({'state': 'hr_pending', 'manager_minutes': minutes, 'manager_note': note or False,
+                       'manager_id': user.id or False, 'manager_decided_at': fields.Datetime.now()})
+            rec._ff_notify_hr()
+            if 'ff.notification' in self.env:
+                self.env['ff.notification'].sudo().ff_push(
+                    title=self.env._('Overtime with HR'),
+                    body=self.env._('Your manager approved %(hours)s of your overtime on %(date)s. It now waits for HR.',
+                                    hours=_hours(minutes), date=rec.date),
+                    kind='info', employee=rec.employee_id, record=rec)
+            return rec
         rec.decision_note = note or False
         if reject or minutes <= 0:
             rec.write({'state': 'rejected', 'approved_minutes': 0, 'approver_id': user.id or False,
-                       'decided_at': fields.Datetime.now()})
-        else:
-            rec.write({'state': 'approved', 'approved_minutes': minutes, 'approver_id': user.id or False,
-                       'decided_at': fields.Datetime.now()})
-            rec._ff_grant_comp_off()
+                       'decided_at': fields.Datetime.now(), 'manager_id': user.id or False,
+                       'manager_decided_at': fields.Datetime.now()})
         if 'ff.notification' in self.env:
             self.env['ff.notification'].sudo().ff_push(
                 title=self.env._('Overtime Approved') if rec.state == 'approved' else self.env._('Overtime Rejected'),
@@ -123,6 +140,61 @@ class FfOvertime(models.Model):
                                             why=note)) if note else ''))
                       if rec.state == 'approved' else
                       self.env._('Your overtime on %(date)s was not approved. %(why)s', date=rec.date, why=note)),
+                kind='decision', employee=rec.employee_id, record=rec)
+        return rec
+
+    # ------------------------------------------------------------------ HR: the final level
+    @api.model
+    def _ff_is_hr(self, employee):
+        user = employee.sudo().user_id
+        return bool(user and (user.has_group('hr_holidays.group_hr_holidays_user')
+                              or user.has_group('ff_base.group_ff_admin')))
+
+    def _ff_notify_hr(self):
+        """Tell the HR users that an overtime waits for them."""
+        if 'ff.notification' not in self.env:
+            return
+        users = self.env['res.users'].sudo().search([('share', '=', False)]).filtered(
+            lambda u: u.has_group('hr_holidays.group_hr_holidays_user') or u.has_group('ff_base.group_ff_admin'))
+        for rec in self:
+            for employee in users.mapped('employee_id').filtered(lambda e: e.company_id == rec.company_id):
+                self.env['ff.notification'].sudo().ff_push(
+                    title=self.env._('Overtime to Approve (HR)'),
+                    body=self.env._('%(employee)s: %(hours)s of overtime on %(date)s approved by the manager.',
+                                    employee=rec.employee_id.name, hours=_hours(rec.manager_minutes), date=rec.date),
+                    kind='approval', employee=employee, record=rec)
+
+    def ff_hr_decide(self, approver, minutes, reject=False, note=''):
+        """The final approval: HR can raise the manager's time (never beyond what the employee sent) or lower it. What
+        is approved here is what is added to the compensatory off."""
+        self.ensure_one()
+        if not self._ff_is_hr(approver):
+            raise AccessError(self.env._('Only HR can give the final approval of overtime.'))
+        if self.state != 'hr_pending':
+            raise UserError(self.env._('This overtime is not waiting for HR.'))
+        minutes = max(0, min(int(minutes or 0), self.overtime_minutes))
+        note = (note or '').strip()
+        if (reject or minutes != self.manager_minutes) and not note:
+            raise UserError(self.env._('Give the reason for changing the overtime.'))
+        user = approver.sudo().user_id
+        rec = self.sudo()
+        rec.decision_note = note or False
+        if reject or minutes <= 0:
+            rec.write({'state': 'rejected', 'approved_minutes': 0, 'approver_id': user.id or False,
+                       'decided_at': fields.Datetime.now()})
+        else:
+            rec.write({'state': 'approved', 'approved_minutes': minutes, 'approver_id': user.id or False,
+                       'decided_at': fields.Datetime.now()})
+            rec._ff_grant_comp_off()
+        if 'ff.notification' in self.env:
+            approved = rec.state == 'approved'
+            self.env['ff.notification'].sudo().ff_push(
+                title=self.env._('Overtime Approved') if approved else self.env._('Overtime Rejected'),
+                body=(self.env._('%(hours)s of your overtime on %(date)s were approved by HR and added to your '
+                                 'compensatory off.', hours=_hours(rec.approved_minutes), date=rec.date)
+                      + ((' ' + self.env._('You sent %(sent)s. Reason: %(why)s', sent=_hours(rec.overtime_minutes),
+                                           why=note)) if note else '')) if approved else
+                self.env._('Your overtime on %(date)s was not approved by HR. %(why)s', date=rec.date, why=note),
                 kind='decision', employee=rec.employee_id, record=rec)
         return rec
 

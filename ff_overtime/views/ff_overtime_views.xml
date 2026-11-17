@@ -15,14 +15,15 @@
         <field name="name">ff.overtime.list</field>
         <field name="model">ff.overtime</field>
         <field name="arch" type="xml">
-            <list decoration-info="state == 'submitted'" decoration-muted="state == 'rejected'">
+            <list decoration-info="state in ('submitted', 'hr_pending')" decoration-muted="state == 'rejected'">
                 <field name="date"/>
                 <field name="employee_id"/>
                 <field name="worked_minutes" string="Worked (min)"/>
                 <field name="expected_minutes" string="Shift (min)"/>
                 <field name="overtime_minutes" string="Overtime (min)"/>
-                <field name="approved_minutes" string="Approved (min)"/>
-                <field name="state" widget="badge" decoration-info="state == 'submitted'"
+                <field name="manager_minutes" string="Manager (min)"/>
+                <field name="approved_minutes" string="Final (min)"/>
+                <field name="state" widget="badge" decoration-info="state in ('submitted', 'hr_pending')"
                        decoration-success="state == 'approved'" decoration-danger="state == 'rejected'"/>
             </list>
         </field>
@@ -34,7 +35,7 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,approved"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,hr_pending,approved"/>
                 </header>
                 <sheet>
                     <group>
@@ -46,8 +47,12 @@
                             <field name="overtime_minutes"/>
                         </group>
                         <group>
-                            <field name="approved_minutes"/>
-                            <field name="decision_note"/>
+                            <field name="manager_minutes"/>
+                            <field name="manager_note"/>
+                            <field name="manager_id"/>
+                            <field name="manager_decided_at"/>
+                            <field name="approved_minutes" string="Final (HR) Minutes"/>
+                            <field name="decision_note" string="HR's Reason"/>
                             <field name="approver_id"/>
                             <field name="decided_at"/>
                             <field name="allocation_id"/>

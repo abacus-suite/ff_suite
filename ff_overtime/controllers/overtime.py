@@ -16,6 +16,7 @@ def _row(rec):
         'id': rec.id, 'date': to_iso(rec.date), 'worked_minutes': rec.worked_minutes,
         'expected_minutes': rec.expected_minutes, 'overtime_minutes': rec.overtime_minutes,
         'approved_minutes': rec.approved_minutes, 'state': rec.state, 'note': rec.decision_note or None,
+        'manager_minutes': rec.manager_minutes, 'manager_note': rec.manager_note or None,
         'employee': ref(rec.employee_id),
     }
 
@@ -39,7 +40,8 @@ class FieldForceOvertimeApi(http.Controller):
             'month': first.strftime('%Y-%m'),
             'rows': [_row(r) for r in rows],
             'to_send_minutes': sum(r.overtime_minutes for r in rows if r.state == 'draft'),
-            'waiting_minutes': sum(r.overtime_minutes for r in rows if r.state == 'submitted'),
+            'waiting_minutes': sum(r.overtime_minutes for r in rows if r.state in ('submitted', 'hr_pending')),
+            'can_hr': request.env['ff.overtime']._ff_is_hr(employee),
             'approved_minutes': sum(r.approved_minutes for r in rows if r.state == 'approved'),
         })
 
@@ -61,6 +63,29 @@ class FieldForceOvertimeApi(http.Controller):
         rows = request.env['ff.overtime'].sudo().search(
             [('employee_id', 'in', team.ids), ('state', '=', 'submitted')], order='date desc')
         return ok({'rows': [_row(r) for r in rows]})
+
+    @api_route('/api/v1/overtime/to-hr', methods=('GET',))
+    def to_hr(self, employee, **kw):
+        """HR: the overtime the managers approved, waiting for the final time."""
+        if not request.env['ff.overtime']._ff_is_hr(employee):
+            raise ApiError('Only HR can see this.', 403, 'forbidden')
+        rows = request.env['ff.overtime'].sudo().search(
+            [('state', '=', 'hr_pending'), ('company_id', '=', employee.company_id.id)], order='date desc')
+        return ok({'rows': [_row(r) for r in rows]})
+
+    @api_route('/api/v1/overtime/<int:overtime_id>/hr-decide', methods=('POST',))
+    def hr_decide(self, employee, overtime_id, **kw):
+        rec = request.env['ff.overtime'].sudo().browse(overtime_id).exists()
+        if not rec:
+            raise ApiError('Overtime not found.', 404, 'not_found')
+        data = body()
+        try:
+            rec.ff_hr_decide(employee, data.get('minutes'), reject=bool(data.get('reject')),
+                             note=(data.get('reason') or '').strip())
+        except (UserError, AccessError) as error:
+            request.env.cr.rollback()
+            raise ApiError(str(error), 400, 'invalid')
+        return ok(_row(rec))
 
     @api_route('/api/v1/overtime/<int:overtime_id>/decide', methods=('POST',), manager=True)
     def decide(self, employee, overtime_id, **kw):
