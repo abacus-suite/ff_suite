@@ -22,7 +22,8 @@ String _day(String? iso) {
 }
 
 (Color, String) _look(String state) => switch (state) {
-      'submitted' => (AppColors.sky, 'Waiting for approval'),
+      'submitted' => (AppColors.sky, 'Waiting for manager'),
+      'hr_pending' => (AppColors.purple, 'With HR'),
       'approved' => (AppColors.success, 'Approved'),
       'rejected' => (AppColors.danger, 'Not approved'),
       _ => (AppColors.muted, 'Not sent'),
@@ -112,7 +113,8 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
     final now = DateTime.now();
     final isCurrent = _month.year == now.year && _month.month == now.month;
     final data = _data;
-    final isManager = (Services.auth.profile?.isManager ?? false) && Services.managerMode.value;
+    final isManager = ((Services.auth.profile?.isManager ?? false) && Services.managerMode.value) ||
+        (data?['can_hr'] == true);
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -192,12 +194,15 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
                       Text(_day(r['date'] as String?), style: const TextStyle(fontWeight: FontWeight.w800)),
                       Text('Worked ${_mins(r['worked_minutes'] as num?)} · shift ${_mins(r['expected_minutes'] as num?)}',
                           style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                      if (r['state'] == 'hr_pending')
+                        Text('Manager approved ${_mins(r['manager_minutes'] as num?)} · waiting for HR',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.purple)),
                       if (r['state'] == 'approved')
                         Text('Approved ${_mins(r['approved_minutes'] as num?)} of ${_mins(r['overtime_minutes'] as num?)}',
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.success)),
                       // What the manager changed, and why.
                       if (r['state'] == 'approved' && (r['approved_minutes'] as num) < (r['overtime_minutes'] as num) && asText(r['note']) != null)
-                        Text('Adjusted by your manager: ${r['note']}',
+                        Text('Adjusted: ${r['note']}',
                             style: const TextStyle(fontSize: 12, color: AppColors.warning, fontWeight: FontWeight.w600)),
                       if (r['state'] == 'rejected' && asText(r['note']) != null)
                         Text('Reason: ${r['note']}',
@@ -224,18 +229,20 @@ class _OvertimeScreenState extends State<OvertimeScreen> {
 
 /// The manager decides on one overtime: the time can be changed (1 hour sent can be approved as 30 minutes, or as none),
 /// and a change or a rejection needs a reason. True when it was decided.
-Future<bool> decideOvertime(BuildContext context, Map<String, dynamic> r) async {
+Future<bool> decideOvertime(BuildContext context, Map<String, dynamic> r, {bool hr = false}) async {
   final sent = (r['overtime_minutes'] as num).toInt();
-  var minutes = sent;
+  // HR start from what the manager approved and may raise it (up to what was sent) or lower it.
+  final first = hr ? (r['manager_minutes'] as num? ?? sent).toInt() : sent;
+  var minutes = first;
   final why = TextEditingController();
-  final typed = TextEditingController(text: '$sent');
+  final typed = TextEditingController(text: '$first');
   final result = await showModalBottomSheet<(int, String)>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (sheet) => StatefulBuilder(
       builder: (context, setSheet) {
-        final changed = minutes < sent;
+        final changed = hr ? minutes != first : minutes < sent;
         final needReason = changed;
         return Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -248,8 +255,14 @@ Future<bool> decideOvertime(BuildContext context, Map<String, dynamic> r) async 
                     style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
                 const SizedBox(height: 14),
                 Text('Sent: ${_mins(sent)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                if (hr) ...[
+                  Text('Manager approved: ${_mins(first)}${asText(r['manager_note']) != null ? ' · ${r['manager_note']}' : ''}',
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.purple)),
+                  const Text('You give the final time: it is what is added to the compensatory off.',
+                      style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                ],
                 const SizedBox(height: 6),
-                const Text('Approve', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                Text(hr ? 'Final time' : 'Approve', style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
                 // Tap the number and type the minutes to approve: less than what was sent, never more.
                 TextField(
                   controller: typed,
@@ -323,7 +336,7 @@ Future<bool> decideOvertime(BuildContext context, Map<String, dynamic> r) async 
   typed.dispose();
   if (result == null || !context.mounted) return false;
   try {
-    await Services.api.post('/api/v1/overtime/${r['id']}/decide',
+    await Services.api.post('/api/v1/overtime/${r['id']}/${hr ? 'hr-decide' : 'decide'}',
         {'minutes': result.$1, 'reject': result.$1 == 0, 'reason': result.$2});
     if (context.mounted) showSnack(context, result.$1 == 0 ? 'Not approved' : 'Approved ${_mins(result.$1)}');
     return true;
@@ -343,6 +356,7 @@ class OvertimeApprovalScreen extends StatefulWidget {
 
 class _OvertimeApprovalScreenState extends State<OvertimeApprovalScreen> {
   List<Map<String, dynamic>>? _rows;
+  List<Map<String, dynamic>> _hrRows = [];
   String? _error;
 
   @override
@@ -351,10 +365,21 @@ class _OvertimeApprovalScreenState extends State<OvertimeApprovalScreen> {
     _load();
   }
 
+  Future<List<Map<String, dynamic>>> _list(String path) async {
+    try {
+      final data = await Services.api.get(path) as Map<String, dynamic>;
+      return ((data['rows'] as List?) ?? []).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return const []; // not a manager, or not HR
+    }
+  }
+
   Future<void> _load() async {
     try {
-      final data = await Services.api.get('/api/v1/overtime/to-approve') as Map<String, dynamic>;
-      if (mounted) setState(() => (_rows = ((data['rows'] as List?) ?? []).cast<Map<String, dynamic>>(), _error = null));
+      final manager = (Services.auth.profile?.isManager ?? false) && Services.managerMode.value;
+      final mine = manager ? await _list('/api/v1/overtime/to-approve') : <Map<String, dynamic>>[];
+      final hr = await _list('/api/v1/overtime/to-hr');
+      if (mounted) setState(() => (_rows = mine, _hrRows = hr, _error = null));
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     }
@@ -373,10 +398,25 @@ class _OvertimeApprovalScreenState extends State<OvertimeApprovalScreen> {
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(padding: const EdgeInsets.all(16), children: [
-                    if (rows.isEmpty) const EmptyView(icon: Icons.more_time_rounded, text: 'Nothing waiting for you'),
-                    for (final r in rows) overtimeCard(context, r, () async {
-                      if (await decideOvertime(context, r)) _load();
-                    }),
+                    if (rows.isEmpty && _hrRows.isEmpty)
+                      const EmptyView(icon: Icons.more_time_rounded, text: 'Nothing waiting for you'),
+                    if (rows.isNotEmpty) ...[
+                      const Text('Waiting for you (manager)', style: TextStyle(fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 8),
+                      for (final r in rows)
+                        overtimeCard(context, r, () async {
+                          if (await decideOvertime(context, r)) _load();
+                        }),
+                    ],
+                    if (_hrRows.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      const Text('Waiting for HR', style: TextStyle(fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 8),
+                      for (final r in _hrRows)
+                        overtimeCard(context, r, () async {
+                          if (await decideOvertime(context, r, hr: true)) _load();
+                        }, hr: true),
+                    ],
                   ]),
                 ),
     );
@@ -384,12 +424,13 @@ class _OvertimeApprovalScreenState extends State<OvertimeApprovalScreen> {
 }
 
 /// One overtime waiting for the manager: who, the day, the time sent; tap to decide.
-Widget overtimeCard(BuildContext context, Map<String, dynamic> r, VoidCallback onTap) => Card(
+Widget overtimeCard(BuildContext context, Map<String, dynamic> r, VoidCallback onTap, {bool hr = false}) => Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
         onTap: onTap,
         title: Text('${(r['employee'] as Map?)?['name'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w800)),
-        subtitle: Text('${_day(r['date'] as String?)} · worked ${_mins(r['worked_minutes'] as num?)} · shift ${_mins(r['expected_minutes'] as num?)}'),
+        subtitle: Text('${_day(r['date'] as String?)} · worked ${_mins(r['worked_minutes'] as num?)} · shift ${_mins(r['expected_minutes'] as num?)}'
+            '${hr ? '\nManager approved ${_mins(r['manager_minutes'] as num?)}' : ''}'),
         trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text(_mins(r['overtime_minutes'] as num?), style: const TextStyle(fontWeight: FontWeight.w900)),
           const Text('Tap to decide', style: TextStyle(fontSize: 10.5, color: AppColors.primary)),
