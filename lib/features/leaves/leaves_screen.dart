@@ -35,17 +35,20 @@ Color _stateColour(String state) => switch (state) {
     };
 
 /// My time off: what is left of each type, what is coming up, what I asked for and where it stands.
-/// "Valid 30 Nov 2026 – no end date": how long a leave balance can be used (empty when it has no allocation).
+/// How long a leave balance can be used, short enough for one line: "1 Nov – 30 Nov 2026", or "From 30 Nov 2026" when it
+/// has no end. Empty when the type has no allocation.
 String _validity(Map<dynamic, dynamic> t) {
-  String d(Object? iso) {
+  String d(Object? iso, {bool year = true}) {
     final x = DateTime.tryParse('${iso ?? ''}');
-    return x == null ? '' : '${x.day} ${monthNames[x.month - 1].substring(0, 3)} ${x.year}';
+    if (x == null) return '';
+    return '${x.day} ${monthNames[x.month - 1].substring(0, 3)}${year ? ' ${x.year}' : ''}';
   }
 
-  final from = d(t['valid_from']);
-  if (from.isEmpty) return '';
-  final to = d(t['valid_to']);
-  return 'Valid $from – ${to.isEmpty ? 'no end date' : to}';
+  final from = DateTime.tryParse('${t['valid_from'] ?? ''}');
+  if (from == null) return '';
+  final to = DateTime.tryParse('${t['valid_to'] ?? ''}');
+  if (to == null) return 'From ${d(t['valid_from'])}';
+  return '${d(t['valid_from'], year: from.year != to.year)} – ${d(t['valid_to'])}';
 }
 
 class LeavesScreen extends StatefulWidget {
@@ -409,7 +412,8 @@ class _LeavesScreenState extends State<LeavesScreen> {
                       Text('${t['name']}${t['unit'] == 'hour' ? ' (h)' : ''}',
                           maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                       if (_validity(t).isNotEmpty)
-                        Text(_validity(t), style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
+                        Text(_validity(t),
+                            maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
                     ]),
                     5,
                     Alignment.centerLeft),
@@ -847,7 +851,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
     final first = DateTime(_from.year, _from.month, _from.day);
     final last = DateTime(_to.year, _to.month, _to.day);
     if ((validFrom != null && first.isBefore(validFrom)) || (validTo != null && last.isAfter(validTo))) {
-      showProblem(context, '${_type!['name']} can be taken only within its validity. ${_validity(_type!)}.');
+      showProblem(context, '${_type!['name']} can be taken only within its validity (${_validity(_type!)}).');
       return;
     }
     if (_overBalance) {
@@ -948,7 +952,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                             ? 'No limit for this type'
                             : '${fmtQty(remaining)} ${_isHour ? 'hours' : 'days'} available · used ${fmtQty((_type!['used'] as num?) ?? 0)} of ${fmtQty((_type!['allocated'] as num?) ?? 0)}'
                                 '${((_type!['pending'] as num?) ?? 0) > 0 ? ' · ${fmtQty(_type!['pending'] as num)} waiting' : ''}'
-                                '${_validity(_type!).isNotEmpty ? '\n${_validity(_type!)}' : ''}',
+                                '${_validity(_type!).isNotEmpty ? '\nValid ${_validity(_type!)}' : ''}',
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                       ),
                     ),
@@ -1079,7 +1083,7 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                   padding: const EdgeInsets.only(top: 12),
                   child: Text(
                     'Available on ${_short(_from)}: ${fmtQty(remaining)} $_unit'
-                    '${!_inValidity && _validity(_type!).isNotEmpty ? ' · ${_validity(_type!)}' : ''}',
+                    '${!_inValidity && _validity(_type!).isNotEmpty ? ' · valid ${_validity(_type!)}' : ''}',
                     style: TextStyle(fontWeight: FontWeight.w800, color: remaining > 0 ? AppColors.primary : AppColors.danger),
                   ),
                 ),
