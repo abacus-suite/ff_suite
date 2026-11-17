@@ -197,9 +197,22 @@ class HrLeave(models.Model):
                         available_from = upcoming.date_from.isoformat()
                         if leave_type.request_unit != 'hour':
                             remaining = round(max(allocated - used - pending_days, 0.0), 2)
+            # How long the balance is valid: from the first day of its allocations to the last (none: no end date).
+            valid_from = valid_to = None
+            if requires and 'hr.leave.allocation' in self.env:
+                live = self.env['hr.leave.allocation'].sudo().search([
+                    ('employee_id', '=', employee.id), ('holiday_status_id', '=', leave_type.id),
+                    ('state', '=', 'validate'), '|', ('date_to', '=', False),
+                    ('date_to', '>=', fields.Date.context_today(self))])
+                starts = [d for d in live.mapped('date_from') if d]
+                ends = live.mapped('date_to')
+                valid_from = min(starts).isoformat() if starts else None
+                valid_to = None if (not ends or any(not d for d in ends)) else max(ends).isoformat()
             rows.append({
                 'id': leave_type.id,
                 'name': leave_type.name,
+                'valid_from': valid_from,
+                'valid_to': valid_to,
                 'requires_allocation': requires,
                 'allocated': allocated if requires else None,
                 'used': used,
