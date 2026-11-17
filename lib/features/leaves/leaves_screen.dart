@@ -35,6 +35,19 @@ Color _stateColour(String state) => switch (state) {
     };
 
 /// My time off: what is left of each type, what is coming up, what I asked for and where it stands.
+/// "Valid 30 Nov 2026 – no end date": how long a leave balance can be used (empty when it has no allocation).
+String _validity(Map<dynamic, dynamic> t) {
+  String d(Object? iso) {
+    final x = DateTime.tryParse('${iso ?? ''}');
+    return x == null ? '' : '${x.day} ${monthNames[x.month - 1].substring(0, 3)} ${x.year}';
+  }
+
+  final from = d(t['valid_from']);
+  if (from.isEmpty) return '';
+  final to = d(t['valid_to']);
+  return 'Valid $from – ${to.isEmpty ? 'no end date' : to}';
+}
+
 class LeavesScreen extends StatefulWidget {
   const LeavesScreen({super.key});
 
@@ -392,8 +405,12 @@ class _LeavesScreenState extends State<LeavesScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(children: [
                 cell(
-                    Text('${t['name']}${t['unit'] == 'hour' ? ' (h)' : ''}',
-                        maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                    Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Text('${t['name']}${t['unit'] == 'hour' ? ' (h)' : ''}',
+                          maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                      if (_validity(t).isNotEmpty)
+                        Text(_validity(t), style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
+                    ]),
                     5,
                     Alignment.centerLeft),
                 cell(Text(t['requires_allocation'] == true ? n(t['allocated'] as num?) : '-', style: const TextStyle(fontSize: 13)), 2),
@@ -814,9 +831,12 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
       return;
     }
     // The balance may be there but start later: nothing can be taken before its first day.
-    final startsOn = DateTime.tryParse('${_type?['available_from'] ?? ''}');
-    if (startsOn != null && DateTime(_from.year, _from.month, _from.day).isBefore(startsOn)) {
-      showProblem(context, '${_type!['name']} starts on ${_type!['available_from']}. Choose a day on or after it.');
+    final validFrom = DateTime.tryParse('${_type?['valid_from'] ?? ''}');
+    final validTo = DateTime.tryParse('${_type?['valid_to'] ?? ''}');
+    final first = DateTime(_from.year, _from.month, _from.day);
+    final last = DateTime(_to.year, _to.month, _to.day);
+    if ((validFrom != null && first.isBefore(validFrom)) || (validTo != null && last.isAfter(validTo))) {
+      showProblem(context, '${_type!['name']} can be taken only within its validity. ${_validity(_type!)}.');
       return;
     }
     if (_overBalance) {
@@ -917,7 +937,8 @@ class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
                             ? 'No limit for this type'
                             : '${fmtQty(remaining)} ${_isHour ? 'hours' : 'days'} available · used ${fmtQty((_type!['used'] as num?) ?? 0)} of ${fmtQty((_type!['allocated'] as num?) ?? 0)}'
                                 '${((_type!['pending'] as num?) ?? 0) > 0 ? ' · ${fmtQty(_type!['pending'] as num)} waiting' : ''}'
-                                '${asText(_type!['available_from']) != null ? ' · from ${_type!['available_from']}' : ''}',
+                                '${_validity(_type!).isNotEmpty ? '
+${_validity(_type!)}' : ''}',
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                       ),
                     ),
