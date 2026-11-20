@@ -99,17 +99,18 @@ class FieldForceLeavesApi(http.Controller):
 
     @api_route('/api/v1/leaves/today', methods=('GET',))
     def today_leave(self, employee, **kw):
-        """The approved leave that covers today, asked at check-in: the employee may cancel it to work."""
+        """The leave covering today (approved or waiting for approval)."""
         today = employee._ff_today()
         leave = request.env['hr.leave'].sudo().search([
-            ('employee_id', '=', employee.id), ('state', '=', 'validate'),
+            ('employee_id', '=', employee.id),
+            ('state', 'in', ('confirm', 'validate1', 'validate')),
             ('request_date_from', '<=', today), ('request_date_to', '>=', today)], limit=1)
         Cancel = request.env['ff.leave.cancel'].sudo()
         waiting = bool(leave and Cancel.search_count([('leave_id', '=', leave.id), ('state', 'in', ('manager', 'hr'))]))
         return ok({
             'leave': leave.ff_app_payload() if leave else None,
             'cancel_requested': waiting,
-            'needs_approval': Cancel._ff_needs_approval(),
+            'needs_approval': False,
             'levels': int(Cancel._ff_levels()),
         })
 
@@ -118,12 +119,14 @@ class FieldForceLeavesApi(http.Controller):
         leave = request.env['hr.leave'].sudo().browse(leave_id).exists()
         if not leave:
             raise ApiError('Request not found.', 404, 'not_found')
+        reason = (body().get('reason') or '').strip() or 'Check-in attempted'
         try:
-            rec = request.env['ff.leave.cancel'].ff_request(employee, leave, (body().get('reason') or '').strip())
+            Cancel = request.env['ff.leave.cancel'].sudo()
+            rec = Cancel.ff_auto_cancel_for_checkin(employee, leave, reason)
         except (UserError, AccessError) as error:
             request.env.cr.rollback()
             raise ApiError(str(error), 400, 'invalid')
-        return ok({'state': rec.state, 'cancelled': rec.state == 'done'})
+        return ok({'state': 'done', 'cancelled': True})
 
     @api_route('/api/v1/approvals/leave/<int:leave_id>/<string:decision>', methods=('POST',), manager=True)
     def decide(self, employee, leave_id, decision, **kw):

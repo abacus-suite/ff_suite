@@ -151,6 +151,8 @@ class HrEmployee(models.Model):
         if action == 'in':
             if attendance:
                 raise UserError(self.env._('You are already punched in.'))
+            # Auto-cancel any leave covering today (approved or waiting for approval)
+            employee._ff_auto_cancel_leaves_for_checkin(now)
             # Choose Beat at Check-in is on: a beat must be chosen for the day before checking in.
             if getattr(employee, 'ff_beat_at_checkin', False) and 'ff.beat.plan' in self.env:
                 day = employee._ff_to_local(now).date()
@@ -245,6 +247,36 @@ class HrEmployee(models.Model):
         if action == 'out':
             self.env['ff.daily.track']._ff_compute(employee, employee._ff_to_local(now).date())
         return attendance
+
+    def _ff_auto_cancel_leaves_for_checkin(self, checkin_dt=None):
+        """Auto-cancel leave (approved or waiting for approval) if the employee checks in on that day."""
+        self.ensure_one()
+        if 'hr.leave' not in self.env:
+            return
+        day = self._ff_to_local(checkin_dt).date() if checkin_dt else self._ff_today()
+        leaves = self.env['hr.leave'].sudo().search([
+            ('employee_id', '=', self.id),
+            ('state', 'in', ('confirm', 'validate1', 'validate')),
+            ('request_date_from', '<=', day),
+            ('request_date_to', '>=', day),
+        ])
+        if not leaves:
+            return
+        Cancel = self.env['ff.leave.cancel'].sudo() if 'ff.leave.cancel' in self.env else None
+        for leave in leaves:
+            if Cancel and hasattr(Cancel, 'ff_auto_cancel_for_checkin'):
+                Cancel.ff_auto_cancel_for_checkin(self, leave, reason='Check-in attempted')
+            else:
+                if 'approval_line_ids' in leave._fields:
+                    leave.approval_line_ids.filtered(lambda l: l.state == 'pending').write({'state': 'skipped'})
+                try:
+                    leave.with_context(ff_chain_finished=True).action_refuse()
+                except Exception:
+                    try:
+                        leave.with_context(ff_chain_finished=True).write({'state': 'cancel'})
+                    except Exception:
+                        pass
+                leave.message_post(body=self.env._('Auto-cancelled: Check-in attempted on %(date)s.', date=day))
 
     def _ff_expected_hours(self, day):
         """The hours the working schedule expects on ``day``: the employee's working hours (Work tab), else the shift.

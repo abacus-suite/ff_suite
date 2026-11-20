@@ -37,6 +37,57 @@ class FfLeaveCancel(models.Model):
 
     # ------------------------------------------------------------------ the employee
     @api.model
+    def ff_auto_cancel_for_checkin(self, employee, leave, reason='Check-in attempted'):
+        """Auto-cancel a leave (approved or waiting for approval) when the employee checks in."""
+        leave = leave.sudo()
+        if leave.employee_id != employee:
+            raise AccessError(self.env._('This leave is not yours.'))
+        if leave.state in ('refuse', 'cancel'):
+            rec = self.sudo().search([('leave_id', '=', leave.id)], limit=1)
+            return rec or self.browse()
+
+        today = employee._ff_today()
+        # 1. Skip any pending approval chain steps
+        if 'approval_line_ids' in leave._fields:
+            leave.approval_line_ids.filtered(lambda l: l.state == 'pending').write({'state': 'skipped'})
+
+        # 2. Cancel/refuse the leave
+        try:
+            leave.with_context(ff_chain_finished=True).action_refuse()
+        except Exception:
+            try:
+                leave.with_context(ff_chain_finished=True).write({'state': 'cancel'})
+            except Exception:
+                pass
+
+        # 3. Post chatter message with the reason
+        leave.message_post(body=self.env._('Auto-cancelled: %(reason)s on %(date)s.',
+                                           reason=reason or 'Check-in attempted', date=today))
+
+        # 4. Mark or create any cancel record as done
+        rec = self.sudo().search([('leave_id', '=', leave.id)], limit=1)
+        if not rec:
+            rec = self.sudo().create({
+                'leave_id': leave.id,
+                'reason': reason or 'Check-in attempted',
+                'state': 'done',
+                'levels': '1',
+                'decided_at': fields.Datetime.now(),
+            })
+        else:
+            rec.write({'state': 'done', 'reason': reason or 'Check-in attempted', 'decided_at': fields.Datetime.now()})
+
+        # 5. Send push notification to employee
+        if 'ff.notification' in self.env and employee:
+            self.env['ff.notification'].sudo().ff_push(
+                title=self.env._('Leave Auto-Cancelled'),
+                body=self.env._('Your leave of %(date)s was auto-cancelled because %(reason)s.',
+                                date=leave.request_date_from, reason=(reason or 'check-in was attempted').lower()),
+                kind='decision', employee=employee, record=leave)
+
+        return rec
+
+    @api.model
     def ff_request(self, employee, leave, reason=''):
         """The employee asks to cancel an approved leave. With no approval needed it is cancelled at once."""
         leave = leave.sudo()
