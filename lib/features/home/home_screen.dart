@@ -72,6 +72,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// My own requests still waiting for somebody else, for the small icon in the check-in card.
   int _myPending = 0;
+
+  /// Open tasks assigned by manager for this employee.
+  int _managerTasksCountState = 0;
   List<Map<String, dynamic>>? _topRows;
   String _member = 'me';
   bool _loading = true;
@@ -162,6 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
             : Future<dynamic>.value(null),
         _optional(Services.api.get('/api/v1/tracking/my-day')),
         _optional(Services.api.get('/api/v1/visits')),
+        _optional(Services.api.get('/api/v1/tasks', query: {'scope': 'mine', 'state': 'todo,in_progress'})),
       ]);
       final status = results[0] as Map<String, dynamic>;
       // Manager Mode: checked in opens in the mode last used; checked out is always Employee Mode.
@@ -195,6 +199,9 @@ class _HomeScreenState extends State<HomeScreen> {
       // Top Products keeps its own period: bring it up to date when it differs from the sales card's.
       if (_topPeriod != _period) unawaited(_reloadTop(_topPeriod));
       if (!mounted) return;
+      final tasksRes = results.length > 6 && results[6] is Map ? results[6] as Map : null;
+      final openTasksList = (tasksRes?['tasks'] as List?)?.whereType<Map>().toList();
+      final openCount = (tasksRes?['summary'] as Map?)?['open'] as int? ?? openTasksList?.length;
       setState(() {
         _status = status;
         _visit = results[1] as Map<String, dynamic>?;
@@ -203,6 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _topRows = null;
         _travel = results[4] as Map<String, dynamic>?;
         _visits = ((results[5] as List?) ?? []).cast<Map<String, dynamic>>();
+        _managerTasksCountState = openCount ?? 0;
         _error = null;
       });
     } catch (e) {
@@ -447,6 +455,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   int get _managerTasksCount {
+    if (_managerTasksCountState > 0) return _managerTasksCountState;
     if (_today == null) return 0;
     if (_today!['tasks_manager_count'] is num) {
       return (_today!['tasks_manager_count'] as num).toInt();

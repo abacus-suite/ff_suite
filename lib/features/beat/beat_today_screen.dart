@@ -91,14 +91,35 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       final pos = await lastKnownPosition();
       if (pos != null && !pos.isMocked) _here = pos;
       _added = await AddedVisits.today();
-      final data = await Services.api.get('/api/v1/beat/today', query: {
-        'date': fmtDate(_day),
-        if (pos != null) 'lat': pos.latitude,
-        if (pos != null) 'lng': pos.longitude,
-      }) as Map<String, dynamic>;
+      final results = await Future.wait<dynamic>([
+        Services.api.get('/api/v1/beat/today', query: {
+          'date': fmtDate(_day),
+          if (pos != null) 'lat': pos.latitude,
+          if (pos != null) 'lng': pos.longitude,
+        }),
+        Services.api.get('/api/v1/tasks', query: {
+          'scope': 'mine',
+          'state': 'todo,in_progress',
+        }).catchError((_) => <String, dynamic>{}),
+      ]);
+
+      final data = results[0] as Map<String, dynamic>;
+      final taskData = results[1] is Map ? results[1] as Map<String, dynamic> : <String, dynamic>{};
+
       // The same list the Planned card counts, so the tab, the card and the report agree.
       _tasks = ((data['tasks'] as List?) ?? const []).cast<Map<String, dynamic>>();
-      _managerTasks = ((data['tasks_manager'] as List?) ?? const []).cast<Map<String, dynamic>>();
+
+      final mgrFromBeat = ((data['tasks_manager'] as List?) ?? const []).cast<Map<String, dynamic>>();
+      final mgrFromTasks = ((taskData['tasks'] as List?) ?? const []).cast<Map<String, dynamic>>();
+
+      final byId = <dynamic, Map<String, dynamic>>{};
+      for (final t in mgrFromBeat) {
+        byId[t['id']] = t;
+      }
+      for (final t in mgrFromTasks) {
+        byId[t['id']] = t;
+      }
+      _managerTasks = byId.values.toList();
       if (mounted) setState(() => (_data = data, _error = null));
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
