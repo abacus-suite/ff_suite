@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Field Force brand colours, taken from the logo (royal blue -> sky -> aqua).
 class AppColors {
@@ -50,6 +51,13 @@ ThemeData appTheme() {
       foregroundColor: AppColors.text,
       elevation: 0,
       scrolledUnderElevation: 0,
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
       titleTextStyle: TextStyle(
           color: AppColors.text, fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -0.2),
       centerTitle: false,
