@@ -200,6 +200,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
         _options = d as Map<String, dynamic>;
         final symbol = asText(_options['currency_symbol']);
         if (symbol != null) _currency = symbol;
+        _syncMrpWithTerritory();
       });
     }).catchError((_) {});
     if (_v('zip').length == 6) _lookupPin();
@@ -277,7 +278,9 @@ class _OnboardScreenState extends State<OnboardScreen> {
       String? code(Object? o) => o is Map ? asText(o['code']) : null;
       _category ??= code(ob?['outlet_category']) ?? code(c['outlet_category']);
       _riskLevel ??= asText(ob?['risk_level']) ?? asText(c['risk_level']) ?? 'low';
-      _mrp ??= code(ob?['mrp']) ?? code(c['mrp']) ?? _territoryMrp(_territoryId);
+      final existingMrp = code(ob?['mrp']) ?? code(c['mrp']);
+      if (existingMrp != null) _mrp ??= existingMrp;
+      _syncMrpWithTerritory(_territoryId);
       final area = _idOf(c['area_master']);
       if (_areaId == null && area != null && _areaOptions().any((a) => a['id'] == area)) _areaId = area;
       final region = _idOf(c['region']) ?? mineId;
@@ -289,10 +292,25 @@ class _OnboardScreenState extends State<OnboardScreen> {
   int? _districtOfTerritory(int? territoryId) =>
       (_territories.where((t) => t['id'] == territoryId).firstOrNull?['district_id'] as num?)?.toInt();
 
-  /// The MRP set on a territory (its code), so the MRP is chosen by itself when somebody is onboarded there.
-  String? _territoryMrp(int? territoryId) {
-    final mrp = _territories.where((t) => t['id'] == territoryId).firstOrNull?['mrp'];
-    return mrp is Map ? asText(mrp['code']) : null;
+  /// MRP options mapped to the chosen territory.
+  List<Map<String, dynamic>> _availableMrpOptions([int? territoryId]) {
+    final tid = territoryId ?? _territoryId;
+    if (tid == null) return const [];
+    final all = _list('mrp');
+    return all.where((o) {
+      final tIds = (o['territory_ids'] as List?)?.map((e) => (e as num).toInt()).toList() ?? [];
+      return tIds.contains(tid);
+    }).toList();
+  }
+
+  /// Syncs MRP selection with the territory: auto-selects if exactly 1, clears if no longer valid.
+  void _syncMrpWithTerritory([int? territoryId]) {
+    final matching = _availableMrpOptions(territoryId ?? _territoryId);
+    if (matching.length == 1) {
+      _mrp = '${matching.first['code']}';
+    } else if (_mrp != null && !matching.any((m) => '${m['code']}' == _mrp)) {
+      _mrp = null;
+    }
   }
 
   /// The areas of the chosen territory, A to Z.
@@ -348,8 +366,7 @@ class _OnboardScreenState extends State<OnboardScreen> {
       _territoryId = id;
       final city = _districtOfTerritory(id);
       if (city != null) _districtId = city;
-      final mrp = _territoryMrp(id);
-      if (mrp != null) _mrp = mrp;
+      _syncMrpWithTerritory(id);
       // An Area of another Territory no longer applies; the Region follows the Territory.
       if (!_allAreas().any((a) => a['id'] == _areaId)) _areaId = null;
       final owner = _territories.where((t) => t['id'] == id).firstOrNull;
@@ -648,10 +665,12 @@ class _OnboardScreenState extends State<OnboardScreen> {
 
   Widget _drop(String label, List<(String, String)> items, String? value, ValueChanged<String?> onChanged,
       {bool required = true, String? helper}) {
+    final validValue = items.any((i) => i.$1 == value) ? value : null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: DropdownButtonFormField<String>(
-        initialValue: items.any((i) => i.$1 == value) ? value : null,
+        key: ValueKey('$label-$validValue-${items.length}'),
+        initialValue: validValue,
         isExpanded: true,
         decoration: _decoration(label, helper: helper, required: required),
         items: [for (final i in items) DropdownMenuItem(value: i.$1, child: Text(i.$2, maxLines: 1, overflow: TextOverflow.ellipsis))],
@@ -914,8 +933,22 @@ class _OnboardScreenState extends State<OnboardScreen> {
         _riskLevel,
         (v) => setState(() => _riskLevel = v),
       ),
-      _drop('MRP', [for (final o in _list('mrp')) ('${o['code']}', '${o['name']}')], _mrp, (v) => setState(() => _mrp = v),
-          helper: _mrp != null && _mrp == _territoryMrp(_territoryId) ? 'From the territory' : null),
+      () {
+        final mrpOptions = _availableMrpOptions();
+        return _drop(
+          'MRP',
+          [for (final o in mrpOptions) ('${o['code']}', '${o['name']}')],
+          _mrp,
+          (v) => setState(() => _mrp = v),
+          helper: _territoryId == null
+              ? 'Select territory first'
+              : mrpOptions.isEmpty
+                  ? 'No MRP mapped to this territory'
+                  : mrpOptions.length == 1
+                      ? 'Auto-selected for territory'
+                      : null,
+        );
+      }(),
       if (_outlet)
         Padding(
           padding: const EdgeInsets.only(bottom: 14),

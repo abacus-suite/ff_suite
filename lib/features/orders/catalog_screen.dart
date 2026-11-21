@@ -635,7 +635,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
       bottomNavigationBar: widget.client == null ? null : _nextBar(),
       body: Column(children: [
         _searchBar(),
-        if (_mrpOptions.isNotEmpty) _chips(),
+        if (widget.client == null && _mrpOptions.isNotEmpty) _chips(),
         if (_loading) const LinearProgressIndicator(minHeight: 2),
         if (_error != null) Padding(padding: const EdgeInsets.all(12), child: Text(_error!)),
         Expanded(
