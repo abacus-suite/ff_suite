@@ -164,6 +164,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (model.contains('sale') || text.contains('order')) return 'order';
     if (text.contains('distributor') || text.contains('delivery')) return 'distributor';
     if (model.contains('task') || text.contains('task')) return 'task';
+    if (model.contains('expense') || text.contains('payment request') || text.contains('expense')) return 'expense';
     return switch ('${row['kind']}') {
       'approval' => 'approval',
       'decision' => 'decision',
@@ -177,6 +178,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         'demand' => Icons.inventory_2_rounded,
         'order' => Icons.shopping_bag_rounded,
         'distributor' => Icons.local_shipping_rounded,
+        'expense' => Icons.request_quote_rounded,
         'approval' => Icons.how_to_reg_rounded,
         'decision' => Icons.task_alt_rounded,
         _ => Icons.notifications_rounded,
@@ -188,6 +190,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         'demand' => const Color(0xFF0F766E),
         'order' => const Color(0xFF7C3AED),
         'distributor' => const Color(0xFFEA8A00),
+        'expense' => const Color(0xFF7C3AED),
         'approval' => AppColors.warning,
         'decision' => AppColors.success,
         _ => AppColors.primary,
@@ -341,7 +344,7 @@ Widget? resolveNotificationScreen(Map<String, dynamic> row) {
   }
 
   return switch (model) {
-    'ff.expense.claim' => const ExpensesScreen(),
+    'ff.expense.claim' || 'ff.expense.request' => const ExpensesScreen(),
     'ff.allowance.claim' || 'ff.da.claim' || 'ff.da' => const AllowanceScreen(),
     'hr.leave' => const LeavesScreen(),
     'ff.overtime' => const OvertimeScreen(),
