@@ -45,6 +45,9 @@ class FieldForceTasksApi(http.Controller):
             raise ApiError('You have no team.', 403, 'forbidden')
         states = [s for s in (state or '').split(',') if s] or None
         tasks = request.env['ff.task'].ff_for_employee(employee, scope, states)
+        due = kw.get('due') or kw.get('date')
+        if due:
+            tasks = tasks.filtered(lambda t: t.date_deadline and t.date_deadline.isoformat() == due)
         open_tasks = tasks.filtered(lambda t: t.state in ('todo', 'in_progress'))
         return ok({
             'summary': {
