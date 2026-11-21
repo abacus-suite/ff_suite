@@ -99,7 +99,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
         }),
         Services.api.get('/api/v1/tasks', query: {
           'scope': 'mine',
-          'state': 'todo,in_progress',
+          'state': 'todo,in_progress,done',
         }).catchError((_) => <String, dynamic>{}),
       ]);
 
@@ -389,10 +389,12 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
   Widget _tabSwitch() {
     final unplannedTasks = _tasks.where((t) => !_isTaskPlanned(t)).toList();
     final unplannedTotal = unplannedTasks.length + _managerTasks.length;
+    final doneManagerCount = _managerTasks.where((t) => t['state'] == 'done').length;
+    final completedTotal = _tasks.length + doneManagerCount;
     final tabs = [
       (0, 'Planned', null),
       (1, 'Unplanned', unplannedTotal),
-      (2, 'Completed', _tasks.length),
+      (2, 'Completed', completedTotal),
     ];
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -537,8 +539,10 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               CircleAvatar(
-                backgroundColor: AppColors.purple.withValues(alpha: 0.14),
-                child: Text('$number', style: const TextStyle(color: AppColors.purple, fontWeight: FontWeight.w800)),
+                backgroundColor: (state == 'done' ? AppColors.success : AppColors.purple).withValues(alpha: 0.14),
+                child: state == 'done'
+                    ? const Icon(Icons.check_rounded, color: AppColors.success, size: 20)
+                    : Text('$number', style: const TextStyle(color: AppColors.purple, fontWeight: FontWeight.w800)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -550,7 +554,11 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
                       '${t['name']}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: state == 'done' ? AppColors.muted : AppColors.text,
+                      ),
                     ),
                     if (customer != null && customer.isNotEmpty) ...[
                       const SizedBox(height: 3),
@@ -586,17 +594,27 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: stateColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
+              if (state == 'done')
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_rounded, color: AppColors.success, size: 18),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: stateColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    stateLabel,
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: stateColor),
+                  ),
                 ),
-                child: Text(
-                  stateLabel,
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: stateColor),
-                ),
-              ),
               const SizedBox(width: 4),
               const Icon(Icons.chevron_right_rounded, color: AppColors.muted, size: 20),
             ],
@@ -606,29 +624,75 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     );
   }
 
-  /// Every task completed today, grouped into Planned and Unplanned with counts.
+  /// Every task completed today, grouped into By manager, By self, and Planned Tasks.
   List<Widget> _completedTasks() {
-    if (_tasks.isEmpty) {
+    final planned = _tasks.where(_isTaskPlanned).toList();
+    final unplannedSelf = _tasks.where((t) => !_isTaskPlanned(t)).toList();
+    final doneManagerTasks = _managerTasks.where((t) => t['state'] == 'done').toList();
+
+    if (planned.isEmpty && unplannedSelf.isEmpty && doneManagerTasks.isEmpty) {
       return const [EmptyView(icon: Icons.task_alt_rounded, text: 'No task completed yet.')];
     }
-    final planned = _tasks.where(_isTaskPlanned).toList();
-    final unplanned = _tasks.where((t) => !_isTaskPlanned(t)).toList();
 
     return [
+      if (doneManagerTasks.isNotEmpty)
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              initiallyExpanded: true,
+              tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              leading: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.assignment_turned_in_rounded, color: AppColors.success, size: 20),
+              ),
+              title: const Text('By manager', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  '${doneManagerTasks.length}',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.success),
+                ),
+              ),
+              children: [
+                for (final (i, t) in doneManagerTasks.indexed)
+                  _managerTaskRow(t, i + 1),
+              ],
+            ),
+          ),
+        ),
       _taskGroupCard(
-        title: 'Planned Tasks',
-        count: planned.length,
-        color: AppColors.primary,
-        icon: Icons.assignment_turned_in_rounded,
-        tasks: planned,
-      ),
-      _taskGroupCard(
-        title: 'Unplanned Tasks',
-        count: unplanned.length,
+        title: 'By self',
+        count: unplannedSelf.length,
         color: AppColors.warning,
-        icon: Icons.bolt_rounded,
-        tasks: unplanned,
+        icon: Icons.person_rounded,
+        tasks: unplannedSelf,
+        emptyMessage: 'No tasks completed by self.',
       ),
+      if (planned.isNotEmpty)
+        _taskGroupCard(
+          title: 'Planned Tasks',
+          count: planned.length,
+          color: AppColors.primary,
+          icon: Icons.assignment_turned_in_rounded,
+          tasks: planned,
+        ),
     ];
   }
 
