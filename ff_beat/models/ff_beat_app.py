@@ -407,6 +407,8 @@ class FfBeatApp(models.Model):
             'date': self.ff_one_time_date.isoformat() if self.ff_one_time_date else None,
             'plan_dates': [d for d in (self.ff_plan_dates or '').split(',') if d],
             # The app's Territory is the District / Territory master.
+            'region_id': (self.district_id.team_id or self.team_id).id if (self.district_id.team_id or self.team_id) else None,
+            'region': {'id': (self.district_id.team_id or self.team_id).id, 'name': (self.district_id.team_id or self.team_id).name} if (self.district_id.team_id or self.team_id) else None,
             'territory_id': self.district_id.id or None,
             'territory': self.district_id.name or None,
             'delete_requested': bool(self.ff_delete_requested),

@@ -31,6 +31,8 @@ class FieldForceRoutePlanApi(http.Controller):
             'code': route.code or None,
             'expires': route.ff_expiry().isoformat() if route.ff_expiry() else None,
             # The app's Territory is the District / Territory master, and the beat's areas are under it.
+            'region': ref(route.district_id.team_id or route.team_id) if (route.district_id.team_id or route.team_id) else None,
+            'region_id': (route.district_id.team_id or route.team_id).id if (route.district_id.team_id or route.team_id) else None,
             'territory': ref(route.district_id),
             'territory_id': route.district_id.id or None,
             'district_id': route.district_id.id or None,

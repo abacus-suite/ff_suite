@@ -57,7 +57,6 @@
                         <group string="Beat">
                             <field name="route_type_id" required="1"/>
                             <field name="code"/>
-                            <field name="team_id"/>
                             <field name="allowance_km"/>
                             <field name="ff_schedule"/>
                             <field name="ff_one_time_date" invisible="ff_schedule != 'one_time'"/>
@@ -68,6 +67,7 @@
                         <group string="Location">
                             <field name="country_id"/>
                             <field name="state_id"/>
+                            <field name="team_id" string="Region"/>
                             <field name="district_id"/>
                             <field name="client_count"/>
                             <field name="planned_km"/>

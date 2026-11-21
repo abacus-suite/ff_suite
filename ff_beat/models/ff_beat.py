@@ -41,6 +41,8 @@ class FfBeat(models.Model):
         if self.district_id:
             self.state_id = self.district_id.state_id
             self.country_id = self.district_id.country_id
+            if self.district_id.team_id:
+                self.team_id = self.district_id.team_id
 
     @api.onchange('state_id')
     def _onchange_state_id(self):
