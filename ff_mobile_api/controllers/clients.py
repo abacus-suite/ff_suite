@@ -373,8 +373,37 @@ class FieldForceClientsApi(http.Controller):
         """Every located contact, as points, for the map."""
         Partner = request.env['res.partner'].sudo()
         domain = client_domain(employee, member) + [('partner_latitude', '!=', False)]
-        if kw.get('exclude_leads') in ('1', 'true', 'True', 1, True):
+
+        task_code = kw.get('task_code')
+        if task_code:
+            TaskType = request.env['ff.task.type'].sudo() if 'ff.task.type' in request.env else None
+            task_type = TaskType.search([('code', '=', task_code)], limit=1) if TaskType else None
+            if task_type and task_type.category_ids:
+                domain.append(('ff_category_id', 'in', task_type.category_ids.ids))
+
+        category_ids = kw.get('category_ids')
+        if category_ids:
+            cids = [int(x) for x in str(category_ids).split(',') if x.strip().isdigit()]
+            if cids:
+                domain.append(('ff_category_id', 'in', cids))
+
+        exclude_leads = kw.get('exclude_leads') in ('1', 'true', 'True', 1, True) or task_code == 'marketing_supply'
+        if exclude_leads:
             domain.append(('ff_category_type', '!=', 'lead'))
+            if 'ff_status' in Partner._fields:
+                domain.append(('ff_status', '!=', 'new_lead'))
+            if 'client_status' in Partner._fields:
+                domain.append(('client_status', '!=', 'new_lead'))
+
+        onboarded_only = kw.get('onboarded_only') in ('1', 'true', 'True', 1, True) or task_code == 'marketing_supply'
+        if onboarded_only:
+            onboard_conds = []
+            if 'ff_status' in Partner._fields:
+                onboard_conds = ['|', ('ff_status', '=', 'onboarded'), ('ff_is_distributor', '=', True)]
+            elif 'client_status' in Partner._fields:
+                onboard_conds = ['|', ('client_status', '=', 'onboarded'), ('ff_is_distributor', '=', True)]
+            if onboard_conds:
+                domain += onboard_conds
         category_type = kw.get('category_type')
         if category_type == 'outlet':
             domain += _outlet_filter(Partner)
@@ -475,9 +504,38 @@ class FieldForceClientsApi(http.Controller):
         Partner = request.env['res.partner'].sudo()
         domain = client_domain(employee, member)
         location = _location_domain(Partner, territory_id, beat_id, kw)
-        if kw.get('exclude_leads') in ('1', 'true', 'True', 1, True):
-            # Outlets and distributors only: for a PO or a payment, which are never for a lead.
+
+        task_code = kw.get('task_code')
+        if task_code:
+            TaskType = request.env['ff.task.type'].sudo() if 'ff.task.type' in request.env else None
+            task_type = TaskType.search([('code', '=', task_code)], limit=1) if TaskType else None
+            if task_type and task_type.category_ids:
+                location = location + [('ff_category_id', 'in', task_type.category_ids.ids)]
+
+        category_ids = kw.get('category_ids')
+        if category_ids:
+            cids = [int(x) for x in str(category_ids).split(',') if x.strip().isdigit()]
+            if cids:
+                location = location + [('ff_category_id', 'in', cids)]
+
+        exclude_leads = kw.get('exclude_leads') in ('1', 'true', 'True', 1, True) or task_code == 'marketing_supply'
+        if exclude_leads:
+            # Outlets and distributors only: for a PO or a payment or marketing supply, which are never for a lead.
             location = location + [('ff_category_type', '!=', 'lead')]
+            if 'ff_status' in Partner._fields:
+                location = location + [('ff_status', '!=', 'new_lead')]
+            if 'client_status' in Partner._fields:
+                location = location + [('client_status', '!=', 'new_lead')]
+
+        onboarded_only = kw.get('onboarded_only') in ('1', 'true', 'True', 1, True) or task_code == 'marketing_supply'
+        if onboarded_only:
+            onboard_conds = []
+            if 'ff_status' in Partner._fields:
+                onboard_conds = ['|', ('ff_status', '=', 'onboarded'), ('ff_is_distributor', '=', True)]
+            elif 'client_status' in Partner._fields:
+                onboard_conds = ['|', ('client_status', '=', 'onboarded'), ('ff_is_distributor', '=', True)]
+            if onboard_conds:
+                location = location + onboard_conds
         domain += location
         if never_visited in ('1', 'true', 'True', 1, True):
             domain.append(('ff_last_visit_at', '=', False))

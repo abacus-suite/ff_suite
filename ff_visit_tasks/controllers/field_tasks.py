@@ -50,6 +50,8 @@ class FieldForceFieldTasksApi(http.Controller):
                 'code': task.code, 'name': task.name, 'steps': task.steps,
                 'needs_contact': task.needs_contact, 'hint': task.hint or None,
                 'category_ids': task.category_ids.ids,
+                'category_types': list(set(task.category_ids.mapped('category_type'))),
+                'allows_leads': any(c.category_type == 'lead' for c in task.category_ids) if task.category_ids else (task.code not in ('marketing_supply', 'client_visit')),
                 # The distance the person must be within to start the task; none when the office does not ask.
                 'geofence_m': (task.geofence_radius or 200) if task.geofence_required else None,
             } for task in types],
