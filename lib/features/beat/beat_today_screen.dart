@@ -387,12 +387,14 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
   }
 
   Widget _tabSwitch() {
+    final allClients = ((_data?['clients'] as List?) ?? const []).cast<Map>();
+    final plannedTotal = allClients.length + _added.length;
     final unplannedTasks = _tasks.where((t) => !_isTaskPlanned(t)).toList();
     final unplannedTotal = unplannedTasks.length + _managerTasks.length;
     final doneManagerCount = _managerTasks.where((t) => t['state'] == 'done').length;
     final completedTotal = _tasks.length + doneManagerCount;
     final tabs = [
-      (0, 'Planned', null),
+      (0, 'Planned', plannedTotal),
       (1, 'Unplanned', unplannedTotal),
       (2, 'Completed', completedTotal),
     ];
