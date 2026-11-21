@@ -88,6 +88,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (profile.isManager && Services.managerMode.value) {
       return [
         _ShellTab('home', Icons.home_outlined, Icons.home_rounded, 'Home', HomeScreen(onOpenTab: _open)),
+        _ShellTab(
+            'customers',
+            Icons.storefront_outlined,
+            Icons.storefront_rounded,
+            '${profile.label('client', 'Client')}s',
+            const ClientsScreen(embedded: true)),
         _ShellTab('team', Icons.groups_2_outlined, Icons.groups_2_rounded, 'My Team', kUseLeadManagerUi ? MyTeamScreen() : TeamTreeScreen()),
         const _ShellTab('tasks', Icons.assignment_outlined, Icons.assignment_rounded, 'Tasks', TasksScreen()),
         const _ShellTab('reports', Icons.bar_chart_outlined, Icons.bar_chart_rounded, 'Reports', ReportsScreen()),
@@ -99,8 +105,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       if (profile.feature('visits'))
         _ShellTab(
             'customers',
-            Icons.groups_2_outlined,
-            Icons.groups_2_rounded,
+            Icons.storefront_outlined,
+            Icons.storefront_rounded,
             '${profile.label('client', 'Customer')}s',
             const ClientsScreen(embedded: true)),
       if (profile.feature('orders'))
@@ -367,23 +373,28 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         height: 66,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            // Each side gets half the bar, so the "+" sits dead centre
-            // however many tabs fall on either side of it.
-            Expanded(
-              child: Row(children: [
-                for (var i = 0; i < half; i++)
-                  Expanded(child: _tabButton(tabs[i], i == index)),
-              ]),
-            ),
-            if (showPlus) const SizedBox(width: 72),
-            Expanded(
-              child: Row(children: [
-                for (var i = half; i < tabs.length; i++)
-                  Expanded(child: _tabButton(tabs[i], i == index)),
-              ]),
-            ),
-          ],
+          children: showPlus
+              ? [
+                  // Each side gets half the bar, so the "+" sits dead centre
+                  // however many tabs fall on either side of it.
+                  Expanded(
+                    child: Row(children: [
+                      for (var i = 0; i < half; i++)
+                        Expanded(child: _tabButton(tabs[i], i == index)),
+                    ]),
+                  ),
+                  const SizedBox(width: 72),
+                  Expanded(
+                    child: Row(children: [
+                      for (var i = half; i < tabs.length; i++)
+                        Expanded(child: _tabButton(tabs[i], i == index)),
+                    ]),
+                  ),
+                ]
+              : [
+                  for (var i = 0; i < tabs.length; i++)
+                    Expanded(child: _tabButton(tabs[i], i == index)),
+                ],
         ),
       ),
     );

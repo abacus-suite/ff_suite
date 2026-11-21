@@ -95,10 +95,13 @@ class _ClientsScreenState extends State<ClientsScreen> {
   LatLng? _me;
   String _member = 'me';
 
+  bool get _isManagerInManagerMode =>
+      (Services.auth.profile?.isManager ?? false) && Services.managerMode.value;
+
   /// What the picker says: "Only me" is the person's own territories (employee mode opens on it), "Me + team" or one
   /// teammate brings the team's.
-  String get _effectiveMember => _member;
-  bool get _teamView => _member != 'me';
+  String get _effectiveMember => _isManagerInManagerMode ? _member : 'me';
+  bool get _teamView => _isManagerInManagerMode && _member != 'me';
   final MapController _mapController = MapController();
   double _zoom = 12;
 
@@ -124,8 +127,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
   @override
   void initState() {
     super.initState();
+    Services.managerMode.addListener(_onManagerModeChanged);
     // A manager in manager mode opens on the whole team; in employee mode it is only their own territories.
-    if (Services.managerMode.value && (Services.auth.profile?.isManager ?? false)) _member = 'team';
+    if (_isManagerInManagerMode) _member = 'team';
     if (widget.categoryType != null) {
       _kind = widget.categoryType!;
     }
@@ -137,8 +141,18 @@ class _ClientsScreenState extends State<ClientsScreen> {
     _load();
   }
 
+  void _onManagerModeChanged() {
+    if (!mounted) return;
+    setState(() {
+      _member = _isManagerInManagerMode ? 'team' : 'me';
+      _openGroups.clear();
+    });
+    _load();
+  }
+
   @override
   void dispose() {
+    Services.managerMode.removeListener(_onManagerModeChanged);
     _debounce?.cancel();
     _mapController.dispose();
     _scroll.dispose();
@@ -397,7 +411,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
         ],
       ),
     );
-    final picker = Services.auth.profile?.isManager == true && Services.managerMode.value
+    final picker = _isManagerInManagerMode
         ? MemberPicker(
             value: _member,
             dense: true,
