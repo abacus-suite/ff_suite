@@ -302,87 +302,190 @@ class _TaskTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colour = taskStateColour(task);
-    final customer = (task['customer'] as Map?)?['name'];
-    final employee = (task['employee'] as Map?)?['name'];
-    return Card(
-      child: InkWell(
+    final state = '${task['state']}';
+    final isOverdue = task['is_overdue'] == true;
+    final customer = (task['customer'] as Map?)?['name'] as String?;
+    final employee = (task['employee'] as Map?)?['name'] as String?;
+    final priority = '${task['priority']}';
+    final hasHighPriority = priority == '1' || priority == '2';
+
+    final IconData leadingIcon = state == 'done'
+        ? Icons.check_circle_rounded
+        : (state == 'in_progress'
+            ? Icons.play_circle_fill_rounded
+            : (isOverdue
+                ? Icons.assignment_late_rounded
+                : (customer != null ? Icons.storefront_rounded : Icons.assignment_rounded)));
+
+    final iconColor = isOverdue && state != 'done' ? AppColors.danger : colour;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Container(width: 4, height: 44, decoration: BoxDecoration(color: colour, borderRadius: BorderRadius.circular(4))),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+        border: Border.all(
+          color: isOverdue ? AppColors.danger.withValues(alpha: 0.35) : AppColors.border,
+          width: isOverdue ? 1.2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        if (task['priority'] != '0')
-                          Padding(
-                            padding: const EdgeInsets.only(right: 4),
-                            child: Icon(Icons.flag_rounded,
-                                size: 16, color: task['priority'] == '2' ? AppColors.danger : AppColors.warning),
-                          ),
-                        Expanded(
-                          child: Text('${task['name']}',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                        ),
-                      ],
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: iconColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(leadingIcon, color: iconColor, size: 20),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      [
-                        if (showEmployee && employee != null) employee,
-                        if (customer != null) customer,
-                        if (task['due'] != null) 'Due ${task['due']}',
-                      ].join(' · '),
-                      style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              if (hasHighPriority) ...[
+                                Container(
+                                  margin: const EdgeInsets.only(right: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: (priority == '2' ? AppColors.danger : AppColors.warning).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.flag_rounded,
+                                        size: 11,
+                                        color: priority == '2' ? AppColors.danger : AppColors.warning,
+                                      ),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        priority == '2' ? 'Urgent' : 'High',
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: priority == '2' ? AppColors.danger : AppColors.warning,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  '${task['name']}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.text),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (customer != null && customer.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.storefront_rounded, size: 13, color: AppColors.primary),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    customer,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: colour.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        taskStateWord(task),
+                        style: TextStyle(color: colour, fontSize: 11.5, fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(color: colour.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-                    child: Text(taskStateWord(task), style: TextStyle(color: colour, fontSize: 12, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.only(top: 8),
+                  decoration: const BoxDecoration(
+                    border: Border(top: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
                   ),
-                  if (task['visit_type'] != null) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: ('${task['visit_type']}'.toLowerCase() == 'onsite'
-                                ? AppColors.success
-                                : AppColors.muted)
-                            .withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${task['visit_type']}'.toLowerCase() == 'onsite' ? 'Onsite' : 'Offsite',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: '${task['visit_type']}'.toLowerCase() == 'onsite'
-                              ? AppColors.success
-                              : AppColors.muted,
+                  child: Row(
+                    children: [
+                      if (showEmployee && employee != null) ...[
+                        const Icon(Icons.person_outline_rounded, size: 14, color: AppColors.muted),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            employee,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w500),
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ],
+                        const SizedBox(width: 10),
+                      ],
+                      if (task['due'] != null) ...[
+                        Icon(
+                          Icons.event_outlined,
+                          size: 14,
+                          color: isOverdue ? AppColors.danger : AppColors.muted,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Due ${task['due']}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isOverdue ? FontWeight.w700 : FontWeight.w500,
+                            color: isOverdue ? AppColors.danger : AppColors.muted,
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.muted),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -464,124 +567,267 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final task = _task;
     final colour = taskStateColour(task);
     final open = task['state'] == 'todo' || task['state'] == 'in_progress';
-    final visitTypeStr = task['visit_type'] != null
-        ? ('${task['visit_type']}'.toLowerCase() == 'onsite' ? 'Onsite' : 'Offsite')
-        : null;
-    final details = <(IconData, String, String?)>[
-      (Icons.person_rounded, 'Assigned to', (task['employee'] as Map?)?['name'] as String?),
-      (Icons.storefront_rounded, 'Customer', (task['customer'] as Map?)?['name'] as String?),
-      if (visitTypeStr != null)
-        (
-          visitTypeStr == 'Onsite' ? Icons.storefront_rounded : Icons.wrong_location_rounded,
-          'Visit Type',
-          visitTypeStr,
-        ),
-      (Icons.event_rounded, 'Due', task['due'] as String?),
-      (Icons.flag_rounded, 'Priority', _priorityWords[task['priority']]),
-      (Icons.supervisor_account_rounded, 'Given by', task['assigned_by'] as String?),
-      (Icons.check_circle_rounded, 'Finished', task['done_at'] == null ? null : fmtTime(task['done_at'])),
-      (Icons.notes_rounded, 'Completion note', task['done_note'] as String?),
+    final customer = (task['customer'] as Map?)?['name'] as String?;
+    final employee = (task['employee'] as Map?)?['name'] as String?;
+    final priority = '${task['priority']}';
+    final hasHighPriority = priority == '1' || priority == '2';
+
+    final details = <(IconData, Color, String, String?)>[
+      (Icons.person_rounded, AppColors.purple, 'Assigned to', employee),
+      (Icons.storefront_rounded, AppColors.primary, 'Customer', customer),
+      (Icons.event_rounded, colour, 'Due date', task['due'] as String?),
+      (Icons.flag_rounded, priority == '2' ? AppColors.danger : AppColors.warning, 'Priority', _priorityWords[task['priority']]),
+      (Icons.supervisor_account_rounded, const Color(0xFF0284C7), 'Given by', task['assigned_by'] as String?),
+      (Icons.check_circle_rounded, AppColors.success, 'Finished at', task['done_at'] == null ? null : fmtTime(task['done_at'])),
+      (Icons.notes_rounded, AppColors.muted, 'Completion note', task['done_note'] as String?),
     ];
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) Navigator.of(context).pop(_changed);
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Task')),
+        appBar: AppBar(title: const Text('Task Details')),
         body: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 36),
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text('${task['name']}', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+            // Modern Header Card
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColors.border),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 2)),
+                ],
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: colour.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration:
-                                  BoxDecoration(color: colour.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-                              child: Text(taskStateWord(task),
-                                  style: TextStyle(color: colour, fontSize: 12.5, fontWeight: FontWeight.w700)),
-                            ),
-                            if (visitTypeStr != null) ...[
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: (visitTypeStr == 'Onsite' ? AppColors.success : AppColors.muted).withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  visitTypeStr,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: visitTypeStr == 'Onsite' ? AppColors.success : AppColors.muted,
-                                  ),
+                        child: Text(
+                          taskStateWord(task),
+                          style: TextStyle(color: colour, fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      if (hasHighPriority) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: (priority == '2' ? AppColors.danger : AppColors.warning).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.flag_rounded,
+                                size: 12,
+                                color: priority == '2' ? AppColors.danger : AppColors.warning,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                priority == '2' ? 'Urgent' : 'High',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: priority == '2' ? AppColors.danger : AppColors.warning,
                                 ),
                               ),
                             ],
-                          ],
+                          ),
                         ),
                       ],
-                    ),
-                    if (task['description'] != null) ...[
-                      const SizedBox(height: 10),
-                      Text('${task['description']}', style: const TextStyle(height: 1.4)),
                     ],
-                  ],
-                ),
-              ),
-            ),
-            Card(
-              child: Column(
-                children: [
-                  for (final d in details)
-                    if ((d.$3 ?? '').isNotEmpty)
-                      ListTile(
-                        dense: true,
-                        leading: Icon(d.$1, color: AppColors.primary),
-                        title: Text(d.$2, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-                        subtitle: Text(d.$3!, style: const TextStyle(color: AppColors.text, fontSize: 14.5)),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '${task['name']}',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.text, height: 1.3),
+                  ),
+                  if (customer != null && customer.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
                       ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.storefront_rounded, size: 16, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              customer,
+                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.primary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (task['description'] != null && '${task['description']}'.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.subject_rounded, size: 15, color: AppColors.muted),
+                              SizedBox(width: 6),
+                              Text('Description', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.muted)),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text('${task['description']}', style: const TextStyle(fontSize: 13.5, height: 1.4, color: AppColors.text)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
+            const SizedBox(height: 14),
+
+            // Modern Information Card
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColors.border),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 2)),
+                ],
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, size: 17, color: AppColors.primary),
+                      SizedBox(width: 8),
+                      Text('Task Details', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.text)),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  for (final (i, d) in details.where((d) => (d.$4 ?? '').isNotEmpty).toList().indexed) ...[
+                    if (i > 0) const Divider(height: 16, color: Color(0xFFF1F5F9)),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: d.$2.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(d.$1, size: 17, color: d.$2),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(d.$3, style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 2),
+                              Text(d.$4!, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.text)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
             if (widget.canAct && open) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               if (task['state'] == 'todo')
-                GradientButton(label: 'Start task', icon: Icons.play_arrow_rounded, busy: _busy, onPressed: () => _act('start'))
-              else ...[
-                TextField(
-                  controller: _note,
-                  maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'What was done? (optional)'),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: _takePhoto,
-                  icon: Icon(_photo == null ? Icons.photo_camera_rounded : Icons.check_rounded),
-                  label: Text(_photo == null
-                      ? (task['requires_photo'] == true ? 'Take photo (required)' : 'Add a photo')
-                      : 'Photo added · retake'),
-                ),
-                const SizedBox(height: 10),
                 GradientButton(
-                  label: 'Finish task',
-                  icon: Icons.task_alt_rounded,
-                  gradient: AppColors.successGradient,
+                  label: 'Start task',
+                  icon: Icons.play_arrow_rounded,
                   busy: _busy,
-                  onPressed: () => _act('done'),
+                  onPressed: () => _act('start'),
+                )
+              else ...[
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: AppColors.border),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 2)),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.task_alt_rounded, size: 17, color: AppColors.success),
+                          SizedBox(width: 8),
+                          Text('Complete Task', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.text)),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: _note,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          labelText: 'What was done? (optional)',
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: _takePhoto,
+                        icon: Icon(_photo == null ? Icons.photo_camera_rounded : Icons.check_circle_rounded,
+                            color: _photo == null ? AppColors.primary : AppColors.success),
+                        label: Text(_photo == null
+                            ? (task['requires_photo'] == true ? 'Take photo (required)' : 'Add a photo')
+                            : 'Photo added · retake'),
+                      ),
+                      const SizedBox(height: 14),
+                      GradientButton(
+                        label: 'Finish task',
+                        icon: Icons.check_circle_rounded,
+                        gradient: AppColors.successGradient,
+                        busy: _busy,
+                        onPressed: () => _act('done'),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ],

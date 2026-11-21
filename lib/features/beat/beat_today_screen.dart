@@ -438,23 +438,6 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     return id is int && _plannedPartnerIds.contains(id);
   }
 
-  Widget _visitTypeTag(String? type) {
-    final isOnsite = (type ?? '').toLowerCase() == 'onsite';
-    final color = isOnsite ? AppColors.success : AppColors.purple;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        isOnsite ? 'Onsite' : 'Offsite',
-        style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 11),
-      ),
-    );
-  }
-
   /// Tab 1: Unplanned tab showing default two groups: By manager and By self.
   List<Widget> _unplannedTab() {
     final unplannedTasks = _tasks.where((t) => !_isTaskPlanned(t)).toList();
@@ -704,7 +687,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
                   number: '${i + 1}',
                   name: '${t['customer']}',
                   details: [asText(t['task']), fmtTime(t['time'])].whereType<String>().join(' · '),
-                  badge: _visitTypeTag(t['visit_type'] as String?),
+                  badge: const SizedBox.shrink(),
                   categoryType: t['category_type'] as String?,
                   // The task's own documents (credit notes, demands, orders); the customer is one tap further.
                   onTap: () {
@@ -839,12 +822,9 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     final visit = row['_visit'] as Map;
     final state = visit['state'];
     final metres = metresTo(_here, row);
-    // A visit made away from the outlet (offsite) is not a visit to it: it is not shown as Visited.
-    final offsite = state != 'added' && state != 'ongoing' && '${visit['visit_type']}' == 'offsite';
     final details = [
       // Waiting to be saved in today's plan, it reads as planned like any other stop.
       state == 'added' ? 'Planned' : 'Added visit',
-      if (offsite) 'Offsite',
       if (metres != null) fmtDistance(metres),
       if ((row['_visits'] as int? ?? 1) > 1) '${row['_visits']} visits · last',
       if (state != 'added') '${fmtTime(visit['check_in_at'])}–${fmtTime(visit['check_out_at'])}',
@@ -856,9 +836,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       details: details,
       categoryType: row['category_type'] as String? ?? (row['is_distributor'] == true ? 'distributor' : 'outlet'),
       // Added and waiting, at the client now, or visited.
-      badge: offsite
-          ? const StatusBadge('cancelled', label: 'Offsite')
-          : StatusBadge(switch (state) { 'added' => 'planned', 'ongoing' => 'ongoing', _ => 'visited' }),
+      badge: StatusBadge(switch (state) { 'added' => 'planned', 'ongoing' => 'ongoing', _ => 'visited' }),
       onTap: () => _openClient(row['id'] as int),
     );
   }
