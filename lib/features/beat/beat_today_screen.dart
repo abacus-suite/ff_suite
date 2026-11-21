@@ -508,8 +508,184 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     );
   }
 
-  Widget _managerTaskRow(Map<String, dynamic> t, int number) {
-    final customer = t['customer'] is Map ? (t['customer'] as Map)['name'] as String? : null;
+  Widget _completedTaskCard({
+    required String taskName,
+    String? customerName,
+    String? categoryType,
+    String? timeStr,
+    String? metaStr,
+    required VoidCallback onTap,
+  }) {
+    final cat = categoryType?.toLowerCase();
+    final (typeLabel, typeColor) = switch (cat) {
+      'lead' => ('Lead', AppColors.purple),
+      'distributor' => ('Distributor', AppColors.warning),
+      _ => ('Outlet', AppColors.primary),
+    };
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.85)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(13),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.check_rounded, color: AppColors.success, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        taskName.isNotEmpty ? taskName : 'Completed Task',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14.5,
+                          color: AppColors.text,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle_rounded, size: 12, color: AppColors.success),
+                          SizedBox(width: 4),
+                          Text(
+                            'Done',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.success,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (customerName != null && customerName.isNotEmpty && customerName != 'No customer') ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.storefront_rounded, size: 15, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            customerName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.text,
+                            ),
+                          ),
+                        ),
+                        if (categoryType != null && categoryType.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: typeColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              typeLabel,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: typeColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+                if ((timeStr != null && timeStr.isNotEmpty) || (metaStr != null && metaStr.isNotEmpty)) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      if (timeStr != null && timeStr.isNotEmpty) ...[
+                        const Icon(Icons.access_time_rounded, size: 13, color: AppColors.muted),
+                        const SizedBox(width: 4),
+                        Text(
+                          timeStr,
+                          style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w500),
+                        ),
+                        if (metaStr != null && metaStr.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          const Text('·', style: TextStyle(color: AppColors.muted)),
+                          const SizedBox(width: 6),
+                        ],
+                      ],
+                      if (metaStr != null && metaStr.isNotEmpty)
+                        Expanded(
+                          child: Text(
+                            metaStr,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                          ),
+                        ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.muted),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _openManagerTaskCard(Map<String, dynamic> t, int number) {
+    final customer = t['customer'] is Map ? (t['customer'] as Map)['name'] as String? : (t['customer'] as String?);
     final assignedBy = t['assigned_by'] as String?;
     final due = t['due'] != null ? 'Due ${t['due']}' : null;
     final meta = [
@@ -518,110 +694,165 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     ].join(' · ');
 
     final state = '${t['state']}';
-    final stateLabel = state == 'in_progress' ? 'In progress' : (state == 'done' ? 'Done' : 'To do');
-    final stateColor = state == 'in_progress'
-        ? AppColors.primary
-        : (state == 'done' ? AppColors.success : AppColors.warning);
+    final stateLabel = state == 'in_progress' ? 'In progress' : 'To do';
+    final stateColor = state == 'in_progress' ? AppColors.primary : AppColors.warning;
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
-      child: InkWell(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.85)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () async {
+            final changed = await Navigator.of(context).push<bool>(
+              MaterialPageRoute(builder: (_) => TaskDetailScreen(task: t, canAct: true)),
+            );
+            if (changed == true) _load();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(13),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.purple.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$number',
+                        style: const TextStyle(color: AppColors.purple, fontWeight: FontWeight.w800, fontSize: 14),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${t['name']}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14.5,
+                          color: AppColors.text,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: stateColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        stateLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: stateColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (customer != null && customer.isNotEmpty && customer != 'No customer') ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.storefront_rounded, size: 15, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            customer,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.text,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (meta.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          meta,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.muted),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _managerTaskRow(Map<String, dynamic> t, int number) {
+    final state = '${t['state']}';
+    if (state == 'done') {
+      final customer = t['customer'] is Map ? (t['customer'] as Map)['name'] as String? : (t['customer'] as String?);
+      final assignedBy = t['assigned_by'] as String?;
+      final due = t['due'] != null ? 'Due ${t['due']}' : null;
+      final meta = [
+        if (assignedBy != null && assignedBy.isNotEmpty) 'Assigned by $assignedBy',
+        if (due != null) due,
+      ].join(' · ');
+      return _completedTaskCard(
+        taskName: '${t['name']}',
+        customerName: customer,
+        categoryType: t['category_type'] as String?,
+        timeStr: null,
+        metaStr: meta.isNotEmpty ? meta : null,
         onTap: () async {
           final changed = await Navigator.of(context).push<bool>(
             MaterialPageRoute(builder: (_) => TaskDetailScreen(task: t, canAct: true)),
           );
           if (changed == true) _load();
         },
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                backgroundColor: (state == 'done' ? AppColors.success : AppColors.purple).withValues(alpha: 0.14),
-                child: state == 'done'
-                    ? const Icon(Icons.check_rounded, color: AppColors.success, size: 20)
-                    : Text('$number', style: const TextStyle(color: AppColors.purple, fontWeight: FontWeight.w800)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '${t['name']}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: state == 'done' ? AppColors.muted : AppColors.text,
-                      ),
-                    ),
-                    if (customer != null && customer.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          const Icon(Icons.storefront_rounded, size: 14, color: AppColors.primary),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              customer,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.text,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (meta.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        meta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: AppColors.muted),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (state == 'done')
-                Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.14),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.check_rounded, color: AppColors.success, size: 18),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: stateColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    stateLabel,
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: stateColor),
-                  ),
-                ),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.muted, size: 20),
-            ],
-          ),
-        ),
-      ),
-    );
+      );
+    }
+    return _openManagerTaskCard(t, number);
   }
 
   /// Every task completed today, grouped into By manager, By self, and Planned Tasks.
@@ -745,15 +976,13 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
                 ),
               )
             else
-              for (final (i, t) in tasks.indexed)
-                _tileRow(
-                  color: color,
-                  number: '${i + 1}',
-                  name: '${t['customer']}',
-                  details: [asText(t['task']), fmtTime(t['time'])].whereType<String>().join(' · '),
-                  badge: const SizedBox.shrink(),
+              for (final t in tasks)
+                _completedTaskCard(
+                  taskName: asText(t['task']) ?? title,
+                  customerName: asText(t['customer']),
                   categoryType: t['category_type'] as String?,
-                  // The task's own documents (credit notes, demands, orders); the customer is one tap further.
+                  timeStr: fmtTime(t['time']),
+                  metaStr: null,
                   onTap: () {
                     final taskId = t['id'];
                     final partner = t['partner_id'];

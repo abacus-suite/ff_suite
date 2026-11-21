@@ -165,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
             : Future<dynamic>.value(null),
         _optional(Services.api.get('/api/v1/tracking/my-day')),
         _optional(Services.api.get('/api/v1/visits')),
-        _optional(Services.api.get('/api/v1/tasks', query: {'scope': 'mine', 'state': 'todo,in_progress'})),
+        _optional(Services.api.get('/api/v1/tasks', query: {'scope': 'mine', 'state': 'todo,in_progress,done'})),
       ]);
       final status = results[0] as Map<String, dynamic>;
       // Manager Mode: checked in opens in the mode last used; checked out is always Employee Mode.
@@ -200,26 +200,37 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_topPeriod != _period) unawaited(_reloadTop(_topPeriod));
       if (!mounted) return;
       final todayStr = fmtDate(DateTime.now());
+      final todayData = results[2] as Map<String, dynamic>?;
       final tasksRes = results.length > 6 && results[6] is Map ? results[6] as Map : null;
-      final openTasksList = (tasksRes?['tasks'] as List?)?.whereType<Map>().toList();
-      final todayOpenTasks = openTasksList?.where((t) {
+      final tasksList = (tasksRes?['tasks'] as List?)?.whereType<Map>().toList() ?? [];
+      final mgrBeatList = (todayData?['tasks_manager'] as List?)?.whereType<Map>().toList() ?? [];
+
+      final byId = <dynamic, Map>{};
+      for (final t in mgrBeatList) {
         final due = asText(t['due']);
-        return due != null && due.startsWith(todayStr);
-      }).toList();
-      final openCount = todayOpenTasks?.length ??
-          ((_today?['tasks_manager'] as List?)?.whereType<Map>().where((t) {
-            final due = asText(t['due']);
-            return due != null && due.startsWith(todayStr);
-          }).length ?? ((_today?['tasks_manager_count'] as num?)?.toInt() ?? 0));
+        if (due != null && due.startsWith(todayStr)) {
+          byId[t['id']] = t;
+        }
+      }
+      for (final t in tasksList) {
+        final due = asText(t['due']);
+        if (due != null && due.startsWith(todayStr)) {
+          byId[t['id']] = t;
+        }
+      }
+      final todayManagerTasks = byId.values.toList();
+      final totalManagerCount = todayManagerTasks.isNotEmpty
+          ? todayManagerTasks.length
+          : ((todayData?['tasks_manager_count'] as num?)?.toInt() ?? 0);
       setState(() {
         _status = status;
         _visit = results[1] as Map<String, dynamic>?;
-        _today = results[2] as Map<String, dynamic>?;
+        _today = todayData;
         _sales = results[3] as Map<String, dynamic>?;
         _topRows = null;
         _travel = results[4] as Map<String, dynamic>?;
         _visits = ((results[5] as List?) ?? []).cast<Map<String, dynamic>>();
-        _managerTasksCountState = openCount;
+        _managerTasksCountState = totalManagerCount;
         _error = null;
       });
     } catch (e) {
