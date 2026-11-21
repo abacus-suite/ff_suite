@@ -199,9 +199,18 @@ class _HomeScreenState extends State<HomeScreen> {
       // Top Products keeps its own period: bring it up to date when it differs from the sales card's.
       if (_topPeriod != _period) unawaited(_reloadTop(_topPeriod));
       if (!mounted) return;
+      final todayStr = fmtDate(DateTime.now());
       final tasksRes = results.length > 6 && results[6] is Map ? results[6] as Map : null;
       final openTasksList = (tasksRes?['tasks'] as List?)?.whereType<Map>().toList();
-      final openCount = (tasksRes?['summary'] as Map?)?['open'] as int? ?? openTasksList?.length;
+      final todayOpenTasks = openTasksList?.where((t) {
+        final due = asText(t['due']);
+        return due != null && due.startsWith(todayStr);
+      }).toList();
+      final openCount = todayOpenTasks?.length ??
+          ((_today?['tasks_manager'] as List?)?.whereType<Map>().where((t) {
+            final due = asText(t['due']);
+            return due != null && due.startsWith(todayStr);
+          }).length ?? ((_today?['tasks_manager_count'] as num?)?.toInt() ?? 0));
       setState(() {
         _status = status;
         _visit = results[1] as Map<String, dynamic>?;
@@ -210,7 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _topRows = null;
         _travel = results[4] as Map<String, dynamic>?;
         _visits = ((results[5] as List?) ?? []).cast<Map<String, dynamic>>();
-        _managerTasksCountState = openCount ?? 0;
+        _managerTasksCountState = openCount;
         _error = null;
       });
     } catch (e) {
@@ -455,13 +464,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   int get _managerTasksCount {
-    if (_managerTasksCountState > 0) return _managerTasksCountState;
+    if (_managerTasksCountState >= 0) return _managerTasksCountState;
     if (_today == null) return 0;
+    final todayStr = fmtDate(DateTime.now());
+    final tasks = (_today!['tasks_manager'] as List?)?.whereType<Map>().toList();
+    if (tasks != null) {
+      return tasks.where((t) => asText(t['due'])?.startsWith(todayStr) == true).length;
+    }
     if (_today!['tasks_manager_count'] is num) {
       return (_today!['tasks_manager_count'] as num).toInt();
     }
-    final tasks = (_today!['tasks_manager'] as List?)?.whereType<Map>().toList();
-    return tasks?.length ?? 0;
+    return 0;
   }
 
   int get _plannedVisits => _plannedClients.length;

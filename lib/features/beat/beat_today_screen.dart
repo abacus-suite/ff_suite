@@ -109,15 +109,22 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       // The same list the Planned card counts, so the tab, the card and the report agree.
       _tasks = ((data['tasks'] as List?) ?? const []).cast<Map<String, dynamic>>();
 
+      final dayStr = fmtDate(_day);
       final mgrFromBeat = ((data['tasks_manager'] as List?) ?? const []).cast<Map<String, dynamic>>();
       final mgrFromTasks = ((taskData['tasks'] as List?) ?? const []).cast<Map<String, dynamic>>();
 
       final byId = <dynamic, Map<String, dynamic>>{};
       for (final t in mgrFromBeat) {
-        byId[t['id']] = t;
+        final due = asText(t['due']);
+        if (due != null && due.startsWith(dayStr)) {
+          byId[t['id']] = t;
+        }
       }
       for (final t in mgrFromTasks) {
-        byId[t['id']] = t;
+        final due = asText(t['due']);
+        if (due != null && due.startsWith(dayStr)) {
+          byId[t['id']] = t;
+        }
       }
       _managerTasks = byId.values.toList();
       if (mounted) setState(() => (_data = data, _error = null));
