@@ -177,13 +177,13 @@ class FieldForceVisitsApi(http.Controller):
         unplanned_count = sum(1 for t in tasks if t['is_unplanned'])
         unplanned_onsite_count = sum(1 for t in tasks if t['is_unplanned'] and t['visit_type'] == 'Onsite')
         planned_task_count = sum(1 for t in tasks if t['is_planned'])
-        # Manager-assigned open tasks for today (ff.task assigned by someone else, state todo/in_progress)
+        # Manager-assigned open tasks for today (ff.task assigned to employee, state todo/in_progress)
         manager_tasks = []
         if 'ff.task' in request.env:
             open_tasks = request.env['ff.task'].sudo().search([
                 ('employee_id', '=', employee.id),
                 ('state', 'in', ('todo', 'in_progress')),
-            ]).filtered(lambda t: not t._ff_self_assigned())
+            ])
             for t in open_tasks:
                 manager_tasks.append({
                     'id': t.id,
