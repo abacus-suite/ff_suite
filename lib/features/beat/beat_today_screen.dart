@@ -451,7 +451,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
         color: AppColors.warning,
         icon: Icons.person_rounded,
         tasks: unplannedTasks,
-        emptyMessage: 'No tasks completed by self.',
+        emptyMessage: 'No unplanned tasks by self.',
       ),
     ];
   }
