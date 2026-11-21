@@ -460,15 +460,17 @@ class _OnboardScreenState extends State<OnboardScreen> {
         if (_hasGst) {
           if (!_gstin.hasMatch(_v('gstin').toUpperCase())) bad.add('GSTIN: enter a valid 15-character GSTIN');
           if (_v('gst_name').isEmpty) bad.add('Name as per GST');
+          if (_v('billing_address').isEmpty) bad.add('Billing address');
+        } else {
+          if (_v('gst_name').isEmpty) bad.add('Name');
+          if (_v('door').isEmpty) bad.add('Door / TC No.');
         }
-        if (_v('billing_address').isEmpty) bad.add('Billing address');
         if (_v('zip').length != 6) bad.add('PIN code: 6 digits');
         if (_regions.isNotEmpty && _regionId == null) bad.add('Region');
         if (_territoryId == null) bad.add('Territory');
         // The city comes from the territory (or, failing that, the PIN code).
         if (_districtId == null && asText(_pinInfo['district']) == null) bad.add('City: choose a territory that has one, or enter a valid PIN code');
         if (_allAreas().isNotEmpty && _areaId == null) bad.add('Area');
-        if (_v('door').isEmpty) bad.add('Door / TC No.');
       case 'delivery':
         if (_v('delivery_address').isEmpty) bad.add('Delivery address');
         if (_v('delivery_zip').length != 6) bad.add('Delivery PIN code: 6 digits');
@@ -535,6 +537,21 @@ class _OnboardScreenState extends State<OnboardScreen> {
     try {
       final city = asText(_districts.where((d) => d['id'] == _districtId).firstOrNull?['name']) ?? asText(_pinInfo['district']) ?? '';
       final area = '${_areaOptions().where((a) => a['id'] == _areaId).firstOrNull?['name'] ?? ''}';
+      final billAddress = _hasGst
+          ? _v('billing_address')
+          : [_v('door'), _v('street_name')].where((s) => s.isNotEmpty).join(', ');
+      final streetName = _hasGst
+          ? (_v('street_name').isNotEmpty ? _v('street_name') : _firstLine(_v('billing_address')))
+          : _v('street_name');
+      final streetVal = _hasGst
+          ? [
+              _v('door'),
+              streetName,
+            ].where((e) => e.isNotEmpty).join(', ')
+          : [
+              _v('door'),
+              _v('street_name'),
+            ].where((e) => e.isNotEmpty).join(', ');
       final result = await withBusy(context, 'Saving…', () async => await Services.api.post(
             '/api/v1/clients/${widget.client['id']}/onboard',
             {
@@ -542,13 +559,10 @@ class _OnboardScreenState extends State<OnboardScreen> {
               'has_gst': _hasGst,
               if (_hasGst) 'gstin': _v('gstin').toUpperCase(),
               'gst_name': _v('gst_name'),
-              'billing_address': _v('billing_address'),
-              'street': [
-                _v('door'),
-                _v('street_name').isNotEmpty ? _v('street_name') : _firstLine(_v('billing_address'))
-              ].where((e) => e.isNotEmpty).join(', '),
+              'billing_address': billAddress,
+              'street': streetVal.isNotEmpty ? streetVal : billAddress,
               'door_no': _v('door'),
-              'street_name': _v('street_name').isNotEmpty ? _v('street_name') : _firstLine(_v('billing_address')),
+              'street_name': streetName,
               'delivery_same': _sameAsBilling,
               if (!_sameAsBilling) 'delivery_address': _v('delivery_address'),
               if (!_sameAsBilling) 'delivery_zip': _v('delivery_zip'),
@@ -789,9 +803,12 @@ class _OnboardScreenState extends State<OnboardScreen> {
         ], _territoryId, _pickTerritory),
         _dropId('Area', _allAreas(), _areaId, _pickArea,
             required: _allAreas().isNotEmpty, helper: _allAreas().isEmpty ? 'No areas are set for your territories yet' : null),
-        _field('door', 'Door / TC No.', required: true),
-        _field('street_name', 'Street Name'),
-        _field('billing_address', 'Billing address', required: true, lines: 3),
+        if (!_hasGst) ...[
+          _field('door', 'Door / TC No.', required: true),
+          _field('street_name', 'Street Name'),
+        ],
+        if (_hasGst)
+          _field('billing_address', 'Billing address', required: true, lines: 3),
         _same(),
       ]);
 
