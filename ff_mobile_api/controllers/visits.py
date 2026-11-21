@@ -182,7 +182,7 @@ class FieldForceVisitsApi(http.Controller):
         if 'ff.task' in request.env:
             open_tasks = request.env['ff.task'].sudo().search([
                 ('employee_id', '=', employee.id),
-                ('state', 'in', ('todo', 'in_progress')),
+                ('state', 'in', ('todo', 'in_progress', 'done')),
                 ('date_deadline', '=', day),
             ])
             for t in open_tasks:
