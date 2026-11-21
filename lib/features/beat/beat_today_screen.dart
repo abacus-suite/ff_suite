@@ -448,27 +448,19 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     );
   }
 
-  /// Tab 1: Unplanned tab showing manager-assigned open tasks and unplanned visit tasks.
+  /// Tab 1: Unplanned tab showing default two groups: By manager and By self.
   List<Widget> _unplannedTab() {
     final unplannedTasks = _tasks.where((t) => !_isTaskPlanned(t)).toList();
-    if (_managerTasks.isEmpty && unplannedTasks.isEmpty) {
-      return const [
-        EmptyView(
-          icon: Icons.task_alt_rounded,
-          text: 'No unplanned tasks or manager-assigned tasks for today.',
-        ),
-      ];
-    }
     return [
-      if (_managerTasks.isNotEmpty) _managerTasksGroup(),
-      if (unplannedTasks.isNotEmpty)
-        _taskGroupCard(
-          title: 'Unplanned Tasks',
-          count: unplannedTasks.length,
-          color: AppColors.warning,
-          icon: Icons.bolt_rounded,
-          tasks: unplannedTasks,
-        ),
+      _managerTasksGroup(),
+      _taskGroupCard(
+        title: 'By self',
+        count: unplannedTasks.length,
+        color: AppColors.warning,
+        icon: Icons.person_rounded,
+        tasks: unplannedTasks,
+        emptyMessage: 'No tasks completed by self.',
+      ),
     ];
   }
 
@@ -495,7 +487,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
             ),
             child: const Icon(Icons.assignment_ind_rounded, color: AppColors.purple, size: 20),
           ),
-          title: const Text('Manager Assigned Tasks', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          title: const Text('By manager', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             decoration: BoxDecoration(
@@ -508,8 +500,16 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
             ),
           ),
           children: [
-            for (final (i, t) in _managerTasks.indexed)
-              _managerTaskRow(t, i + 1),
+            if (_managerTasks.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Text('No tasks assigned by manager.', style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                ),
+              )
+            else
+              for (final (i, t) in _managerTasks.indexed)
+                _managerTaskRow(t, i + 1),
           ],
         ),
       ),
@@ -648,6 +648,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     required Color color,
     required IconData icon,
     required List<Map<String, dynamic>> tasks,
+    String? emptyMessage,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -686,7 +687,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Center(
-                  child: Text('No $title completed.', style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+                  child: Text(emptyMessage ?? 'No $title completed.', style: const TextStyle(color: AppColors.muted, fontSize: 13)),
                 ),
               )
             else

@@ -1009,7 +1009,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final totalPlannedTasks = _unplannedTasksTotal;
     final onsiteTasks = _unplannedTasksOnsite;
     final managerTasks = _managerTasksCount;
-    final totalPlanned = clients.length + totalPlannedTasks + managerTasks;
+    final totalTasks = totalPlannedTasks + managerTasks;
+    final totalPlanned = clients.length + totalTasks;
     final totalVisited = visited + onsiteTasks;
     double share(int value) => totalPlanned == 0 ? 0 : value / totalPlanned;
     return Card(
@@ -1045,9 +1046,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: totalPlanned,
                     label: 'Planned',
                     percent: totalPlanned == 0 ? 0 : 1,
-                    footer: managerTasks > 0
-                        ? 'Task - $totalPlannedTasks · Mgr - $managerTasks'
-                        : 'Task - $totalPlannedTasks',
+                    footer: 'Task - $totalTasks',
                   )),
                 ),
                 const SizedBox(width: 8),

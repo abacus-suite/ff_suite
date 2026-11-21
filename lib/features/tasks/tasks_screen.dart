@@ -12,6 +12,7 @@ import '../../core/geo.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
 import '../../widgets/common.dart';
+import '../clients/clients_screen.dart';
 
 const _stateWords = {'todo': 'To do', 'in_progress': 'In progress', 'done': 'Done', 'cancelled': 'Cancelled'};
 const _priorityWords = {'0': 'Normal', '1': 'High', '2': 'Urgent'};
@@ -530,6 +531,8 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
   final _description = TextEditingController();
   List<Map<String, dynamic>> _members = [];
   int? _employeeId;
+  int? _partnerId;
+  String? _partnerName;
   DateTime? _due;
   String _priority = '0';
   bool _photo = false;
@@ -563,6 +566,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
         'name': _name.text.trim(),
         'description': _description.text.trim(),
         'employee_id': _employeeId,
+        if (_partnerId != null) 'partner_id': _partnerId,
         if (_due != null) 'date_deadline': fmtDate(_due!),
         'priority': _priority,
         'requires_photo': _photo,
@@ -601,6 +605,57 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
               ],
               onChanged: (v) => setState(() => _employeeId = v),
               validator: (v) => v == null ? 'Choose someone' : null,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.storefront_rounded, color: AppColors.primary),
+                title: Text(
+                  _partnerName ?? 'Customer (optional)',
+                  style: TextStyle(
+                    fontWeight: _partnerName != null ? FontWeight.w700 : FontWeight.normal,
+                    color: _partnerName != null ? AppColors.text : AppColors.muted,
+                  ),
+                ),
+                subtitle: Text(
+                  _partnerName != null ? 'Tap to change customer' : 'Link this task to an outlet/distributor',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_partnerId != null)
+                      IconButton(
+                        icon: const Icon(Icons.clear_rounded, size: 20),
+                        tooltip: 'Remove customer',
+                        onPressed: () => setState(() {
+                          _partnerId = null;
+                          _partnerName = null;
+                        }),
+                      ),
+                    TextButton(
+                      onPressed: () async {
+                        final client = await Navigator.of(context).push<Map<String, dynamic>>(
+                          MaterialPageRoute(
+                            builder: (_) => const ClientsScreen(pickMode: true, title: 'Choose customer'),
+                          ),
+                        );
+                        if (client != null) {
+                          setState(() {
+                            _partnerId = client['id'] as int;
+                            _partnerName = '${client['name']}';
+                          });
+                        }
+                      },
+                      child: Text(_partnerId == null ? 'Choose' : 'Change'),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             TextFormField(
