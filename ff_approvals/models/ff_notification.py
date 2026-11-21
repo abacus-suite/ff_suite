@@ -206,6 +206,8 @@ class FfNotification(models.Model):
         """
         if user and not employee:
             employee = user.sudo().employee_id
+            if not employee and 'hr.employee' in self.env:
+                employee = self.env['hr.employee'].sudo().search([('user_id', '=', user.id)], limit=1)
         if employee and not user:
             user = employee.sudo().user_id
         if not employee:

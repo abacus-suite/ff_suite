@@ -27,6 +27,16 @@ class FieldForceApprovalsSummaryApi(http.Controller):
                 leaves = len(env['hr.leave'].ff_to_approve(employee))
             except Exception:  # noqa: BLE001
                 leaves = 0
+
+        requests_count = 0
+        if 'ff.expense.request' in env and hasattr(env['ff.expense.request'], 'ff_to_approve'):
+            try:
+                requests_count = len(env['ff.expense.request'].ff_to_approve(employee))
+            except Exception:  # noqa: BLE001
+                requests_count = 0
+        elif 'ff.expense.request' in env:
+            requests_count = count('ff.expense.request', [('employee_id', 'in', ids), ('state', '=', 'approval')])
+
         counts = {
             'contacts': count('res.partner', [('ff_is_client', '=', True), ('ff_approval_state', '=', 'pending'),
                                               ('ff_created_by_employee_id', 'in', ids)]),
@@ -35,6 +45,7 @@ class FieldForceApprovalsSummaryApi(http.Controller):
             'deposits': count('ff.collection.deposit', [('employee_id', 'in', ids), ('state', '=', 'submitted')]),
             'notes': count('ff.distributor.note', [('employee_id', 'in', ids), ('state', '=', 'pending')]),
             'expenses': count('ff.expense.claim', [('employee_id', 'in', ids), ('state', '=', 'submitted')]),
+            'requests': requests_count,
             'allowances': count('ff.allowance.claim', [('employee_id', 'in', ids), ('state', '=', 'submitted')]),
             'returns': count('ff.return', [('employee_id', 'in', ids), ('state', '=', 'submitted')]),
             'leaves': leaves,

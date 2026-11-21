@@ -82,11 +82,50 @@ class FfExpenseRequest(models.Model):
             'name': name, 'datas': data, 'res_model': self._name, 'res_id': self.id, 'mimetype': mime,
         })
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        if 'ff.approval.line' not in self.env:
+            for rec in records:
+                if rec.state in ('requested', 'approval'):
+                    rec._ff_notify_manager()
+        return records
+
     def _ff_notify(self, title, body):
         if 'ff.notification' in self.env:
             for rec in self:
                 self.env['ff.notification'].sudo().ff_push(
                     title=title, body=body, kind='decision', employee=rec.employee_id, record=rec)
+
+    def _ff_notify_manager(self):
+        for rec in self:
+            manager = rec.employee_id.parent_id or rec.employee_id.department_id.manager_id
+            if not manager:
+                continue
+            currency_symbol = rec.currency_id.symbol or '₹'
+            category_name = rec.category_id.name or 'Expense'
+            if rec.sub_category_id:
+                category_name = f"{category_name} - {rec.sub_category_id.name}"
+            title = self.env._('Payment Request to Approve')
+            body = self.env._(
+                '%(employee)s requested payment of %(symbol)s%(amount).2f for %(category)s.',
+                employee=rec.employee_id.name,
+                symbol=currency_symbol,
+                amount=rec.amount,
+                category=category_name,
+            )
+            manager_user = manager.user_id
+            if manager_user:
+                rec.sudo().message_post(body=body, partner_ids=manager_user.partner_id.ids)
+            if 'ff.notification' in self.env:
+                self.env['ff.notification'].sudo().ff_push(
+                    title=title,
+                    body=body,
+                    kind='approval',
+                    employee=manager,
+                    user=manager_user or None,
+                    record=rec,
+                )
 
     # ------------------------------------------------------------------ the manager, before accounts
     def _ff_set_decision(self, approve, approver_user=False):
@@ -148,6 +187,10 @@ class FfExpenseRequest(models.Model):
                 started = rec._ff_start_approval()
                 if started or rec.employee_id.parent_id or mode == 'manager':
                     rec.write({'state': 'approval'})
+                    if not started:
+                        rec._ff_notify_manager()
+            else:
+                rec._ff_notify_manager()
 
     def ff_resubmit(self, vals, photo=None):
         self.ensure_one()
@@ -173,6 +216,10 @@ class FfExpenseRequest(models.Model):
             started = self._ff_start_approval()
             if started or self.employee_id.parent_id or mode == 'manager':
                 self.write({'state': 'approval'})
+                if not started:
+                    self._ff_notify_manager()
+        else:
+            self._ff_notify_manager()
         self.message_post(body=self.env._('Request updated and resubmitted by %s', self.employee_id.name))
         return self
 

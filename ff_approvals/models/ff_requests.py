@@ -24,7 +24,43 @@ class FfExpenseRequest(models.Model):
             # goes straight to accounts.
             if started or rec.employee_id.parent_id or mode == 'manager':
                 rec.state = 'approval'
+                if not started:
+                    rec._ff_notify_manager()
         return requests
+
+    def _ff_notify_approver(self, line):
+        self.ensure_one()
+        if not line.user_id:
+            return
+        approver_user = line.user_id
+        approver_emp = approver_user.sudo().employee_id
+        if not approver_emp:
+            approver_emp = self.env['hr.employee'].sudo().search([('user_id', '=', approver_user.id)], limit=1)
+        if not approver_emp:
+            approver_emp = self.employee_id.parent_id
+
+        currency_symbol = self.currency_id.symbol or '₹'
+        category_name = self.category_id.name or 'Expense'
+        if self.sub_category_id:
+            category_name = f"{category_name} - {self.sub_category_id.name}"
+        title = self.env._('Payment Request to Approve')
+        body = self.env._(
+            '%(employee)s requested payment of %(symbol)s%(amount).2f for %(category)s.',
+            employee=self.employee_id.name,
+            symbol=currency_symbol,
+            amount=self.amount,
+            category=category_name,
+        )
+        self.sudo().message_post(body=body, partner_ids=approver_user.partner_id.ids)
+        if 'ff.notification' in self.env:
+            self.env['ff.notification'].sudo().ff_push(
+                user=approver_user,
+                employee=approver_emp or None,
+                title=title,
+                body=body,
+                kind='approval',
+                record=self,
+            )
 
     def _ff_pending_line(self):
         self.ensure_one()
