@@ -444,68 +444,50 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
   List<Widget> _unplannedTab() {
     final unplannedTasks = _tasks.where((t) => !_isTaskPlanned(t)).toList();
     return [
-      _managerTasksGroup(),
-      _taskGroupCard(
+      _simpleGroupCard(
+        title: 'By manager',
+        count: _managerTasks.length,
+        color: AppColors.purple,
+        icon: Icons.assignment_ind_rounded,
+        initiallyExpanded: false,
+        emptyMessage: 'No tasks assigned by manager.',
+        children: [
+          for (final (i, t) in _managerTasks.indexed)
+            _managerTaskRow(t, i + 1),
+        ],
+      ),
+      _simpleGroupCard(
         title: 'By self',
         count: unplannedTasks.length,
         color: AppColors.warning,
         icon: Icons.person_rounded,
-        tasks: unplannedTasks,
+        initiallyExpanded: false,
         emptyMessage: 'No unplanned tasks by self.',
+        children: [
+          for (final t in unplannedTasks)
+            _completedTaskCard(
+              taskName: asText(t['task']) ?? 'Unplanned Task',
+              customerName: asText(t['customer']),
+              categoryType: t['category_type'] as String?,
+              timeStr: fmtTime(t['time']),
+              metaStr: null,
+              onTap: () {
+                final taskId = t['id'];
+                final partner = t['partner_id'];
+                if (taskId is! int) {
+                  if (partner is int) _openClient(partner);
+                  return;
+                }
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => TaskDocsScreen(
+                        taskId: taskId,
+                        title: '${t['task'] ?? 'Task'} · ${t['customer']}',
+                        onOpenCustomer: partner is int ? () => _openClient(partner) : null)));
+              },
+            ),
+        ],
       ),
     ];
-  }
-
-  Widget _managerTasksGroup() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: true,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-          leading: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppColors.purple.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.assignment_ind_rounded, color: AppColors.purple, size: 20),
-          ),
-          title: const Text('By manager', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-          trailing: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.purple.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              '${_managerTasks.length}',
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.purple),
-            ),
-          ),
-          children: [
-            if (_managerTasks.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: Text('No tasks assigned by manager.', style: TextStyle(color: AppColors.muted, fontSize: 13)),
-                ),
-              )
-            else
-              for (final (i, t) in _managerTasks.indexed)
-                _managerTaskRow(t, i + 1),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _completedTaskCard({
@@ -855,7 +837,68 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     return _openManagerTaskCard(t, number);
   }
 
-  /// Every task completed today, grouped into By manager, By self, and Planned Tasks.
+  Widget _simpleGroupCard({
+    required String title,
+    required int count,
+    required Color color,
+    required IconData icon,
+    required List<Widget> children,
+    String? emptyMessage,
+    bool initiallyExpanded = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: initiallyExpanded,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          leading: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2.5),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: color),
+            ),
+          ),
+          children: children.isEmpty
+              ? [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    child: Center(
+                      child: Text(
+                        emptyMessage ?? 'No $title tasks.',
+                        style: const TextStyle(color: AppColors.muted, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                ]
+              : children,
+        ),
+      ),
+    );
+  }
+
+  /// Tab 2: Completed tasks grouped simply into Planned and Unplanned (which contains completed by manager and by self).
   List<Widget> _completedTasks() {
     final planned = _tasks.where(_isTaskPlanned).toList();
     final unplannedSelf = _tasks.where((t) => !_isTaskPlanned(t)).toList();
@@ -865,142 +908,74 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       return const [EmptyView(icon: Icons.task_alt_rounded, text: 'No task completed yet.')];
     }
 
-    return [
-      if (doneManagerTasks.isNotEmpty)
-        Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              initiallyExpanded: true,
-              tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-              leading: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.assignment_turned_in_rounded, color: AppColors.success, size: 20),
-              ),
-              title: const Text('By manager', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  '${doneManagerTasks.length}',
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.success),
-                ),
-              ),
-              children: [
-                for (final (i, t) in doneManagerTasks.indexed)
-                  _managerTaskRow(t, i + 1),
-              ],
-            ),
-          ),
-        ),
-      _taskGroupCard(
-        title: 'By self',
-        count: unplannedSelf.length,
-        color: AppColors.warning,
-        icon: Icons.person_rounded,
-        tasks: unplannedSelf,
-        emptyMessage: 'No tasks completed by self.',
-      ),
-      if (planned.isNotEmpty)
-        _taskGroupCard(
-          title: 'Planned Tasks',
-          count: planned.length,
-          color: AppColors.primary,
-          icon: Icons.assignment_turned_in_rounded,
-          tasks: planned,
-        ),
-    ];
-  }
+    final unplannedTotal = doneManagerTasks.length + unplannedSelf.length;
 
-  Widget _taskGroupCard({
-    required String title,
-    required int count,
-    required Color color,
-    required IconData icon,
-    required List<Map<String, dynamic>> tasks,
-    String? emptyMessage,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: true,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-          leading: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+    return [
+      _simpleGroupCard(
+        title: 'Planned',
+        count: planned.length,
+        color: AppColors.primary,
+        icon: Icons.assignment_turned_in_rounded,
+        initiallyExpanded: false,
+        emptyMessage: 'No planned tasks completed.',
+        children: [
+          for (final t in planned)
+            _completedTaskCard(
+              taskName: asText(t['task']) ?? 'Planned Task',
+              customerName: asText(t['customer']),
+              categoryType: t['category_type'] as String?,
+              timeStr: fmtTime(t['time']),
+              metaStr: null,
+              onTap: () {
+                final taskId = t['id'];
+                final partner = t['partner_id'];
+                if (taskId is! int) {
+                  if (partner is int) _openClient(partner);
+                  return;
+                }
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => TaskDocsScreen(
+                        taskId: taskId,
+                        title: '${t['task'] ?? 'Task'} · ${t['customer']}',
+                        onOpenCustomer: partner is int ? () => _openClient(partner) : null)));
+              },
             ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-          trailing: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text('$count',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: color)),
-          ),
-          children: [
-            if (tasks.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: Text(emptyMessage ?? 'No $title completed.', style: const TextStyle(color: AppColors.muted, fontSize: 13)),
-                ),
-              )
-            else
-              for (final t in tasks)
-                _completedTaskCard(
-                  taskName: asText(t['task']) ?? title,
-                  customerName: asText(t['customer']),
-                  categoryType: t['category_type'] as String?,
-                  timeStr: fmtTime(t['time']),
-                  metaStr: null,
-                  onTap: () {
-                    final taskId = t['id'];
-                    final partner = t['partner_id'];
-                    if (taskId is! int) {
-                      if (partner is int) _openClient(partner);
-                      return;
-                    }
-                    Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => TaskDocsScreen(
-                            taskId: taskId,
-                            title: '${t['task'] ?? 'Task'} · ${t['customer']}',
-                            onOpenCustomer: partner is int ? () => _openClient(partner) : null)));
-                  },
-                ),
-          ],
-        ),
+        ],
       ),
-    );
+      _simpleGroupCard(
+        title: 'Unplanned',
+        count: unplannedTotal,
+        color: AppColors.warning,
+        icon: Icons.task_alt_rounded,
+        initiallyExpanded: false,
+        emptyMessage: 'No unplanned tasks completed.',
+        children: [
+          for (final (i, t) in doneManagerTasks.indexed)
+            _managerTaskRow(t, i + 1),
+          for (final t in unplannedSelf)
+            _completedTaskCard(
+              taskName: asText(t['task']) ?? 'Unplanned Task',
+              customerName: asText(t['customer']),
+              categoryType: t['category_type'] as String?,
+              timeStr: fmtTime(t['time']),
+              metaStr: null,
+              onTap: () {
+                final taskId = t['id'];
+                final partner = t['partner_id'];
+                if (taskId is! int) {
+                  if (partner is int) _openClient(partner);
+                  return;
+                }
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => TaskDocsScreen(
+                        taskId: taskId,
+                        title: '${t['task'] ?? 'Task'} · ${t['customer']}',
+                        onOpenCustomer: partner is int ? () => _openClient(partner) : null)));
+              },
+            ),
+        ],
+      ),
+    ];
   }
 
   String _planKey(Map<String, dynamic> plan) => '${(plan['beat'] as Map?)?['id'] ?? 'none'}';
@@ -1115,9 +1090,8 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     final visit = row['_visit'] as Map;
     final state = visit['state'];
     final metres = metresTo(_here, row);
-    final details = [
-      // Waiting to be saved in today's plan, it reads as planned like any other stop.
-      state == 'added' ? 'Planned' : 'Added visit',
+    final extraInfo = [
+      state == 'added' ? 'Planned visit' : 'Added visit',
       if (metres != null) fmtDistance(metres),
       if ((row['_visits'] as int? ?? 1) > 1) '${row['_visits']} visits · last',
       if (state != 'added') '${fmtTime(visit['check_in_at'])}–${fmtTime(visit['check_out_at'])}',
@@ -1126,7 +1100,8 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       color: AppColors.purple,
       number: '$number',
       name: '${row['name']}',
-      details: details,
+      address: asText(row['address']),
+      extraInfo: extraInfo.isNotEmpty ? extraInfo : null,
       categoryType: row['category_type'] as String? ?? (row['is_distributor'] == true ? 'distributor' : 'outlet'),
       // Added and waiting, at the client now, or visited.
       badge: StatusBadge(switch (state) { 'added' => 'planned', 'ongoing' => 'ongoing', _ => 'visited' }),
@@ -1134,13 +1109,13 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     );
   }
 
-  /// One customer row. The name takes the room that is left, and the status badge and the menu sit in
-  /// columns of their own, so they line up from one row to the next.
+  /// One customer row. Name, contact type + planned tag on same row, full 2-line address, distance/route.
   Widget _tileRow({
     required Color color,
     required String number,
     required String name,
-    required String details,
+    required String? address,
+    required String? extraInfo,
     required Widget badge,
     required VoidCallback onTap,
     Widget? menu,
@@ -1152,45 +1127,123 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       'distributor' => ('Distributor', AppColors.warning),
       _ => ('Outlet', AppColors.primary),
     };
-    return Card(
-      child: InkWell(
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            CircleAvatar(
-              backgroundColor: color.withValues(alpha: 0.14),
-              child: Text(number, style: TextStyle(color: color, fontWeight: FontWeight.w800)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Row(children: [
-                  Expanded(
-                    child: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.85)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(13),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: color.withValues(alpha: 0.14),
+                  child: Text(number, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 13)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.text),
+                            ),
+                          ),
+                          if (menu != null)
+                            SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: menu,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Contact type and planned tag on SAME row
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: typeColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              typeLabel,
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: typeColor),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          badge,
+                        ],
+                      ),
+                      if (address != null && address.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.location_on_outlined, size: 14, color: AppColors.muted),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                address,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12.5, color: AppColors.muted, height: 1.3),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (extraInfo != null && extraInfo.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.near_me_outlined, size: 13, color: AppColors.muted),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                extraInfo,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 11.5, color: AppColors.muted, fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: typeColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(typeLabel,
-                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: typeColor)),
-                  ),
-                ]),
-                const SizedBox(height: 3),
-                Text(details, maxLines: 2, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
-              ]),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            SizedBox(width: 84, child: Center(child: badge)),
-            SizedBox(width: 36, child: menu),
-          ]),
+          ),
         ),
       ),
     );
@@ -1207,19 +1260,18 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       'ongoing' => AppColors.sky,
       _ => AppColors.primary,
     };
-    final details = [
-      if (showRoute) asText((client['route'] as Map?)?['name']),
-      asText(client['address']),
-      if (number != null)
-        fmtDistance(metresTo(_here, client))
-      else if (client['distance_m'] != null)
-        fmtDistance(client['distance_m'] as num?),
-    ].whereType<String>().where((s) => s.isNotEmpty).join(' · ');
+    final routeName = showRoute ? asText((client['route'] as Map?)?['name']) : null;
+    final distance = number != null
+        ? fmtDistance(metresTo(_here, client))
+        : (client['distance_m'] != null ? fmtDistance(client['distance_m'] as num?) : null);
+    final extraInfo = [routeName, distance].whereType<String>().where((s) => s.isNotEmpty).join(' · ');
+    final address = asText(client['address']);
     return _tileRow(
       color: color,
       number: '${number ?? client['sequence']}',
       name: '${client['name']}',
-      details: details.isEmpty ? lastVisitLabel(client) : details,
+      address: (address == null || address.isEmpty) ? lastVisitLabel(client) : address,
+      extraInfo: extraInfo.isNotEmpty ? extraInfo : null,
       badge: StatusBadge(status),
       categoryType: client['category_type'] as String? ?? (client['is_distributor'] == true ? 'distributor' : 'outlet'),
       // A planned visit that has not started can be cancelled; a cancelled one planned again.
