@@ -582,6 +582,7 @@ class _BeatOutletsScreenState extends State<BeatOutletsScreen> {
         line('Code', asText(b['code']) ?? ''),
         line('Status', '${b['approval_state']}' == 'pending' ? 'Pending approval' : 'Approved'),
         line('Outlets', '${_loading ? (b['customer_count'] ?? 0) : _outlets.length}'),
+        line('Region', asText(b['region'] is Map ? (b['region'] as Map)['name'] : b['region']) ?? ''),
         line('District / Territory',
             asText(b['territory'] is Map ? (b['territory'] as Map)['name'] : b['territory']) ?? asText(b['city']) ?? ''),
         line('Area', areas.join(', ')),
@@ -993,6 +994,11 @@ class _EditBeatScreenState extends State<EditBeatScreen> {
         ),
       ),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+        if (asText(b['region'] is Map ? (b['region'] as Map)['name'] : b['region']) != null) ...[
+          _label('Region'),
+          _field(asText(b['region'] is Map ? (b['region'] as Map)['name'] : b['region'])!, locked: true),
+          const SizedBox(height: 16),
+        ],
         _label('District / Territory'),
         _field(territory, locked: true),
         const SizedBox(height: 16),

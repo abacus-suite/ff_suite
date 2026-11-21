@@ -456,6 +456,25 @@ class _CreateBeatScreenState extends State<CreateBeatScreen> {
           ),
           const SizedBox(height: 16),
 
+          // Region (from the territory)
+          if (_territory != null && asText((_territory!['region'] as Map?)?['name']) != null) ...[
+            _label('Region'),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Text(
+                asText((_territory!['region'] as Map?)?['name']) ?? '',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF0F1B3D)),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // District / Territory *: a page of its own, with a search, as the list can be long.
           _label('District / Territory', required: true),
           InkWell(
