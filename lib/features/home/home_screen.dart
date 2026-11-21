@@ -446,6 +446,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return ((_today!['tasks_onsite'] as num?) ?? 0).toInt();
   }
 
+  int get _managerTasksCount {
+    if (_today == null) return 0;
+    if (_today!['tasks_manager_count'] is num) {
+      return (_today!['tasks_manager_count'] as num).toInt();
+    }
+    final tasks = (_today!['tasks_manager'] as List?)?.whereType<Map>().toList();
+    return tasks?.length ?? 0;
+  }
+
   int get _plannedVisits => _plannedClients.length;
 
   int get _doneVisits =>
@@ -990,7 +999,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final totalPlannedTasks = _unplannedTasksTotal;
     final onsiteTasks = _unplannedTasksOnsite;
-    final totalPlanned = clients.length + totalPlannedTasks;
+    final managerTasks = _managerTasksCount;
+    final totalPlanned = clients.length + totalPlannedTasks + managerTasks;
     final totalVisited = visited + onsiteTasks;
     double share(int value) => totalPlanned == 0 ? 0 : value / totalPlanned;
     return Card(
@@ -1026,7 +1036,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: totalPlanned,
                     label: 'Planned',
                     percent: totalPlanned == 0 ? 0 : 1,
-                    footer: 'Task - $totalPlannedTasks',
+                    footer: managerTasks > 0
+                        ? 'Task - $totalPlannedTasks · Mgr - $managerTasks'
+                        : 'Task - $totalPlannedTasks',
                   )),
                 ),
                 const SizedBox(width: 8),

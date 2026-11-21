@@ -14,6 +14,7 @@ import 'added_visits.dart';
 import '../clients/client_detail_screen.dart';
 import '../clients/clients_screen.dart';
 import '../tasks/task_docs_screen.dart';
+import '../tasks/tasks_screen.dart';
 
 const _weekdayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -41,9 +42,12 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
   bool _loading = true;
   String? _error;
 
-  /// 0: the planned customers, 1: the tasks completed today (one row per task, onsite or offsite).
+  /// 0: planned customers, 1: unplanned tasks (offsite/onsite + manager tasks), 2: completed tasks.
   int _tab = 0;
   List<Map<String, dynamic>> _tasks = [];
+
+  /// Open manager-assigned tasks from the backend (ff.task, state todo/in_progress, assigned_by set).
+  List<Map<String, dynamic>> _managerTasks = [];
 
   /// Where the phone is: today's outlets are listed nearest first from here.
   Position? _here;
@@ -94,6 +98,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       }) as Map<String, dynamic>;
       // The same list the Planned card counts, so the tab, the card and the report agree.
       _tasks = ((data['tasks'] as List?) ?? const []).cast<Map<String, dynamic>>();
+      _managerTasks = ((data['tasks_manager'] as List?) ?? const []).cast<Map<String, dynamic>>();
       if (mounted) setState(() => (_data = data, _error = null));
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -319,7 +324,9 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     final rows = nearestFirst([...clients, if (_beat == null) ...added, if (_beat == null) ...waiting], _here);
     return [
       _tabSwitch(),
-      if (_tab == 1) ..._completedTasks() else ...[
+      if (_tab == 2) ..._completedTasks()
+      else if (_tab == 1) ..._unplannedTab()
+      else ...[ // tab 0 — planned customers
       _filters(plans),
       if (plans.isEmpty && rows.isEmpty && _filter == 'all')
         EmptyView(icon: Icons.event_busy_rounded,
@@ -351,34 +358,46 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     ];
   }
 
-  Widget _tabSwitch() => Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(23), border: Border.all(color: AppColors.border)),
-        child: Row(children: [
-          for (final (i, text) in const [(0, 'Planned customers'), (1, 'Completed Task')])
-            Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () => setState(() => _tab = i),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: _tab == i ? AppColors.primary.withValues(alpha: 0.12) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
+  Widget _tabSwitch() {
+    final unplannedTasks = _tasks.where((t) => !_isTaskPlanned(t)).toList();
+    final unplannedTotal = unplannedTasks.length + _managerTasks.length;
+    final tabs = [
+      (0, 'Planned', null),
+      (1, 'Unplanned', unplannedTotal),
+      (2, 'Completed', _tasks.length),
+    ];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(23), border: Border.all(color: AppColors.border)),
+      child: Row(children: [
+        for (final (i, text, count) in tabs)
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => setState(() => _tab = i),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _tab == i ? AppColors.primary.withValues(alpha: 0.12) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  count != null ? '$text ($count)' : text,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    color: _tab == i ? AppColors.primary : AppColors.text,
                   ),
-                  child: Text(i == 1 ? '$text (${_tasks.length})' : text,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13.5,
-                          color: _tab == i ? AppColors.primary : AppColors.text)),
                 ),
               ),
             ),
-        ]),
-      );
+          ),
+      ]),
+    );
+  }
 
   Set<int> get _plannedPartnerIds => {
         for (final c in ((_data?['clients'] as List?) ?? const []).cast<Map>())
@@ -389,6 +408,191 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     if (t['is_planned'] != null) return t['is_planned'] == true;
     final id = t['partner_id'];
     return id is int && _plannedPartnerIds.contains(id);
+  }
+
+  Widget _visitTypeTag(String? type) {
+    final isOnsite = (type ?? '').toLowerCase() == 'onsite';
+    final color = isOnsite ? AppColors.success : AppColors.purple;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        isOnsite ? 'Onsite' : 'Offsite',
+        style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 11),
+      ),
+    );
+  }
+
+  /// Tab 1: Unplanned tab showing manager-assigned open tasks and unplanned visit tasks.
+  List<Widget> _unplannedTab() {
+    final unplannedTasks = _tasks.where((t) => !_isTaskPlanned(t)).toList();
+    if (_managerTasks.isEmpty && unplannedTasks.isEmpty) {
+      return const [
+        EmptyView(
+          icon: Icons.task_alt_rounded,
+          text: 'No unplanned tasks or manager-assigned tasks for today.',
+        ),
+      ];
+    }
+    return [
+      if (_managerTasks.isNotEmpty) _managerTasksGroup(),
+      if (unplannedTasks.isNotEmpty)
+        _taskGroupCard(
+          title: 'Unplanned Tasks',
+          count: unplannedTasks.length,
+          color: AppColors.warning,
+          icon: Icons.bolt_rounded,
+          tasks: unplannedTasks,
+        ),
+    ];
+  }
+
+  Widget _managerTasksGroup() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          leading: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppColors.purple.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.assignment_ind_rounded, color: AppColors.purple, size: 20),
+          ),
+          title: const Text('Manager Assigned Tasks', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.purple.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              '${_managerTasks.length}',
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.purple),
+            ),
+          ),
+          children: [
+            for (final (i, t) in _managerTasks.indexed)
+              _managerTaskRow(t, i + 1),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _managerTaskRow(Map<String, dynamic> t, int number) {
+    final customer = t['customer'] is Map ? (t['customer'] as Map)['name'] as String? : null;
+    final assignedBy = t['assigned_by'] as String?;
+    final due = t['due'] != null ? 'Due ${t['due']}' : null;
+    final details = [
+      if (assignedBy != null && assignedBy.isNotEmpty) 'Assigned by $assignedBy',
+      if (customer != null && customer.isNotEmpty) customer,
+      if (due != null) due,
+    ].join(' · ');
+
+    final state = '${t['state']}';
+    final stateLabel = state == 'in_progress' ? 'In progress' : (state == 'done' ? 'Done' : 'To do');
+    final stateColor = state == 'in_progress'
+        ? AppColors.primary
+        : (state == 'done' ? AppColors.success : AppColors.warning);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () async {
+          final changed = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(builder: (_) => TaskDetailScreen(task: t, canAct: true)),
+          );
+          if (changed == true) _load();
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                backgroundColor: AppColors.purple.withValues(alpha: 0.14),
+                child: Text('$number', style: const TextStyle(color: AppColors.purple, fontWeight: FontWeight.w800)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        if (t['priority'] != null && t['priority'] != '0')
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: Icon(Icons.flag_rounded,
+                                size: 16, color: t['priority'] == '2' ? AppColors.danger : AppColors.warning),
+                          ),
+                        Expanded(
+                          child: Text(
+                            '${t['name']}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (details.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        details,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: stateColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      stateLabel,
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: stateColor),
+                    ),
+                  ),
+                  if (t['visit_type'] != null) ...[
+                    const SizedBox(height: 4),
+                    _visitTypeTag('${t['visit_type']}'),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   /// Every task completed today, grouped into Planned and Unplanned with counts.
@@ -434,7 +638,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          initiallyExpanded: false,
+          initiallyExpanded: true,
           tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
           leading: Container(
@@ -470,8 +674,8 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
                   color: color,
                   number: '${i + 1}',
                   name: '${t['customer']}',
-                  details: [asText(t['task']), fmtTime(t['time']), asText(t['visit_type'])].whereType<String>().join(' · '),
-                  badge: StatusBadge(t['visit_type'] == 'Onsite' ? 'visited' : 'cancelled', label: '${t['visit_type']}'),
+                  details: [asText(t['task']), fmtTime(t['time'])].whereType<String>().join(' · '),
+                  badge: _visitTypeTag(t['visit_type'] as String?),
                   categoryType: t['category_type'] as String?,
                   // The task's own documents (credit notes, demands, orders); the customer is one tap further.
                   onTap: () {
