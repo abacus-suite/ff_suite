@@ -177,6 +177,24 @@ class FieldForceVisitsApi(http.Controller):
         unplanned_count = sum(1 for t in tasks if t['is_unplanned'])
         unplanned_onsite_count = sum(1 for t in tasks if t['is_unplanned'] and t['visit_type'] == 'Onsite')
         planned_task_count = sum(1 for t in tasks if t['is_planned'])
+        # Manager-assigned open tasks for today (ff.task assigned by someone else, state todo/in_progress)
+        manager_tasks = []
+        if 'ff.task' in request.env:
+            open_tasks = request.env['ff.task'].sudo().search([
+                ('employee_id', '=', employee.id),
+                ('state', 'in', ('todo', 'in_progress')),
+            ]).filtered(lambda t: not t._ff_self_assigned())
+            for t in open_tasks:
+                manager_tasks.append({
+                    'id': t.id,
+                    'name': t.name,
+                    'customer': ref(t.partner_id),
+                    'due': t.date_deadline.isoformat() if t.date_deadline else None,
+                    'state': t.state,
+                    'priority': t.priority or '0',
+                    'assigned_by': t.assigned_by_employee_id.name or t.assigned_by_id.name or None,
+                    'visit_type': t.visit_id.visit_type if (t.visit_id and t.visit_id.visit_type) else 'offsite',
+                })
         return ok({
             'tasks': tasks,
             'tasks_done': unplanned_count,
@@ -187,6 +205,8 @@ class FieldForceVisitsApi(http.Controller):
             'tasks_total': len(tasks),
             'tasks_onsite': sum(1 for t in tasks if t['visit_type'] == 'Onsite'),
             'tasks_offsite': sum(1 for t in tasks if t['visit_type'] == 'Offsite'),
+            'tasks_manager': manager_tasks,
+            'tasks_manager_count': len(manager_tasks),
             'date': day.isoformat(),
             'plan': plan_data(plans[:1]),
             'plans': [plan_data(p) for p in plans],
