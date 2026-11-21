@@ -12,6 +12,9 @@ class FfDistrict(models.Model):
     state_id = fields.Many2one('res.country.state', string='State', required=True, index=True)
     country_id = fields.Many2one(related='state_id.country_id', store=True, string='Country')
     active = fields.Boolean(default=True)
+    is_company_location = fields.Boolean(
+        string='Company Location', default=False,
+        help='When enabled, outlets in this territory receive direct sale orders from Company.')
     api_created = fields.Boolean(string='Created from PIN code', readonly=True, copy=False,
                                  help='Made automatically from a PIN code lookup: to be checked by the office.')
 
@@ -22,6 +25,7 @@ class FfDistrict(models.Model):
         super()._register_hook()
         cr = self.env.cr
         cr.execute("ALTER TABLE ff_district ADD COLUMN IF NOT EXISTS team_id INTEGER;")
+        cr.execute("ALTER TABLE ff_district ADD COLUMN IF NOT EXISTS is_company_location BOOLEAN DEFAULT FALSE;")
 
     @api.depends('name', 'state_id.code')
     def _compute_display_name(self):

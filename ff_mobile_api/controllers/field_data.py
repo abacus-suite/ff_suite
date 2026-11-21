@@ -40,6 +40,9 @@ def partner_is_company_location(partner, employee=None):
     if not partner:
         return False
     p = partner.sudo()
+    if 'ff_district_id' in p._fields and p.ff_district_id:
+        if getattr(p.ff_district_id, 'is_company_location', False):
+            return True
     Territory = partner.env['ff.territory'].sudo() if 'ff.territory' in partner.env else None
     if Territory:
         terrs = Territory.browse()

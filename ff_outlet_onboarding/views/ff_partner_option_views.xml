@@ -36,6 +36,7 @@
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
                 <field name="code"/>
+                <field name="territory_ids" widget="many2many_tags" optional="show"/>
                 <field name="active" widget="boolean_toggle"/>
             </list>
         </field>
@@ -51,6 +52,7 @@
                         <field name="kind" invisible="1"/>
                         <field name="name"/>
                         <field name="code"/>
+                        <field name="territory_ids" widget="many2many_tags" placeholder="Select territories..."/>
                         <field name="active"/>
                     </group>
                     <notebook>

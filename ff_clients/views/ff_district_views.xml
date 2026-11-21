@@ -10,6 +10,7 @@
                 <field name="team_id" string="Region" optional="show" options="{'no_create': True}" width="250px"/>
                 <field name="state_id"/>
                 <field name="country_id"/>
+                <field name="is_company_location" string="Company Location" widget="boolean_toggle" optional="show"/>
                 <field name="active" widget="boolean_toggle" optional="hide"/>
             </list>
         </field>

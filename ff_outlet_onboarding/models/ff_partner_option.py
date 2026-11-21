@@ -34,9 +34,16 @@ class FfPartnerOption(models.Model):
     active = fields.Boolean(default=True)
     line_ids = fields.One2many('ff.mrp.line', 'option_id', string='Products & Prices',
                                help='For an MRP: the products this MRP sells, each with its price.')
+    territory_ids = fields.Many2many(
+        'ff.district', 'ff_partner_option_district_rel', 'option_id', 'district_id',
+        string='Territories', domain="[('active', '=', True)]",
+        help='Territories where this MRP is applicable.')
 
     @api.model_create_multi
     def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get('code') and vals.get('name'):
+                vals['code'] = re.sub(r'[^a-z0-9]+', '_', vals['name'].lower()).strip('_') or 'option'
         options = super().create(vals_list)
         for option in options.filtered(lambda o: o.kind == 'mrp' and not o.line_ids):
             option.ff_load_products()
@@ -63,13 +70,6 @@ class FfPartnerOption(models.Model):
 
     _kind_code_uniq = models.Constraint('UNIQUE(kind, code)', 'This option already exists for the list.')
 
-    @api.model_create_multi
-    def create(self, vals_list):
-        for vals in vals_list:
-            if not vals.get('code') and vals.get('name'):
-                vals['code'] = re.sub(r'[^a-z0-9]+', '_', vals['name'].lower()).strip('_') or 'option'
-        return super().create(vals_list)
-
     @api.model
     def ff_by_code(self, kind, code):
         """The option of this kind with that code, or an empty one."""
@@ -78,9 +78,10 @@ class FfPartnerOption(models.Model):
     @api.model
     def ff_choices(self, kind):
         return [{'code': o.code, 'name': o.name, 'needs_note': o.needs_note,
+                 'territory_ids': o.territory_ids.ids if 'territory_ids' in o._fields else [],
                  # A scheme is shown as its amount with the company's currency symbol.
                  'value': o.ff_scheme_value() if o.kind == 'scheme' else None}
-                for o in self.sudo().search([('kind', '=', kind)], order='name')]
+                for o in self.sudo().search([('kind', '=', kind), ('active', '=', True)], order='name')]
 
 
 class FfMrpLine(models.Model):

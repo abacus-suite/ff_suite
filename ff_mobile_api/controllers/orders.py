@@ -343,13 +343,15 @@ class FieldForceOrdersApi(http.Controller):
         mrp_options = [{'id': o.id, 'name': o.name, 'code': o.code} for o in mrp_options_recs]
 
         mrp_opt = None
-        if mrp_id and str(mrp_id).isdigit():
-            mrp_opt = mrp_options_recs.filtered(lambda o: o.id == int(mrp_id))[:1]
-        if not mrp_opt and partner:
+        if partner:
             partner_mrp = getattr(partner.sudo().commercial_partner_id, 'ff_mrp_id', None)
             if partner_mrp and partner_mrp in mrp_options_recs:
                 mrp_opt = partner_mrp
-        if not mrp_opt and mrp_options_recs:
+            elif mrp_id and str(mrp_id).isdigit():
+                mrp_opt = mrp_options_recs.filtered(lambda o: o.id == int(mrp_id))[:1]
+        elif mrp_id and str(mrp_id).isdigit():
+            mrp_opt = mrp_options_recs.filtered(lambda o: o.id == int(mrp_id))[:1]
+        elif mrp_options_recs:
             mrp_opt = mrp_options_recs[:1]
 
         mrp_lines_map = {}
@@ -357,6 +359,11 @@ class FieldForceOrdersApi(http.Controller):
             lines = mrp_opt.line_ids.filtered(lambda l: l.product_id and l.product_id.active and l.product_id.sale_ok)
             mrp_lines_map = {l.product_id.id: l.mrp for l in lines}
             domain.append(('id', 'in', list(mrp_lines_map.keys())))
+        elif partner:
+            domain.append(('id', 'in', []))
+
+        if partner and mrp_opt:
+            mrp_options = [{'id': mrp_opt.id, 'name': mrp_opt.name, 'code': mrp_opt.code}]
 
         try:
             limit = min(int(limit or 100), MAX_LIMIT)
@@ -411,6 +418,12 @@ class FieldForceOrdersApi(http.Controller):
         # Even if the outlet has a distributor linked in 'Supplied by' (ff_distributor_id),
         # Company Location territory outlets are directly supplied by the company via Sale Orders.
         is_company_location = bool(data.get('is_company_location')) or partner_is_company_location(partner, employee)
+
+        if not is_distributor and not is_company_location:
+            distributor_id = data.get('distributor_id') or getattr(partner.ff_distributor_id, 'id', None)
+            if not distributor_id:
+                raise ApiError('Please check administrative distributor is missed for outlet.', 400, 'invalid')
+            data['distributor_id'] = distributor_id
 
         is_direct_flow = (flow != 'demand') or is_distributor or is_company_location
         if not is_direct_flow and 'ff.demand' in request.env:
