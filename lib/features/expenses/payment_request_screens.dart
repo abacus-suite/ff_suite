@@ -572,7 +572,13 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
   }
 
   (Color, String, String) _look(Map<String, dynamic> r) => switch ('${r['state']}') {
-        'completed' => (AppColors.success, 'Completed', 'Tax invoice uploaded'),
+        'completed' => (
+            AppColors.success,
+            'Completed',
+            r['document'] == 'tax_invoice'
+                ? 'Tax invoice • Approved'
+                : (r['invoice_uploaded'] == true ? 'Completed • Tax invoice uploaded' : 'Approved • Completed')
+          ),
         'approval' => (_orange, 'With manager', 'Waiting for your manager to approve'),
         'requested' when r['invoice_uploaded'] == true && r['document'] == 'quotation' => (
             AppColors.primary, 'With accounts', 'Tax invoice uploaded • waiting for accounts to pay'),
@@ -586,7 +592,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
             'Rejected',
             r['reason'] != null && '${r['reason']}'.trim().isNotEmpty
                 ? 'Reason: ${r['reason']}'
-                : 'Rejected by approver / accounts',
+                : 'Rejected by approver',
           ),
         _ => (AppColors.primary, 'With accounts', 'Waiting for accounts to pay'),
       };
@@ -865,9 +871,9 @@ class _PaymentRequestDetailScreenState extends State<PaymentRequestDetailScreen>
         else if (isRejected)
           const SizedBox.shrink()
         else if (state == 'completed')
-          _banner('Completed • tax invoice uploaded.', AppColors.success)
+          _banner('Completed • approved.', AppColors.success)
         else if (state == 'approval')
-          _banner('With your manager. It goes to accounts once it is approved.', _orange)
+          _banner('Waiting for your manager to approve.', _orange)
         else if (state == 'requested' && _r['invoice_uploaded'] == true)
           _banner('Tax invoice uploaded. With accounts: you will be told when it is paid.', AppColors.primary)
         else
