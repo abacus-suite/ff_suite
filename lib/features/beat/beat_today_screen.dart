@@ -527,9 +527,8 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
     final customer = t['customer'] is Map ? (t['customer'] as Map)['name'] as String? : null;
     final assignedBy = t['assigned_by'] as String?;
     final due = t['due'] != null ? 'Due ${t['due']}' : null;
-    final details = [
+    final meta = [
       if (assignedBy != null && assignedBy.isNotEmpty) 'Assigned by $assignedBy',
-      if (customer != null && customer.isNotEmpty) customer,
       if (due != null) due,
     ].join(' · ');
 
@@ -550,7 +549,7 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
           if (changed == true) _load();
         },
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -564,58 +563,59 @@ class _BeatTodayScreenState extends State<BeatTodayScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        if (t['priority'] != null && t['priority'] != '0')
-                          Padding(
-                            padding: const EdgeInsets.only(right: 4),
-                            child: Icon(Icons.flag_rounded,
-                                size: 16, color: t['priority'] == '2' ? AppColors.danger : AppColors.warning),
-                          ),
-                        Expanded(
-                          child: Text(
-                            '${t['name']}',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      '${t['name']}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                     ),
-                    if (details.isNotEmpty) ...[
+                    if (customer != null && customer.isNotEmpty) ...[
                       const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          const Icon(Icons.storefront_rounded, size: 14, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              customer,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.text,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (meta.isNotEmpty) ...[
+                      const SizedBox(height: 2),
                       Text(
-                        details,
-                        maxLines: 2,
+                        meta,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted),
                       ),
                     ],
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: stateColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      stateLabel,
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: stateColor),
-                    ),
-                  ),
-                  if (t['visit_type'] != null) ...[
-                    const SizedBox(height: 4),
-                    _visitTypeTag('${t['visit_type']}'),
-                  ],
-                ],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: stateColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  stateLabel,
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: stateColor),
+                ),
               ),
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.muted, size: 20),
             ],
           ),
         ),
