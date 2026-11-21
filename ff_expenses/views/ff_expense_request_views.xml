@@ -76,7 +76,8 @@
             <search>
                 <field name="employee_id"/>
                 <field name="category_id"/>
-                <filter name="pending" string="Pending" domain="[('state', '=', 'requested')]"/>
+                <filter name="pending" string="Pending" domain="[('state', 'in', ('approval', 'requested'))]"/>
+                <filter name="with_manager" string="With Manager" domain="[('state', '=', 'approval')]"/>
                 <filter name="with_accounts" string="With Accounts" domain="[('state', '=', 'requested')]"/>
                 <filter name="invoice_pending" string="Invoice Pending" domain="[('state', '=', 'invoice_pending')]"/>
                 <filter name="completed" string="Completed" domain="[('state', '=', 'completed')]"/>

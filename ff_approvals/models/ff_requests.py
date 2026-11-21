@@ -14,13 +14,15 @@ class FfExpenseRequest(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         requests = super().create(vals_list)
+        mode = self.env['ir.config_parameter'].sudo().get_param('ff_expenses.request_approval_levels') or 'manager'
         for rec in requests.sudo():
             if rec.state != 'requested':
                 continue
             started = rec._ff_start_approval()
-            # With a flow the chain asks the approvers; without one the reporting manager still has to approve. Only
-            # a request with nobody to ask goes straight to accounts.
-            if started or rec.employee_id.parent_id:
+            # With a flow the chain asks the approvers; without one the reporting manager still has to approve.
+            # In manager-only mode it always starts with approval. In two-level mode, a request with nobody to ask
+            # goes straight to accounts.
+            if started or rec.employee_id.parent_id or mode == 'manager':
                 rec.state = 'approval'
         return requests
 

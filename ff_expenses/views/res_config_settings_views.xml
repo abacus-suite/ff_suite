@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_ff_expenses" model="ir.ui.view">
+        <field name="name">res.config.settings.form.ff_expenses</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="ff_base.res_config_settings_view_form_ff"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='ff_feature_settings']" position="after">
+                <block title="Expense Payment Requests" name="ff_expense_request_settings">
+                    <setting string="Approval Process" help="Single approval by the reporting manager, or two-level approval where the accounts team must verify and disburse.">
+                        <field name="ff_expense_request_approval" widget="radio"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

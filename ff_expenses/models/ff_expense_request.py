@@ -90,12 +90,18 @@ class FfExpenseRequest(models.Model):
 
     # ------------------------------------------------------------------ the manager, before accounts
     def _ff_set_decision(self, approve, approver_user=False):
-        """The end of the approval steps: approved goes on to accounts, refused stops here."""
+        """The end of the approval steps: approved goes on to accounts (or completes in single approval), refused stops here."""
+        mode = self.env['ir.config_parameter'].sudo().get_param('ff_expenses.request_approval_levels') or 'manager'
         for rec in self.sudo():
             if rec.state != 'approval':
                 continue
             if approve:
-                rec.write({'state': 'requested'})
+                if mode == 'manager':
+                    rec.write({'state': 'completed', 'paid_on': fields.Date.context_today(rec)})
+                    rec.message_post(body=self.env._('Approved by manager: request completed.'))
+                else:
+                    rec.write({'state': 'requested'})
+                    rec.message_post(body=self.env._('Approved by manager: sent to accounts for payment.'))
             else:
                 rec.write({'state': 'rejected'})
 
@@ -133,19 +139,21 @@ class FfExpenseRequest(models.Model):
                                       why=(': ' + rec.reject_reason) if rec.reject_reason else ''))
 
     def action_reset(self):
+        mode = self.env['ir.config_parameter'].sudo().get_param('ff_expenses.request_approval_levels') or 'manager'
         for rec in self.filtered(lambda r: r.state == 'rejected'):
             rec.write({'state': 'requested', 'reject_reason': False})
             if hasattr(rec, '_ff_start_approval'):
                 if hasattr(rec, 'approval_line_ids') and rec.approval_line_ids:
                     rec.approval_line_ids.unlink()
                 started = rec._ff_start_approval()
-                if started or rec.employee_id.parent_id:
+                if started or rec.employee_id.parent_id or mode == 'manager':
                     rec.write({'state': 'approval'})
 
     def ff_resubmit(self, vals, photo=None):
         self.ensure_one()
         if self.state != 'rejected':
             raise UserError(self.env._('Only rejected requests can be resubmitted.'))
+        mode = self.env['ir.config_parameter'].sudo().get_param('ff_expenses.request_approval_levels') or 'manager'
         write_vals = {
             'state': 'requested',
             'reject_reason': False,
@@ -163,7 +171,7 @@ class FfExpenseRequest(models.Model):
             if hasattr(self, 'approval_line_ids') and self.approval_line_ids:
                 self.approval_line_ids.unlink()
             started = self._ff_start_approval()
-            if started or self.employee_id.parent_id:
+            if started or self.employee_id.parent_id or mode == 'manager':
                 self.write({'state': 'approval'})
         self.message_post(body=self.env._('Request updated and resubmitted by %s', self.employee_id.name))
         return self

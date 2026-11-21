@@ -15,6 +15,7 @@
         'views/ff_expense_claim_views.xml',
         'views/hr_employee_views.xml',
         'views/ff_expense_request_views.xml',
+        'views/res_config_settings_views.xml',
         'views/ff_expenses_menus.xml',
     ],
     'installable': True,
