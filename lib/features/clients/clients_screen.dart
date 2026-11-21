@@ -30,10 +30,16 @@ class ClientsScreen extends StatefulWidget {
     this.title,
     this.onPick,
     this.excludeLeads = false,
+    this.onboardedOnly = false,
+    this.allowedCategoryIds,
+    this.taskCode,
   });
 
-  /// Outlets and distributors only: a PO or a payment is never for a lead.
+  /// Outlets and distributors only: a PO, payment or marketing supply is never for a lead.
   final bool excludeLeads;
+  final bool onboardedOnly;
+  final List<int>? allowedCategoryIds;
+  final String? taskCode;
 
   final bool pickMode;
   final bool embedded;
@@ -176,6 +182,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
         query['category_type'] = catType;
       }
       if (widget.excludeLeads) query['exclude_leads'] = 1;
+      if (widget.onboardedOnly) query['onboarded_only'] = 1;
+      if (widget.taskCode != null) query['task_code'] = widget.taskCode;
+      if (widget.allowedCategoryIds != null && widget.allowedCategoryIds!.isNotEmpty) {
+        query['category_ids'] = widget.allowedCategoryIds!.join(',');
+      }
       final data = await Services.api.get('/api/v1/clients/map', query: query) as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {
@@ -194,14 +205,18 @@ class _ClientsScreenState extends State<ClientsScreen> {
       final list = await Services.api.get('/api/v1/contact-categories') as List;
       if (mounted) {
         var casted = list.cast<Map<String, dynamic>>();
-        if (_isOutletOnly) {
+        if (_isOutletOnly || widget.excludeLeads) {
           casted = casted.where((c) {
             final t = '${c['type'] ?? c['category_type'] ?? ''}'.toLowerCase();
             final name = '${c['name'] ?? ''}'.toLowerCase();
-            if (t == 'distributor' || t == 'lead') return false;
-            if (name.contains('distributor') || name.contains('lead')) return false;
+            if (t == 'lead' || name.contains('lead')) return false;
+            if (_isOutletOnly && (t == 'distributor' || name.contains('distributor'))) return false;
             return true;
           }).toList();
+        }
+        if (widget.allowedCategoryIds != null && widget.allowedCategoryIds!.isNotEmpty) {
+          final allowed = widget.allowedCategoryIds!.toSet();
+          casted = casted.where((c) => allowed.contains(c['id'])).toList();
         }
         setState(() => _categories = casted);
       }
@@ -230,6 +245,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
       query['category_type'] = catType;
     }
     if (widget.excludeLeads) query['exclude_leads'] = 1;
+    if (widget.onboardedOnly) query['onboarded_only'] = 1;
+    if (widget.taskCode != null) query['task_code'] = widget.taskCode;
+    if (widget.allowedCategoryIds != null && widget.allowedCategoryIds!.isNotEmpty) {
+      query['category_ids'] = widget.allowedCategoryIds!.join(',');
+    }
     if (_nearby) {
       // Never leave the list spinning on a slow GPS fix: fall back to the last known place.
       final pos = await currentPosition(recentOk: true)
@@ -581,8 +601,35 @@ class _ClientsScreenState extends State<ClientsScreen> {
   }
 
   /// The loaded list narrowed to the chosen area, in case the server does not filter by area yet.
-  List<Map<String, dynamic>> get _shownClients =>
-      _area == null ? _clients : _clients.where((c) => outletArea(c) == _area).toList();
+  List<Map<String, dynamic>> get _shownClients {
+    var list = _area == null ? _clients : _clients.where((c) => outletArea(c) == _area).toList();
+    if (widget.excludeLeads) {
+      list = list.where((c) {
+        final cat = '${c['category_type'] ?? ''}'.toLowerCase();
+        final isLead = c['is_lead'] == true || cat == 'lead' || c['status'] == 'new_lead';
+        return !isLead;
+      }).toList();
+    }
+    if (widget.onboardedOnly) {
+      list = list.where((c) {
+        final cat = '${c['category_type'] ?? ''}'.toLowerCase();
+        final isLead = c['is_lead'] == true || cat == 'lead' || c['status'] == 'new_lead';
+        if (isLead) return false;
+        if (c['onboard_pending'] == true) return false;
+        final isDist = c['is_distributor'] == true || cat == 'distributor';
+        final isOnboarded = c['onboarded'] == true || c['status'] == 'onboarded';
+        return isOnboarded || isDist;
+      }).toList();
+    }
+    if (widget.allowedCategoryIds != null && widget.allowedCategoryIds!.isNotEmpty) {
+      final allowed = widget.allowedCategoryIds!.toSet();
+      list = list.where((c) {
+        final cid = (c['category'] as Map?)?['id'];
+        return cid != null && allowed.contains(cid);
+      }).toList();
+    }
+    return list;
+  }
 
   static const _kindLabels = {
     'all': 'All',

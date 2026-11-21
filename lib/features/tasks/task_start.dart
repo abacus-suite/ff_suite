@@ -104,6 +104,12 @@ Future<void> resumeTask(BuildContext context, Map<String, dynamic> client, Map<S
 
 /// Whether the office offers this task for this kind of contact (mapped on the task type).
 bool _offeredFor(Map<String, dynamic> task, Map<String, dynamic> client) {
+  final isLead = client['is_lead'] == true ||
+      '${client['category_type'] ?? ''}'.toLowerCase() == 'lead' ||
+      client['status'] == 'new_lead';
+  if (task['code'] == 'marketing_supply') {
+    if (isLead || client['onboard_pending'] == true) return false;
+  }
   final allowed = ((task['category_ids'] as List?) ?? const []).map((e) => '$e').toSet();
   if (allowed.isEmpty) return true;
   final id = (client['category'] as Map?)?['id'];
@@ -357,17 +363,39 @@ Future<void> _begin(BuildContext context, Map<String, dynamic> config, String co
     // offsite question asked afterwards would be asked over whatever page the
     // "+" was pressed on.
     final isSampleOutlet = code == 'sample_collection';
+    final task = ((config['tasks'] as List?) ?? []).cast<Map<String, dynamic>>().firstWhere(
+        (t) => t['code'] == code, orElse: () => <String, dynamic>{});
+    final taskCategoryIds = ((task['category_ids'] as List?) ?? []).map((e) => (e as num).toInt()).toList();
+    final isMarketingSupply = code == 'marketing_supply';
+    final allowsLeads = !isMarketingSupply &&
+        (task['allows_leads'] == true || (taskCategoryIds.isEmpty && code != 'client_visit'));
+    final excludeLeads = !allowsLeads;
+    final onboardedOnly = isMarketingSupply;
+
     chosen = await Navigator.of(context).push<Map<String, dynamic>>(MaterialPageRoute(
       builder: (_) => ClientsScreen(
         pickMode: true,
         categoryType: isSampleOutlet ? 'outlet' : null,
-        title: isSampleOutlet ? 'Choose Outlet' : null,
+        title: isSampleOutlet
+            ? 'Choose Outlet'
+            : (isMarketingSupply ? 'Choose Outlet / Distributor' : null),
+        taskCode: code,
+        allowedCategoryIds: taskCategoryIds.isNotEmpty ? taskCategoryIds : null,
+        excludeLeads: excludeLeads,
+        onboardedOnly: onboardedOnly,
         onPick: (picker, contact) async {
-          final task = ((config['tasks'] as List?) ?? []).cast<Map<String, dynamic>>().firstWhere(
-              (t) => t['code'] == code, orElse: () => <String, dynamic>{});
           if (task.isNotEmpty && !_offeredFor(task, contact)) {
             showSnack(picker, '${task['name']} is not done for ${(contact['category'] as Map?)?['name'] ?? 'this'} contacts');
             return null;
+          }
+          if (onboardedOnly) {
+            final isLead = contact['is_lead'] == true ||
+                '${contact['category_type'] ?? ''}'.toLowerCase() == 'lead' ||
+                contact['status'] == 'new_lead';
+            if (isLead || contact['onboard_pending'] == true) {
+              showSnack(picker, 'Marketing material supply is only for onboarded outlets or distributors');
+              return null;
+            }
           }
           visit = await ensureCheckedIn(picker, contact, task: code, geofenceM: _geofenceFor(config, code));
           return visit == null ? null : contact;
