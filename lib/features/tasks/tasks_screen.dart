@@ -83,32 +83,59 @@ class _TasksScreenState extends State<TasksScreen> {
     final choice = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheet) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Assign', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-            const Text('Choose what to assign', style: TextStyle(color: AppColors.muted)),
-            const SizedBox(height: 8),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFDCFCE7), child: Icon(Icons.assignment_turned_in_rounded, color: AppColors.success)),
-              title: const Text('Assign Task', style: TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: const Text('As in the app'),
-              onTap: () => Navigator.pop(sheet, 'task'),
-            ),
-            Container(
-              decoration: BoxDecoration(color: const Color(0xFFFFF1E6), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFFBD5B0))),
-              child: ListTile(
-                leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFFEE2E2), child: Icon(Icons.track_changes_rounded, color: AppColors.danger)),
-                title: const Text('Assign Target', style: TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: const Text('Bottles and outlets onboarded'),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.add_task_rounded, color: AppColors.primary, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Assign Work', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                      SizedBox(height: 2),
+                      Text('Choose what to assign to your team', style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _assignOptionCard(
+                icon: Icons.assignment_turned_in_rounded,
+                iconColor: AppColors.success,
+                iconBg: const Color(0xFFDCFCE7),
+                title: 'Assign Task',
+                subtitle: 'Give a specific task, audit, or customer visit to an employee',
+                onTap: () => Navigator.pop(sheet, 'task'),
+              ),
+              const SizedBox(height: 12),
+              _assignOptionCard(
+                icon: Icons.track_changes_rounded,
+                iconColor: AppColors.purple,
+                iconBg: const Color(0xFFEDE8FF),
+                title: 'Assign Target',
+                subtitle: 'Set monthly or weekly targets for bottles and outlets onboarded',
                 onTap: () => Navigator.pop(sheet, 'target'),
               ),
-            ),
-          ]),
+            ],
+          ),
         ),
       ),
     );
@@ -119,6 +146,54 @@ class _TasksScreenState extends State<TasksScreen> {
       // The Team Target card on Home reads the new target.
       if (saved == true) Services.refresh.value++;
     }
+  }
+
+  Widget _assignOptionCard({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(14)),
+                child: Icon(icon, color: iconColor, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    const SizedBox(height: 3),
+                    Text(subtitle, style: const TextStyle(fontSize: 12.5, color: AppColors.muted, height: 1.25)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.muted, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _newTask() async {
@@ -584,123 +659,391 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Give a task')),
+      appBar: AppBar(
+        title: const Text('Give a task', style: TextStyle(fontWeight: FontWeight.w900)),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: GradientButton(
+            label: 'Send task',
+            icon: Icons.send_rounded,
+            busy: _busy,
+            onPressed: _save,
+          ),
+        ),
+      ),
       body: Form(
         key: _form,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            TextFormField(
-              controller: _name,
-              decoration: const InputDecoration(labelText: 'Task *'),
-              validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              initialValue: _employeeId,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Assign to *'),
-              items: [
-                for (final m in _members) DropdownMenuItem(value: m['id'] as int, child: Text('${m['name']}')),
-              ],
-              onChanged: (v) => setState(() => _employeeId = v),
-              validator: (v) => v == null ? 'Choose someone' : null,
-            ),
-            const SizedBox(height: 12),
+            // Header Info Banner
             Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                border: Border.all(color: AppColors.border),
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
               ),
-              child: ListTile(
-                leading: const Icon(Icons.storefront_rounded, color: AppColors.primary),
-                title: Text(
-                  _partnerName ?? 'Customer (optional)',
-                  style: TextStyle(
-                    fontWeight: _partnerName != null ? FontWeight.w700 : FontWeight.normal,
-                    color: _partnerName != null ? AppColors.text : AppColors.muted,
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.assignment_add, color: AppColors.primary, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('New Task Assignment', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                        SizedBox(height: 2),
+                        Text('Assign field tasks or customer visits to team members',
+                            style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Card 1: Task Information
+            _formCard(
+              title: 'Task Details',
+              icon: Icons.edit_note_rounded,
+              children: [
+                TextFormField(
+                  controller: _name,
+                  decoration: InputDecoration(
+                    labelText: 'Task Title *',
+                    hintText: 'e.g. Audit display, Collect payment',
+                    prefixIcon: const Icon(Icons.title_rounded, color: AppColors.primary),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    ),
+                  ),
+                  validator: (v) => (v ?? '').trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _description,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'Instructions / Notes',
+                    hintText: 'Optional instructions or checklist for the employee',
+                    alignLabelWithHint: true,
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.only(bottom: 48),
+                      child: Icon(Icons.notes_rounded, color: AppColors.muted),
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    ),
                   ),
                 ),
-                subtitle: Text(
-                  _partnerName != null ? 'Tap to change customer' : 'Link this task to an outlet/distributor',
-                  style: const TextStyle(fontSize: 12),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_partnerId != null)
-                      IconButton(
-                        icon: const Icon(Icons.clear_rounded, size: 20),
-                        tooltip: 'Remove customer',
-                        onPressed: () => setState(() {
-                          _partnerId = null;
-                          _partnerName = null;
-                        }),
-                      ),
-                    TextButton(
-                      onPressed: () async {
-                        final client = await Navigator.of(context).push<Map<String, dynamic>>(
-                          MaterialPageRoute(
-                            builder: (_) => const ClientsScreen(pickMode: true, title: 'Choose customer'),
-                          ),
-                        );
-                        if (client != null) {
-                          setState(() {
-                            _partnerId = client['id'] as int;
-                            _partnerName = '${client['name']}';
-                          });
-                        }
-                      },
-                      child: Text(_partnerId == null ? 'Choose' : 'Change'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _description,
-              maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Details'),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.event_rounded, color: AppColors.primary),
-              title: Text(_due == null ? 'No due date' : 'Due ${fmtDate(_due!)}'),
-              trailing: TextButton(
-                onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    firstDate: DateTime.now().subtract(const Duration(days: 1)),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                    initialDate: _due ?? DateTime.now(),
-                  );
-                  if (picked != null) setState(() => _due = picked);
-                },
-                child: const Text('Pick date'),
-              ),
-            ),
-            const SizedBox(height: 4),
-            SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: '0', label: Text('Normal')),
-                ButtonSegment(value: '1', label: Text('High')),
-                ButtonSegment(value: '2', label: Text('Urgent')),
               ],
-              selected: {_priority},
-              onSelectionChanged: (v) => setState(() => _priority = v.first),
             ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _photo,
-              onChanged: (v) => setState(() => _photo = v),
-              title: const Text('Photo needed to finish'),
+            const SizedBox(height: 14),
+
+            // Card 2: Assignment & Customer
+            _formCard(
+              title: 'Assignment',
+              icon: Icons.people_alt_rounded,
+              children: [
+                DropdownButtonFormField<int>(
+                  initialValue: _employeeId,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Assign to Employee *',
+                    prefixIcon: const Icon(Icons.person_rounded, color: AppColors.primary),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                    ),
+                  ),
+                  items: [
+                    for (final m in _members)
+                      DropdownMenuItem(
+                        value: m['id'] as int,
+                        child: Text('${m['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => _employeeId = v),
+                  validator: (v) => v == null ? 'Choose someone' : null,
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () async {
+                    final client = await Navigator.of(context).push<Map<String, dynamic>>(
+                      MaterialPageRoute(
+                        builder: (_) => const ClientsScreen(pickMode: true, title: 'Choose customer'),
+                      ),
+                    );
+                    if (client != null) {
+                      setState(() {
+                        _partnerId = client['id'] as int;
+                        _partnerName = '${client['name']}';
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _partnerId != null ? AppColors.primary.withValues(alpha: 0.06) : const Color(0xFFF8FAFC),
+                      border: Border.all(
+                        color: _partnerId != null ? AppColors.primary.withValues(alpha: 0.3) : AppColors.border,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: _partnerId != null
+                                ? AppColors.primary.withValues(alpha: 0.12)
+                                : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.storefront_rounded,
+                            color: _partnerId != null ? AppColors.primary : AppColors.muted,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _partnerName ?? 'Link Customer (Optional)',
+                                style: TextStyle(
+                                  fontWeight: _partnerName != null ? FontWeight.w700 : FontWeight.w600,
+                                  fontSize: 14,
+                                  color: _partnerName != null ? AppColors.text : AppColors.muted,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _partnerName != null
+                                    ? 'Tap to change associated customer'
+                                    : 'Attach an outlet or distributor to this task',
+                                style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (_partnerId != null)
+                          IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 20, color: AppColors.muted),
+                            tooltip: 'Remove customer',
+                            onPressed: () => setState(() {
+                              _partnerId = null;
+                              _partnerName = null;
+                            }),
+                          )
+                        else
+                          const Icon(Icons.chevron_right_rounded, color: AppColors.muted, size: 20),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            GradientButton(label: 'Send task', icon: Icons.send_rounded, busy: _busy, onPressed: _save),
+            const SizedBox(height: 14),
+
+            // Card 3: Schedule, Priority & Proof
+            _formCard(
+              title: 'Schedule & Priority',
+              icon: Icons.tune_rounded,
+              children: [
+                // Date picker box
+                InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                      initialDate: _due ?? DateTime.now(),
+                    );
+                    if (picked != null) setState(() => _due = picked);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      border: Border.all(color: AppColors.border),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 18),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Due Date', style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                              const SizedBox(height: 1),
+                              Text(
+                                _due == null ? 'No due date set' : 'Due ${fmtDate(_due!)}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                  color: _due == null ? AppColors.muted : AppColors.text,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (_due != null)
+                          IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 20, color: AppColors.muted),
+                            tooltip: 'Remove due date',
+                            onPressed: () => setState(() => _due = null),
+                          )
+                        else
+                          TextButton(
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                                initialDate: _due ?? DateTime.now(),
+                              );
+                              if (picked != null) setState(() => _due = picked);
+                            },
+                            child: const Text('Pick date'),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Priority
+                const Text('Priority Level', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: '0', label: Text('Normal')),
+                      ButtonSegment(value: '1', label: Text('High')),
+                      ButtonSegment(value: '2', label: Text('Urgent')),
+                    ],
+                    selected: {_priority},
+                    onSelectionChanged: (v) => setState(() => _priority = v.first),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Photo requirement
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _photo,
+                    onChanged: (v) => setState(() => _photo = v),
+                    secondary: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: _photo ? AppColors.primary.withValues(alpha: 0.12) : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.camera_alt_rounded,
+                          color: _photo ? AppColors.primary : AppColors.muted, size: 18),
+                    ),
+                    title: const Text('Photo Proof Required', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                    subtitle: const Text('Must attach a photo to complete task', style: TextStyle(fontSize: 11.5)),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _formCard({required String title, required IconData icon, required List<Widget> children}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...children,
+        ],
       ),
     );
   }
