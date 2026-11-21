@@ -265,7 +265,7 @@ class HrEmployee(models.Model):
         Cancel = self.env['ff.leave.cancel'].sudo() if 'ff.leave.cancel' in self.env else None
         for leave in leaves:
             if Cancel and hasattr(Cancel, 'ff_auto_cancel_for_checkin'):
-                Cancel.ff_auto_cancel_for_checkin(self, leave, reason='Check-in attempted')
+                Cancel.ff_auto_cancel_for_checkin(self, leave, reason='Started work')
             else:
                 if 'approval_line_ids' in leave._fields:
                     leave.approval_line_ids.filtered(lambda l: l.state == 'pending').write({'state': 'skipped'})
@@ -276,7 +276,22 @@ class HrEmployee(models.Model):
                         leave.with_context(ff_chain_finished=True).write({'state': 'cancel'})
                     except Exception:
                         pass
-                leave.message_post(body=self.env._('Auto-cancelled: Check-in attempted on %(date)s.', date=day))
+                managers = self.parent_id
+                partner_ids = [m.user_id.partner_id.id for m in managers if m.user_id and m.user_id.partner_id]
+                leave.message_post(
+                    body=self.env._('Auto-cancelled: %(name)s started work on %(date)s.', name=self.name, date=day),
+                    partner_ids=partner_ids,
+                )
+                if 'ff.notification' in self.env:
+                    for mgr in managers:
+                        self.env['ff.notification'].sudo().ff_push(
+                            title=self.env._('Leave Auto-Cancelled: %(name)s', name=self.name),
+                            body=self.env._('%(name)s started work on %(date)s. Their leave application was auto-cancelled.',
+                                            name=self.name, date=day),
+                            kind='warning',
+                            employee=mgr,
+                            record=leave,
+                        )
 
     def _ff_expected_hours(self, day):
         """The hours the working schedule expects on ``day``: the employee's working hours (Work tab), else the shift.

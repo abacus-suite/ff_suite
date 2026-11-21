@@ -60,30 +60,49 @@ class FfLeaveCancel(models.Model):
             except Exception:
                 pass
 
-        # 3. Post chatter message with the reason
-        leave.message_post(body=self.env._('Auto-cancelled: %(reason)s on %(date)s.',
-                                           reason=reason or 'Check-in attempted', date=today))
+        # 3. Post chatter message with the reason and notify manager
+        managers = employee.parent_id
+        if 'approval_line_ids' in leave._fields:
+            approver_emps = leave.approval_line_ids.mapped('user_id.employee_id')
+            managers |= approver_emps
+        partner_ids = [m.user_id.partner_id.id for m in managers if m.user_id and m.user_id.partner_id]
+        leave.message_post(
+            body=self.env._('Auto-cancelled: %(name)s %(reason)s on %(date)s.',
+                            name=employee.name, reason=(reason or 'started work').lower(), date=today),
+            partner_ids=partner_ids,
+        )
 
         # 4. Mark or create any cancel record as done
         rec = self.sudo().search([('leave_id', '=', leave.id)], limit=1)
         if not rec:
             rec = self.sudo().create({
                 'leave_id': leave.id,
-                'reason': reason or 'Check-in attempted',
+                'reason': reason or 'Started work',
                 'state': 'done',
                 'levels': '1',
                 'decided_at': fields.Datetime.now(),
             })
         else:
-            rec.write({'state': 'done', 'reason': reason or 'Check-in attempted', 'decided_at': fields.Datetime.now()})
+            rec.write({'state': 'done', 'reason': reason or 'Started work', 'decided_at': fields.Datetime.now()})
 
         # 5. Send push notification to employee
         if 'ff.notification' in self.env and employee:
             self.env['ff.notification'].sudo().ff_push(
                 title=self.env._('Leave Auto-Cancelled'),
-                body=self.env._('Your leave of %(date)s was auto-cancelled because %(reason)s.',
-                                date=leave.request_date_from, reason=(reason or 'check-in was attempted').lower()),
+                body=self.env._('Your leave of %(date)s was auto-cancelled because you %(reason)s.',
+                                date=leave.request_date_from, reason=(reason or 'started work').lower()),
                 kind='decision', employee=employee, record=leave)
+
+        # 6. Notify manager
+        if 'ff.notification' in self.env:
+            for mgr in managers:
+                self.env['ff.notification'].sudo().ff_push(
+                    title=self.env._('Leave Auto-Cancelled: %(name)s', name=employee.name),
+                    body=self.env._('%(name)s started work on %(date)s. Their leave application was auto-cancelled.',
+                                    name=employee.name, date=today),
+                    kind='warning',
+                    employee=mgr,
+                    record=leave)
 
         return rec
 
